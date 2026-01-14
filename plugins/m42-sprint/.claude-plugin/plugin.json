@@ -9,6 +9,9 @@
   "homepage": "https://github.com/mission42-ai/m42-sprint-plugin",
   "repository": "https://github.com/mission42-ai/m42-sprint-plugin",
   "license": "MIT",
+  "dependencies": {
+    "ralph-loop": ">=1.0.0"
+  },
   "keywords": [
     "sprint",
     "task-queue",

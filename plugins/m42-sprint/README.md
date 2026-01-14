@@ -2,6 +2,13 @@
 
 Sprint orchestration with ralph-loop driven task queue processing for Claude Code.
 
+## Dependencies
+
+This plugin requires:
+- **ralph-loop** (>=1.0.0) - Provides autonomous task processing via self-referential loops
+
+The ralph-loop plugin will be automatically installed when you install m42-sprint.
+
 ## Installation
 
 ```bash

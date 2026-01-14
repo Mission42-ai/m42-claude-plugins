@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "m42-claude-plugins",
-  "description": "Mission42 Claude Code plugins for modular development workflows: planning, sprint orchestration, and task execution",
+  "description": "Mission42 Claude Code plugins for modular development workflows: planning, sprint orchestration, task execution, and meta-tooling",
   "owner": {
     "name": "Mission42",
     "email": "dev@mission42.ai"
@@ -30,6 +30,14 @@
       "source": "./plugins/m42-task-execution",
       "category": "development",
       "keywords": ["task-execution", "workflow", "quality-gates", "tdd", "learning"]
+    },
+    {
+      "name": "m42-meta-toolkit",
+      "description": "Meta-tooling for creating and managing Claude Code artifacts (skills, commands, subagents, hooks) with quality assurance workflows",
+      "version": "1.0.0",
+      "source": "./plugins/m42-meta-toolkit",
+      "category": "development",
+      "keywords": ["meta-tooling", "skills", "commands", "subagents", "hooks", "prompt-engineering", "quality-assurance"]
     }
   ]
 }
