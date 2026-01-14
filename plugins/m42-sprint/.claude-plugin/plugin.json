@@ -6,11 +6,11 @@
     "name": "Mission42",
     "email": "dev@mission42.ai"
   },
-  "homepage": "https://github.com/mission42-ai/m42-sprint-plugin",
-  "repository": "https://github.com/mission42-ai/m42-sprint-plugin",
+  "homepage": "https://github.com/mission42-ai/m42-claude-plugins",
+  "repository": "https://github.com/mission42-ai/m42-claude-plugins",
   "license": "MIT",
   "dependencies": {
-    "ralph-loop": ">=1.0.0"
+    "m42-ralph-loop": ">=1.0.0"
   },
   "keywords": [
     "sprint",

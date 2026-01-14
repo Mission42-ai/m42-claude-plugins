@@ -1,0 +1,20 @@
+{
+  "name": "m42-ralph-loop",
+  "version": "1.0.0",
+  "description": "Continuous self-referential AI loops for iterative development, implementing the Ralph Wiggum technique. Run Claude in a while-true loop with the same prompt until task completion.",
+  "author": {
+    "name": "Mission42",
+    "email": "dev@mission42.ai"
+  },
+  "homepage": "https://github.com/mission42-ai/m42-claude-plugins",
+  "repository": "https://github.com/mission42-ai/m42-claude-plugins",
+  "license": "MIT",
+  "keywords": [
+    "ralph-loop",
+    "iteration",
+    "automation",
+    "self-referential",
+    "continuous-development",
+    "task-completion"
+  ]
+}

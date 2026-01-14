@@ -1,20 +1,10 @@
 # PROGRESS.yaml - Sprint Progress Tracking
 sprint-id: 2026-01-15_Refine-sprint
 status: in-progress
-current-task: custom-audit-plugin-references
+current-task: custom-integrate-ralph-loop
 
 # Task queue (ordered by execution priority)
 queue:
-  - id: custom-audit-plugin-references
-    type: custom
-    description: "Audit all file path references in the m42-sprint plugin (plugins/m42-sprint/) to ensure they use correct relative paths. Commands and skills may reference assets, templates, or other files using incorrect paths (e.g., referencing .claude/skills/ instead of the actual plugin location). Scan all markdown files, YAML configs, and command definitions for hardcoded paths and verify each reference resolves correctly."
-    done-when: "All file path references in m42-sprint plugin are audited, documented, and any broken references are identified with recommended fixes"
-    priority: medium
-  - id: custom-fix-start-sprint-template-paths
-    type: custom
-    description: "Fix the start-sprint command (plugins/m42-sprint/commands/start-sprint.md) which references template files at incorrect paths. The command instructs to read templates from '.claude/skills/orchestrating-sprints/assets/' but the actual templates (sprint-template.yaml, progress-template.yaml) are located at 'plugins/m42-sprint/skills/orchestrating-sprints/assets/'. Update the command to use correct relative paths or make paths dynamic based on plugin installation location."
-    done-when: "start-sprint command references correct template paths and templates are successfully loaded when command executes"
-    priority: high
   - id: custom-integrate-ralph-loop
     type: custom
     description: "Investigate and integrate the ralph-loop plugin functionality into the m42-sprint plugin system. The ralph-loop provides autonomous task processing with hooks and control flow logic. Research the existing ralph-loop implementation (hooks, task execution logic, state management) and incorporate it into m42-sprint so that sprint tasks can be executed autonomously using the ralph-loop pattern. This includes understanding the hook system, task queue processing, and any relevant execution patterns."
@@ -27,7 +17,17 @@ queue:
     priority: high
 
 # Completed tasks with metadata
-completed: []
+completed:
+  - id: custom-audit-plugin-references
+    type: custom
+    completed-at: 2026-01-15T00:25:00Z
+    commit: 6673e79
+    notes: "Audited 22 path references across 12 files. Identified 3 critical issues. Full report in context/audit-path-references.md"
+  - id: custom-fix-start-sprint-template-paths
+    type: custom
+    completed-at: 2026-01-15T00:28:00Z
+    commit: 78cc286
+    notes: "Fixed template paths in start-sprint.md. Updated documentation to use plugins/m42-sprint/... path. Added verification test script. All tests passing."
 
 # Blocked tasks with reasons
 blocked: []
@@ -37,7 +37,7 @@ stats:
   started-at: 2026-01-15T00:00:00Z
   completed-at: null
   tasks-total: 4
-  tasks-completed: 0
+  tasks-completed: 2
   tasks-blocked: 0
   elapsed: null
   avg-task-time: null

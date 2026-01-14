@@ -8,6 +8,14 @@
   },
   "plugins": [
     {
+      "name": "m42-ralph-loop",
+      "description": "Continuous self-referential AI loops for iterative development, implementing the Ralph Wiggum technique",
+      "version": "1.0.0",
+      "source": "./plugins/m42-ralph-loop",
+      "category": "automation",
+      "keywords": ["ralph-loop", "iteration", "automation", "self-referential", "continuous-development"]
+    },
+    {
       "name": "m42-planning",
       "description": "Epic and story planning with GitHub integration, gherkin-based acceptance criteria, and structured issue templates",
       "version": "1.0.0",
@@ -21,7 +29,8 @@
       "version": "1.0.0",
       "source": "./plugins/m42-sprint",
       "category": "productivity",
-      "keywords": ["sprint", "task-queue", "ralph-loop", "automation", "progress-tracking"]
+      "keywords": ["sprint", "task-queue", "ralph-loop", "automation", "progress-tracking"],
+      "dependencies": ["m42-ralph-loop"]
     },
     {
       "name": "m42-task-execution",
