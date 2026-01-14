@@ -31,8 +31,8 @@ Before proceeding, verify the following:
    ```
 
 2. Reference templates from orchestrating-sprints skill:
-   - Sprint template: `.claude/skills/orchestrating-sprints/assets/sprint-template.yaml`
-   - Progress template: `.claude/skills/orchestrating-sprints/assets/progress-template.yaml`
+   - Sprint template: `plugins/m42-sprint/skills/orchestrating-sprints/assets/sprint-template.yaml`
+   - Progress template: `plugins/m42-sprint/skills/orchestrating-sprints/assets/progress-template.yaml`
 
 ## Task Instructions
 
@@ -50,7 +50,17 @@ Create the sprint directory with the naming convention `YYYY-MM-DD_<sprint-name>
 
 ### Step 2: Create SPRINT.yaml
 
-Generate SPRINT.yaml with populated values:
+Read the sprint template and generate SPRINT.yaml with populated values:
+
+1. Read template from: `plugins/m42-sprint/skills/orchestrating-sprints/assets/sprint-template.yaml`
+2. Perform the following substitutions:
+   - Replace `YYYY-MM-DD_sprint-name` → `<date>_<sprint-name>` (from Step 1)
+   - Replace `Sprint Name` → `<sprint-name>`
+   - Replace `YYYY-MM-DDTHH:MM:SSZ` → current ISO timestamp
+   - Replace `owner/repo` → `null` (or actual repo if known)
+3. Write to: `.claude/sprints/<date>_<sprint-name>/SPRINT.yaml`
+
+Alternatively, generate inline with these values:
 
 ```yaml
 # SPRINT.yaml - Sprint Configuration
@@ -80,7 +90,14 @@ notes: |
 
 ### Step 3: Create PROGRESS.yaml
 
-Generate PROGRESS.yaml with initial state:
+Read the progress template and generate PROGRESS.yaml with initial state:
+
+1. Read template from: `plugins/m42-sprint/skills/orchestrating-sprints/assets/progress-template.yaml`
+2. Perform the following substitutions:
+   - Replace `YYYY-MM-DD_sprint-name` → `<date>_<sprint-name>` (from Step 1)
+3. Write to: `.claude/sprints/<date>_<sprint-name>/PROGRESS.yaml`
+
+Alternatively, generate inline with these values:
 
 ```yaml
 # PROGRESS.yaml - Sprint Progress Tracking
