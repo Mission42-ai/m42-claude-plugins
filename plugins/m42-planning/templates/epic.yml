@@ -1,0 +1,46 @@
+name: Epic
+description: Create a new epic for feature planning
+title: "[Epic]: "
+labels: ["type-epic", "status-planning"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Epic Description
+      description: What is this epic about?
+    validations:
+      required: true
+  - type: textarea
+    id: goals
+    attributes:
+      label: Goals
+      description: What are the objectives of this epic?
+      placeholder: |
+        - Goal 1
+        - Goal 2
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: How do we know when this epic is complete?
+      placeholder: |
+        - [ ] Criterion 1
+        - [ ] Criterion 2
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - critical
+        - high
+        - medium
+        - low
+    validations:
+      required: true
+  - type: textarea
+    id: related-stories
+    attributes:
+      label: Related Stories
+      description: Link to related story issues

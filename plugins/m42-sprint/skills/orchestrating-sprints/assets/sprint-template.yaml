@@ -1,0 +1,30 @@
+# SPRINT.yaml - Sprint Configuration Template
+# Copy to: sprints/YYYY-MM-DD_sprint-name/SPRINT.yaml
+
+sprint-id: YYYY-MM-DD_sprint-name
+name: Sprint Name
+created: YYYY-MM-DDTHH:MM:SSZ
+owner: claude
+
+# Sprint boundaries
+config:
+  max-tasks: 10
+  time-box: 4h
+  auto-commit: true
+  context-cache: true
+  parallel: false
+
+# Optional: GitHub integration
+github:
+  repo: owner/repo
+  milestone: null
+  labels: []
+
+# Sprint goals (for context)
+goals:
+  - Primary objective description
+  - Secondary objective if applicable
+
+# Notes and blockers
+notes: |
+  Any relevant context or constraints for this sprint.

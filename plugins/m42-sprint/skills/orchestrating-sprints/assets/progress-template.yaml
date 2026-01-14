@@ -1,0 +1,34 @@
+# PROGRESS.yaml - Sprint Progress Tracking Template
+# Copy to: sprints/YYYY-MM-DD_sprint-name/PROGRESS.yaml
+
+sprint-id: YYYY-MM-DD_sprint-name
+status: not-started
+current-task: null
+
+# Task queue (ordered by execution priority)
+queue: []
+
+# Completed tasks with metadata
+completed: []
+# Example completed entry:
+# - id: implement-issue-42
+#   completed-at: 2024-01-15T10:30:00Z
+#   duration: 25m
+#   output: PR #43
+
+# Blocked tasks with reasons
+blocked: []
+# Example blocked entry:
+# - id: refactor-auth
+#   blocked-at: 2024-01-15T11:00:00Z
+#   reason: Waiting for API spec clarification
+
+# Execution statistics
+stats:
+  started-at: null
+  completed-at: null
+  tasks-total: 0
+  tasks-completed: 0
+  tasks-blocked: 0
+  elapsed: null
+  avg-task-time: null

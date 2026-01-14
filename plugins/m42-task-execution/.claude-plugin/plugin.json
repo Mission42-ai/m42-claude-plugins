@@ -1,0 +1,21 @@
+{
+  "name": "m42-task-execution",
+  "version": "1.0.0",
+  "description": "Reusable 6-phase task execution workflow for implementing any task type with quality gates and learning documentation",
+  "author": {
+    "name": "Mission42",
+    "email": "dev@mission42.ai"
+  },
+  "homepage": "https://github.com/mission42-ai/m42-task-execution-plugin",
+  "repository": "https://github.com/mission42-ai/m42-task-execution-plugin",
+  "license": "MIT",
+  "keywords": [
+    "task-execution",
+    "workflow",
+    "quality-gates",
+    "tdd",
+    "learning",
+    "context-gathering",
+    "progress-tracking"
+  ]
+}

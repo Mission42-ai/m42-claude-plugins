@@ -1,0 +1,55 @@
+name: Story
+description: Create a new user story
+title: "[Story]: "
+labels: ["type-story", "status-planning"]
+body:
+  - type: textarea
+    id: user-story
+    attributes:
+      label: User Story
+      description: As a [user], I want [feature] so that [benefit]
+      placeholder: "As a user, I want to..."
+    validations:
+      required: true
+  - type: textarea
+    id: gherkin
+    attributes:
+      label: Acceptance Criteria (Gherkin)
+      description: BDD-style acceptance criteria
+      placeholder: |
+        Given [context]
+        When [action]
+        Then [outcome]
+    validations:
+      required: true
+  - type: textarea
+    id: tasks
+    attributes:
+      label: Tasks
+      description: Implementation tasks
+      placeholder: |
+        - [ ] Task 1
+        - [ ] Task 2
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - critical
+        - high
+        - medium
+        - low
+    validations:
+      required: true
+  - type: input
+    id: estimate
+    attributes:
+      label: Estimate
+      description: Time estimate (e.g., 2h, 1d)
+      placeholder: "2h"
+  - type: input
+    id: parent-epic
+    attributes:
+      label: Parent Epic
+      description: Link to parent epic issue number
+      placeholder: "#123"

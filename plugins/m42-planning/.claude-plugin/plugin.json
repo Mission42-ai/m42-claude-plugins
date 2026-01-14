@@ -1,0 +1,21 @@
+{
+  "name": "m42-planning",
+  "version": "1.0.0",
+  "description": "Epic and story planning with GitHub integration, gherkin-based acceptance criteria, and structured issue templates",
+  "author": {
+    "name": "Mission42",
+    "email": "dev@mission42.ai"
+  },
+  "homepage": "https://github.com/mission42-ai/m42-planning-plugin",
+  "repository": "https://github.com/mission42-ai/m42-planning-plugin",
+  "license": "MIT",
+  "keywords": [
+    "planning",
+    "epic",
+    "story",
+    "gherkin",
+    "github-issues",
+    "acceptance-criteria",
+    "user-stories"
+  ]
+}

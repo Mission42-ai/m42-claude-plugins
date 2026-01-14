@@ -1,0 +1,49 @@
+# Task List Template - Example Tasks by Type
+# Use as reference for task definitions in PROGRESS.yaml
+
+tasks:
+  # implement-issue: GitHub issue implementation
+  - id: implement-issue-42
+    type: implement-issue
+    issue-number: 42
+    priority: high
+    estimate: 1h
+    # Optional fields:
+    # repo: owner/repo
+    # branch: feature/issue-42
+    # pr-template: |
+    #   ## Summary
+    #   Implements #42
+
+  # refactor: Code improvement
+  - id: refactor-auth-module
+    type: refactor
+    target-path: src/auth/
+    goal: Extract token validation to separate service
+    priority: medium
+    estimate: 45m
+    # Optional fields:
+    # constraints: No API changes
+    # test-command: npm test -- --grep auth
+
+  # update-docs: Documentation updates
+  - id: update-docs-api
+    type: update-docs
+    doc-path: docs/api/authentication.md
+    changes: Add JWT refresh flow documentation
+    priority: low
+    estimate: 20m
+    # Optional fields:
+    # source-files: [src/auth/jwt.ts]
+    # validate: npm run docs:validate
+
+  # custom: Arbitrary work
+  - id: custom-audit-deps
+    type: custom
+    description: Audit npm dependencies for security vulnerabilities
+    done-when: No high/critical vulnerabilities, report generated
+    priority: medium
+    estimate: 30m
+    # Optional fields:
+    # context-files: [package.json, package-lock.json]
+    # output-path: artifacts/security-audit.md
