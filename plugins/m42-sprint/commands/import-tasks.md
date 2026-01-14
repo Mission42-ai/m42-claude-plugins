@@ -12,10 +12,10 @@ Bulk import tasks from GitHub issues by label or from a YAML file.
 ## Preflight Checks
 
 Find current sprint directory:
-!`ls -dt /home/konstantin/projects/m42-core/.claude/sprints/*/ 2>/dev/null | head -1 || echo "NO_SPRINT"`
+!`ls -dt .claude/sprints/*/ 2>/dev/null | head -1 || echo "NO_SPRINT"`
 
 Verify PROGRESS.yaml exists in sprint:
-!`SPRINT_DIR=$(ls -dt /home/konstantin/projects/m42-core/.claude/sprints/*/ 2>/dev/null | head -1); test -f "$SPRINT_DIR/PROGRESS.yaml" && echo "PROGRESS_OK: $SPRINT_DIR/PROGRESS.yaml" || echo "NO_PROGRESS_FILE"`
+!`SPRINT_DIR=$(ls -dt .claude/sprints/*/ 2>/dev/null | head -1); test -f "$SPRINT_DIR/PROGRESS.yaml" && echo "PROGRESS_OK: $SPRINT_DIR/PROGRESS.yaml" || echo "NO_PROGRESS_FILE"`
 
 Check gh CLI availability (for issues import):
 !`command -v gh >/dev/null && gh auth status 2>&1 | head -1 || echo "GH_NOT_AVAILABLE"`
@@ -23,7 +23,7 @@ Check gh CLI availability (for issues import):
 ## Context
 
 Read current PROGRESS.yaml to get existing tasks:
-!`SPRINT_DIR=$(ls -dt /home/konstantin/projects/m42-core/.claude/sprints/*/ 2>/dev/null | head -1); cat "$SPRINT_DIR/PROGRESS.yaml" 2>/dev/null || echo "Cannot read PROGRESS.yaml"`
+!`SPRINT_DIR=$(ls -dt .claude/sprints/*/ 2>/dev/null | head -1); cat "$SPRINT_DIR/PROGRESS.yaml" 2>/dev/null || echo "Cannot read PROGRESS.yaml"`
 
 ## Task Instructions
 

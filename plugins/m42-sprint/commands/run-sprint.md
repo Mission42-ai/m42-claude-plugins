@@ -1,6 +1,6 @@
 ---
-allowed-tools: Bash(ls:*), Read(*), Edit(*), Skill(*)
-argument-hint: [--max-iterations N]
+allowed-tools: Bash(ls:*), Bash(test:*), Read(*), Edit(*), Skill(*)
+argument-hint: <sprint-directory> [--max-iterations N]
 description: Start ralph-loop sprint execution
 model: sonnet
 ---
@@ -9,47 +9,75 @@ model: sonnet
 
 Starts ralph-loop to process the sprint task queue sequentially.
 
+## Argument Parsing
+
+The first argument MUST be the sprint directory path. Parse $ARGUMENTS to extract:
+
+1. **Sprint Directory Path** (REQUIRED): The path to the sprint directory
+   - Example: `.claude/sprints/2026-01-15_my-sprint`
+   - Must contain SPRINT.yaml and PROGRESS.yaml
+
+2. **Options** (OPTIONAL):
+   - `--max-iterations N` - Maximum ralph-loop iterations (default: 10)
+
+If no sprint directory is provided, output this error and stop:
+```
+Error: Sprint directory path is required.
+
+Usage: /run-sprint <sprint-directory> [--max-iterations N]
+
+Example: /run-sprint .claude/sprints/2026-01-15_my-sprint --max-iterations 30
+```
+
 ## Preflight Checks
 
-!`ls -d sprints/*/PROGRESS.yaml 2>/dev/null | tail -1 || echo "NO_SPRINT_FOUND"`
+Using the parsed SPRINT_DIR from arguments:
 
-!`if [ -f "$(ls -d sprints/*/PROGRESS.yaml 2>/dev/null | tail -1)" ]; then cat "$(ls -d sprints/*/PROGRESS.yaml 2>/dev/null | tail -1)" | grep -E "^status:|^queue:" | head -5; else echo "status: missing"; fi`
+1. **Directory exists**: `test -d "$SPRINT_DIR"`
+2. **SPRINT.yaml exists**: `test -f "$SPRINT_DIR/SPRINT.yaml"`
+3. **PROGRESS.yaml exists**: `test -f "$SPRINT_DIR/PROGRESS.yaml"`
+
+If any check fails, report the specific issue and stop.
 
 ## Validation
 
-Before proceeding, verify:
-1. Sprint directory exists with PROGRESS.yaml
-2. Queue has at least one task
-3. Status is NOT "completed" or "blocked"
+Read PROGRESS.yaml and verify:
+1. Queue has at least one task (queue is not empty)
+2. Status is NOT "completed" or "blocked"
 
 If validation fails, report the issue and stop.
 
 ## Context
 
-Read current sprint state:
-!`SPRINT_DIR=$(ls -d sprints/*/ 2>/dev/null | tail -1) && cat "${SPRINT_DIR}SPRINT.yaml" 2>/dev/null || echo "No SPRINT.yaml found"`
+Read current sprint state from the provided directory:
 
-!`SPRINT_DIR=$(ls -d sprints/*/ 2>/dev/null | tail -1) && cat "${SPRINT_DIR}PROGRESS.yaml" 2>/dev/null || echo "No PROGRESS.yaml found"`
+1. Read `$SPRINT_DIR/SPRINT.yaml` for sprint configuration
+2. Read `$SPRINT_DIR/PROGRESS.yaml` for current progress and queue
 
-Load the orchestrating-sprints and task-execution skills for workflow guidance.
+Load the orchestrating-sprints skill for workflow guidance.
 
 ## Task Instructions
 
 1. **Update Sprint Status**
-   - Set SPRINT.yaml status to "in-progress" if currently "not-started"
-   - Set PROGRESS.yaml current-task to queue[0]
+   - Set PROGRESS.yaml status to "in-progress" if currently "not-started"
+   - Set PROGRESS.yaml current-task to the first task ID in queue
 
 2. **Determine Max Iterations**
-   - Use --max-iterations from argument: $ARGUMENTS
-   - Or use default from SPRINT.yaml settings.max-iterations
+   - Use --max-iterations from arguments if provided
    - Or default to 10 if not specified
 
 3. **Invoke Ralph-Loop**
 
-   Start ralph-loop with the following prompt:
+   Use the Skill tool to invoke ralph-loop with the following:
 
    ```
-   Process sprint task queue from [SPRINT_DIRECTORY].
+   Skill("m42-ralph-loop:ralph-loop", args="--max-iterations [N] --completion-promise 'SPRINT COMPLETE|SPRINT BLOCKED|SPRINT PAUSED' --task '[PROMPT]'")
+   ```
+
+   Where [PROMPT] is:
+
+   ```
+   Process sprint task queue from [SPRINT_DIR].
 
    ## Workflow Per Task
 
@@ -58,7 +86,7 @@ Load the orchestrating-sprints and task-execution skills for workflow guidance.
    Execute task using 6-phase workflow:
 
    **Phase 1 - Context:**
-   - Load task-execution skill
+   - Load task-execution skill if needed
    - Read task definition from PROGRESS.yaml
    - Gather context for task type (issue data, target files, etc.)
    - Cache context in sprint context/ directory
@@ -100,11 +128,13 @@ Load the orchestrating-sprints and task-execution skills for workflow guidance.
 
 4. **Configure Ralph-Loop Options**
    - Set --max-iterations from determined value
-   - Set completion promise to match: "SPRINT COMPLETE" or "SPRINT BLOCKED" or "SPRINT PAUSED"
+   - Set completion promise to: "SPRINT COMPLETE|SPRINT BLOCKED|SPRINT PAUSED"
 
 ## Success Criteria
 
-- Ralph-loop started successfully
+- Sprint directory path correctly parsed from arguments
+- SPRINT.yaml and PROGRESS.yaml located using provided path
+- Ralph-loop started successfully with correct sprint directory
 - Sprint status updated to "in-progress"
 - Tasks processed sequentially from queue
 - Progress persisted to PROGRESS.yaml after each task

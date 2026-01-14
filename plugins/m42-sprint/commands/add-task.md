@@ -10,10 +10,10 @@ model: sonnet
 ## Preflight Checks
 
 Find current sprint directory:
-!`ls -dt /home/konstantin/projects/m42-core/.claude/sprints/*/ 2>/dev/null | head -1 || echo "NO_SPRINT"`
+!`ls -dt .claude/sprints/*/ 2>/dev/null | head -1 || echo "NO_SPRINT"`
 
 Verify PROGRESS.yaml exists in sprint:
-!`SPRINT_DIR=$(ls -dt /home/konstantin/projects/m42-core/.claude/sprints/*/ 2>/dev/null | head -1); test -f "$SPRINT_DIR/PROGRESS.yaml" && echo "PROGRESS_OK: $SPRINT_DIR/PROGRESS.yaml" || echo "NO_PROGRESS_FILE"`
+!`SPRINT_DIR=$(ls -dt .claude/sprints/*/ 2>/dev/null | head -1); test -f "$SPRINT_DIR/PROGRESS.yaml" && echo "PROGRESS_OK: $SPRINT_DIR/PROGRESS.yaml" || echo "NO_PROGRESS_FILE"`
 
 Check gh CLI for issue type:
 !`command -v gh >/dev/null && echo "GH_OK" || echo "GH_MISSING"`
@@ -21,7 +21,7 @@ Check gh CLI for issue type:
 ## Context
 
 Read current PROGRESS.yaml to get task count and existing tasks:
-!`SPRINT_DIR=$(ls -dt /home/konstantin/projects/m42-core/.claude/sprints/*/ 2>/dev/null | head -1); cat "$SPRINT_DIR/PROGRESS.yaml" 2>/dev/null || echo "Cannot read PROGRESS.yaml"`
+!`SPRINT_DIR=$(ls -dt .claude/sprints/*/ 2>/dev/null | head -1); cat "$SPRINT_DIR/PROGRESS.yaml" 2>/dev/null || echo "Cannot read PROGRESS.yaml"`
 
 ## Task Instructions
 
