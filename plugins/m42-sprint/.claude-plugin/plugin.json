@@ -1,7 +1,7 @@
 {
   "name": "m42-sprint",
-  "version": "1.0.0",
-  "description": "Sprint orchestration with ralph-loop driven task queue processing, polymorphic task types, and progress tracking",
+  "version": "2.0.0",
+  "description": "Sprint orchestration with autonomous task queue processing, polymorphic task types, and progress tracking",
   "author": {
     "name": "Mission42",
     "email": "dev@mission42.ai"
@@ -9,16 +9,14 @@
   "homepage": "https://github.com/mission42-ai/m42-claude-plugins",
   "repository": "https://github.com/mission42-ai/m42-claude-plugins",
   "license": "MIT",
-  "dependencies": {
-    "m42-ralph-loop": ">=1.0.0"
-  },
   "keywords": [
     "sprint",
     "task-queue",
-    "ralph-loop",
+    "autonomous",
     "automation",
     "progress-tracking",
     "orchestration",
-    "polymorphic-tasks"
+    "polymorphic-tasks",
+    "loop"
   ]
 }

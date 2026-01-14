@@ -1,5 +1,5 @@
 ---
-allowed-tools: Read(*), Edit(*)
+allowed-tools: Bash(ls:*), Bash(test:*), Read(*), Edit(*)
 argument-hint: ""
 description: Pause sprint after current task
 model: haiku
@@ -11,13 +11,30 @@ Request sprint to pause gracefully after current task completes.
 
 ## Preflight Checks
 
-!`ls -dt .claude/sprints/*/ 2>/dev/null | head -1 || echo "NO_SPRINT"`
+Find the latest sprint directory:
+```bash
+ls -dt .claude/sprints/*/ 2>/dev/null | head -1 || echo "NO_SPRINT"
+```
 
-!`SPRINT_DIR=$(ls -dt .claude/sprints/*/ 2>/dev/null | head -1); grep "^status:" "$SPRINT_DIR/SPRINT.yaml" 2>/dev/null || echo "status: unknown"`
+Check sprint status:
+```bash
+SPRINT_DIR=$(ls -dt .claude/sprints/*/ 2>/dev/null | head -1)
+grep "^status:" "$SPRINT_DIR/SPRINT.yaml" 2>/dev/null || echo "status: unknown"
+```
+
+Check if loop is active:
+```bash
+SPRINT_DIR=$(ls -dt .claude/sprints/*/ 2>/dev/null | head -1)
+test -f "$SPRINT_DIR/loop-state.md" && echo "LOOP_ACTIVE" || echo "NO_ACTIVE_LOOP"
+```
 
 ## Context
 
-!`SPRINT_DIR=$(ls -dt .claude/sprints/*/ 2>/dev/null | head -1); cat "$SPRINT_DIR/PROGRESS.yaml" 2>/dev/null || echo "No PROGRESS.yaml"`
+Read current progress:
+```bash
+SPRINT_DIR=$(ls -dt .claude/sprints/*/ 2>/dev/null | head -1)
+cat "$SPRINT_DIR/PROGRESS.yaml" 2>/dev/null || echo "No PROGRESS.yaml"
+```
 
 ## Task Instructions
 
@@ -26,25 +43,32 @@ Request sprint to pause gracefully after current task completes.
    - If "paused": "Sprint already paused. Use /resume-sprint."
    - If "completed": "Sprint completed. Nothing to pause."
 
-2. Edit PROGRESS.yaml to add pause flag:
+2. Check for active loop:
+   - If `loop-state.md` exists in sprint directory: Loop is active
+   - Include in output: "Current task will complete before pausing."
+
+3. Edit PROGRESS.yaml to add pause flag:
    ```yaml
    pause-requested: true
    ```
 
-3. Edit SPRINT.yaml to update status:
+4. Edit SPRINT.yaml to update status:
    ```yaml
    status: "pausing"
    ```
 
-4. Output confirmation:
+5. Output confirmation:
    ```text
    Pause requested for sprint: {name}
 
    Current task will complete before pausing.
    Status: pausing
 
+   The sprint loop will stop after the current iteration completes.
+
    Use /resume-sprint to continue.
    Use /sprint-status to check progress.
+   Use /stop-sprint to force immediate stop.
    ```
 
 ## Success Criteria

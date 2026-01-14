@@ -1,5 +1,5 @@
 {
-  "description": "Ralph Loop plugin stop hook for self-referential loops",
+  "description": "Sprint loop stop hook for autonomous task processing",
   "hooks": {
     "Stop": [
       {
