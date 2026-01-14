@@ -11,10 +11,7 @@
       "name": "m42-planning",
       "description": "Epic and story planning with GitHub integration, gherkin-based acceptance criteria, and structured issue templates",
       "version": "1.0.0",
-      "source": {
-        "source": "local",
-        "path": "plugins/m42-planning"
-      },
+      "source": "./plugins/m42-planning",
       "category": "productivity",
       "keywords": ["planning", "epic", "story", "gherkin", "github-issues"]
     },
@@ -22,10 +19,7 @@
       "name": "m42-sprint",
       "description": "Sprint orchestration with ralph-loop driven task queue processing, polymorphic task types, and progress tracking",
       "version": "1.0.0",
-      "source": {
-        "source": "local",
-        "path": "plugins/m42-sprint"
-      },
+      "source": "./plugins/m42-sprint",
       "category": "productivity",
       "keywords": ["sprint", "task-queue", "ralph-loop", "automation", "progress-tracking"]
     },
@@ -33,10 +27,7 @@
       "name": "m42-task-execution",
       "description": "Reusable 6-phase task execution workflow for implementing any task type with quality gates and learning documentation",
       "version": "1.0.0",
-      "source": {
-        "source": "local",
-        "path": "plugins/m42-task-execution"
-      },
+      "source": "./plugins/m42-task-execution",
       "category": "development",
       "keywords": ["task-execution", "workflow", "quality-gates", "tdd", "learning"]
     }
