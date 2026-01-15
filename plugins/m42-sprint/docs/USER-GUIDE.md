@@ -1,6 +1,6 @@
 # M42 Sprint Plugin - User Guide
 
-Complete guide to autonomous sprint-based task processing for Claude Code.
+Complete guide to workflow-based sprint processing for Claude Code.
 
 ## Table of Contents
 
@@ -8,32 +8,44 @@ Complete guide to autonomous sprint-based task processing for Claude Code.
 2. [Installation](#installation)
 3. [Quick Start](#quick-start)
 4. [Commands Reference](#commands-reference)
-5. [Task Types](#task-types)
+5. [Workflow System](#workflow-system)
 6. [Workflow Patterns](#workflow-patterns)
 7. [Configuration](#configuration)
 8. [Troubleshooting](#troubleshooting)
+9. [Migration from Task-Queue](#migration-from-task-queue)
 
 ---
 
 ## Overview
 
-M42 Sprint is a Claude Code plugin that enables autonomous task queue processing. It processes development tasks sequentially, tracking progress and managing state across iterations.
+M42 Sprint is a Claude Code plugin that enables workflow-based sprint processing. Steps are defined in SPRINT.yaml, compiled into hierarchical phases, and executed with fresh context per phase using the Ralph Loop pattern.
 
 ### Key Concepts
 
-- **Sprint**: A container for related tasks with shared context
-- **Task Queue**: Ordered list of work items to process
-- **Loop Mechanism**: Bash loop with fresh Claude context per task (Ralph Loop pattern)
-- **Progress Tracking**: YAML-based state management
+- **Sprint**: A container for related steps with shared workflow configuration
+- **Step**: A high-level work item defined by a prompt in SPRINT.yaml
+- **Workflow**: A reusable template that defines phases for processing steps
+- **Compilation**: Expands steps through workflows into hierarchical phases in PROGRESS.yaml
+- **Ralph Loop**: Fresh Claude context per phase (no context accumulation)
+
+### How It Works
+
+```
+SPRINT.yaml (steps) + Workflow Templates → Compilation → PROGRESS.yaml (phases)
+                                                              ↓
+                                                        Sprint Loop
+                                                              ↓
+                                                   Fresh context per phase
+```
 
 ### When to Use Sprint
 
 | Good For | Not Good For |
 |----------|--------------|
-| Processing multiple related tasks | Single quick tasks |
+| Multi-step feature development | Single quick tasks |
 | Autonomous batch operations | Tasks needing human decisions |
-| Tasks with clear completion criteria | Unclear requirements |
-| GitHub issue implementation | Exploratory research |
+| Structured workflows with phases | Unclear requirements |
+| Consistent development process | Exploratory research |
 
 ---
 
@@ -65,37 +77,38 @@ claude /help
 ### 1. Create a Sprint
 
 ```bash
-/start-sprint feature-auth
+/start-sprint auth-feature
 ```
 
 Creates:
 ```
-.claude/sprints/2026-01-15_feature-auth/
-  SPRINT.yaml       # Configuration
-  PROGRESS.yaml     # Task queue
-  context/          # Task context cache
-  artifacts/        # Outputs
+.claude/sprints/2026-01-16_auth-feature/
+  SPRINT.yaml       # Workflow definition with steps
+  context/          # Context files for phases
+  artifacts/        # Sprint outputs
 ```
 
-### 2. Add Tasks
+### 2. Add Steps
 
 ```bash
-# From GitHub issues
-/add-task issue 42
-/add-task issue 43
+# Add individual steps
+/add-step "Implement user login endpoint with JWT authentication"
+/add-step "Add authentication middleware for protected routes"
 
-# Custom tasks
-/add-task custom --desc "Refactor auth module" --done "Tests pass, code reviewed"
-
-# Bulk import
-/import-tasks issues --label "sprint-ready"
+# Or import from GitHub issues
+/import-steps issues --label "sprint-ready"
 ```
 
-### 3. Run the Sprint
+### 3. Run the Sprint (Compiles and Executes)
 
 ```bash
-/run-sprint .claude/sprints/2026-01-15_feature-auth --max-iterations 20
+/run-sprint .claude/sprints/2026-01-16_auth-feature
 ```
+
+This:
+1. Compiles SPRINT.yaml + workflows into PROGRESS.yaml
+2. Launches the sprint loop in the background
+3. Processes each phase with fresh context
 
 ### 4. Monitor Progress
 
@@ -106,7 +119,7 @@ Creates:
 ### 5. Control Execution
 
 ```bash
-/pause-sprint    # Graceful pause after current task
+/pause-sprint    # Graceful pause after current phase
 /resume-sprint   # Resume paused sprint
 /stop-sprint     # Immediate stop
 ```
@@ -127,163 +140,251 @@ Initialize a new sprint directory.
 **Example:**
 ```bash
 /start-sprint auth-improvements
-# Creates: .claude/sprints/2026-01-15_auth-improvements/
+# Creates: .claude/sprints/2026-01-16_auth-improvements/
 ```
 
 #### `/run-sprint <directory> [options]`
 
-Start autonomous task processing.
+Compile and start autonomous phase processing.
 
 **Arguments:**
 - `<directory>` - Path to sprint directory (required)
-- `--max-iterations N` - Safety limit (default: 10)
-- `--dry-run` - Preview tasks without executing
+- `--max-iterations N` - Safety limit (default: 30)
+- `--dry-run` - Preview compiled workflow without executing
+- `--recompile` - Force recompilation even if PROGRESS.yaml exists
 
 **Examples:**
 ```bash
-# Start sprint execution
-/run-sprint .claude/sprints/2026-01-15_auth --max-iterations 30
+# Compile and start sprint execution
+/run-sprint .claude/sprints/2026-01-16_auth --max-iterations 50
 
-# Preview tasks without running
-/run-sprint .claude/sprints/2026-01-15_auth --dry-run
+# Preview compiled workflow without running
+/run-sprint .claude/sprints/2026-01-16_auth --dry-run
+
+# Force recompilation after adding steps
+/run-sprint .claude/sprints/2026-01-16_auth --recompile
 ```
 
 #### `/sprint-status`
 
-Display progress dashboard showing:
-- Current task and status
-- Queue remaining
-- Completed tasks
-- Blocked tasks
-- Statistics
+Display hierarchical progress dashboard showing:
+- Current phase/step/sub-phase position
+- Completion status at each level
+- Progress statistics
+- Actionable next steps
 
 #### `/pause-sprint`
 
-Request graceful pause. Current task completes, then sprint pauses.
+Request graceful pause. Current phase completes, then sprint pauses.
 
 #### `/resume-sprint`
 
-Resume a paused sprint. Clears pause flag, shows next task.
+Resume a paused sprint. Clears pause flag, continues from current position.
 
 #### `/stop-sprint`
 
 Force immediate stop. Sets status to paused, causing the background loop to exit.
 
-### Task Management
+### Step Management
 
-#### `/add-task issue <number>`
+#### `/add-step <prompt>`
 
-Add GitHub issue to queue.
-
-**Example:**
-```bash
-/add-task issue 123
-# Creates task: implement-issue-123
-```
-
-#### `/add-task refactor <path> --goal "..."`
-
-Add code refactoring task.
-
-**Arguments:**
-- `<path>` - File or directory to refactor
-- `--goal` - Refactoring objective
+Add a step to the current sprint's SPRINT.yaml.
 
 **Example:**
 ```bash
-/add-task refactor src/auth/ --goal "Migrate to new token validation pattern"
+/add-step "Implement password reset functionality with email verification"
+# Adds step to SPRINT.yaml - recompilation happens on /run-sprint
 ```
 
-#### `/add-task docs <path> --changes "..."`
+#### `/import-steps issues --label <label>`
 
-Add documentation update task.
-
-**Arguments:**
-- `<path>` - Documentation file path
-- `--changes` - Required changes description
-
-**Example:**
-```bash
-/add-task docs docs/api.md --changes "Add authentication endpoints"
-```
-
-#### `/add-task custom --desc "..." --done "..."`
-
-Add custom task with explicit criteria.
-
-**Arguments:**
-- `--desc` - Task description
-- `--done` - Completion criteria
-
-**Example:**
-```bash
-/add-task custom --desc "Set up CI pipeline" --done "GitHub Actions workflow runs successfully"
-```
-
-#### `/import-tasks issues --label <label> [--sort priority]`
-
-Bulk import GitHub issues by label.
+Bulk import GitHub issues as steps.
 
 **Arguments:**
 - `--label` - GitHub label to filter by
-- `--sort priority` - Sort by priority labels (optional)
 
 **Example:**
 ```bash
-/import-tasks issues --label "sprint-1" --sort priority
+/import-steps issues --label "sprint-1"
+# Creates steps from matching GitHub issues
+```
+
+#### `/import-steps file <path.yaml>`
+
+Import steps from a YAML file.
+
+**Arguments:**
+- `<path.yaml>` - Path to YAML file with steps array
+
+**Example:**
+```bash
+/import-steps file sprint-steps.yaml
 ```
 
 ---
 
-## Task Types
+## Workflow System
 
-### implement-issue
+### SPRINT.yaml Format
 
-Implements a GitHub issue.
+The sprint definition file specifies which workflow to use and what steps to process:
 
-| Field | Required | Description |
-|-------|----------|-------------|
-| `issue-number` | Yes | GitHub issue number |
-| `title` | Auto | Issue title (fetched) |
-| `priority` | No | high, medium, low |
+```yaml
+# SPRINT.yaml - Workflow-based Sprint Definition
+workflow: sprint-default    # Reference to .claude/workflows/sprint-default.yaml
 
-**Done-when:** PR merged or issue closed
+steps:
+  - prompt: |
+      Implement user authentication with JWT.
+      Requirements:
+      - Login endpoint
+      - Token refresh
+      - Logout
 
-### refactor
+  - prompt: |
+      Add session management and remember-me functionality.
 
-Refactors code files.
+  - prompt: |
+      Fix: Password reset emails not sending.
+    workflow: bugfix-workflow  # Optional: use different workflow for this step
 
-| Field | Required | Description |
-|-------|----------|-------------|
-| `target-path` | Yes | File or directory |
-| `goal` | Yes | Refactoring objective |
-| `priority` | No | high, medium, low |
+# Sprint metadata
+sprint-id: 2026-01-16_auth-feature
+name: auth-feature
+created: 2026-01-16T10:30:00Z
+```
 
-**Done-when:** Tests pass and goal achieved
+### Workflow Templates
 
-### update-docs
+Workflows are reusable templates stored in `.claude/workflows/`. They define the phases each step goes through.
 
-Updates documentation.
+#### sprint-default.yaml
 
-| Field | Required | Description |
-|-------|----------|-------------|
-| `doc-path` | Yes | Documentation file |
-| `changes` | Yes | Changes description |
-| `priority` | No | high, medium, low |
+The standard sprint workflow with four top-level phases:
 
-**Done-when:** Documentation updated and validated
+```yaml
+name: Standard Sprint
+description: Complete sprint with prepare, development, QA, and deploy phases.
 
-### custom
+phases:
+  - id: prepare
+    prompt: |
+      Prepare the sprint: create branch, gather context, check dependencies.
 
-Arbitrary task with explicit criteria.
+  - id: development
+    for-each: step           # Iterates over all steps from SPRINT.yaml
+    workflow: feature-standard   # Each step uses this workflow
 
-| Field | Required | Description |
-|-------|----------|-------------|
-| `description` | Yes | What to do |
-| `done-when` | Yes | Completion criteria |
-| `priority` | No | high, medium, low |
+  - id: qa
+    prompt: |
+      Run full test suite, linting, and security checks.
 
-**Done-when:** Custom criteria met
+  - id: deploy
+    prompt: |
+      Create PR and finalize the sprint.
+```
+
+#### feature-standard.yaml
+
+Workflow for individual feature/step implementation:
+
+```yaml
+name: Standard Feature Development
+description: Planning, implementation, testing, and documentation for each step.
+
+phases:
+  - id: planning
+    prompt: |
+      Analyze the step and create implementation plan.
+      {{step.prompt}}
+
+  - id: implement
+    prompt: |
+      Implement based on the plan.
+      {{step.prompt}}
+
+  - id: test
+    prompt: |
+      Write and run tests for the implementation.
+      {{step.prompt}}
+
+  - id: document
+    prompt: |
+      Update documentation if needed.
+      {{step.prompt}}
+```
+
+#### bugfix-workflow.yaml
+
+Streamlined workflow for bug fixes:
+
+```yaml
+name: Bugfix Workflow
+description: Diagnose, fix, and verify bugs with minimal overhead.
+
+phases:
+  - id: diagnose
+    prompt: |
+      Diagnose the bug and find root cause.
+      {{step.prompt}}
+
+  - id: fix
+    prompt: |
+      Implement minimal fix.
+      {{step.prompt}}
+
+  - id: verify
+    prompt: |
+      Verify the bug is fixed and add regression test.
+      {{step.prompt}}
+```
+
+### Compilation Process
+
+When you run `/run-sprint`, the compiler:
+
+1. Reads SPRINT.yaml (steps + workflow reference)
+2. Loads the workflow template from `.claude/workflows/`
+3. Expands `for-each: step` phases by iterating over all steps
+4. Substitutes template variables (`{{step.prompt}}`, `{{step.id}}`, etc.)
+5. Generates PROGRESS.yaml with full hierarchical structure
+
+**Example expansion:**
+
+SPRINT.yaml with 2 steps + sprint-default workflow becomes:
+
+```
+phases:
+  - prepare (single phase)
+  - development (for-each)
+      - step-0
+          - planning
+          - implement
+          - test
+          - document
+      - step-1
+          - planning
+          - implement
+          - test
+          - document
+  - qa (single phase)
+  - deploy (single phase)
+```
+
+Total phases to execute: 1 + (2 x 4) + 1 + 1 = 11 phases
+
+### Template Variables
+
+Workflows can use these variables in prompts:
+
+| Variable | Description |
+|----------|-------------|
+| `{{step.prompt}}` | The step's prompt from SPRINT.yaml |
+| `{{step.id}}` | Auto-generated step ID (e.g., `step-0`) |
+| `{{step.index}}` | Step index (0-based) |
+| `{{sprint.id}}` | Sprint identifier |
+| `{{sprint.name}}` | Sprint name |
 
 ---
 
@@ -292,18 +393,22 @@ Arbitrary task with explicit criteria.
 ### Pattern 1: Feature Development Sprint
 
 ```bash
-# 1. Create focused sprint
+# 1. Create sprint
 /start-sprint user-auth
 
-# 2. Import related issues
-/import-tasks issues --label "auth" --sort priority
+# 2. Add feature steps
+/add-step "Implement login endpoint with JWT tokens"
+/add-step "Add logout endpoint and token invalidation"
+/add-step "Create password reset flow with email verification"
 
-# 3. Add supporting tasks
-/add-task docs docs/auth.md --changes "Document new auth flow"
+# 3. Preview the compiled workflow
+/run-sprint .claude/sprints/2026-01-16_user-auth --dry-run
 
-# 4. Run with generous limit
-/run-sprint .claude/sprints/2026-01-15_user-auth --max-iterations 50
+# 4. Execute with generous limit
+/run-sprint .claude/sprints/2026-01-16_user-auth --max-iterations 50
 ```
+
+Each step goes through: planning -> implement -> test -> document
 
 ### Pattern 2: Bug Fix Sprint
 
@@ -311,64 +416,75 @@ Arbitrary task with explicit criteria.
 # 1. Create bug sprint
 /start-sprint bugfix-batch
 
-# 2. Import bug issues
-/import-tasks issues --label "bug"
+# 2. Import bugs from GitHub
+/import-steps issues --label "bug"
 
-# 3. Run with lower limit (bugs are usually quick)
-/run-sprint .claude/sprints/2026-01-15_bugfix-batch --max-iterations 20
+# 3. Edit SPRINT.yaml to use bugfix workflow
+# (Optional: steps can override with workflow: bugfix-workflow)
+
+# 4. Run - bugs use diagnose -> fix -> verify phases
+/run-sprint .claude/sprints/2026-01-16_bugfix-batch --max-iterations 30
 ```
 
-### Pattern 3: Refactoring Sprint
-
-```bash
-# 1. Create refactor sprint
-/start-sprint code-cleanup
-
-# 2. Add refactor tasks
-/add-task refactor src/legacy/ --goal "Migrate to TypeScript"
-/add-task refactor src/utils/ --goal "Add proper error handling"
-/add-task refactor src/api/ --goal "Use async/await consistently"
-
-# 3. Add validation task
-/add-task custom --desc "Run full test suite" --done "All tests pass"
-
-# 4. Run
-/run-sprint .claude/sprints/2026-01-15_code-cleanup --max-iterations 30
-```
-
-### Pattern 4: Documentation Sprint
-
-```bash
-# 1. Create docs sprint
-/start-sprint docs-update
-
-# 2. Add doc tasks
-/add-task docs README.md --changes "Update installation section"
-/add-task docs docs/api.md --changes "Add new endpoint docs"
-/add-task docs CONTRIBUTING.md --changes "Update workflow section"
-
-# 3. Run
-/run-sprint .claude/sprints/2026-01-15_docs-update --max-iterations 15
-```
-
-### Pattern 5: Mixed Sprint with Priorities
+### Pattern 3: Mixed Sprint with Workflow Overrides
 
 ```bash
 # 1. Create sprint
 /start-sprint mixed-work
 
-# 2. Add high priority items first
-/add-task issue 100  # Critical bug
-/add-task issue 101  # Security fix
+# 2. Add steps with different workflows
+```
 
-# 3. Add medium priority
-/add-task refactor src/core/ --goal "Performance optimization"
+Then edit SPRINT.yaml:
 
-# 4. Add low priority
-/add-task docs docs/changelog.md --changes "Update for release"
+```yaml
+workflow: sprint-default
 
-# 5. Run - tasks execute in queue order
-/run-sprint .claude/sprints/2026-01-15_mixed-work --max-iterations 25
+steps:
+  - prompt: |
+      Add new dashboard feature with charts and filters.
+    # Uses default feature-standard workflow
+
+  - prompt: |
+      Fix: Charts not rendering on mobile devices.
+    workflow: bugfix-workflow    # Override for this step only
+
+  - prompt: |
+      Implement data export functionality.
+    # Uses default feature-standard workflow
+```
+
+### Pattern 4: Custom Workflow Sprint
+
+Create a custom workflow in `.claude/workflows/custom-workflow.yaml`:
+
+```yaml
+name: Custom Review Workflow
+description: Implementation with mandatory code review phase.
+
+phases:
+  - id: implement
+    prompt: |
+      Implement the feature.
+      {{step.prompt}}
+
+  - id: self-review
+    prompt: |
+      Review your own code for issues, edge cases, and improvements.
+      {{step.prompt}}
+
+  - id: test
+    prompt: |
+      Write comprehensive tests.
+      {{step.prompt}}
+```
+
+Then use it in SPRINT.yaml:
+
+```yaml
+workflow: custom-workflow
+steps:
+  - prompt: "Implement feature X"
 ```
 
 ---
@@ -378,113 +494,170 @@ Arbitrary task with explicit criteria.
 ### SPRINT.yaml
 
 ```yaml
-# Sprint Configuration
-sprint-id: 2026-01-15_feature-auth
+# Workflow-based Sprint Definition
+workflow: sprint-default
+
+steps:
+  - prompt: |
+      Implement user authentication.
+  - prompt: |
+      Add session management.
+
+# Sprint metadata
+sprint-id: 2026-01-16_feature-auth
 name: feature-auth
-created: 2026-01-15T10:30:00Z
+created: 2026-01-16T10:30:00Z
 owner: claude
 
+# Optional configuration
 config:
-  max-tasks: 10        # Maximum tasks allowed
+  max-tasks: 10        # Maximum phases
   time-box: 4h         # Sprint duration limit
-  auto-commit: true    # Commit after each task
-  context-cache: true  # Cache gathered context
-  parallel: false      # Sequential execution
-
-github:
-  repo: owner/repo     # Target repository
-  milestone: null      # Optional milestone
-  labels: []           # Default labels for PRs
-
-goals:
-  - Implement user authentication
-  - Add session management
-
-notes: |
-  Sprint notes and context here.
+  auto-commit: true    # Commit after each phase
 ```
 
-### PROGRESS.yaml
+### PROGRESS.yaml (Compiled Output)
 
 ```yaml
-# Progress Tracking
-sprint-id: 2026-01-15_feature-auth
+# Compiled Progress - Generated by /run-sprint
+sprint-id: 2026-01-16_feature-auth
 status: in-progress
-current-task: implement-issue-42
 
-queue:
-  - id: implement-issue-42
-    type: implement-issue
-    issue-number: 42
-    title: "Add login endpoint"
-    priority: high
-  - id: implement-issue-43
-    type: implement-issue
-    issue-number: 43
-    title: "Add session management"
-    priority: medium
+phases:
+  - id: prepare
+    status: completed
+    prompt: "Prepare the sprint..."
+    started-at: 2026-01-16T10:30:00Z
+    completed-at: 2026-01-16T10:35:00Z
+    elapsed: 5m
 
-completed:
-  - id: implement-issue-41
-    type: implement-issue
-    completed-at: 2026-01-15T11:00:00Z
-    elapsed: 25m
-    summary: "Implemented base auth module"
+  - id: development
+    status: in-progress
+    steps:
+      - id: step-0
+        prompt: "Implement user authentication..."
+        status: in-progress
+        phases:
+          - id: planning
+            status: completed
+            prompt: "Analyze the step..."
+          - id: implement
+            status: in-progress
+            prompt: "Implement based on plan..."
+          - id: test
+            status: pending
+            prompt: "Write and run tests..."
+          - id: document
+            status: pending
+            prompt: "Update documentation..."
 
-blocked: []
+      - id: step-1
+        prompt: "Add session management..."
+        status: pending
+        phases:
+          - id: planning
+            status: pending
+          - id: implement
+            status: pending
+          - id: test
+            status: pending
+          - id: document
+            status: pending
+
+  - id: qa
+    status: pending
+    prompt: "Run full test suite..."
+
+  - id: deploy
+    status: pending
+    prompt: "Create PR..."
+
+current:
+  phase: 1
+  step: 0
+  sub-phase: 1
 
 stats:
-  started-at: 2026-01-15T10:30:00Z
-  completed-at: null
-  tasks-total: 3
-  tasks-completed: 1
-  tasks-blocked: 0
-  elapsed: null
-  avg-task-time: null
+  started-at: 2026-01-16T10:30:00Z
+  total-phases: 11
+  completed-phases: 2
+  total-steps: 2
+  completed-steps: 0
 ```
 
 ---
 
 ## Troubleshooting
 
-### Sprint won't start
+### Compilation fails
 
-**Symptom:** `/run-sprint` fails or does nothing
+**Symptom:** `/run-sprint` fails during compilation
 
 **Check:**
-1. Sprint directory exists: `ls .claude/sprints/`
-2. PROGRESS.yaml has tasks: Check `queue` is not empty
-3. Status is not "completed" or "blocked"
-4. `yq` is installed (required for YAML parsing)
+1. SPRINT.yaml has valid YAML syntax
+2. `workflow:` references an existing file in `.claude/workflows/`
+3. `steps:` is a valid array with `prompt:` entries
+4. Node.js is available (compiler is TypeScript)
 
 **Fix:**
 ```bash
-# Verify queue has tasks
-cat .claude/sprints/2026-01-15_my-sprint/PROGRESS.yaml
+# Validate SPRINT.yaml syntax
+cat .claude/sprints/my-sprint/SPRINT.yaml
 
-# Install yq if missing
-brew install yq  # macOS
-snap install yq  # Linux
+# Check workflow exists
+ls .claude/workflows/
+
+# Verify node is available
+node --version
 ```
 
-### Sprint stuck on task
+### Workflow not found
 
-**Symptom:** Same task keeps repeating
+**Symptom:** "Workflow not found: xyz-workflow"
 
 **Check:**
-1. PROGRESS.yaml `current-task` matches queue[0]
-2. Task has valid completion criteria
-3. No infinite loops in task logic
+1. Workflow file exists: `.claude/workflows/xyz-workflow.yaml`
+2. Workflow name in SPRINT.yaml matches filename (without .yaml)
+
+**Fix:**
+```bash
+# List available workflows
+ls .claude/workflows/
+
+# Use correct workflow name in SPRINT.yaml
+# workflow: sprint-default  (for sprint-default.yaml)
+```
+
+### Recompilation needed after adding steps
+
+**Symptom:** New steps not appearing in execution
+
+**Cause:** PROGRESS.yaml was already compiled before steps were added
+
+**Fix:**
+```bash
+# Force recompilation
+/run-sprint .claude/sprints/my-sprint --recompile
+```
+
+### Sprint stuck on phase
+
+**Symptom:** Same phase keeps repeating
+
+**Check:**
+1. Phase status is being updated in PROGRESS.yaml
+2. `current` pointer is advancing correctly
+3. No infinite loops in phase logic
 
 **Fix:**
 ```bash
 # Check current state
 /sprint-status
 
-# Force pause and investigate
+# Force stop and investigate
 /stop-sprint
 
-# Manually edit PROGRESS.yaml if needed
+# Review PROGRESS.yaml current pointer
 ```
 
 ### Permission prompts appearing
@@ -492,28 +665,11 @@ snap install yq  # Linux
 **Symptom:** Bash commands require approval
 
 **Check:**
-1. Commands using simple patterns (no `$()` substitution)
-2. `allowed-tools` in command frontmatter correct
+1. Commands using simple patterns
+2. `allowed-tools` in skill/command frontmatter is correct
 
 **Fix:**
 Update to latest plugin version which uses Read tool instead of bash `cat`.
-
-### Tasks not completing
-
-**Symptom:** Tasks stay in progress forever
-
-**Check:**
-1. `done-when` criteria is achievable
-2. No external blockers
-3. Iteration limit not reached
-
-**Fix:**
-```bash
-# Increase iteration limit
-/run-sprint .claude/sprints/my-sprint --max-iterations 50
-
-# Or mark task as blocked manually in PROGRESS.yaml
-```
 
 ### Can't find sprint
 
@@ -522,7 +678,7 @@ Update to latest plugin version which uses Read tool instead of bash `cat`.
 **Check:**
 1. Sprint directory exists in `.claude/sprints/`
 2. Directory has correct naming pattern
-3. PROGRESS.yaml exists in directory
+3. SPRINT.yaml exists in directory
 
 **Fix:**
 ```bash
@@ -539,32 +695,85 @@ ls -la .claude/sprints/
 
 **Check:**
 1. Use `/tasks` to see if background task is running
-2. Check PROGRESS.yaml status
+2. Check PROGRESS.yaml status field
 
 **Fix:**
 ```bash
 # Stop any stale state
 /stop-sprint
 
-# Check PROGRESS.yaml is valid YAML
+# Check PROGRESS.yaml is valid
 cat .claude/sprints/my-sprint/PROGRESS.yaml
 
-# Set status to in-progress if needed, then restart
+# Restart sprint
 /run-sprint .claude/sprints/my-sprint
 ```
 
 ---
 
+## Migration from Task-Queue
+
+If you used the old task-queue system, here's what changed:
+
+### Old System (Task-Queue)
+
+- Tasks had types: `implement-issue`, `refactor`, `update-docs`, `custom`
+- Task definitions went directly in PROGRESS.yaml queue array
+- No workflows - each task type had built-in behavior
+- Commands: `/add-task`, `/import-tasks`
+
+### New System (Workflow-Based)
+
+- Steps are simple prompts in SPRINT.yaml
+- Workflows define phases each step goes through
+- PROGRESS.yaml is compiled from SPRINT.yaml + workflows
+- Commands: `/add-step`, `/import-steps`
+
+### Migration Steps
+
+1. **Create new sprint:**
+   ```bash
+   /start-sprint migrated-sprint
+   ```
+
+2. **Convert tasks to steps in SPRINT.yaml:**
+
+   Old task:
+   ```yaml
+   - id: implement-issue-42
+     type: implement-issue
+     issue-number: 42
+   ```
+
+   New step:
+   ```yaml
+   - prompt: |
+       Implement GitHub issue #42
+       [paste issue title and body here]
+   ```
+
+3. **Choose appropriate workflow:**
+   - `sprint-default` for general development
+   - `bugfix-workflow` for bug fixes
+   - Create custom workflows as needed
+
+4. **Run with compilation:**
+   ```bash
+   /run-sprint .claude/sprints/YYYY-MM-DD_migrated-sprint
+   ```
+
+---
+
 ## Best Practices
 
-1. **Keep sprints focused**: 5-10 related tasks maximum
-2. **Set iteration limits**: Always use `--max-iterations` as a safety net
-3. **Use meaningful names**: `feature-auth` not `sprint1`
-4. **Write clear done-when**: Specific, measurable criteria
+1. **Keep sprints focused**: 3-7 steps per sprint
+2. **Write clear step prompts**: Include requirements and acceptance criteria
+3. **Use appropriate workflows**: Match workflow to work type
+4. **Preview before running**: Use `--dry-run` to verify compilation
 5. **Monitor progress**: Check `/sprint-status` periodically
-6. **Commit atomically**: One logical change per task
-7. **Cache context**: Enable `context-cache` for related tasks
-8. **Time-box aggressively**: 2-4 hours per sprint
+6. **Set iteration limits**: Always use `--max-iterations` as safety
+7. **Use workflow overrides**: Mix workflows within a sprint when needed
+8. **Recompile after changes**: Use `--recompile` after adding steps
 
 ---
 

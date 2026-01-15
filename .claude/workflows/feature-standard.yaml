@@ -1,0 +1,73 @@
+# Standard Feature Development Workflow
+# Used for implementing individual features/steps within a sprint
+
+name: Standard Feature Development
+description: Multi-phase workflow for implementing a single feature with planning, implementation, testing, and documentation.
+
+phases:
+  - id: planning
+    prompt: |
+      Analysiere den Step und erstelle einen Implementierungsplan.
+
+      ## Deine Aufgabe
+      {{step.prompt}}
+
+      ## Anweisungen
+      1. Lies relevante Codebereiche und verstehe den Kontext
+      2. Identifiziere alle betroffenen Dateien
+      3. Erstelle einen klaren Implementierungsplan
+      4. Dokumentiere technische Entscheidungen
+
+      ## Output
+      Schreibe den Plan in context/{{step.id}}-plan.md
+
+  - id: implement
+    prompt: |
+      Implementiere basierend auf dem erstellten Plan.
+
+      ## Deine Aufgabe
+      {{step.prompt}}
+
+      ## Anweisungen
+      1. Lies den Plan aus context/{{step.id}}-plan.md
+      2. Implementiere die Änderungen schrittweise
+      3. Halte dich an bestehende Code-Konventionen
+      4. Committe logische Einheiten separat
+
+      ## Wichtig
+      - Keine übermäßige Abstraktion
+      - Fokus auf die konkrete Aufgabe
+      - Bei Unklarheiten: status auf needs-human setzen
+
+  - id: test
+    prompt: |
+      Schreibe und führe Tests für die Implementierung aus.
+
+      ## Kontext
+      {{step.prompt}}
+
+      ## Anweisungen
+      1. Identifiziere testbare Funktionalität
+      2. Schreibe Unit-Tests für neue Funktionen
+      3. Führe existierende Tests aus
+      4. Behebe gefundene Fehler
+
+      ## Output
+      - Tests müssen alle grün sein
+      - Test-Coverage für neue Funktionen
+
+  - id: document
+    prompt: |
+      Aktualisiere Dokumentation falls nötig.
+
+      ## Kontext
+      {{step.prompt}}
+
+      ## Anweisungen
+      1. Prüfe ob API-Dokumentation aktualisiert werden muss
+      2. Aktualisiere README falls relevant
+      3. Füge Code-Kommentare nur bei komplexer Logik hinzu
+
+      ## Wichtig
+      - Nur dokumentieren wenn nötig
+      - Keine redundante Dokumentation

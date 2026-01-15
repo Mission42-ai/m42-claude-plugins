@@ -1,0 +1,74 @@
+# Standard Sprint Workflow
+# Top-level workflow that orchestrates the entire sprint
+
+name: Standard Sprint
+description: Complete sprint workflow with preparation, development (iterating over steps), QA, and deployment phases.
+
+phases:
+  - id: prepare
+    prompt: |
+      Bereite den Sprint vor.
+
+      ## Anweisungen
+      1. Erstelle einen Sprint-Branch (falls nicht vorhanden)
+         ```bash
+         git checkout -b sprint/{{sprint.id}}
+         ```
+      2. Sammle initialen Kontext für alle Steps
+      3. Prüfe Abhängigkeiten und Voraussetzungen
+      4. Dokumentiere den Sprint-Setup in context/_shared.md
+
+      ## Output
+      - Sprint-Branch erstellt
+      - Kontext gesammelt
+      - Bereit für Development-Phase
+
+  - id: development
+    for-each: step
+    workflow: feature-standard
+
+  - id: qa
+    prompt: |
+      Führe Quality Assurance für den gesamten Sprint durch.
+
+      ## Anweisungen
+      1. Führe die komplette Test-Suite aus
+         ```bash
+         npm test
+         ```
+      2. Führe Linter und Type-Checks aus
+         ```bash
+         npm run lint
+         npm run typecheck
+         ```
+      3. Prüfe auf Security-Vulnerabilities
+         ```bash
+         npm audit
+         ```
+      4. Review alle Änderungen im Sprint-Branch
+
+      ## Output
+      - Alle Tests grün
+      - Keine Linter-Errors
+      - Keine Type-Errors
+      - Security-Check bestanden
+
+  - id: deploy
+    prompt: |
+      Erstelle den Pull Request und finalisiere den Sprint.
+
+      ## Anweisungen
+      1. Stelle sicher dass alle Commits gepusht sind
+         ```bash
+         git push -u origin sprint/{{sprint.id}}
+         ```
+      2. Erstelle einen Pull Request
+         ```bash
+         gh pr create --title "Sprint: {{sprint.id}}" --body "..."
+         ```
+      3. Füge relevante Labels und Reviewer hinzu
+      4. Dokumentiere den Sprint-Abschluss
+
+      ## Output
+      - PR erstellt und bereit für Review
+      - Sprint-Status auf completed setzen

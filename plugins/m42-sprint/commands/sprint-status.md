@@ -7,7 +7,7 @@ model: haiku
 
 # Sprint Status Dashboard
 
-Display current sprint progress with task completion status and statistics.
+Display current sprint progress with hierarchical phase/step/sub-phase status.
 
 ## Preflight Checks
 
@@ -20,44 +20,61 @@ From the preflight output, identify the sprint directory path (e.g., `.claude/sp
 
 Then use the Read tool to read both:
 - `<sprint-dir>/SPRINT.yaml` - sprint configuration
-- `<sprint-dir>/PROGRESS.yaml` - progress tracking
+- `<sprint-dir>/PROGRESS.yaml` - progress tracking with phases hierarchy
 
 ## Task Instructions
 
-1. Parse SPRINT.yaml for sprint name, status, and configuration
-2. Parse PROGRESS.yaml for queue, completed, blocked, and stats
-3. Calculate progress percentage: completed / (completed + queue + blocked)
-4. Display formatted dashboard:
+1. Parse SPRINT.yaml for sprint name and configuration
+2. Parse PROGRESS.yaml for:
+   - `status` - current sprint status
+   - `pointer` - current position (phase/step/sub-phase)
+   - `phases` - hierarchical structure with completion state
+   - `stats` - completion statistics
+3. Calculate progress from stats field or count completed phases
+4. Display formatted hierarchical dashboard:
 
 ```text
-Sprint: {name}
-Status: {status}
-Progress: {completed}/{total} tasks ({percentage}%)
+Sprint: YYYY-MM-DD_name
+Status: in-progress
+Progress: 5/12 phases (41%)
 
-Current Task: {current-task}
-Queue: {queue-count} remaining
-Completed: {completed-count}
-Blocked: {blocked-count}
-
-Tasks:
-[x] {completed-task-id} (timestamp)
-[>] {current-task-id} (in progress)
-[ ] {queued-task-id}
-[!] {blocked-task-id} - {reason}
-
-Stats:
-  Elapsed: {elapsed}
-  Avg Task Time: {avg-task-time}
+Phases:
+[x] prepare (completed)
+[>] development (in-progress)
+    [x] step-1 (4/4 phases)
+    [>] step-2 (2/4 phases)
+        [x] planning
+        [>] implement (current)
+        [ ] test
+        [ ] document
+    [ ] step-3 (0/4 phases)
+[ ] qa (pending)
+[ ] deploy (pending)
 ```
 
-5. Handle edge cases:
+5. Status indicators:
+   - `[x]` - completed phase/step/sub-phase
+   - `[>]` - in-progress (current pointer location)
+   - `[ ]` - pending (not yet started)
+   - `[!]` - blocked (requires intervention)
+
+6. Show current pointer position prominently:
+   - Format: `Current: development > step-2 > implement`
+
+7. Display stats from PROGRESS.yaml:
+   - Phases completed / total
+   - Steps completed / total
+   - Elapsed time if available
+
+8. Handle edge cases:
    - No sprint found: "No active sprint. Use /start-sprint to create one."
-   - Empty queue + no current: Sprint complete or not started
+   - No PROGRESS.yaml: Sprint not yet compiled, show "Run /run-sprint to compile and start"
    - Paused: Show "PAUSED" status prominently
+   - Blocked: Show blocking reason
 
 ## Success Criteria
 
-- Sprint status displayed in readable format
-- All queue, completed, and blocked tasks listed
-- Progress percentage calculated correctly
+- Hierarchical phase structure displayed with proper indentation
+- Current pointer position clearly indicated
+- Completion statistics shown from stats field
 - Actionable next steps shown based on status

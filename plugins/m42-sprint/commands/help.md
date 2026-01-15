@@ -9,15 +9,16 @@ Please explain the following to the user:
 
 ## What is Sprint?
 
-The M42 Sprint plugin provides autonomous task processing for development workflows.
-It processes a queue of tasks sequentially, with each iteration working on one task
-until completion.
+The M42 Sprint plugin provides autonomous workflow-based execution for development sprints.
+It uses a compilation model where SPRINT.yaml defines steps, which are compiled into
+a hierarchical phase structure in PROGRESS.yaml for execution.
 
 **Core concept:**
-- Define a sprint with tasks in a queue
+- Define a sprint with steps in SPRINT.yaml
+- Compilation expands steps into hierarchical phases
 - Run the sprint to start autonomous processing
-- Each task runs with FRESH context (Ralph Loop pattern)
-- Progress is tracked in PROGRESS.yaml
+- Each phase runs with FRESH context (Ralph Loop pattern)
+- Progress tracked hierarchically in PROGRESS.yaml
 - Sprint continues until complete, blocked, or paused
 
 ## Available Commands
@@ -27,21 +28,19 @@ until completion.
 | Command | Description |
 |---------|-------------|
 | `/start-sprint <name>` | Initialize new sprint directory structure |
-| `/run-sprint <dir> [--max-iterations N]` | Start sprint execution loop |
-| `/pause-sprint` | Pause gracefully after current task |
+| `/run-sprint <dir> [--max-iterations N]` | Compile and start sprint execution loop |
+| `/pause-sprint` | Pause gracefully after current phase |
 | `/resume-sprint` | Resume a paused sprint |
 | `/stop-sprint` | Forcefully stop active loop |
-| `/sprint-status` | Show progress dashboard |
+| `/sprint-status` | Show hierarchical progress dashboard |
 
-### Task Management
+### Step Management
 
 | Command | Description |
 |---------|-------------|
-| `/add-task issue <num>` | Add GitHub issue to queue |
-| `/add-task refactor <path> --goal "..."` | Add refactor task |
-| `/add-task docs <path> --changes "..."` | Add documentation task |
-| `/add-task custom --desc "..." --done "..."` | Add custom task |
-| `/import-tasks issues --label <label>` | Bulk import by label |
+| `/add-step <prompt>` | Add step to SPRINT.yaml steps array |
+| `/import-steps issues --label <label>` | Bulk import GitHub issues as steps |
+| `/import-steps file <path.yaml>` | Import steps from YAML file |
 
 ## Quick Start Example
 
@@ -49,11 +48,14 @@ until completion.
 # 1. Create a sprint
 /start-sprint auth-feature
 
-# 2. Add tasks
-/add-task issue 123
-/add-task refactor src/auth/ --goal "Migrate to new patterns"
+# 2. Add steps to SPRINT.yaml
+/add-step "Implement user login API endpoint"
+/add-step "Add authentication middleware"
 
-# 3. Run the sprint
+# Or import from GitHub issues
+/import-steps issues --label sprint-ready
+
+# 3. Run the sprint (compiles and executes)
 /run-sprint .claude/sprints/2026-01-15_auth-feature --max-iterations 20
 
 # 4. Check progress
@@ -64,50 +66,64 @@ until completion.
 
 ```
 .claude/sprints/YYYY-MM-DD_sprint-name/
-  SPRINT.yaml       # Configuration and goals
-  PROGRESS.yaml     # Task queue and execution state
-  context/          # Cached task context
+  SPRINT.yaml       # Configuration with steps array
+  PROGRESS.yaml     # Compiled phases hierarchy (generated)
+  context/          # Cached context files
   artifacts/        # Generated outputs
 ```
 
-## Task Types
+## Workflow Architecture
 
-| Type | Purpose | Done-When |
-|------|---------|-----------|
-| `implement-issue` | GitHub issue implementation | PR merged or issue closed |
-| `refactor` | Code improvement | Tests pass, goal achieved |
-| `update-docs` | Documentation updates | Docs validated |
-| `custom` | Arbitrary work | Custom criteria met |
+The sprint uses a **compilation model**:
+
+1. **SPRINT.yaml** - Source definition with steps:
+   ```yaml
+   steps:
+     - prompt: "Implement feature X"
+     - prompt: "Add tests for feature X"
+   ```
+
+2. **Compilation** - Steps expand into phases:
+   - Each step becomes a development phase
+   - Each phase has sub-phases: planning, implement, test, document
+   - Creates hierarchical structure in PROGRESS.yaml
+
+3. **Execution** - Phases run sequentially:
+   - Pointer tracks current phase/step/sub-phase
+   - Fresh context per phase (Ralph Loop)
+   - Progress persisted after each phase
 
 ## Loop Mechanism
 
-The sprint uses the **Ralph Loop pattern** with fresh context per task:
+The sprint uses the **Ralph Loop pattern** with fresh context per phase:
 
-1. `/run-sprint` launches sprint-loop.sh in background
-2. Bash loop invokes `claude -p` for ONE task (fresh context)
-3. Claude executes the task and updates PROGRESS.yaml
-4. Claude exits, releasing context
-5. Bash loop checks PROGRESS.yaml status
-6. If not complete, starts NEW Claude with fresh context
-7. Continues until complete, blocked, or paused
+1. `/run-sprint` compiles SPRINT.yaml to PROGRESS.yaml
+2. Launches sprint-loop.sh in background
+3. Bash loop invokes `claude -p` for ONE phase (fresh context)
+4. Claude executes the phase and updates pointer
+5. Claude exits, releasing context
+6. Bash loop checks PROGRESS.yaml status
+7. If not complete, starts NEW Claude with fresh context
+8. Continues until complete, blocked, or paused
 
 **Status Values:**
-- `completed` - All tasks done, queue empty
-- `blocked` - Current task cannot proceed
+- `completed` - All phases done
+- `blocked` - Current phase cannot proceed
 - `paused` - Pause was requested
 - `needs-human` - Human decision required
 
 **Key Benefits:**
-- 100% context utilization per task
-- No accumulated context between tasks
+- 100% context utilization per phase
+- No accumulated context between phases
+- Hierarchical progress tracking
 - Reliable for long sprints
 
 ## When to Use Sprint
 
 **Good for:**
-- Processing multiple related tasks
+- Processing multiple related development steps
 - Autonomous development workflows
-- Tasks with clear completion criteria
+- Steps with clear completion criteria
 - Batch implementation of issues
 
 **Not good for:**
@@ -120,6 +136,7 @@ The sprint uses the **Ralph Loop pattern** with fresh context per task:
 - Always set `--max-iterations` as a safety limit
 - Use `/pause-sprint` for graceful stops
 - Use `/stop-sprint` for immediate stops
-- Check `/sprint-status` to monitor progress
-- Keep sprints focused: 5-10 related tasks
+- Check `/sprint-status` to monitor hierarchical progress
+- Keep sprints focused: 5-10 related steps
 - Requires `yq` installed for YAML processing
+- Recompilation happens automatically on `/run-sprint`

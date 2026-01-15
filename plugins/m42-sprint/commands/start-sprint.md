@@ -7,7 +7,7 @@ model: sonnet
 
 # Start Sprint Command
 
-Initialize a new sprint directory with required YAML configuration files.
+Initialize a new sprint directory with workflow-based configuration.
 
 ## Preflight Checks
 
@@ -19,7 +19,10 @@ Before proceeding, verify the following:
 2. **Sprints directory exists**: Check `.claude/sprints/` directory exists
    - If not, create it: `mkdir -p .claude/sprints/`
 
-3. **Sprint does not already exist**: Check if sprint directory already exists
+3. **Workflows directory exists**: Check `.claude/workflows/` directory exists
+   - If not, warn user: "No workflows found. Create workflows in .claude/workflows/ first."
+
+4. **Sprint does not already exist**: Check if sprint directory already exists
    - Pattern: `.claude/sprints/*_$ARGUMENTS/`
    - If exists, abort with message: "Sprint '$ARGUMENTS' already exists at [path]"
 
@@ -30,9 +33,10 @@ Before proceeding, verify the following:
    date +%Y-%m-%d
    ```
 
-2. Reference templates from orchestrating-sprints skill:
-   - Sprint template: `plugins/m42-sprint/skills/orchestrating-sprints/assets/sprint-template.yaml`
-   - Progress template: `plugins/m42-sprint/skills/orchestrating-sprints/assets/progress-template.yaml`
+2. List available workflows:
+   ```bash
+   ls .claude/workflows/*.yaml 2>/dev/null || echo "No workflows found"
+   ```
 
 ## Task Instructions
 
@@ -43,91 +47,54 @@ Create the sprint directory with the naming convention `YYYY-MM-DD_<sprint-name>
 ```
 .claude/sprints/YYYY-MM-DD_<sprint-name>/
   - SPRINT.yaml
-  - PROGRESS.yaml
   - context/
   - artifacts/
 ```
 
+Note: PROGRESS.yaml is NOT created here - it will be compiled from SPRINT.yaml when running `/run-sprint`.
+
 ### Step 2: Create SPRINT.yaml
 
-Read the sprint template and generate SPRINT.yaml with populated values:
-
-1. Read template from: `plugins/m42-sprint/skills/orchestrating-sprints/assets/sprint-template.yaml`
-2. Perform the following substitutions:
-   - Replace `YYYY-MM-DD_sprint-name` → `<date>_<sprint-name>` (from Step 1)
-   - Replace `Sprint Name` → `<sprint-name>`
-   - Replace `YYYY-MM-DDTHH:MM:SSZ` → current ISO timestamp
-   - Replace `owner/repo` → `null` (or actual repo if known)
-3. Write to: `.claude/sprints/<date>_<sprint-name>/SPRINT.yaml`
-
-Alternatively, generate inline with these values:
+Generate SPRINT.yaml with the workflow-based format:
 
 ```yaml
-# SPRINT.yaml - Sprint Configuration
+# SPRINT.yaml - Workflow-based Sprint Definition
+# This file is compiled into PROGRESS.yaml by /run-sprint
+
+workflow: sprint-default    # Reference to .claude/workflows/sprint-default.yaml
+
+steps:
+  # Add your steps here. Each step will be processed through the workflow.
+  # Example:
+  # - prompt: |
+  #     Implement user authentication with JWT.
+  #     Requirements:
+  #     - Login endpoint
+  #     - Token refresh
+  #     - Logout
+  #
+  # - prompt: |
+  #     Fix: Password reset emails not sending.
+  #   workflow: bugfix-workflow  # Optional: use different workflow for this step
+
+# Sprint metadata (optional)
 sprint-id: YYYY-MM-DD_<sprint-name>
 name: <sprint-name>
 created: <current-iso-timestamp>
-owner: claude
-
-config:
-  max-tasks: 10
-  time-box: 4h
-  auto-commit: true
-  context-cache: true
-  parallel: false
-
-github:
-  repo: null
-  milestone: null
-  labels: []
-
-goals:
-  - Define sprint objectives here
-
-notes: |
-  Sprint initialized. Add tasks using ralph-loop or manual queue editing.
 ```
 
-### Step 3: Create PROGRESS.yaml
+Replace placeholders with actual values:
+- `YYYY-MM-DD` → current date
+- `<sprint-name>` → provided sprint name
+- `<current-iso-timestamp>` → current ISO timestamp
 
-Read the progress template and generate PROGRESS.yaml with initial state:
-
-1. Read template from: `plugins/m42-sprint/skills/orchestrating-sprints/assets/progress-template.yaml`
-2. Perform the following substitutions:
-   - Replace `YYYY-MM-DD_sprint-name` → `<date>_<sprint-name>` (from Step 1)
-3. Write to: `.claude/sprints/<date>_<sprint-name>/PROGRESS.yaml`
-
-Alternatively, generate inline with these values:
-
-```yaml
-# PROGRESS.yaml - Sprint Progress Tracking
-sprint-id: YYYY-MM-DD_<sprint-name>
-status: not-started
-current-task: null
-
-queue: []
-
-completed: []
-
-blocked: []
-
-stats:
-  started-at: null
-  completed-at: null
-  tasks-total: 0
-  tasks-completed: 0
-  tasks-blocked: 0
-  elapsed: null
-  avg-task-time: null
-```
-
-### Step 4: Create Subdirectories
+### Step 3: Create Subdirectories
 
 Create the following subdirectories:
-- `context/` - For sprint context files and research
+- `context/` - For sprint context files and cached research
 - `artifacts/` - For sprint outputs and deliverables
 
-### Step 5: Output Success Message
+### Step 4: Output Success Message
 
 After successful creation, display:
 
@@ -137,23 +104,31 @@ Sprint initialized successfully!
 Location: .claude/sprints/YYYY-MM-DD_<sprint-name>/
 
 Created files:
-  - SPRINT.yaml (configuration)
-  - PROGRESS.yaml (progress tracking)
+  - SPRINT.yaml (workflow definition)
   - context/ (context files)
   - artifacts/ (output files)
 
+Available workflows:
+  - sprint-default (standard sprint with prepare/dev/qa/deploy)
+  - feature-standard (planning/implement/test/document per step)
+  - bugfix-workflow (diagnose/fix/verify)
+
 Next steps:
-  1. Edit SPRINT.yaml to define sprint goals
-  2. Add tasks to the queue:
-     - Use `/ralph-loop` to start task processing
-     - Or manually edit PROGRESS.yaml queue
-  3. Run `/ralph-loop` to begin sprint execution
+  1. Edit SPRINT.yaml to add your steps:
+     ```yaml
+     steps:
+       - prompt: |
+           Your first task description here.
+       - prompt: |
+           Your second task description here.
+     ```
+  2. Run `/run-sprint .claude/sprints/YYYY-MM-DD_<sprint-name>` to compile and execute
+  3. Use `--dry-run` first to preview the workflow
 ```
 
 ## Success Criteria
 
 - Directory `.claude/sprints/YYYY-MM-DD_<sprint-name>/` exists
-- `SPRINT.yaml` contains valid YAML with correct sprint-id
-- `PROGRESS.yaml` contains valid YAML with status "not-started"
+- `SPRINT.yaml` contains valid YAML with `workflow:` and `steps:` keys
 - `context/` and `artifacts/` subdirectories exist
-- User receives clear next-steps guidance
+- User receives clear guidance on adding steps and running the sprint

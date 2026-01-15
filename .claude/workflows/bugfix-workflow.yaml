@@ -1,0 +1,52 @@
+# Bugfix Workflow
+# Streamlined workflow for fixing bugs quickly
+
+name: Bugfix Workflow
+description: Focused workflow for diagnosing and fixing bugs with minimal overhead.
+
+phases:
+  - id: diagnose
+    prompt: |
+      Diagnostiziere den Bug und finde die Ursache.
+
+      ## Bug-Beschreibung
+      {{step.prompt}}
+
+      ## Anweisungen
+      1. Reproduziere den Bug falls möglich
+      2. Analysiere relevante Logs und Fehlermeldungen
+      3. Identifiziere die Root Cause
+      4. Dokumentiere die Diagnose
+
+      ## Output
+      Kurze Zusammenfassung der Ursache in context/{{step.id}}-diagnosis.md
+
+  - id: fix
+    prompt: |
+      Implementiere den Fix für den Bug.
+
+      ## Bug-Beschreibung
+      {{step.prompt}}
+
+      ## Anweisungen
+      1. Lies die Diagnose aus context/{{step.id}}-diagnosis.md
+      2. Implementiere den minimalen Fix
+      3. Vermeide Scope Creep - nur den Bug fixen
+      4. Committe den Fix
+
+      ## Wichtig
+      - Kleinster möglicher Change
+      - Keine Refactorings im Bug-Fix
+
+  - id: verify
+    prompt: |
+      Verifiziere dass der Bug behoben ist.
+
+      ## Bug-Beschreibung
+      {{step.prompt}}
+
+      ## Anweisungen
+      1. Stelle sicher dass der Bug nicht mehr auftritt
+      2. Führe relevante Tests aus
+      3. Prüfe auf Regressionen
+      4. Füge einen Regression-Test hinzu falls sinnvoll
