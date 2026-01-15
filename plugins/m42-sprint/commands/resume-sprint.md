@@ -12,34 +12,35 @@ Resume execution of a paused sprint.
 ## Preflight Checks
 
 Find the most recent sprint directory:
-!`ls -dt .claude/sprints/*/ 2>/dev/null | head -1 || echo "NO_SPRINT"`
+```bash
+ls -dt .claude/sprints/*/ 2>/dev/null | head -1
+```
 
 ## Context
 
 From the preflight output, identify the sprint directory path (e.g., `.claude/sprints/YYYY-MM-DD_name/`).
 
 Then use the Read tool to read:
-- `<sprint-dir>/PROGRESS.yaml` - to check current status and pause state
+- `<sprint-dir>/PROGRESS.yaml` - to check current status
 
 ## Task Instructions
 
-1. Verify sprint status is "paused"
-   - If "in-progress": "Sprint is already running."
+1. **Verify sprint status is "paused":**
+   - If "in-progress": "Sprint is already running. Use /sprint-status to check."
    - If "not-started": "Sprint not started. Use /run-sprint."
    - If "completed": "Sprint completed. Nothing to resume."
 
-2. Edit PROGRESS.yaml to clear pause flag:
-   ```yaml
-   pause-requested: false
-   ```
-   Or remove the pause-requested field entirely.
+2. **Update PROGRESS.yaml status:**
 
-3. Edit SPRINT.yaml to update status:
+   Edit PROGRESS.yaml to set status back to "in-progress":
    ```yaml
-   status: "in-progress"
+   status: in-progress
    ```
 
-4. Output instructions:
+   Also remove any `pause-requested: true` field if present.
+
+3. **Output instructions:**
+
    ```text
    Sprint resumed: {name}
 
@@ -47,11 +48,18 @@ Then use the Read tool to read:
    Queue: {queue-count} tasks remaining
    Next task: {next-task-id}
 
-   Run /run-sprint to continue execution.
+   To start processing tasks:
+   /run-sprint {sprint-dir}
    ```
+
+## Notes
+
+The resume command only updates the status. To actually start processing
+tasks again, the user needs to run `/run-sprint` which will launch the
+sprint-loop.sh bash loop with fresh context per task.
 
 ## Success Criteria
 
-- pause-requested cleared from PROGRESS.yaml
-- SPRINT.yaml status changed to "in-progress"
+- PROGRESS.yaml status set to "in-progress"
+- pause-requested field removed if present
 - User instructed to run /run-sprint to continue

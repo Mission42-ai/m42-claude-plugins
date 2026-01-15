@@ -54,7 +54,6 @@ claude plugin add https://github.com/mission42-ai/m42-sprint-plugin
 .claude/sprints/YYYY-MM-DD_sprint-name/
 ├── SPRINT.yaml       # Configuration
 ├── PROGRESS.yaml     # Task queue and state
-├── loop-state.md     # Active loop state (when running)
 ├── context/          # Cached context
 └── artifacts/        # Outputs
 ```
@@ -75,29 +74,39 @@ Arbitrary task with explicit description and completion criteria.
 
 ## Loop Mechanism
 
-The sprint uses a stop-hook mechanism for continuous task processing:
+The sprint uses the **Ralph Loop pattern** for autonomous task processing with fresh context per task:
 
-1. `/run-sprint` initializes `loop-state.md` in the sprint directory
-2. Claude receives the sprint processing prompt
-3. Executes one task from the queue (6-phase workflow)
-4. Attempts to exit the session
-5. Stop hook intercepts and feeds the same prompt back
-6. Claude sees updated PROGRESS.yaml with next task
-7. Continues until a completion promise is detected
+1. `/run-sprint` launches `sprint-loop.sh` as a background task
+2. Bash loop invokes `claude -p` for ONE task (fresh context)
+3. Claude executes the task from the queue
+4. Updates PROGRESS.yaml and exits
+5. Bash loop checks status from PROGRESS.yaml
+6. If not complete, starts NEW Claude invocation with fresh context
+7. Continues until completed, blocked, or paused
 
-**Completion Promises:**
-- `<promise>SPRINT COMPLETE</promise>` - All tasks done, queue empty
-- `<promise>SPRINT BLOCKED</promise>` - Current task cannot proceed
-- `<promise>SPRINT PAUSED</promise>` - Pause was requested
+**Status Values:**
+- `completed` - All tasks done, queue empty
+- `blocked` - Current task cannot proceed
+- `paused` - Pause was requested
+- `needs-human` - Human decision required
+
+**Key Benefits:**
+- 100% context utilization per task (no accumulation)
+- Reliable for long sprints
+- Status-based control via PROGRESS.yaml
 
 ## State Management
 
 All sprint state is contained within the sprint directory:
 - **SPRINT.yaml** - Sprint configuration and goals
-- **PROGRESS.yaml** - Task queue, completed/blocked lists, stats
-- **loop-state.md** - Active loop iteration and prompt (only exists during execution)
+- **PROGRESS.yaml** - Task queue, completed/blocked lists, stats, status
 
 This sprint-contained approach allows multiple sprints to exist simultaneously.
+
+## Requirements
+
+- Claude Code CLI
+- `yq` for YAML processing: `brew install yq` (macOS) or `snap install yq` (Linux)
 
 ## Structure
 
@@ -115,16 +124,17 @@ m42-sprint-plugin/
 │   ├── resume-sprint.md
 │   ├── stop-sprint.md
 │   └── help.md
-├── hooks/
-│   ├── hooks.json
-│   └── stop-hook.sh
 ├── scripts/
+│   ├── sprint-loop.sh
+│   ├── build-sprint-prompt.sh
 │   └── setup-sprint-loop.sh
 ├── skills/
 │   └── orchestrating-sprints/
 │       ├── SKILL.md
 │       ├── references/
 │       └── assets/
+├── docs/
+│   └── USER-GUIDE.md
 └── README.md
 ```
 

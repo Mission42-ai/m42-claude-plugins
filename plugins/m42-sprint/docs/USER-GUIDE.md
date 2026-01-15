@@ -23,7 +23,7 @@ M42 Sprint is a Claude Code plugin that enables autonomous task queue processing
 
 - **Sprint**: A container for related tasks with shared context
 - **Task Queue**: Ordered list of work items to process
-- **Loop Mechanism**: Autonomous iteration using stop-hooks
+- **Loop Mechanism**: Bash loop with fresh Claude context per task (Ralph Loop pattern)
 - **Progress Tracking**: YAML-based state management
 
 ### When to Use Sprint
@@ -137,10 +137,15 @@ Start autonomous task processing.
 **Arguments:**
 - `<directory>` - Path to sprint directory (required)
 - `--max-iterations N` - Safety limit (default: 10)
+- `--dry-run` - Preview tasks without executing
 
-**Example:**
+**Examples:**
 ```bash
+# Start sprint execution
 /run-sprint .claude/sprints/2026-01-15_auth --max-iterations 30
+
+# Preview tasks without running
+/run-sprint .claude/sprints/2026-01-15_auth --dry-run
 ```
 
 #### `/sprint-status`
@@ -162,7 +167,7 @@ Resume a paused sprint. Clears pause flag, shows next task.
 
 #### `/stop-sprint`
 
-Force immediate stop. Removes loop state, sets status to paused.
+Force immediate stop. Sets status to paused, causing the background loop to exit.
 
 ### Task Management
 
@@ -449,15 +454,17 @@ stats:
 **Check:**
 1. Sprint directory exists: `ls .claude/sprints/`
 2. PROGRESS.yaml has tasks: Check `queue` is not empty
-3. No active loop: Delete `loop-state.md` if stuck
+3. Status is not "completed" or "blocked"
+4. `yq` is installed (required for YAML parsing)
 
 **Fix:**
 ```bash
-# Remove stale loop state
-rm .claude/sprints/*/loop-state.md
-
 # Verify queue has tasks
 cat .claude/sprints/2026-01-15_my-sprint/PROGRESS.yaml
+
+# Install yq if missing
+brew install yq  # macOS
+snap install yq  # Linux
 ```
 
 ### Sprint stuck on task
@@ -526,22 +533,23 @@ ls -la .claude/sprints/
 /start-sprint my-sprint
 ```
 
-### Loop state corrupted
+### Background loop not running
 
-**Symptom:** Strange behavior, partial iterations
+**Symptom:** Sprint started but no progress
+
+**Check:**
+1. Use `/tasks` to see if background task is running
+2. Check PROGRESS.yaml status
 
 **Fix:**
 ```bash
-# Stop the sprint
+# Stop any stale state
 /stop-sprint
-
-# Remove loop state
-rm .claude/sprints/*/loop-state.md
 
 # Check PROGRESS.yaml is valid YAML
 cat .claude/sprints/my-sprint/PROGRESS.yaml
 
-# Restart
+# Set status to in-progress if needed, then restart
 /run-sprint .claude/sprints/my-sprint
 ```
 

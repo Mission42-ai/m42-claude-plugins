@@ -12,12 +12,11 @@ Request sprint to pause gracefully after current task completes.
 ## Preflight Checks
 
 1. Find the latest sprint directory:
-   !`ls -dt .claude/sprints/*/ 2>/dev/null | head -1 || echo "NO_SPRINT"`
+   ```bash
+   ls -dt .claude/sprints/*/ 2>/dev/null | head -1
+   ```
 
-2. From the output above, identify the sprint directory path (e.g., `.claude/sprints/YYYY-MM-DD_name/`)
-
-3. Check if loop is active by testing for loop-state.md:
-   !`test -f .claude/sprints/*/loop-state.md && ls .claude/sprints/*/loop-state.md 2>/dev/null || echo "NO_ACTIVE_LOOP"`
+2. Check if PROGRESS.yaml exists in that directory
 
 ## Context
 
@@ -26,41 +25,52 @@ Using the sprint directory identified in preflight, use the Read tool to read:
 
 ## Task Instructions
 
-1. Verify sprint status is "in-progress"
+1. **Verify sprint status is "in-progress":**
    - If "not-started": "Sprint has not started. Nothing to pause."
-   - If "paused": "Sprint already paused. Use /resume-sprint."
+   - If "paused": "Sprint already paused. Use /resume-sprint to continue."
    - If "completed": "Sprint completed. Nothing to pause."
 
-2. Check for active loop:
-   - If `loop-state.md` exists in sprint directory: Loop is active
-   - Include in output: "Current task will complete before pausing."
+2. **Set status to paused:**
 
-3. Edit PROGRESS.yaml to add pause flag:
+   Edit PROGRESS.yaml to set:
    ```yaml
-   pause-requested: true
+   status: paused
    ```
 
-4. Edit SPRINT.yaml to update status:
-   ```yaml
-   status: "pausing"
-   ```
+   The sprint-loop.sh background process checks PROGRESS.yaml status after
+   each task iteration. When it sees "paused", it exits gracefully.
 
-5. Output confirmation:
+3. **Output confirmation:**
+
    ```text
    Pause requested for sprint: {name}
 
    Current task will complete before pausing.
-   Status: pausing
+   Status: paused
 
    The sprint loop will stop after the current iteration completes.
 
    Use /resume-sprint to continue.
    Use /sprint-status to check progress.
-   Use /stop-sprint to force immediate stop.
+   Use /stop-sprint for immediate stop (kills task mid-execution).
    ```
+
+## How Pausing Works
+
+The sprint loop follows the Ralph Loop pattern with fresh context per task.
+It runs as a background bash loop that:
+
+1. Invokes `claude -p` for ONE task
+2. Waits for Claude to complete and exit
+3. Checks PROGRESS.yaml status
+4. If status is "paused" → exits gracefully
+5. Otherwise → continues to next task
+
+Setting status to "paused" causes the loop to exit after the current
+task completes (at the status check step).
 
 ## Success Criteria
 
-- pause-requested: true set in PROGRESS.yaml
-- SPRINT.yaml status changed to "pausing"
+- PROGRESS.yaml status set to "paused"
 - User informed of graceful pause behavior
+- User given options for resuming, checking status, or forcing stop

@@ -46,20 +46,29 @@ sprints/
 | `sprint status` | Show current progress |
 | `run sprint` | Start ralph-loop processing |
 
-## Ralph-Loop Integration
+## Ralph Loop Integration
 
-Sprint execution uses ralph-loop for autonomous task processing:
+Sprint execution uses the Ralph Loop pattern for autonomous task processing with **fresh context per task**:
 
 ```yaml
-# PROGRESS.yaml task queue drives ralph-loop
-current-task: implement-issue-42
+# PROGRESS.yaml task queue drives the sprint loop
+status: in-progress
 queue:
-  - implement-issue-42
-  - refactor-auth-module
-  - update-docs-api
+  - id: implement-issue-42
+    type: implement-issue
+    ...
+  - id: refactor-auth-module
+    type: refactor
+    ...
 ```
 
-Ralph-loop reads next task from queue, executes with cached context, updates PROGRESS.yaml on completion, advances to next task.
+The sprint loop is a bash script that:
+1. Invokes `claude -p` for ONE task (fresh context)
+2. Waits for Claude to complete and exit
+3. Checks PROGRESS.yaml status
+4. Continues to next task or exits based on status
+
+This ensures 100% context utilization - no accumulated context between tasks.
 
 ## References
 
@@ -77,13 +86,14 @@ Ralph-loop reads next task from queue, executes with cached context, updates PRO
 
 | Issue | Cause | Resolution |
 |-------|-------|------------|
-| Ralph-loop exits early | Missing PROGRESS.yaml or malformed task | Validate YAML syntax, ensure `current-task` points to valid task ID |
+| Sprint loop exits early | Missing PROGRESS.yaml or malformed task | Validate YAML syntax, ensure queue has valid tasks |
 | Task stuck in queue | Incomplete done-when criteria | Check task completion criteria, manually update status if needed |
 | Context not cached | First run or cache invalidated | Normal behavior; context rebuilds on next task |
 | Sprint status stale | PROGRESS.yaml not updated | Re-run `sprint status` or check file permissions |
 | Import fails | Invalid issue numbers or permissions | Verify GitHub CLI auth (`gh auth status`), check issue exists |
+| yq not found | yq not installed | Install yq: `brew install yq` (macOS) or `snap install yq` (Linux) |
 
 **Recovery Procedures:**
 - Task failure: Update task status to `blocked`, add `blocked-reason`, continue with next task
-- Sprint abort: Set sprint status to `aborted` in SPRINT.yaml, document reason
-- Resume after error: Fix underlying issue, run `run sprint` to continue from current task
+- Sprint abort: Set sprint status to `aborted` in PROGRESS.yaml, document reason
+- Resume after error: Fix underlying issue, run `/run-sprint` to continue from current task

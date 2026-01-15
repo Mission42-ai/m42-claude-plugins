@@ -1,13 +1,16 @@
 #!/bin/bash
 
 # Sprint Loop Setup Script
-# Creates state file for sprint execution loop
+# Validates sprint directory and prepares for execution
+# No longer creates stop-hook state file (using bash loop pattern instead)
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # Parse arguments
 SPRINT_DIR=""
-MAX_ITERATIONS=10
+MAX_ITERATIONS=30
 
 # First positional argument is sprint directory
 if [[ $# -gt 0 ]] && [[ ! "$1" =~ ^-- ]]; then
@@ -20,7 +23,7 @@ while [[ $# -gt 0 ]]; do
   case $1 in
     -h|--help)
       cat << 'HELP_EOF'
-Sprint Loop Setup - Initialize sprint execution loop
+Sprint Loop Setup - Prepare sprint for execution
 
 USAGE:
   setup-sprint-loop.sh <sprint-dir> [OPTIONS]
@@ -29,15 +32,16 @@ ARGUMENTS:
   sprint-dir    Path to sprint directory (required)
 
 OPTIONS:
-  --max-iterations <n>    Maximum iterations before auto-stop (default: 10)
+  --max-iterations <n>    Maximum iterations to pass to sprint-loop.sh (default: 30)
   -h, --help              Show this help message
 
 DESCRIPTION:
-  Creates loop-state.md in the sprint directory to enable the stop hook
-  to intercept exit attempts and continue processing the task queue.
+  Validates the sprint directory structure and prepares for execution.
+  Then launches sprint-loop.sh which invokes Claude with fresh context
+  for each task iteration.
 
 EXAMPLE:
-  setup-sprint-loop.sh .claude/sprints/2026-01-15_my-sprint --max-iterations 30
+  setup-sprint-loop.sh .claude/sprints/2026-01-15_my-sprint --max-iterations 50
 HELP_EOF
       exit 0
       ;;
@@ -73,105 +77,62 @@ if [[ ! -f "$SPRINT_DIR/PROGRESS.yaml" ]]; then
   exit 1
 fi
 
-# Check for existing active loop
-if [[ -f "$SPRINT_DIR/loop-state.md" ]]; then
-  echo "Error: Sprint loop already active in: $SPRINT_DIR" >&2
-  echo "Use /stop-sprint to stop the current loop first." >&2
+# Check for yq (required for YAML operations)
+if ! command -v yq &> /dev/null; then
+  echo "Error: yq is required but not installed" >&2
+  echo "Install with: brew install yq (macOS) or snap install yq (Linux)" >&2
   exit 1
 fi
 
-# Build the sprint execution prompt
+# Clean up any old loop-state.md files (migration from stop-hook pattern)
+if [[ -f "$SPRINT_DIR/loop-state.md" ]]; then
+  echo "Cleaning up old loop-state.md file (migrating from stop-hook pattern)..."
+  rm "$SPRINT_DIR/loop-state.md"
+fi
+
+# Create context directory if it doesn't exist
+mkdir -p "$SPRINT_DIR/context"
+
+# Update sprint status if needed
+CURRENT_STATUS=$(yq -r '.status // "not-started"' "$SPRINT_DIR/PROGRESS.yaml")
+if [[ "$CURRENT_STATUS" == "not-started" ]]; then
+  echo "Updating sprint status to in-progress..."
+  yq -i '.status = "in-progress"' "$SPRINT_DIR/PROGRESS.yaml"
+fi
+
+# Record start time if not set
+STARTED_AT=$(yq -r '.stats["started-at"] // null' "$SPRINT_DIR/PROGRESS.yaml")
+if [[ "$STARTED_AT" == "null" ]]; then
+  echo "Recording sprint start time..."
+  yq -i ".stats[\"started-at\"] = \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"" "$SPRINT_DIR/PROGRESS.yaml"
+fi
+
+# Get queue info
+QUEUE_LENGTH=$(yq -r '.queue | length' "$SPRINT_DIR/PROGRESS.yaml")
+
+if [[ "$QUEUE_LENGTH" == "0" ]]; then
+  echo "Warning: Task queue is empty. Nothing to execute."
+  exit 0
+fi
+
+# Output setup summary
 SPRINT_NAME=$(basename "$SPRINT_DIR")
-COMPLETION_PROMISE="SPRINT COMPLETE|SPRINT BLOCKED|SPRINT PAUSED"
-
-PROMPT="Process sprint task queue from $SPRINT_DIR.
-
-## Workflow Per Task
-
-1. Read PROGRESS.yaml to get current-task from queue[0]
-2. Note the task started-at time (record current ISO timestamp for elapsed tracking)
-3. Check if task has a 'command' field
-4. If command exists: invoke the command to get task-specific workflow instructions
-5. If no command: execute task using task-type conventions
-6. Follow the workflow instructions to complete the task
-7. Update PROGRESS.yaml:
-   - Remove task from queue
-   - Add to completed with: completed-at timestamp, elapsed duration, summary
-   - Increment stats.tasks-completed
-8. Output a summary of what was accomplished
-9. END TURN (do not continue to next task inline)
-
-## Elapsed Time Format
-
-When adding completed tasks, include elapsed duration:
-\`\`\`yaml
-completed:
-  - id: task-id
-    # ... other fields ...
-    completed-at: 2026-01-15T10:30:00Z
-    elapsed: 15m  # or 1h 30m for longer tasks
-    summary: \"Brief description of what was done\"
-\`\`\`
-
-## Loop Control
-
-After each task completion, check exit conditions:
-- If pause-requested in PROGRESS.yaml is true: <promise>SPRINT PAUSED</promise>
-- If queue is empty: <promise>SPRINT COMPLETE</promise>
-- If task is blocked: update status, add to blocked list, <promise>SPRINT BLOCKED</promise>
-
-The stop hook will trigger the next iteration automatically."
-
-# Create state file in sprint directory
-cat > "$SPRINT_DIR/loop-state.md" <<EOF
----
-active: true
-iteration: 1
-max_iterations: $MAX_ITERATIONS
-completion_promise: "$COMPLETION_PROMISE"
-started_at: "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-sprint_dir: "$SPRINT_DIR"
----
-
-$PROMPT
-EOF
-
-# Output setup message
 cat <<EOF
-Sprint loop activated!
+
+Sprint Setup Complete
+=====================
 
 Sprint: $SPRINT_NAME
-Location: $SPRINT_DIR
-Iteration: 1
-Max iterations: $(if [[ $MAX_ITERATIONS -gt 0 ]]; then echo $MAX_ITERATIONS; else echo "unlimited"; fi)
+Directory: $SPRINT_DIR
+Status: $(yq -r '.status' "$SPRINT_DIR/PROGRESS.yaml")
+Tasks in queue: $QUEUE_LENGTH
+Max iterations: $MAX_ITERATIONS
 
-The stop hook is now active. When you try to exit, the sprint prompt will be
-fed back to continue processing the task queue.
-
-Stop conditions (output as <promise>TEXT</promise>):
-  - SPRINT COMPLETE - All tasks processed
-  - SPRINT BLOCKED - Current task cannot proceed
-  - SPRINT PAUSED - Pause was requested via /pause-sprint
-
-To monitor: cat "$SPRINT_DIR/loop-state.md" | head -10
-To stop: /stop-sprint
+Ready to launch sprint loop with fresh context per iteration.
 
 EOF
 
-# Echo the prompt to start processing
+# Output the command to run (for reference)
+echo "Sprint loop command:"
+echo "  $SCRIPT_DIR/sprint-loop.sh \"$SPRINT_DIR\" --max-iterations $MAX_ITERATIONS"
 echo ""
-echo "$PROMPT"
-
-# Display completion requirements
-echo ""
-echo "============================================================"
-echo "SPRINT LOOP ACTIVE"
-echo "============================================================"
-echo ""
-echo "To complete this sprint, output one of these EXACT texts:"
-echo "  <promise>SPRINT COMPLETE</promise>  - When queue is empty"
-echo "  <promise>SPRINT BLOCKED</promise>   - When task is blocked"
-echo "  <promise>SPRINT PAUSED</promise>    - When pause requested"
-echo ""
-echo "IMPORTANT: Only output when the condition is TRUE."
-echo "============================================================"
