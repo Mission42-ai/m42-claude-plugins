@@ -41,6 +41,7 @@ When argument starts with `issue`:
    ```yaml
    - id: implement-issue-<number>
      type: implement-issue
+     command: null  # Optional: task-specific workflow command
      issue-number: <number>
      title: "<issue title>"
      priority: medium
@@ -62,6 +63,7 @@ When argument starts with `refactor`:
    ```yaml
    - id: refactor-<name>
      type: refactor
+     command: null  # Optional: task-specific workflow command
      target-path: <path>
      goal: "<goal>"
      priority: medium
@@ -83,6 +85,7 @@ When argument starts with `docs`:
    ```yaml
    - id: update-docs-<name>
      type: update-docs
+     command: null  # Optional: task-specific workflow command
      doc-path: <path>
      changes: "<changes>"
      priority: low
@@ -100,6 +103,7 @@ When argument starts with `custom`:
    ```yaml
    - id: custom-<slug>
      type: custom
+     command: null  # Optional: task-specific workflow command
      description: "<description>"
      done-when: "<done criteria>"
      priority: medium

@@ -88,48 +88,23 @@ PROMPT="Process sprint task queue from $SPRINT_DIR.
 
 ## Workflow Per Task
 
-Read PROGRESS.yaml to get current-task from queue[0].
-
-Execute task using 6-phase workflow:
-
-**Phase 1 - Context:**
-- Read task definition from PROGRESS.yaml
-- Gather context for task type (issue data, target files, etc.)
-- Cache context in sprint context/ directory
-
-**Phase 2 - Planning:**
-- Create TodoWrite breakdown with 15-30 min granularity
-- Identify parallelizable work units
-
-**Phase 3 - Execution:**
-- Implement the task following task-type patterns
-- Make atomic commits with task ID reference
-- Delegate to subagents where appropriate
-
-**Phase 4 - Quality:**
-- Run: npm run build
-- Run: npm run typecheck
-- Run: npm run lint
-- Run: npm run test
-- If any fail, fix issues before proceeding
-
-**Phase 5 - Progress:**
-- Remove task from queue in PROGRESS.yaml
-- Add task to completed with timestamp
-- Update stats (tasks-completed count)
-
-**Phase 6 - Learning:**
-- Document any blockers encountered
-- Record patterns discovered
-- Note process improvements
+1. Read PROGRESS.yaml to get current-task from queue[0]
+2. Check if task has a 'command' field
+3. If command exists: invoke the command to get task-specific workflow instructions
+4. If no command: execute task using task-type conventions
+5. Follow the workflow instructions to complete the task
+6. Update PROGRESS.yaml (remove from queue, add to completed, update stats)
+7. Output a summary of what was accomplished
+8. END TURN (do not continue to next task inline)
 
 ## Loop Control
 
-After completing a task:
-- Check pause-requested in PROGRESS.yaml; if true: <promise>SPRINT PAUSED</promise>
+After each task completion, check exit conditions:
+- If pause-requested in PROGRESS.yaml is true: <promise>SPRINT PAUSED</promise>
 - If queue is empty: <promise>SPRINT COMPLETE</promise>
 - If task is blocked: update status, add to blocked list, <promise>SPRINT BLOCKED</promise>
-- Otherwise: continue to next task in queue"
+
+The stop hook will trigger the next iteration automatically."
 
 # Create state file in sprint directory
 cat > "$SPRINT_DIR/loop-state.md" <<EOF
