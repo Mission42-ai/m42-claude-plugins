@@ -11,19 +11,18 @@ Bulk import tasks from GitHub issues by label or from a YAML file.
 
 ## Preflight Checks
 
-Find current sprint directory:
-!`ls -dt .claude/sprints/*/ 2>/dev/null | head -1 || echo "NO_SPRINT"`
+1. Find current sprint directory:
+   !`ls -dt .claude/sprints/*/ 2>/dev/null | head -1 || echo "NO_SPRINT"`
 
-Verify PROGRESS.yaml exists in sprint:
-!`SPRINT_DIR=$(ls -dt .claude/sprints/*/ 2>/dev/null | head -1); test -f "$SPRINT_DIR/PROGRESS.yaml" && echo "PROGRESS_OK: $SPRINT_DIR/PROGRESS.yaml" || echo "NO_PROGRESS_FILE"`
+2. From the output above, identify the sprint directory path (e.g., `.claude/sprints/YYYY-MM-DD_name/`)
 
-Check gh CLI availability (for issues import):
-!`command -v gh >/dev/null && gh auth status 2>&1 | head -1 || echo "GH_NOT_AVAILABLE"`
+3. Check gh CLI availability (for issues import):
+   !`gh --version 2>/dev/null | head -1 || echo "GH_NOT_AVAILABLE"`
 
 ## Context
 
-Read current PROGRESS.yaml to get existing tasks:
-!`SPRINT_DIR=$(ls -dt .claude/sprints/*/ 2>/dev/null | head -1); cat "$SPRINT_DIR/PROGRESS.yaml" 2>/dev/null || echo "Cannot read PROGRESS.yaml"`
+Using the sprint directory identified in preflight, use the Read tool to read:
+- `<sprint-dir>/PROGRESS.yaml` - to get existing task queue and check for duplicates
 
 ## Task Instructions
 

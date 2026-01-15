@@ -11,30 +11,18 @@ Request sprint to pause gracefully after current task completes.
 
 ## Preflight Checks
 
-Find the latest sprint directory:
-```bash
-ls -dt .claude/sprints/*/ 2>/dev/null | head -1 || echo "NO_SPRINT"
-```
+1. Find the latest sprint directory:
+   !`ls -dt .claude/sprints/*/ 2>/dev/null | head -1 || echo "NO_SPRINT"`
 
-Check sprint status:
-```bash
-SPRINT_DIR=$(ls -dt .claude/sprints/*/ 2>/dev/null | head -1)
-grep "^status:" "$SPRINT_DIR/SPRINT.yaml" 2>/dev/null || echo "status: unknown"
-```
+2. From the output above, identify the sprint directory path (e.g., `.claude/sprints/YYYY-MM-DD_name/`)
 
-Check if loop is active:
-```bash
-SPRINT_DIR=$(ls -dt .claude/sprints/*/ 2>/dev/null | head -1)
-test -f "$SPRINT_DIR/loop-state.md" && echo "LOOP_ACTIVE" || echo "NO_ACTIVE_LOOP"
-```
+3. Check if loop is active by testing for loop-state.md:
+   !`test -f .claude/sprints/*/loop-state.md && ls .claude/sprints/*/loop-state.md 2>/dev/null || echo "NO_ACTIVE_LOOP"`
 
 ## Context
 
-Read current progress:
-```bash
-SPRINT_DIR=$(ls -dt .claude/sprints/*/ 2>/dev/null | head -1)
-cat "$SPRINT_DIR/PROGRESS.yaml" 2>/dev/null || echo "No PROGRESS.yaml"
-```
+Using the sprint directory identified in preflight, use the Read tool to read:
+- `<sprint-dir>/PROGRESS.yaml` - to get current sprint status
 
 ## Task Instructions
 

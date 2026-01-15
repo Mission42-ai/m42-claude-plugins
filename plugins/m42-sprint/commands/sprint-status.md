@@ -11,13 +11,16 @@ Display current sprint progress with task completion status and statistics.
 
 ## Preflight Checks
 
+Find the most recent sprint directory:
 !`ls -dt .claude/sprints/*/ 2>/dev/null | head -1 || echo "NO_SPRINT"`
 
 ## Context
 
-!`SPRINT_DIR=$(ls -dt .claude/sprints/*/ 2>/dev/null | head -1); cat "$SPRINT_DIR/SPRINT.yaml" 2>/dev/null || echo "No SPRINT.yaml"`
+From the preflight output, identify the sprint directory path (e.g., `.claude/sprints/YYYY-MM-DD_name/`).
 
-!`SPRINT_DIR=$(ls -dt .claude/sprints/*/ 2>/dev/null | head -1); cat "$SPRINT_DIR/PROGRESS.yaml" 2>/dev/null || echo "No PROGRESS.yaml"`
+Then use the Read tool to read both:
+- `<sprint-dir>/SPRINT.yaml` - sprint configuration
+- `<sprint-dir>/PROGRESS.yaml` - progress tracking
 
 ## Task Instructions
 

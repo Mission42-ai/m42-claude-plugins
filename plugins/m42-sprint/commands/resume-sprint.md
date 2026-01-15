@@ -1,5 +1,5 @@
 ---
-allowed-tools: Read(*), Edit(*), Skill(*)
+allowed-tools: Bash(ls:*), Read(*), Edit(*), Skill(*)
 argument-hint: ""
 description: Resume paused sprint execution
 model: haiku
@@ -11,13 +11,15 @@ Resume execution of a paused sprint.
 
 ## Preflight Checks
 
+Find the most recent sprint directory:
 !`ls -dt .claude/sprints/*/ 2>/dev/null | head -1 || echo "NO_SPRINT"`
-
-!`SPRINT_DIR=$(ls -dt .claude/sprints/*/ 2>/dev/null | head -1); grep "^status:" "$SPRINT_DIR/SPRINT.yaml" 2>/dev/null || echo "status: unknown"`
 
 ## Context
 
-!`SPRINT_DIR=$(ls -dt .claude/sprints/*/ 2>/dev/null | head -1); cat "$SPRINT_DIR/PROGRESS.yaml" 2>/dev/null || echo "No PROGRESS.yaml"`
+From the preflight output, identify the sprint directory path (e.g., `.claude/sprints/YYYY-MM-DD_name/`).
+
+Then use the Read tool to read:
+- `<sprint-dir>/PROGRESS.yaml` - to check current status and pause state
 
 ## Task Instructions
 
