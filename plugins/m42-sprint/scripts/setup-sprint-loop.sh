@@ -89,13 +89,29 @@ PROMPT="Process sprint task queue from $SPRINT_DIR.
 ## Workflow Per Task
 
 1. Read PROGRESS.yaml to get current-task from queue[0]
-2. Check if task has a 'command' field
-3. If command exists: invoke the command to get task-specific workflow instructions
-4. If no command: execute task using task-type conventions
-5. Follow the workflow instructions to complete the task
-6. Update PROGRESS.yaml (remove from queue, add to completed, update stats)
-7. Output a summary of what was accomplished
-8. END TURN (do not continue to next task inline)
+2. Note the task started-at time (record current ISO timestamp for elapsed tracking)
+3. Check if task has a 'command' field
+4. If command exists: invoke the command to get task-specific workflow instructions
+5. If no command: execute task using task-type conventions
+6. Follow the workflow instructions to complete the task
+7. Update PROGRESS.yaml:
+   - Remove task from queue
+   - Add to completed with: completed-at timestamp, elapsed duration, summary
+   - Increment stats.tasks-completed
+8. Output a summary of what was accomplished
+9. END TURN (do not continue to next task inline)
+
+## Elapsed Time Format
+
+When adding completed tasks, include elapsed duration:
+\`\`\`yaml
+completed:
+  - id: task-id
+    # ... other fields ...
+    completed-at: 2026-01-15T10:30:00Z
+    elapsed: 15m  # or 1h 30m for longer tasks
+    summary: \"Brief description of what was done\"
+\`\`\`
 
 ## Loop Control
 

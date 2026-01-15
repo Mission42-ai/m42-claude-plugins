@@ -423,6 +423,7 @@ completed:
   - id: implement-issue-41
     type: implement-issue
     completed-at: 2026-01-15T11:00:00Z
+    elapsed: 25m
     summary: "Implemented base auth module"
 
 blocked: []
