@@ -29,8 +29,7 @@
       "version": "1.0.0",
       "source": "./plugins/m42-sprint",
       "category": "productivity",
-      "keywords": ["sprint", "task-queue", "ralph-loop", "automation", "progress-tracking"],
-      "dependencies": ["m42-ralph-loop"]
+      "keywords": ["sprint", "task-queue", "ralph-loop", "automation", "progress-tracking"]
     },
     {
       "name": "m42-task-execution",
