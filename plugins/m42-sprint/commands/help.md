@@ -16,7 +16,7 @@ until completion.
 **Core concept:**
 - Define a sprint with tasks in a queue
 - Run the sprint to start autonomous processing
-- Each task is executed using a 6-phase workflow
+- Each task runs with FRESH context (Ralph Loop pattern)
 - Progress is tracked in PROGRESS.yaml
 - Sprint continues until complete, blocked, or paused
 
@@ -66,7 +66,6 @@ until completion.
 .claude/sprints/YYYY-MM-DD_sprint-name/
   SPRINT.yaml       # Configuration and goals
   PROGRESS.yaml     # Task queue and execution state
-  loop-state.md     # Active loop state (when running)
   context/          # Cached task context
   artifacts/        # Generated outputs
 ```
@@ -82,19 +81,26 @@ until completion.
 
 ## Loop Mechanism
 
-The sprint uses a stop-hook mechanism for continuous task processing:
+The sprint uses the **Ralph Loop pattern** with fresh context per task:
 
-1. Claude receives the sprint processing prompt
-2. Executes one task from the queue
-3. Attempts to exit
-4. Stop hook intercepts and feeds same prompt back
-5. Claude sees updated PROGRESS.yaml with next task
-6. Continues until completion promise detected
+1. `/run-sprint` launches sprint-loop.sh in background
+2. Bash loop invokes `claude -p` for ONE task (fresh context)
+3. Claude executes the task and updates PROGRESS.yaml
+4. Claude exits, releasing context
+5. Bash loop checks PROGRESS.yaml status
+6. If not complete, starts NEW Claude with fresh context
+7. Continues until complete, blocked, or paused
 
-**Completion Promises:**
-- `<promise>SPRINT COMPLETE</promise>` - All tasks done
-- `<promise>SPRINT BLOCKED</promise>` - Task cannot proceed
-- `<promise>SPRINT PAUSED</promise>` - Pause requested
+**Status Values:**
+- `completed` - All tasks done, queue empty
+- `blocked` - Current task cannot proceed
+- `paused` - Pause was requested
+- `needs-human` - Human decision required
+
+**Key Benefits:**
+- 100% context utilization per task
+- No accumulated context between tasks
+- Reliable for long sprints
 
 ## When to Use Sprint
 
@@ -116,3 +122,4 @@ The sprint uses a stop-hook mechanism for continuous task processing:
 - Use `/stop-sprint` for immediate stops
 - Check `/sprint-status` to monitor progress
 - Keep sprints focused: 5-10 related tasks
+- Requires `yq` installed for YAML processing
