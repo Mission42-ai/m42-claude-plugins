@@ -1624,6 +1624,7 @@ phases:
               - QA failures MUST result in injected fix tasks, not just reports
             started-at: "2026-01-16T10:58:50Z"
             completed-at: "2026-01-16T10:58:50Z"
+            elapsed: 00:00:00
         started-at: "2026-01-16T10:57:48Z"
       - id: step-9
         prompt: |
@@ -1636,10 +1637,10 @@ phases:
           - Read port from .sprint-status.port file
           - Display "Live Status: http://localhost:{port}" message
           - Handle case where status server fails to start
-        status: pending
+        status: in-progress
         phases:
           - id: implement
-            status: pending
+            status: completed
             prompt: |
               Execute the following task:
 
@@ -1668,6 +1669,8 @@ phases:
               - If blocked or unclear, set status to needs-human
 
               ## Complete this task fully before marking as done.
+            started-at: "2026-01-16T11:00:19Z"
+            completed-at: "2026-01-16T11:00:19Z"
           - id: qa
             status: pending
             prompt: |
@@ -1791,6 +1794,7 @@ phases:
               - Focus on compilation and integration (no unit test suite yet)
               - Reference context/sprint-plan.md for acceptance criteria
               - QA failures MUST result in injected fix tasks, not just reports
+        started-at: "2026-01-16T11:00:19Z"
       - id: step-10
         prompt: |
           Create new command for standalone status server.
@@ -2124,7 +2128,7 @@ phases:
 current:
   phase: 1
   step: 9
-  sub-phase: 0
+  sub-phase: 1
 stats:
   started-at: "2026-01-16T10:32:56Z"
   total-phases: 26

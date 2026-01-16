@@ -1,6 +1,6 @@
 ---
-allowed-tools: Bash(ls:*), Bash(test:*), Bash(grep:*), Bash(node:*), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/sprint-loop.sh:*), Read(*), Edit(*)
-argument-hint: <sprint-directory> [--max-iterations N] [--dry-run] [--recompile]
+allowed-tools: Bash(ls:*), Bash(test:*), Bash(grep:*), Bash(cat:*), Bash(sleep:*), Bash(rm:*), Bash(node:*), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/sprint-loop.sh:*), Read(*), Edit(*)
+argument-hint: <sprint-directory> [--max-iterations N] [--dry-run] [--recompile] [--no-status]
 description: Start sprint execution loop (fresh context per task)
 model: sonnet
 ---
@@ -25,16 +25,18 @@ The first argument MUST be the sprint directory path. Parse $ARGUMENTS to extrac
    - `--max-iterations N` - Maximum loop iterations (default: 30)
    - `--dry-run` - Preview tasks without executing (read-only mode)
    - `--recompile` - Force recompilation even if PROGRESS.yaml exists
+   - `--no-status` - Skip launching the live status server
 
 If no sprint directory is provided, output this error and stop:
 ```
 Error: Sprint directory path is required.
 
-Usage: /run-sprint <sprint-directory> [--max-iterations N] [--dry-run] [--recompile]
+Usage: /run-sprint <sprint-directory> [--max-iterations N] [--dry-run] [--recompile] [--no-status]
 
 Example: /run-sprint .claude/sprints/2026-01-15_my-sprint --max-iterations 50
 Example: /run-sprint .claude/sprints/2026-01-15_my-sprint --dry-run
 Example: /run-sprint .claude/sprints/2026-01-15_my-sprint --recompile
+Example: /run-sprint .claude/sprints/2026-01-15_my-sprint --no-status
 ```
 
 ## Preflight Checks
@@ -137,7 +139,40 @@ Then STOP - do not start the loop or modify any files.
    - Progress monitoring via `/sprint-status`
    - Output checking via TaskOutput tool
 
-2. **Report Launch Status**
+2. **Launch Status Server** (unless `--no-status` flag is present)
+
+   After starting the sprint loop, launch the status server in background:
+
+   ```bash
+   node "${CLAUDE_PLUGIN_ROOT}/compiler/dist/status-server/index.js" "$SPRINT_DIR" &
+   ```
+
+   Use `run_in_background: true` when calling the Bash tool.
+
+   Wait briefly (up to 2 seconds) for the port file to appear, then read it:
+
+   ```bash
+   # Wait for port file to appear (up to 2 seconds)
+   for i in 1 2 3 4; do
+     if [ -f "$SPRINT_DIR/.sprint-status.port" ]; then
+       break
+     fi
+     sleep 0.5
+   done
+
+   # Read port if file exists
+   if [ -f "$SPRINT_DIR/.sprint-status.port" ]; then
+     cat "$SPRINT_DIR/.sprint-status.port"
+   fi
+   ```
+
+   **Handle status server failures:**
+   - If port file doesn't appear after 2 seconds, the status server may have failed
+   - Continue with sprint execution (don't block on status server failure)
+   - Display warning: "Status server failed to start. Sprint continues without live status."
+   - The sprint loop is the critical path; status server is enhancement only
+
+3. **Report Launch Status**
 
    After launching, inform the user:
 
@@ -153,6 +188,9 @@ Then STOP - do not start the loop or modify any files.
    Phases: {phase-count}
    Steps: {step-count}
 
+   Live Status: http://localhost:{port}
+   (Open in browser for real-time progress)
+
    Each phase/step runs with FRESH context (no accumulation).
 
    Monitor progress:
@@ -162,6 +200,11 @@ Then STOP - do not start the loop or modify any files.
    Stop the sprint:
    - /stop-sprint - Terminate the loop
    - /pause-sprint - Request graceful pause
+   ```
+
+   If status server failed to start, omit the "Live Status" line and add a warning:
+   ```
+   ⚠ Status server not available (sprint continues normally)
    ```
 
 ## How the Sprint Loop Works
@@ -179,18 +222,23 @@ The sprint loop follows the Ralph Loop pattern:
 │ User runs: /run-sprint <sprint-dir>     │
 └────────────────┬────────────────────────┘
                  │
-                 ▼
-┌────────────────────────────────────────────┐
-│ sprint-loop.sh starts in background        │
-│ (controls iteration, monitors status)      │
-└────────────────┬───────────────────────────┘
-                 │
         ┌────────┴────────┐
-        │  BASH LOOP      │
-        │  (iteration N)  │
-        └────────┬────────┘
-                 │
-                 ▼
+        │                 │
+        ▼                 ▼
+┌──────────────────┐   ┌──────────────────────────────┐
+│ sprint-loop.sh   │   │ sprint-status-server         │
+│ (background)     │   │ (background, optional)       │
+│                  │   │                              │
+│ Controls loop,   │   │ Watches PROGRESS.yaml,       │
+│ monitors status  │   │ serves live web status page  │
+└────────┬─────────┘   └──────────────────────────────┘
+         │
+  ┌──────┴──────┐
+  │ BASH LOOP   │
+  │ (iter N)    │
+  └──────┬──────┘
+         │
+         ▼
 ┌────────────────────────────────────────────┐
 │ claude -p "$(build-prompt)"                │
 │                                            │
@@ -238,5 +286,7 @@ The sprint loop monitors these PROGRESS.yaml status values:
 - Workflow compiled (if needed) from SPRINT.yaml + workflows
 - PROGRESS.yaml validated (has phases)
 - Sprint loop launched in background
+- Status server launched in background (unless --no-status)
+- Live status URL displayed (if status server started successfully)
 - Task ID returned for monitoring
 - User informed how to check progress and stop
