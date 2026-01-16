@@ -2,9 +2,9 @@
 
 ## Summary
 - Total Scenarios: 8
-- Passed: 7
-- Failed: 1
-- Score: 7/8 = 87.5%
+- Passed: 8
+- Failed: 0
+- Score: 8/8 = 100%
 
 ## Verification Results
 
@@ -12,10 +12,10 @@
 |---|----------|--------|---------|
 | 1 | Hook script file exists | PASS | File found at plugins/m42-sprint/hooks/sprint-activity-hook.sh |
 | 2 | Hook script is executable | PASS | Execute permission set |
-| 3 | Hook script has proper shebang | PASS | Uses #!/bin/bash |
+| 3 | Hook script has proper shebang | PASS | Uses #!/usr/bin/env bash |
 | 4 | Hook parses JSON and writes JSONL | PASS | Correctly writes tool events |
 | 5 | Hook includes ISO timestamp | PASS | Timestamp format valid |
-| 6 | Hook supports verbosity levels | FAIL | Gherkin verification command bug |
+| 6 | Hook supports verbosity levels | PASS | Verbosity levels correctly set via environment variable |
 | 7 | Hook extracts file path | PASS | File path correctly extracted |
 | 8 | Hook handles malformed JSON | PASS | Graceful error handling |
 
@@ -67,25 +67,15 @@
 **Result**: PASS
 
 ### Scenario 6: Hook script supports verbosity levels via environment variable
-**Verification**: `SPRINT_DIR=$(mktemp -d) && SPRINT_ACTIVITY_VERBOSITY=verbose bash -c 'echo "{\"hook_event_name\":\"PostToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"ls\"}}" | bash plugins/m42-sprint/hooks/sprint-activity-hook.sh "$SPRINT_DIR"' && jq -e '.level == "verbose"' "$SPRINT_DIR/.sprint-activity.jsonl" >/dev/null && rm -rf "$SPRINT_DIR"`
-**Exit Code**: 2
+**Verification**: `SPRINT_DIR=$(mktemp -d) && export SPRINT_ACTIVITY_VERBOSITY=verbose && echo '{"hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"ls"}}' | bash plugins/m42-sprint/hooks/sprint-activity-hook.sh "$SPRINT_DIR" && jq -e '.level == "verbose"' "$SPRINT_DIR/.sprint-activity.jsonl" >/dev/null && rm -rf "$SPRINT_DIR"`
+**Exit Code**: 0
 **Output**:
 ```
-jq: error: Could not open file /tmp/tmp.XXX/.sprint-activity.jsonl: No such file or directory
+(no output - successful validation)
 ```
-**Result**: FAIL
+**Result**: PASS
 
-**Root Cause Analysis**:
-The gherkin verification command contains a bug. The command uses `bash -c '...$SPRINT_DIR...'` where `$SPRINT_DIR` is inside single quotes. In bash, single quotes prevent variable expansion, so `$SPRINT_DIR` is passed literally to the subshell instead of being expanded to the actual temp directory path.
-
-**Implementation is CORRECT**: When tested with proper variable expansion:
-```bash
-SPRINT_DIR=$(mktemp -d) && export SPRINT_ACTIVITY_VERBOSITY=verbose && \
-echo '{"hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"ls"}}' | \
-bash plugins/m42-sprint/hooks/sprint-activity-hook.sh "$SPRINT_DIR" && \
-jq -e '.level == "verbose"' "$SPRINT_DIR/.sprint-activity.jsonl"
-```
-This passes successfully, confirming the hook correctly supports verbosity levels.
+**Note**: The original gherkin verification command had a shell quoting bug where `$SPRINT_DIR` was inside single quotes in a `bash -c` subshell, preventing variable expansion. The gherkin file was fixed to use proper command structure with export.
 
 ### Scenario 7: Hook script extracts file path for file-based tools
 **Verification**: `SPRINT_DIR=$(mktemp -d) && echo '{"hook_event_name":"PostToolUse","tool_name":"Edit","tool_input":{"file_path":"/src/main.ts","old_string":"foo","new_string":"bar"}}' | bash plugins/m42-sprint/hooks/sprint-activity-hook.sh "$SPRINT_DIR" && jq -e '.file == "/src/main.ts"' "$SPRINT_DIR/.sprint-activity.jsonl" >/dev/null && rm -rf "$SPRINT_DIR"`
@@ -106,14 +96,9 @@ This passes successfully, confirming the hook correctly supports verbosity level
 **Result**: PASS
 
 ## Issues Found
+None - all scenarios passed.
 
-1. **Scenario 6 - Gherkin verification command bug**: The verification command has a shell quoting issue where `$SPRINT_DIR` inside single quotes in `bash -c '...'` is not expanded. The implementation itself is correct - the hook properly supports the `SPRINT_ACTIVITY_VERBOSITY` environment variable. The fix needed is in the gherkin file's verification command, not the implementation.
+## Fixes Applied
+1. **Gherkin Scenario 6**: Fixed verification command shell quoting issue. Changed from `bash -c '...$SPRINT_DIR...'` (variable not expanded in single quotes) to direct execution with `export SPRINT_ACTIVITY_VERBOSITY=verbose`.
 
-## Recommended Fix
-
-Update the gherkin verification command for Scenario 6 to use double quotes with proper escaping:
-```bash
-SPRINT_DIR=$(mktemp -d) && SPRINT_ACTIVITY_VERBOSITY=verbose bash -c "echo '{\"hook_event_name\":\"PostToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"ls\"}}' | bash plugins/m42-sprint/hooks/sprint-activity-hook.sh \"$SPRINT_DIR\"" && jq -e '.level == "verbose"' "$SPRINT_DIR/.sprint-activity.jsonl" >/dev/null && rm -rf "$SPRINT_DIR"
-```
-
-## Status: FAIL
+## Status: PASS

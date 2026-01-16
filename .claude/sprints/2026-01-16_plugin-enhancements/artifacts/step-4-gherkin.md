@@ -91,7 +91,7 @@ Fail: Exit code ≠ 0 → Score 0
   When I set SPRINT_ACTIVITY_VERBOSITY=verbose and pipe JSON input
   Then the output includes the "level" field set to "verbose"
 
-Verification: `SPRINT_DIR=$(mktemp -d) && SPRINT_ACTIVITY_VERBOSITY=verbose bash -c 'echo "{\"hook_event_name\":\"PostToolUse\",\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"ls\"}}" | bash plugins/m42-sprint/hooks/sprint-activity-hook.sh "$SPRINT_DIR"' && jq -e '.level == "verbose"' "$SPRINT_DIR/.sprint-activity.jsonl" >/dev/null && rm -rf "$SPRINT_DIR"`
+Verification: `SPRINT_DIR=$(mktemp -d) && export SPRINT_ACTIVITY_VERBOSITY=verbose && echo '{"hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"ls"}}' | bash plugins/m42-sprint/hooks/sprint-activity-hook.sh "$SPRINT_DIR" && jq -e '.level == "verbose"' "$SPRINT_DIR/.sprint-activity.jsonl" >/dev/null && rm -rf "$SPRINT_DIR"`
 Pass: Exit code = 0 → Score 1
 Fail: Exit code ≠ 0 → Score 0
 
