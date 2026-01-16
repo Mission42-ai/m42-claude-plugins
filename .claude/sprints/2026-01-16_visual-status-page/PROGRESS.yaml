@@ -759,6 +759,7 @@ phases:
               - QA failures MUST result in injected fix tasks, not just reports
             started-at: "2026-01-16T10:46:38Z"
             completed-at: "2026-01-16T10:46:38Z"
+            elapsed: 00:00:00
         started-at: "2026-01-16T10:44:01Z"
       - id: step-4
         prompt: |
@@ -773,10 +774,10 @@ phases:
           - GET /api/status - JSON API (optional)
           - Integrate watcher and transforms
           - Handle client disconnections gracefully
-        status: pending
+        status: in-progress
         phases:
           - id: implement
-            status: pending
+            status: completed
             prompt: |
               Execute the following task:
 
@@ -807,6 +808,8 @@ phases:
               - If blocked or unclear, set status to needs-human
 
               ## Complete this task fully before marking as done.
+            started-at: "2026-01-16T10:48:30Z"
+            completed-at: "2026-01-16T10:49:38Z"
           - id: qa
             status: pending
             prompt: |
@@ -932,6 +935,7 @@ phases:
               - Focus on compilation and integration (no unit test suite yet)
               - Reference context/sprint-plan.md for acceptance criteria
               - QA failures MUST result in injected fix tasks, not just reports
+        started-at: "2026-01-16T10:48:30Z"
       - id: step-5
         prompt: |
           Create CLI entry point.
@@ -2089,7 +2093,7 @@ phases:
 current:
   phase: 1
   step: 4
-  sub-phase: 0
+  sub-phase: 1
 stats:
   started-at: "2026-01-16T10:32:56Z"
   total-phases: 26
