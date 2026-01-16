@@ -1,0 +1,403 @@
+# Gherkin-Verified Execution Workflow
+# Top-level sprint workflow with binary verification and shared context
+#
+# Features:
+# - Preflight planning with shared context for all agents
+# - Per-step phases: plan, context, execute, qa, verify
+# - Binary 1/0 gherkin scenario verification
+# - QA failure handling with fix phase injection
+# - Final sprint-level QA review
+# - Summary generation and PR preparation
+
+name: Gherkin-Verified Execution
+description: |
+  Comprehensive sprint workflow that autonomously executes complex plans with
+  explicit binary gherkin scenarios for verification. Each step goes through
+  5 sub-phases (plan → context → execute → qa → verify) with shared context
+  from preflight. Failed QA injects fix phases for self-healing.
+
+phases:
+  # ============================================================================
+  # Phase 1: PREFLIGHT
+  # Sprint-level planning and shared context generation
+  # ============================================================================
+  - id: preflight
+    prompt: |
+      Create comprehensive sprint context that ALL subsequent phases will reference.
+
+      ## Your Task
+      Analyze the entire sprint scope and generate shared context documents.
+
+      ## Step 1: Create Sprint Branch
+      ```bash
+      git checkout -b sprint/{{sprint.id}} 2>/dev/null || git checkout sprint/{{sprint.id}}
+      ```
+
+      ## Step 2: Analyze Sprint Scope
+      Read SPRINT.yaml to understand:
+      - All steps and their relationships
+      - Overall sprint goal
+      - Technical requirements across all steps
+      - Potential dependencies between steps
+
+      ## Step 3: Research Project Context
+      Investigate the codebase to understand:
+      - Project architecture and structure
+      - Key patterns and conventions used
+      - Relevant types and interfaces
+      - Build/test/lint commands
+      - Dependencies (internal modules, external packages)
+
+      ## Step 4: Generate Shared Context
+      Create: context/_shared-context.md
+
+      ```markdown
+      # Shared Sprint Context
+
+      ## Project Architecture
+      [High-level architecture overview relevant to this sprint]
+
+      ## Key Patterns
+      - [Pattern 1]: [Where and how it's used]
+      - [Pattern 2]: [Where and how it's used]
+      ...
+
+      ## Conventions
+      - Naming: [Naming conventions]
+      - File structure: [File organization patterns]
+      - Testing: [Testing patterns and frameworks]
+      - Error handling: [Error handling patterns]
+
+      ## Commands
+      - Build: `[build command]`
+      - Test: `[test command]`
+      - Lint: `[lint command]`
+      - TypeCheck: `[typecheck command]`
+
+      ## Dependencies
+      ### Internal Modules
+      - [Module]: [Purpose]
+
+      ### External Packages
+      - [Package]: [Usage]
+
+      ## Types and Interfaces
+      [Key types relevant to this sprint]
+      ```
+
+      ## Step 5: Generate Sprint Plan
+      Create: context/sprint-plan.md
+
+      ```markdown
+      # Sprint Plan: {{sprint.id}}
+
+      ## Goal
+      [One paragraph describing what this sprint accomplishes]
+
+      ## Success Criteria
+      - [ ] [Measurable criterion 1]
+      - [ ] [Measurable criterion 2]
+      ...
+
+      ## Step Breakdown
+
+      ### Step 0: [Step title from prompt]
+      **Scope**: [What this step does]
+      **Files**: [Expected files to create/modify]
+      **Dependencies**: [What it depends on]
+      **Risk**: Low/Medium/High - [reason]
+
+      ### Step 1: ...
+      [Continue for all steps]
+
+      ## Step Dependency Graph
+      ```
+      step-0 → step-1 → step-2
+                ↓
+              step-3
+      ```
+      [Or describe dependencies textually]
+
+      ## Risk Assessment
+      | Risk | Impact | Mitigation |
+      |------|--------|------------|
+      | [Risk 1] | [Impact] | [How to mitigate] |
+
+      ## Estimated Complexity
+      | Step | Complexity | Reason |
+      |------|------------|--------|
+      | step-0 | Low/Medium/High | [Brief reason] |
+      ```
+
+      ## Output
+      - Sprint branch created/checked out
+      - context/_shared-context.md with project patterns
+      - context/sprint-plan.md with step analysis
+      - Commit preflight artifacts:
+        ```bash
+        git add context/
+        git commit -m "preflight: add shared context and sprint plan"
+        ```
+
+  # ============================================================================
+  # Phase 2: DEVELOPMENT
+  # For-each step expansion using gherkin-step-workflow
+  # Each step reads shared context and goes through 5 sub-phases
+  # ============================================================================
+  - id: development
+    for-each: step
+    workflow: gherkin-step-workflow
+
+  # ============================================================================
+  # Phase 3: FINAL-QA
+  # Sprint-level comprehensive quality review
+  # ============================================================================
+  - id: final-qa
+    prompt: |
+      Comprehensive Quality Assurance for the entire sprint.
+
+      ## Context
+      Read: context/_shared-context.md for build/test commands
+      Read: context/sprint-plan.md for success criteria
+
+      ## Step 1: Full Build Verification
+      Run ALL build checks:
+      ```bash
+      # Identify commands from _shared-context.md, typically:
+      npm run build
+      npm run typecheck
+      npm run lint
+      ```
+
+      Record each result in the QA report.
+
+      ## Step 2: Complete Test Suite
+      Run the full test suite:
+      ```bash
+      npm test
+      ```
+
+      Record test results and any failures.
+
+      ## Step 3: Integration Verification
+      Verify all steps work together:
+      - Check that modules properly import each other
+      - Verify no circular dependencies introduced
+      - Test end-to-end flow if applicable
+
+      ## Step 4: Regression Check
+      Compare against main branch:
+      ```bash
+      git diff main...HEAD --stat
+      ```
+
+      Verify:
+      - No unintended changes to existing functionality
+      - All modified files are expected per sprint-plan.md
+      - No temporary/debug code left in
+
+      ## Step 5: Review All Step QA Reports
+      Read all artifacts/step-*-qa-report.md files
+      - Verify all steps show PASS status
+      - Consolidate any warnings or notes
+
+      ## Step 6: Generate Sprint QA Report
+      Create: artifacts/sprint-qa-report.md
+
+      ```markdown
+      # Sprint QA Report: {{sprint.id}}
+
+      ## Build Verification
+      | Check | Result | Output |
+      |-------|--------|--------|
+      | Build | PASS/FAIL | [summary] |
+      | TypeCheck | PASS/FAIL | [summary] |
+      | Lint | PASS/FAIL | [summary] |
+
+      ## Test Suite
+      | Metric | Value |
+      |--------|-------|
+      | Tests Run | [count] |
+      | Passed | [count] |
+      | Failed | [count] |
+      | Skipped | [count] |
+
+      ## Integration Verification
+      - [ ] Modules import correctly
+      - [ ] No circular dependencies
+      - [ ] End-to-end flow works
+
+      ## Step QA Summary
+      | Step | Status | Notes |
+      |------|--------|-------|
+      | step-0 | PASS | [brief note] |
+      | step-1 | PASS | [brief note] |
+      ...
+
+      ## Regression Analysis
+      [Summary of changes vs main branch]
+
+      ## Issues Found
+      [List any issues, or "None"]
+
+      ## Overall Status: PASS / FAIL
+      ```
+
+      ## Step 7: Handle Outcome
+
+      ### If PASS:
+      - Commit the QA report:
+        ```bash
+        git add artifacts/sprint-qa-report.md
+        git commit -m "qa: sprint-level verification passed"
+        ```
+
+      ### If FAIL:
+      - Document specific failures in the report
+      - Set status to needs-human with details of what failed
+      - The sprint cannot proceed to summary/PR until issues are resolved
+
+  # ============================================================================
+  # Phase 4: SUMMARY
+  # Generate deliverables for user review
+  # ============================================================================
+  - id: summary
+    prompt: |
+      Generate sprint summary deliverable for user review.
+
+      ## Context
+      Read: context/sprint-plan.md for original goals
+      Read: artifacts/sprint-qa-report.md for verification results
+      Read: All artifacts/step-*-qa-report.md for step details
+
+      ## Step 1: Collect Commit History
+      ```bash
+      git log main..HEAD --oneline --no-decorate
+      ```
+
+      ## Step 2: Collect File Changes
+      ```bash
+      git diff main..HEAD --stat
+      ```
+
+      ## Step 3: Generate Sprint Summary
+      Create: artifacts/sprint-summary.md
+
+      ```markdown
+      # Sprint Summary: {{sprint.id}}
+
+      ## What Was Accomplished
+
+      ### Step 0: [Step title]
+      - [Key accomplishment 1]
+      - [Key accomplishment 2]
+      **Files**: [list of files created/modified]
+
+      ### Step 1: [Step title]
+      ...
+
+      ## Files Changed
+      | File | Change Type | Description |
+      |------|-------------|-------------|
+      | [path] | Created/Modified/Deleted | [brief description] |
+
+      ## Commits Made
+      | Hash | Message |
+      |------|---------|
+      | [short hash] | [commit message] |
+
+      ## Test Coverage
+      [Summary from QA report]
+
+      ## Verification Status
+      - Build: PASS
+      - TypeCheck: PASS
+      - Lint: PASS
+      - Tests: [X/Y passed]
+      - Integration: PASS
+
+      ## Known Issues / Follow-ups
+      [List any, or "None identified"]
+
+      ## Sprint Statistics
+      - Steps completed: [X/Y]
+      - Total commits: [count]
+      - Files changed: [count]
+      - Lines added: [count]
+      - Lines removed: [count]
+      ```
+
+      ## Step 4: Commit Summary
+      ```bash
+      git add artifacts/sprint-summary.md
+      git commit -m "docs: add sprint summary"
+      ```
+
+  # ============================================================================
+  # Phase 5: PR-CREATE
+  # Push branch and create pull request
+  # ============================================================================
+  - id: pr-create
+    prompt: |
+      Push the sprint branch and create a pull request.
+
+      ## Context
+      Read: artifacts/sprint-summary.md for PR body content
+      Read: artifacts/sprint-qa-report.md for verification checklist
+
+      ## Step 1: Ensure All Changes Committed
+      ```bash
+      git status
+      ```
+      If there are uncommitted changes, commit them appropriately.
+
+      ## Step 2: Push Branch
+      ```bash
+      git push -u origin sprint/{{sprint.id}}
+      ```
+
+      ## Step 3: Create Pull Request
+      Use the sprint summary to create a well-structured PR:
+
+      ```bash
+      gh pr create \
+        --title "Sprint: {{sprint.id}}" \
+        --body "$(cat <<'EOF'
+      ## Summary
+      [Extract key points from sprint-summary.md]
+
+      ## Changes
+      [List of major changes from summary]
+
+      ## Verification Checklist
+      - [x] Build passes
+      - [x] TypeCheck passes
+      - [x] Lint passes
+      - [x] Tests pass
+      - [x] Integration verified
+      - [x] No regressions
+
+      ## Test Results
+      [Extract from sprint-qa-report.md]
+
+      ## Files Changed
+      [File list from summary]
+
+      ---
+      Full details in `artifacts/sprint-summary.md`
+
+      🤖 Generated with Sprint Workflow
+      EOF
+      )"
+      ```
+
+      ## Step 4: Output PR URL
+      Capture and display the PR URL:
+      ```bash
+      gh pr view --json url -q '.url'
+      ```
+
+      ## Output
+      - Branch pushed to remote
+      - Pull request created
+      - PR URL displayed for user
