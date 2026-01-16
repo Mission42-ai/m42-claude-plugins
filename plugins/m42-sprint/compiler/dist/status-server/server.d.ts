@@ -50,6 +50,30 @@ export declare class StatusServer {
      */
     private handleAPIRequest;
     /**
+     * Get available actions based on current sprint status
+     */
+    private getAvailableActions;
+    /**
+     * Handle GET /api/controls request
+     * Returns available actions based on current sprint state
+     */
+    private handleControlsRequest;
+    /**
+     * Handle POST /api/pause request
+     * Creates .pause-requested signal file
+     */
+    private handlePauseRequest;
+    /**
+     * Handle POST /api/resume request
+     * Creates .resume-requested signal file
+     */
+    private handleResumeRequest;
+    /**
+     * Handle POST /api/stop request
+     * Creates .stop-requested signal file
+     */
+    private handleStopRequest;
+    /**
      * Send initial status to a newly connected client
      */
     private sendInitialStatus;
