@@ -168,6 +168,21 @@ echo "Directory: $SPRINT_DIR"
 echo "Max iterations: $MAX_ITERATIONS"
 echo ""
 
+# Run preflight checks before starting the loop
+PREFLIGHT_SCRIPT="$SCRIPT_DIR/preflight-check.sh"
+if [[ -f "$PREFLIGHT_SCRIPT" ]]; then
+  echo "Running preflight checks..."
+  if ! "$PREFLIGHT_SCRIPT" "$SPRINT_DIR"; then
+    echo ""
+    echo "============================================================"
+    echo "PREFLIGHT CHECKS FAILED - Sprint cannot start"
+    echo "============================================================"
+    echo "Fix the issues above and try again."
+    exit 1
+  fi
+  echo ""
+fi
+
 # Set initial status to in-progress if not-started
 CURRENT_STATUS=$(yq -r '.status' "$PROGRESS_FILE")
 if [[ "$CURRENT_STATUS" == "not-started" ]]; then
