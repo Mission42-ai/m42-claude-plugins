@@ -1296,7 +1296,7 @@ phases:
           - Add 'current-iteration'?: number field
           - Add 'max-iterations'?: number field
           - Update SprintStats interface in existing types
-        status: in-progress
+        status: completed
         phases:
           - id: implement
             status: completed
@@ -1329,8 +1329,9 @@ phases:
               ## Complete this task fully before marking as done.
             started-at: "2026-01-16T10:55:56Z"
             completed-at: "2026-01-16T10:55:56Z"
+            elapsed: 00:00:00
           - id: qa
-            status: pending
+            status: completed
             prompt: |
               Quality Assurance verification for the m42-sprint plugin.
 
@@ -1451,6 +1452,8 @@ phases:
               - Focus on compilation and integration (no unit test suite yet)
               - Reference context/sprint-plan.md for acceptance criteria
               - QA failures MUST result in injected fix tasks, not just reports
+            started-at: "2026-01-16T10:56:46Z"
+            completed-at: "2026-01-16T10:56:46Z"
         started-at: "2026-01-16T10:55:56Z"
       - id: step-8
         prompt: |
@@ -2113,8 +2116,8 @@ phases:
     started-at: "2026-01-16T10:35:31Z"
 current:
   phase: 1
-  step: 7
-  sub-phase: 1
+  step: 8
+  sub-phase: 0
 stats:
   started-at: "2026-01-16T10:32:56Z"
   total-phases: 26

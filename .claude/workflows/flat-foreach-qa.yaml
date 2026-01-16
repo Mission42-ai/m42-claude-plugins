@@ -1,0 +1,69 @@
+# Flat For-Each with QA Workflow
+# Workflow that executes each step with quality assurance verification
+# Tailored for m42-sprint plugin development
+
+name: Flat For-Each with QA
+description: |
+  Workflow that first creates a sprint plan document, then iterates through
+  steps with implementation and QA phases. QA verifies each step against
+  the sprint plan and project-specific criteria.
+
+phases:
+  # Phase 1: Create sprint plan for QA reference
+  - id: prepare
+    prompt: |
+      Create a sprint architecture plan that will guide implementation and QA verification.
+
+      ## Your Task
+      Analyze all steps in this sprint and create a comprehensive plan document.
+
+      ## Instructions
+      1. Read the SPRINT.yaml to understand all planned steps
+      2. Research the existing codebase to understand:
+         - Current architecture in plugins/m42-sprint/
+         - Existing types in compiler/src/types.ts
+         - Existing patterns in compiler/src/*.ts
+         - Shell script patterns in scripts/*.sh
+      3. Create a plan that documents:
+         - Overall sprint goal (what we're building and why)
+         - Architecture overview (how new components fit together)
+         - Integration points (how new code connects to existing code)
+         - Per-step success criteria (what "done" looks like for each step)
+         - Dependencies between steps
+         - Risk areas or potential issues
+
+      ## Output
+      Write the plan to: context/sprint-plan.md
+
+      ## Plan Template
+      ```markdown
+      # Sprint Plan: [Sprint Name]
+
+      ## Goal
+      [One paragraph describing what this sprint accomplishes]
+
+      ## Architecture Overview
+      [Diagram or description of how components fit together]
+
+      ## Integration Points
+      - [List how new code connects to existing code]
+
+      ## Step Success Criteria
+
+      ### Step 1: [Step name]
+      - [ ] [Specific success criterion]
+      - [ ] [Integration requirement]
+
+      ### Step 2: ...
+
+      ## Dependencies
+      [Which steps depend on others]
+
+      ## Risk Areas
+      [Potential issues to watch for]
+      ```
+
+  # Phase 2: Execute each step with QA
+  - id: execute-all
+    for-each: step
+    workflow: execute-with-qa

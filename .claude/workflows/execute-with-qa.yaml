@@ -1,0 +1,145 @@
+# Execute with QA Workflow
+# Two-phase workflow for m42-sprint plugin development with quality assurance
+# Tailored for: TypeScript compiler + shell scripts + Claude commands/workflows
+
+name: Execute with QA
+description: |
+  Two-phase workflow that executes a step and verifies quality against
+  the sprint plan. QA is tailored for m42-sprint plugin development.
+  If QA fails, it injects fix + verify phases into PROGRESS.yaml.
+
+phases:
+  - id: implement
+    prompt: |
+      Execute the following task:
+
+      {{step.prompt}}
+
+      ## Before Starting
+      1. Read context/sprint-plan.md to understand:
+         - How this step fits into the overall sprint goal
+         - Architecture decisions that affect this step
+         - Success criteria for this specific step
+         - Dependencies on previous steps
+
+      ## Implementation Guidelines
+      - Follow existing patterns in the codebase
+      - Keep code simple and focused on the task
+      - Make atomic commits for logical units of work
+      - If blocked or unclear, set status to needs-human
+
+      ## Complete this task fully before marking as done.
+
+  - id: qa
+    prompt: |
+      Quality Assurance verification for the m42-sprint plugin.
+
+      ## Context
+      Step: {{step.id}}
+      Task: {{step.prompt}}
+
+      ## Step 1: Run QA Checks
+
+      ### TypeScript (if compiler/ was modified)
+      ```bash
+      cd plugins/m42-sprint/compiler && npm run build
+      ```
+      - Build completes without errors
+      - New code integrates with existing types
+
+      ### Shell Scripts (if scripts/ was modified)
+      ```bash
+      bash -n plugins/m42-sprint/scripts/<script>.sh
+      ```
+      - Script syntax is valid
+
+      ### Commands/Workflows (if modified)
+      - YAML syntax valid (use yq to verify)
+      - Template variables correct
+
+      ### Integration
+      - Matches architecture in context/sprint-plan.md
+      - Follows existing codebase patterns
+      - No breaking changes
+
+      ### Smoke Test
+      - Manually verify the implementation works
+
+      ## Step 2: Write QA Report
+
+      Write report to: artifacts/{{step.id}}-qa-report.md
+
+      ```markdown
+      # QA Report: {{step.id}}
+
+      ## Checks Performed
+      | Check | Result | Details |
+      |-------|--------|---------|
+      | TypeScript build | PASS/FAIL/SKIP | ... |
+      | Script validation | PASS/FAIL/SKIP | ... |
+      | Integration | PASS/FAIL | ... |
+      | Smoke test | PASS/FAIL | ... |
+
+      ## Issues Found
+      1. [Issue description]
+      2. [Issue description]
+
+      ## Status: PASS / FAIL
+      ```
+
+      ## Step 3: Handle Outcome
+
+      ### If ALL checks PASS:
+      - Ensure QA report shows "Status: PASS"
+      - Mark this phase as completed
+      - Done!
+
+      ### If ANY check FAILS:
+      You MUST inject fix tasks into PROGRESS.yaml. Do NOT just report issues.
+
+      1. Ensure QA report shows "Status: FAIL" with specific issues listed
+
+      2. Determine the sprint directory (where PROGRESS.yaml lives):
+         ```bash
+         # The sprint directory is the parent of context/ and artifacts/
+         SPRINT_DIR=$(dirname "$(pwd)/artifacts" 2>/dev/null || echo ".")
+         # Or find it from PROGRESS.yaml location
+         PROGRESS_FILE=$(find .claude/sprints -name "PROGRESS.yaml" -newer .claude/sprints/*/SPRINT.yaml 2>/dev/null | head -1)
+         ```
+
+      3. Insert fix + verify phases using yq:
+         ```bash
+         # Add fix-qa and verify-qa phases after the current qa phase
+         yq -i '
+           (.phases[] | select(.steps) | .steps[] | select(.status == "in-progress")).phases +=
+           [
+             {
+               "id": "fix-qa",
+               "status": "pending",
+               "prompt": "Fix the QA issues identified in artifacts/{{step.id}}-qa-report.md.\n\nInstructions:\n1. Read the QA report carefully\n2. Fix each identified issue\n3. Re-run the failed checks to confirm fixes\n4. Update artifacts/{{step.id}}-qa-report.md with fix status"
+             },
+             {
+               "id": "verify-qa",
+               "status": "pending",
+               "prompt": "Verify all QA issues from {{step.id}} are resolved.\n\nRe-run ALL checks from the original QA:\n- TypeScript build (if applicable)\n- Script validation (if applicable)\n- Integration verification\n- Smoke test\n\nUpdate artifacts/{{step.id}}-qa-report.md with final PASS status.\nIf still failing, inject another fix-qa phase."
+             }
+           ]
+         ' "$PROGRESS_FILE"
+         ```
+
+      4. Mark current QA phase as failed:
+         ```bash
+         yq -i '
+           (.. | select(.id == "qa" and .status == "in-progress")) |=
+           (.status = "failed" | .error = "QA failed - see artifacts/{{step.id}}-qa-report.md - fix-qa phase added")
+         ' "$PROGRESS_FILE"
+         ```
+
+      5. The sprint loop will now execute:
+         - fix-qa → fixes the issues
+         - verify-qa → confirms fixes work
+
+      ## Important
+      - Focus on compilation and integration (no unit test suite yet)
+      - Reference context/sprint-plan.md for acceptance criteria
+      - QA failures MUST result in injected fix tasks, not just reports

@@ -1,5 +1,5 @@
 sprint-id: 2026-01-16_sprint-improvements
-status: in-progress
+status: completed
 phases:
   - id: execute-all
     status: completed
@@ -252,6 +252,7 @@ phases:
               Complete this task fully before marking as done.
             started-at: "2026-01-16T09:36:21Z"
             completed-at: "2026-01-16T09:36:21Z"
+            elapsed: 00:00:00
         started-at: "2026-01-16T09:36:21Z"
     started-at: "2026-01-16T00:11:51Z"
 current:
@@ -264,3 +265,5 @@ stats:
   completed-phases: 0
   total-steps: 6
   completed-steps: 0
+  completed-at: "2026-01-16T09:39:23Z"
+  elapsed: 09:32:53

@@ -56,7 +56,7 @@ export interface WorkflowDefinition {
     /** The phases in this workflow */
     phases: WorkflowPhase[];
 }
-export type PhaseStatus = 'pending' | 'in-progress' | 'completed' | 'blocked' | 'skipped';
+export type PhaseStatus = 'pending' | 'in-progress' | 'completed' | 'blocked' | 'skipped' | 'failed';
 export type SprintStatus = 'not-started' | 'in-progress' | 'completed' | 'blocked' | 'paused' | 'needs-human';
 /**
  * A compiled phase (leaf node - has prompt but no sub-phases)
@@ -71,6 +71,10 @@ export interface CompiledPhase {
     elapsed?: string;
     /** Any notes or summary from execution */
     summary?: string;
+    /** Error message if phase failed */
+    error?: string;
+    /** Number of retry attempts made */
+    'retry-count'?: number;
 }
 /**
  * A compiled step (contains sub-phases from the step's workflow)
@@ -86,6 +90,10 @@ export interface CompiledStep {
     'started-at'?: string;
     'completed-at'?: string;
     elapsed?: string;
+    /** Error message if step failed */
+    error?: string;
+    /** Number of retry attempts made */
+    'retry-count'?: number;
 }
 /**
  * A top-level phase that may contain steps (for for-each phases)
@@ -102,6 +110,10 @@ export interface CompiledTopPhase {
     'completed-at'?: string;
     elapsed?: string;
     summary?: string;
+    /** Error message if phase failed */
+    error?: string;
+    /** Number of retry attempts made */
+    'retry-count'?: number;
 }
 /**
  * Current position pointer in the workflow
@@ -125,6 +137,10 @@ export interface SprintStats {
     'total-steps'?: number;
     'completed-steps'?: number;
     elapsed?: string;
+    /** Current iteration number (1-based) */
+    'current-iteration'?: number;
+    /** Maximum number of iterations configured */
+    'max-iterations'?: number;
 }
 /**
  * Compiled Progress - the runtime format (PROGRESS.yaml)
