@@ -2036,6 +2036,7 @@ phases:
               - QA failures MUST result in injected fix tasks, not just reports
             started-at: "2026-01-16T17:01:39Z"
             completed-at: "2026-01-16T17:05:00Z"
+            elapsed: 00:03:21
         started-at: "2026-01-16T16:59:59Z"
       - id: step-10
         prompt: |
@@ -2057,10 +2058,10 @@ phases:
           - Vollständiges Verständnis des Prozesses
           - Nutzer kann eigene Sprints erstellen
           - Troubleshooting vorbereitet
-        status: pending
+        status: completed
         phases:
           - id: implement
-            status: pending
+            status: completed
             prompt: |
               Execute the following task:
 
@@ -2098,8 +2099,11 @@ phases:
               - If blocked or unclear, set status to needs-human
 
               ## Complete this task fully before marking as done.
+            started-at: "2026-01-16T17:03:25Z"
+            completed-at: "2026-01-16T17:05:10Z"
+            elapsed: 00:01:45
           - id: qa
-            status: pending
+            status: completed
             prompt: |
               Quality Assurance verification for the m42-sprint plugin.
 
@@ -2230,6 +2234,9 @@ phases:
               - Focus on compilation and integration (no unit test suite yet)
               - Reference context/sprint-plan.md for acceptance criteria
               - QA failures MUST result in injected fix tasks, not just reports
+            started-at: "2026-01-16T17:05:28Z"
+            completed-at: "2026-01-16T17:05:28Z"
+        started-at: "2026-01-16T17:03:25Z"
       - id: step-11
         prompt: |
           Phase 4.1: Erstelle docs/troubleshooting/common-issues.md
@@ -2809,7 +2816,7 @@ phases:
     started-at: "2026-01-16T16:18:41Z"
 current:
   phase: 1
-  step: 10
+  step: 11
   sub-phase: 0
 stats:
   started-at: "2026-01-16T16:16:12Z"
@@ -2818,6 +2825,6 @@ stats:
   total-steps: 14
   completed-steps: 0
   max-iterations: 30
-  current-iteration: 20
+  current-iteration: 22
   completed-at: "2026-01-16T16:24:41Z"
   elapsed: 00:08:29
