@@ -938,6 +938,7 @@ phases:
               - QA failures MUST result in injected fix tasks, not just reports
             started-at: "2026-01-16T10:49:58Z"
             completed-at: "2026-01-16T10:51:30Z"
+            elapsed: 00:01:32
         started-at: "2026-01-16T10:48:30Z"
       - id: step-5
         prompt: |
@@ -952,10 +953,10 @@ phases:
           - Default host: localhost
           - Write port to .sprint-status.port file for discovery
           - Show server URL on startup
-        status: pending
+        status: completed
         phases:
           - id: implement
-            status: pending
+            status: completed
             prompt: |
               Execute the following task:
 
@@ -986,8 +987,11 @@ phases:
               - If blocked or unclear, set status to needs-human
 
               ## Complete this task fully before marking as done.
+            started-at: "2026-01-16T10:51:54Z"
+            completed-at: "2026-01-16T10:51:54Z"
+            elapsed: 00:00:00
           - id: qa
-            status: pending
+            status: completed
             prompt: |
               Quality Assurance verification for the m42-sprint plugin.
 
@@ -1111,6 +1115,9 @@ phases:
               - Focus on compilation and integration (no unit test suite yet)
               - Reference context/sprint-plan.md for acceptance criteria
               - QA failures MUST result in injected fix tasks, not just reports
+            started-at: "2026-01-16T10:52:55Z"
+            completed-at: "2026-01-16T10:52:55Z"
+        started-at: "2026-01-16T10:51:54Z"
       - id: step-6
         prompt: |
           Update package.json with new bin entry.
@@ -2095,7 +2102,7 @@ phases:
     started-at: "2026-01-16T10:35:31Z"
 current:
   phase: 1
-  step: 5
+  step: 6
   sub-phase: 0
 stats:
   started-at: "2026-01-16T10:32:56Z"
