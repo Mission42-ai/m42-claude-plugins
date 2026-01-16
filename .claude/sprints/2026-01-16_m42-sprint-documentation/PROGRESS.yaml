@@ -1236,6 +1236,7 @@ phases:
               - QA failures MUST result in injected fix tasks, not just reports
             started-at: "2026-01-16T16:45:44Z"
             completed-at: "2026-01-16T17:50:00Z"
+            elapsed: 01:04:16
         started-at: "2026-01-16T16:43:37Z"
       - id: step-6
         prompt: |
@@ -1258,10 +1259,10 @@ phases:
           - Schema vollständig dokumentiert
           - Beispiele lauffähig
           - Validation Rules klar
-        status: pending
+        status: in-progress
         phases:
           - id: implement
-            status: pending
+            status: completed
             prompt: |
               Execute the following task:
 
@@ -1300,6 +1301,8 @@ phases:
               - If blocked or unclear, set status to needs-human
 
               ## Complete this task fully before marking as done.
+            started-at: "2026-01-16T16:48:10Z"
+            completed-at: "2026-01-16T16:48:10Z"
           - id: qa
             status: pending
             prompt: |
@@ -1433,6 +1436,7 @@ phases:
               - Focus on compilation and integration (no unit test suite yet)
               - Reference context/sprint-plan.md for acceptance criteria
               - QA failures MUST result in injected fix tasks, not just reports
+        started-at: "2026-01-16T16:48:10Z"
       - id: step-7
         prompt: |
           Phase 2.3: Erstelle docs/reference/progress-yaml-schema.md
@@ -2782,7 +2786,7 @@ phases:
 current:
   phase: 1
   step: 6
-  sub-phase: 0
+  sub-phase: 1
 stats:
   started-at: "2026-01-16T16:16:12Z"
   total-phases: 30
@@ -2790,6 +2794,6 @@ stats:
   total-steps: 14
   completed-steps: 0
   max-iterations: 30
-  current-iteration: 12
+  current-iteration: 13
   completed-at: "2026-01-16T16:24:41Z"
   elapsed: 00:08:29
