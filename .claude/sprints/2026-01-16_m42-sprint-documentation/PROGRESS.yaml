@@ -254,6 +254,7 @@ phases:
               - QA failures MUST result in injected fix tasks, not just reports
             started-at: "2026-01-16T16:26:33Z"
             completed-at: "2026-01-16T16:27:39Z"
+            elapsed: 00:01:06
         started-at: "2026-01-16T16:18:41Z"
       - id: step-1
         prompt: |
@@ -272,10 +273,10 @@ phases:
           Erfolg:
           - Nutzer findet sofort die passende Dokumentation
           - Klare User Journey erkennbar
-        status: pending
+        status: in-progress
         phases:
           - id: implement
-            status: pending
+            status: completed
             prompt: |
               Execute the following task:
 
@@ -310,6 +311,8 @@ phases:
               - If blocked or unclear, set status to needs-human
 
               ## Complete this task fully before marking as done.
+            started-at: "2026-01-16T16:28:06Z"
+            completed-at: "2026-01-16T16:28:06Z"
           - id: qa
             status: pending
             prompt: |
@@ -439,6 +442,7 @@ phases:
               - Focus on compilation and integration (no unit test suite yet)
               - Reference context/sprint-plan.md for acceptance criteria
               - QA failures MUST result in injected fix tasks, not just reports
+        started-at: "2026-01-16T16:28:06Z"
       - id: step-2
         prompt: |
           Phase 1.3: Erstelle docs/concepts/overview.md
@@ -2747,7 +2751,7 @@ phases:
 current:
   phase: 1
   step: 1
-  sub-phase: 0
+  sub-phase: 1
 stats:
   started-at: "2026-01-16T16:16:12Z"
   total-phases: 30
@@ -2755,6 +2759,6 @@ stats:
   total-steps: 14
   completed-steps: 0
   max-iterations: 30
-  current-iteration: 2
+  current-iteration: 3
   completed-at: "2026-01-16T16:24:41Z"
   elapsed: 00:08:29
