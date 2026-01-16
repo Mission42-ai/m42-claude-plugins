@@ -1,0 +1,2746 @@
+sprint-id: 2026-01-16_m42-sprint-documentation
+status: in-progress
+phases:
+  - id: prepare
+    status: completed
+    prompt: |
+      Create a sprint architecture plan that will guide implementation and QA verification.
+
+      ## Your Task
+      Analyze all steps in this sprint and create a comprehensive plan document.
+
+      ## Instructions
+      1. Read the SPRINT.yaml to understand all planned steps
+      2. Research the existing codebase to understand:
+         - Current architecture in plugins/m42-sprint/
+         - Existing types in compiler/src/types.ts
+         - Existing patterns in compiler/src/*.ts
+         - Shell script patterns in scripts/*.sh
+      3. Create a plan that documents:
+         - Overall sprint goal (what we're building and why)
+         - Architecture overview (how new components fit together)
+         - Integration points (how new code connects to existing code)
+         - Per-step success criteria (what "done" looks like for each step)
+         - Dependencies between steps
+         - Risk areas or potential issues
+
+      ## Output
+      Write the plan to: context/sprint-plan.md
+
+      ## Plan Template
+      ```markdown
+      # Sprint Plan: [Sprint Name]
+
+      ## Goal
+      [One paragraph describing what this sprint accomplishes]
+
+      ## Architecture Overview
+      [Diagram or description of how components fit together]
+
+      ## Integration Points
+      - [List how new code connects to existing code]
+
+      ## Step Success Criteria
+
+      ### Step 1: [Step name]
+      - [ ] [Specific success criterion]
+      - [ ] [Integration requirement]
+
+      ### Step 2: ...
+
+      ## Dependencies
+      [Which steps depend on others]
+
+      ## Risk Areas
+      [Potential issues to watch for]
+      ```
+    started-at: "2026-01-16T16:16:12Z"
+    completed-at: "2026-01-16T16:18:20Z"
+  - id: execute-all
+    status: pending
+    steps:
+      - id: step-0
+        prompt: |
+          Phase 1.1: Überarbeite README.md
+
+          Ziel: Streamlined Entry Point - Hook in 30 Sekunden, dann weiterleiten
+
+          Datei: plugins/m42-sprint/README.md
+
+          Aufgaben:
+          - README auf Essentials reduzieren (Ziel: ~100 Zeilen statt 143)
+          - Klare Struktur: Was ist M42? → Quick Links → 30-Second Example → Installation
+          - ASCII Diagramm der Three-Tier Architecture hinzufügen
+          - Quick Links zu neuen Dokumentationspfaden
+          - Memorable Terminology verwenden: "Ralph Loop", "Fresh Context Pattern"
+
+          Erfolg:
+          - README ist scanbar und führt Nutzer schnell weiter
+          - Kernkonzept in 30 Sekunden verständlich
+        status: pending
+        phases:
+          - id: implement
+            status: pending
+            prompt: |
+              Execute the following task:
+
+              Phase 1.1: Überarbeite README.md
+
+              Ziel: Streamlined Entry Point - Hook in 30 Sekunden, dann weiterleiten
+
+              Datei: plugins/m42-sprint/README.md
+
+              Aufgaben:
+              - README auf Essentials reduzieren (Ziel: ~100 Zeilen statt 143)
+              - Klare Struktur: Was ist M42? → Quick Links → 30-Second Example → Installation
+              - ASCII Diagramm der Three-Tier Architecture hinzufügen
+              - Quick Links zu neuen Dokumentationspfaden
+              - Memorable Terminology verwenden: "Ralph Loop", "Fresh Context Pattern"
+
+              Erfolg:
+              - README ist scanbar und führt Nutzer schnell weiter
+              - Kernkonzept in 30 Sekunden verständlich
+
+
+              ## Before Starting
+              1. Read context/sprint-plan.md to understand:
+                 - How this step fits into the overall sprint goal
+                 - Architecture decisions that affect this step
+                 - Success criteria for this specific step
+                 - Dependencies on previous steps
+
+              ## Implementation Guidelines
+              - Follow existing patterns in the codebase
+              - Keep code simple and focused on the task
+              - Make atomic commits for logical units of work
+              - If blocked or unclear, set status to needs-human
+
+              ## Complete this task fully before marking as done.
+          - id: qa
+            status: pending
+            prompt: |
+              Quality Assurance verification for the m42-sprint plugin.
+
+              ## Context
+              Step: step-0
+              Task: Phase 1.1: Überarbeite README.md
+
+              Ziel: Streamlined Entry Point - Hook in 30 Sekunden, dann weiterleiten
+
+              Datei: plugins/m42-sprint/README.md
+
+              Aufgaben:
+              - README auf Essentials reduzieren (Ziel: ~100 Zeilen statt 143)
+              - Klare Struktur: Was ist M42? → Quick Links → 30-Second Example → Installation
+              - ASCII Diagramm der Three-Tier Architecture hinzufügen
+              - Quick Links zu neuen Dokumentationspfaden
+              - Memorable Terminology verwenden: "Ralph Loop", "Fresh Context Pattern"
+
+              Erfolg:
+              - README ist scanbar und führt Nutzer schnell weiter
+              - Kernkonzept in 30 Sekunden verständlich
+
+
+              ## Step 1: Run QA Checks
+
+              ### TypeScript (if compiler/ was modified)
+              ```bash
+              cd plugins/m42-sprint/compiler && npm run build
+              ```
+              - Build completes without errors
+              - New code integrates with existing types
+
+              ### Shell Scripts (if scripts/ was modified)
+              ```bash
+              bash -n plugins/m42-sprint/scripts/<script>.sh
+              ```
+              - Script syntax is valid
+
+              ### Commands/Workflows (if modified)
+              - YAML syntax valid (use yq to verify)
+              - Template variables correct
+
+              ### Integration
+              - Matches architecture in context/sprint-plan.md
+              - Follows existing codebase patterns
+              - No breaking changes
+
+              ### Smoke Test
+              - Manually verify the implementation works
+
+              ## Step 2: Write QA Report
+
+              Write report to: artifacts/step-0-qa-report.md
+
+              ```markdown
+              # QA Report: step-0
+
+              ## Checks Performed
+              | Check | Result | Details |
+              |-------|--------|---------|
+              | TypeScript build | PASS/FAIL/SKIP | ... |
+              | Script validation | PASS/FAIL/SKIP | ... |
+              | Integration | PASS/FAIL | ... |
+              | Smoke test | PASS/FAIL | ... |
+
+              ## Issues Found
+              1. [Issue description]
+              2. [Issue description]
+
+              ## Status: PASS / FAIL
+              ```
+
+              ## Step 3: Handle Outcome
+
+              ### If ALL checks PASS:
+              - Ensure QA report shows "Status: PASS"
+              - Mark this phase as completed
+              - Done!
+
+              ### If ANY check FAILS:
+              You MUST inject fix tasks into PROGRESS.yaml. Do NOT just report issues.
+
+              1. Ensure QA report shows "Status: FAIL" with specific issues listed
+
+              2. Determine the sprint directory (where PROGRESS.yaml lives):
+                 ```bash
+                 # The sprint directory is the parent of context/ and artifacts/
+                 SPRINT_DIR=$(dirname "$(pwd)/artifacts" 2>/dev/null || echo ".")
+                 # Or find it from PROGRESS.yaml location
+                 PROGRESS_FILE=$(find .claude/sprints -name "PROGRESS.yaml" -newer .claude/sprints/*/SPRINT.yaml 2>/dev/null | head -1)
+                 ```
+
+              3. Insert fix + verify phases using yq:
+                 ```bash
+                 # Add fix-qa and verify-qa phases after the current qa phase
+                 yq -i '
+                   (.phases[] | select(.steps) | .steps[] | select(.status == "in-progress")).phases +=
+                   [
+                     {
+                       "id": "fix-qa",
+                       "status": "pending",
+                       "prompt": "Fix the QA issues identified in artifacts/step-0-qa-report.md.\n\nInstructions:\n1. Read the QA report carefully\n2. Fix each identified issue\n3. Re-run the failed checks to confirm fixes\n4. Update artifacts/step-0-qa-report.md with fix status"
+                     },
+                     {
+                       "id": "verify-qa",
+                       "status": "pending",
+                       "prompt": "Verify all QA issues from step-0 are resolved.\n\nRe-run ALL checks from the original QA:\n- TypeScript build (if applicable)\n- Script validation (if applicable)\n- Integration verification\n- Smoke test\n\nUpdate artifacts/step-0-qa-report.md with final PASS status.\nIf still failing, inject another fix-qa phase."
+                     }
+                   ]
+                 ' "$PROGRESS_FILE"
+                 ```
+
+              4. Mark current QA phase as failed:
+                 ```bash
+                 yq -i '
+                   (.. | select(.id == "qa" and .status == "in-progress")) |=
+                   (.status = "failed" | .error = "QA failed - see artifacts/step-0-qa-report.md - fix-qa phase added")
+                 ' "$PROGRESS_FILE"
+                 ```
+
+              5. The sprint loop will now execute:
+                 - fix-qa → fixes the issues
+                 - verify-qa → confirms fixes work
+
+              ## Important
+              - Focus on compilation and integration (no unit test suite yet)
+              - Reference context/sprint-plan.md for acceptance criteria
+              - QA failures MUST result in injected fix tasks, not just reports
+      - id: step-1
+        prompt: |
+          Phase 1.2: Erstelle docs/index.md
+
+          Ziel: Navigation Hub für verschiedene User-Typen
+
+          Datei: plugins/m42-sprint/docs/index.md
+
+          Aufgaben:
+          - Landing Page erstellen mit klaren Pfaden
+          - Sections: "Neu hier?", "Architektur verstehen", "Sprints bauen", "Referenz", "Troubleshooting"
+          - Jede Section mit 2-3 Links zu relevanten Docs
+          - Progressive Disclosure: 5min → 15min → Deep Dive
+
+          Erfolg:
+          - Nutzer findet sofort die passende Dokumentation
+          - Klare User Journey erkennbar
+        status: pending
+        phases:
+          - id: implement
+            status: pending
+            prompt: |
+              Execute the following task:
+
+              Phase 1.2: Erstelle docs/index.md
+
+              Ziel: Navigation Hub für verschiedene User-Typen
+
+              Datei: plugins/m42-sprint/docs/index.md
+
+              Aufgaben:
+              - Landing Page erstellen mit klaren Pfaden
+              - Sections: "Neu hier?", "Architektur verstehen", "Sprints bauen", "Referenz", "Troubleshooting"
+              - Jede Section mit 2-3 Links zu relevanten Docs
+              - Progressive Disclosure: 5min → 15min → Deep Dive
+
+              Erfolg:
+              - Nutzer findet sofort die passende Dokumentation
+              - Klare User Journey erkennbar
+
+
+              ## Before Starting
+              1. Read context/sprint-plan.md to understand:
+                 - How this step fits into the overall sprint goal
+                 - Architecture decisions that affect this step
+                 - Success criteria for this specific step
+                 - Dependencies on previous steps
+
+              ## Implementation Guidelines
+              - Follow existing patterns in the codebase
+              - Keep code simple and focused on the task
+              - Make atomic commits for logical units of work
+              - If blocked or unclear, set status to needs-human
+
+              ## Complete this task fully before marking as done.
+          - id: qa
+            status: pending
+            prompt: |
+              Quality Assurance verification for the m42-sprint plugin.
+
+              ## Context
+              Step: step-1
+              Task: Phase 1.2: Erstelle docs/index.md
+
+              Ziel: Navigation Hub für verschiedene User-Typen
+
+              Datei: plugins/m42-sprint/docs/index.md
+
+              Aufgaben:
+              - Landing Page erstellen mit klaren Pfaden
+              - Sections: "Neu hier?", "Architektur verstehen", "Sprints bauen", "Referenz", "Troubleshooting"
+              - Jede Section mit 2-3 Links zu relevanten Docs
+              - Progressive Disclosure: 5min → 15min → Deep Dive
+
+              Erfolg:
+              - Nutzer findet sofort die passende Dokumentation
+              - Klare User Journey erkennbar
+
+
+              ## Step 1: Run QA Checks
+
+              ### TypeScript (if compiler/ was modified)
+              ```bash
+              cd plugins/m42-sprint/compiler && npm run build
+              ```
+              - Build completes without errors
+              - New code integrates with existing types
+
+              ### Shell Scripts (if scripts/ was modified)
+              ```bash
+              bash -n plugins/m42-sprint/scripts/<script>.sh
+              ```
+              - Script syntax is valid
+
+              ### Commands/Workflows (if modified)
+              - YAML syntax valid (use yq to verify)
+              - Template variables correct
+
+              ### Integration
+              - Matches architecture in context/sprint-plan.md
+              - Follows existing codebase patterns
+              - No breaking changes
+
+              ### Smoke Test
+              - Manually verify the implementation works
+
+              ## Step 2: Write QA Report
+
+              Write report to: artifacts/step-1-qa-report.md
+
+              ```markdown
+              # QA Report: step-1
+
+              ## Checks Performed
+              | Check | Result | Details |
+              |-------|--------|---------|
+              | TypeScript build | PASS/FAIL/SKIP | ... |
+              | Script validation | PASS/FAIL/SKIP | ... |
+              | Integration | PASS/FAIL | ... |
+              | Smoke test | PASS/FAIL | ... |
+
+              ## Issues Found
+              1. [Issue description]
+              2. [Issue description]
+
+              ## Status: PASS / FAIL
+              ```
+
+              ## Step 3: Handle Outcome
+
+              ### If ALL checks PASS:
+              - Ensure QA report shows "Status: PASS"
+              - Mark this phase as completed
+              - Done!
+
+              ### If ANY check FAILS:
+              You MUST inject fix tasks into PROGRESS.yaml. Do NOT just report issues.
+
+              1. Ensure QA report shows "Status: FAIL" with specific issues listed
+
+              2. Determine the sprint directory (where PROGRESS.yaml lives):
+                 ```bash
+                 # The sprint directory is the parent of context/ and artifacts/
+                 SPRINT_DIR=$(dirname "$(pwd)/artifacts" 2>/dev/null || echo ".")
+                 # Or find it from PROGRESS.yaml location
+                 PROGRESS_FILE=$(find .claude/sprints -name "PROGRESS.yaml" -newer .claude/sprints/*/SPRINT.yaml 2>/dev/null | head -1)
+                 ```
+
+              3. Insert fix + verify phases using yq:
+                 ```bash
+                 # Add fix-qa and verify-qa phases after the current qa phase
+                 yq -i '
+                   (.phases[] | select(.steps) | .steps[] | select(.status == "in-progress")).phases +=
+                   [
+                     {
+                       "id": "fix-qa",
+                       "status": "pending",
+                       "prompt": "Fix the QA issues identified in artifacts/step-1-qa-report.md.\n\nInstructions:\n1. Read the QA report carefully\n2. Fix each identified issue\n3. Re-run the failed checks to confirm fixes\n4. Update artifacts/step-1-qa-report.md with fix status"
+                     },
+                     {
+                       "id": "verify-qa",
+                       "status": "pending",
+                       "prompt": "Verify all QA issues from step-1 are resolved.\n\nRe-run ALL checks from the original QA:\n- TypeScript build (if applicable)\n- Script validation (if applicable)\n- Integration verification\n- Smoke test\n\nUpdate artifacts/step-1-qa-report.md with final PASS status.\nIf still failing, inject another fix-qa phase."
+                     }
+                   ]
+                 ' "$PROGRESS_FILE"
+                 ```
+
+              4. Mark current QA phase as failed:
+                 ```bash
+                 yq -i '
+                   (.. | select(.id == "qa" and .status == "in-progress")) |=
+                   (.status = "failed" | .error = "QA failed - see artifacts/step-1-qa-report.md - fix-qa phase added")
+                 ' "$PROGRESS_FILE"
+                 ```
+
+              5. The sprint loop will now execute:
+                 - fix-qa → fixes the issues
+                 - verify-qa → confirms fixes work
+
+              ## Important
+              - Focus on compilation and integration (no unit test suite yet)
+              - Reference context/sprint-plan.md for acceptance criteria
+              - QA failures MUST result in injected fix tasks, not just reports
+      - id: step-2
+        prompt: |
+          Phase 1.3: Erstelle docs/concepts/overview.md
+
+          Ziel: Der "Aha-Moment" - Entwickler verstehen das System
+
+          Datei: plugins/m42-sprint/docs/concepts/overview.md
+
+          Aufgaben:
+          - Three-Tier Model Diagramm (SPRINT.yaml → Compiler → PROGRESS.yaml → Sprint Loop)
+          - Ralph Loop Visualisierung mit ASCII art
+          - Component Map der Verzeichnisstruktur
+          - "Warum diese Architektur?" Sektion
+          - Key Benefits Tabelle
+          - Links zu Deep Dive Docs
+
+          Erfolg:
+          - Leser versteht die Gesamtarchitektur
+          - ASCII Diagramme visualisieren den Flow
+          - "Warum" ist klar beantwortet
+        status: pending
+        phases:
+          - id: implement
+            status: pending
+            prompt: |
+              Execute the following task:
+
+              Phase 1.3: Erstelle docs/concepts/overview.md
+
+              Ziel: Der "Aha-Moment" - Entwickler verstehen das System
+
+              Datei: plugins/m42-sprint/docs/concepts/overview.md
+
+              Aufgaben:
+              - Three-Tier Model Diagramm (SPRINT.yaml → Compiler → PROGRESS.yaml → Sprint Loop)
+              - Ralph Loop Visualisierung mit ASCII art
+              - Component Map der Verzeichnisstruktur
+              - "Warum diese Architektur?" Sektion
+              - Key Benefits Tabelle
+              - Links zu Deep Dive Docs
+
+              Erfolg:
+              - Leser versteht die Gesamtarchitektur
+              - ASCII Diagramme visualisieren den Flow
+              - "Warum" ist klar beantwortet
+
+
+              ## Before Starting
+              1. Read context/sprint-plan.md to understand:
+                 - How this step fits into the overall sprint goal
+                 - Architecture decisions that affect this step
+                 - Success criteria for this specific step
+                 - Dependencies on previous steps
+
+              ## Implementation Guidelines
+              - Follow existing patterns in the codebase
+              - Keep code simple and focused on the task
+              - Make atomic commits for logical units of work
+              - If blocked or unclear, set status to needs-human
+
+              ## Complete this task fully before marking as done.
+          - id: qa
+            status: pending
+            prompt: |
+              Quality Assurance verification for the m42-sprint plugin.
+
+              ## Context
+              Step: step-2
+              Task: Phase 1.3: Erstelle docs/concepts/overview.md
+
+              Ziel: Der "Aha-Moment" - Entwickler verstehen das System
+
+              Datei: plugins/m42-sprint/docs/concepts/overview.md
+
+              Aufgaben:
+              - Three-Tier Model Diagramm (SPRINT.yaml → Compiler → PROGRESS.yaml → Sprint Loop)
+              - Ralph Loop Visualisierung mit ASCII art
+              - Component Map der Verzeichnisstruktur
+              - "Warum diese Architektur?" Sektion
+              - Key Benefits Tabelle
+              - Links zu Deep Dive Docs
+
+              Erfolg:
+              - Leser versteht die Gesamtarchitektur
+              - ASCII Diagramme visualisieren den Flow
+              - "Warum" ist klar beantwortet
+
+
+              ## Step 1: Run QA Checks
+
+              ### TypeScript (if compiler/ was modified)
+              ```bash
+              cd plugins/m42-sprint/compiler && npm run build
+              ```
+              - Build completes without errors
+              - New code integrates with existing types
+
+              ### Shell Scripts (if scripts/ was modified)
+              ```bash
+              bash -n plugins/m42-sprint/scripts/<script>.sh
+              ```
+              - Script syntax is valid
+
+              ### Commands/Workflows (if modified)
+              - YAML syntax valid (use yq to verify)
+              - Template variables correct
+
+              ### Integration
+              - Matches architecture in context/sprint-plan.md
+              - Follows existing codebase patterns
+              - No breaking changes
+
+              ### Smoke Test
+              - Manually verify the implementation works
+
+              ## Step 2: Write QA Report
+
+              Write report to: artifacts/step-2-qa-report.md
+
+              ```markdown
+              # QA Report: step-2
+
+              ## Checks Performed
+              | Check | Result | Details |
+              |-------|--------|---------|
+              | TypeScript build | PASS/FAIL/SKIP | ... |
+              | Script validation | PASS/FAIL/SKIP | ... |
+              | Integration | PASS/FAIL | ... |
+              | Smoke test | PASS/FAIL | ... |
+
+              ## Issues Found
+              1. [Issue description]
+              2. [Issue description]
+
+              ## Status: PASS / FAIL
+              ```
+
+              ## Step 3: Handle Outcome
+
+              ### If ALL checks PASS:
+              - Ensure QA report shows "Status: PASS"
+              - Mark this phase as completed
+              - Done!
+
+              ### If ANY check FAILS:
+              You MUST inject fix tasks into PROGRESS.yaml. Do NOT just report issues.
+
+              1. Ensure QA report shows "Status: FAIL" with specific issues listed
+
+              2. Determine the sprint directory (where PROGRESS.yaml lives):
+                 ```bash
+                 # The sprint directory is the parent of context/ and artifacts/
+                 SPRINT_DIR=$(dirname "$(pwd)/artifacts" 2>/dev/null || echo ".")
+                 # Or find it from PROGRESS.yaml location
+                 PROGRESS_FILE=$(find .claude/sprints -name "PROGRESS.yaml" -newer .claude/sprints/*/SPRINT.yaml 2>/dev/null | head -1)
+                 ```
+
+              3. Insert fix + verify phases using yq:
+                 ```bash
+                 # Add fix-qa and verify-qa phases after the current qa phase
+                 yq -i '
+                   (.phases[] | select(.steps) | .steps[] | select(.status == "in-progress")).phases +=
+                   [
+                     {
+                       "id": "fix-qa",
+                       "status": "pending",
+                       "prompt": "Fix the QA issues identified in artifacts/step-2-qa-report.md.\n\nInstructions:\n1. Read the QA report carefully\n2. Fix each identified issue\n3. Re-run the failed checks to confirm fixes\n4. Update artifacts/step-2-qa-report.md with fix status"
+                     },
+                     {
+                       "id": "verify-qa",
+                       "status": "pending",
+                       "prompt": "Verify all QA issues from step-2 are resolved.\n\nRe-run ALL checks from the original QA:\n- TypeScript build (if applicable)\n- Script validation (if applicable)\n- Integration verification\n- Smoke test\n\nUpdate artifacts/step-2-qa-report.md with final PASS status.\nIf still failing, inject another fix-qa phase."
+                     }
+                   ]
+                 ' "$PROGRESS_FILE"
+                 ```
+
+              4. Mark current QA phase as failed:
+                 ```bash
+                 yq -i '
+                   (.. | select(.id == "qa" and .status == "in-progress")) |=
+                   (.status = "failed" | .error = "QA failed - see artifacts/step-2-qa-report.md - fix-qa phase added")
+                 ' "$PROGRESS_FILE"
+                 ```
+
+              5. The sprint loop will now execute:
+                 - fix-qa → fixes the issues
+                 - verify-qa → confirms fixes work
+
+              ## Important
+              - Focus on compilation and integration (no unit test suite yet)
+              - Reference context/sprint-plan.md for acceptance criteria
+              - QA failures MUST result in injected fix tasks, not just reports
+      - id: step-3
+        prompt: |
+          Phase 1.4: Erstelle docs/concepts/ralph-loop.md
+
+          Ziel: Das Ralph Loop Pattern unvergesslich machen
+
+          Datei: plugins/m42-sprint/docs/concepts/ralph-loop.md
+
+          Aufgaben:
+          - Das Problem erklären: Context Accumulation in langen Sessions
+          - Die Lösung: Fresh Context per Task
+          - Sequence Diagram der Execution (ASCII)
+          - Key Benefits Tabelle
+          - Implementation Details (sprint-loop.sh Highlights)
+          - Code-Beispiele aus der tatsächlichen Implementation
+
+          Erfolg:
+          - Pattern ist memorable ("Ralph Loop")
+          - Problem und Lösung kristallklar
+          - Technische Details für Interessierte verfügbar
+        status: pending
+        phases:
+          - id: implement
+            status: pending
+            prompt: |
+              Execute the following task:
+
+              Phase 1.4: Erstelle docs/concepts/ralph-loop.md
+
+              Ziel: Das Ralph Loop Pattern unvergesslich machen
+
+              Datei: plugins/m42-sprint/docs/concepts/ralph-loop.md
+
+              Aufgaben:
+              - Das Problem erklären: Context Accumulation in langen Sessions
+              - Die Lösung: Fresh Context per Task
+              - Sequence Diagram der Execution (ASCII)
+              - Key Benefits Tabelle
+              - Implementation Details (sprint-loop.sh Highlights)
+              - Code-Beispiele aus der tatsächlichen Implementation
+
+              Erfolg:
+              - Pattern ist memorable ("Ralph Loop")
+              - Problem und Lösung kristallklar
+              - Technische Details für Interessierte verfügbar
+
+
+              ## Before Starting
+              1. Read context/sprint-plan.md to understand:
+                 - How this step fits into the overall sprint goal
+                 - Architecture decisions that affect this step
+                 - Success criteria for this specific step
+                 - Dependencies on previous steps
+
+              ## Implementation Guidelines
+              - Follow existing patterns in the codebase
+              - Keep code simple and focused on the task
+              - Make atomic commits for logical units of work
+              - If blocked or unclear, set status to needs-human
+
+              ## Complete this task fully before marking as done.
+          - id: qa
+            status: pending
+            prompt: |
+              Quality Assurance verification for the m42-sprint plugin.
+
+              ## Context
+              Step: step-3
+              Task: Phase 1.4: Erstelle docs/concepts/ralph-loop.md
+
+              Ziel: Das Ralph Loop Pattern unvergesslich machen
+
+              Datei: plugins/m42-sprint/docs/concepts/ralph-loop.md
+
+              Aufgaben:
+              - Das Problem erklären: Context Accumulation in langen Sessions
+              - Die Lösung: Fresh Context per Task
+              - Sequence Diagram der Execution (ASCII)
+              - Key Benefits Tabelle
+              - Implementation Details (sprint-loop.sh Highlights)
+              - Code-Beispiele aus der tatsächlichen Implementation
+
+              Erfolg:
+              - Pattern ist memorable ("Ralph Loop")
+              - Problem und Lösung kristallklar
+              - Technische Details für Interessierte verfügbar
+
+
+              ## Step 1: Run QA Checks
+
+              ### TypeScript (if compiler/ was modified)
+              ```bash
+              cd plugins/m42-sprint/compiler && npm run build
+              ```
+              - Build completes without errors
+              - New code integrates with existing types
+
+              ### Shell Scripts (if scripts/ was modified)
+              ```bash
+              bash -n plugins/m42-sprint/scripts/<script>.sh
+              ```
+              - Script syntax is valid
+
+              ### Commands/Workflows (if modified)
+              - YAML syntax valid (use yq to verify)
+              - Template variables correct
+
+              ### Integration
+              - Matches architecture in context/sprint-plan.md
+              - Follows existing codebase patterns
+              - No breaking changes
+
+              ### Smoke Test
+              - Manually verify the implementation works
+
+              ## Step 2: Write QA Report
+
+              Write report to: artifacts/step-3-qa-report.md
+
+              ```markdown
+              # QA Report: step-3
+
+              ## Checks Performed
+              | Check | Result | Details |
+              |-------|--------|---------|
+              | TypeScript build | PASS/FAIL/SKIP | ... |
+              | Script validation | PASS/FAIL/SKIP | ... |
+              | Integration | PASS/FAIL | ... |
+              | Smoke test | PASS/FAIL | ... |
+
+              ## Issues Found
+              1. [Issue description]
+              2. [Issue description]
+
+              ## Status: PASS / FAIL
+              ```
+
+              ## Step 3: Handle Outcome
+
+              ### If ALL checks PASS:
+              - Ensure QA report shows "Status: PASS"
+              - Mark this phase as completed
+              - Done!
+
+              ### If ANY check FAILS:
+              You MUST inject fix tasks into PROGRESS.yaml. Do NOT just report issues.
+
+              1. Ensure QA report shows "Status: FAIL" with specific issues listed
+
+              2. Determine the sprint directory (where PROGRESS.yaml lives):
+                 ```bash
+                 # The sprint directory is the parent of context/ and artifacts/
+                 SPRINT_DIR=$(dirname "$(pwd)/artifacts" 2>/dev/null || echo ".")
+                 # Or find it from PROGRESS.yaml location
+                 PROGRESS_FILE=$(find .claude/sprints -name "PROGRESS.yaml" -newer .claude/sprints/*/SPRINT.yaml 2>/dev/null | head -1)
+                 ```
+
+              3. Insert fix + verify phases using yq:
+                 ```bash
+                 # Add fix-qa and verify-qa phases after the current qa phase
+                 yq -i '
+                   (.phases[] | select(.steps) | .steps[] | select(.status == "in-progress")).phases +=
+                   [
+                     {
+                       "id": "fix-qa",
+                       "status": "pending",
+                       "prompt": "Fix the QA issues identified in artifacts/step-3-qa-report.md.\n\nInstructions:\n1. Read the QA report carefully\n2. Fix each identified issue\n3. Re-run the failed checks to confirm fixes\n4. Update artifacts/step-3-qa-report.md with fix status"
+                     },
+                     {
+                       "id": "verify-qa",
+                       "status": "pending",
+                       "prompt": "Verify all QA issues from step-3 are resolved.\n\nRe-run ALL checks from the original QA:\n- TypeScript build (if applicable)\n- Script validation (if applicable)\n- Integration verification\n- Smoke test\n\nUpdate artifacts/step-3-qa-report.md with final PASS status.\nIf still failing, inject another fix-qa phase."
+                     }
+                   ]
+                 ' "$PROGRESS_FILE"
+                 ```
+
+              4. Mark current QA phase as failed:
+                 ```bash
+                 yq -i '
+                   (.. | select(.id == "qa" and .status == "in-progress")) |=
+                   (.status = "failed" | .error = "QA failed - see artifacts/step-3-qa-report.md - fix-qa phase added")
+                 ' "$PROGRESS_FILE"
+                 ```
+
+              5. The sprint loop will now execute:
+                 - fix-qa → fixes the issues
+                 - verify-qa → confirms fixes work
+
+              ## Important
+              - Focus on compilation and integration (no unit test suite yet)
+              - Reference context/sprint-plan.md for acceptance criteria
+              - QA failures MUST result in injected fix tasks, not just reports
+      - id: step-4
+        prompt: |
+          Phase 1.5: Erstelle docs/concepts/workflow-compilation.md
+
+          Ziel: Three-Tier Model im Detail erklären
+
+          Datei: plugins/m42-sprint/docs/concepts/workflow-compilation.md
+
+          Aufgaben:
+          - Compilation Pipeline visualisieren
+          - Schritt-für-Schritt: Load → Resolve → Expand → Substitute → Generate
+          - Beispiel-Expansion zeigen (SPRINT.yaml → Workflow → PROGRESS.yaml)
+          - Template Variables dokumentieren
+          - Compiler Module Übersicht
+
+          Erfolg:
+          - Compilation Process ist nachvollziehbar
+          - Beispiel zeigt konkrete Expansion
+          - Nutzer versteht Template System
+        status: pending
+        phases:
+          - id: implement
+            status: pending
+            prompt: |
+              Execute the following task:
+
+              Phase 1.5: Erstelle docs/concepts/workflow-compilation.md
+
+              Ziel: Three-Tier Model im Detail erklären
+
+              Datei: plugins/m42-sprint/docs/concepts/workflow-compilation.md
+
+              Aufgaben:
+              - Compilation Pipeline visualisieren
+              - Schritt-für-Schritt: Load → Resolve → Expand → Substitute → Generate
+              - Beispiel-Expansion zeigen (SPRINT.yaml → Workflow → PROGRESS.yaml)
+              - Template Variables dokumentieren
+              - Compiler Module Übersicht
+
+              Erfolg:
+              - Compilation Process ist nachvollziehbar
+              - Beispiel zeigt konkrete Expansion
+              - Nutzer versteht Template System
+
+
+              ## Before Starting
+              1. Read context/sprint-plan.md to understand:
+                 - How this step fits into the overall sprint goal
+                 - Architecture decisions that affect this step
+                 - Success criteria for this specific step
+                 - Dependencies on previous steps
+
+              ## Implementation Guidelines
+              - Follow existing patterns in the codebase
+              - Keep code simple and focused on the task
+              - Make atomic commits for logical units of work
+              - If blocked or unclear, set status to needs-human
+
+              ## Complete this task fully before marking as done.
+          - id: qa
+            status: pending
+            prompt: |
+              Quality Assurance verification for the m42-sprint plugin.
+
+              ## Context
+              Step: step-4
+              Task: Phase 1.5: Erstelle docs/concepts/workflow-compilation.md
+
+              Ziel: Three-Tier Model im Detail erklären
+
+              Datei: plugins/m42-sprint/docs/concepts/workflow-compilation.md
+
+              Aufgaben:
+              - Compilation Pipeline visualisieren
+              - Schritt-für-Schritt: Load → Resolve → Expand → Substitute → Generate
+              - Beispiel-Expansion zeigen (SPRINT.yaml → Workflow → PROGRESS.yaml)
+              - Template Variables dokumentieren
+              - Compiler Module Übersicht
+
+              Erfolg:
+              - Compilation Process ist nachvollziehbar
+              - Beispiel zeigt konkrete Expansion
+              - Nutzer versteht Template System
+
+
+              ## Step 1: Run QA Checks
+
+              ### TypeScript (if compiler/ was modified)
+              ```bash
+              cd plugins/m42-sprint/compiler && npm run build
+              ```
+              - Build completes without errors
+              - New code integrates with existing types
+
+              ### Shell Scripts (if scripts/ was modified)
+              ```bash
+              bash -n plugins/m42-sprint/scripts/<script>.sh
+              ```
+              - Script syntax is valid
+
+              ### Commands/Workflows (if modified)
+              - YAML syntax valid (use yq to verify)
+              - Template variables correct
+
+              ### Integration
+              - Matches architecture in context/sprint-plan.md
+              - Follows existing codebase patterns
+              - No breaking changes
+
+              ### Smoke Test
+              - Manually verify the implementation works
+
+              ## Step 2: Write QA Report
+
+              Write report to: artifacts/step-4-qa-report.md
+
+              ```markdown
+              # QA Report: step-4
+
+              ## Checks Performed
+              | Check | Result | Details |
+              |-------|--------|---------|
+              | TypeScript build | PASS/FAIL/SKIP | ... |
+              | Script validation | PASS/FAIL/SKIP | ... |
+              | Integration | PASS/FAIL | ... |
+              | Smoke test | PASS/FAIL | ... |
+
+              ## Issues Found
+              1. [Issue description]
+              2. [Issue description]
+
+              ## Status: PASS / FAIL
+              ```
+
+              ## Step 3: Handle Outcome
+
+              ### If ALL checks PASS:
+              - Ensure QA report shows "Status: PASS"
+              - Mark this phase as completed
+              - Done!
+
+              ### If ANY check FAILS:
+              You MUST inject fix tasks into PROGRESS.yaml. Do NOT just report issues.
+
+              1. Ensure QA report shows "Status: FAIL" with specific issues listed
+
+              2. Determine the sprint directory (where PROGRESS.yaml lives):
+                 ```bash
+                 # The sprint directory is the parent of context/ and artifacts/
+                 SPRINT_DIR=$(dirname "$(pwd)/artifacts" 2>/dev/null || echo ".")
+                 # Or find it from PROGRESS.yaml location
+                 PROGRESS_FILE=$(find .claude/sprints -name "PROGRESS.yaml" -newer .claude/sprints/*/SPRINT.yaml 2>/dev/null | head -1)
+                 ```
+
+              3. Insert fix + verify phases using yq:
+                 ```bash
+                 # Add fix-qa and verify-qa phases after the current qa phase
+                 yq -i '
+                   (.phases[] | select(.steps) | .steps[] | select(.status == "in-progress")).phases +=
+                   [
+                     {
+                       "id": "fix-qa",
+                       "status": "pending",
+                       "prompt": "Fix the QA issues identified in artifacts/step-4-qa-report.md.\n\nInstructions:\n1. Read the QA report carefully\n2. Fix each identified issue\n3. Re-run the failed checks to confirm fixes\n4. Update artifacts/step-4-qa-report.md with fix status"
+                     },
+                     {
+                       "id": "verify-qa",
+                       "status": "pending",
+                       "prompt": "Verify all QA issues from step-4 are resolved.\n\nRe-run ALL checks from the original QA:\n- TypeScript build (if applicable)\n- Script validation (if applicable)\n- Integration verification\n- Smoke test\n\nUpdate artifacts/step-4-qa-report.md with final PASS status.\nIf still failing, inject another fix-qa phase."
+                     }
+                   ]
+                 ' "$PROGRESS_FILE"
+                 ```
+
+              4. Mark current QA phase as failed:
+                 ```bash
+                 yq -i '
+                   (.. | select(.id == "qa" and .status == "in-progress")) |=
+                   (.status = "failed" | .error = "QA failed - see artifacts/step-4-qa-report.md - fix-qa phase added")
+                 ' "$PROGRESS_FILE"
+                 ```
+
+              5. The sprint loop will now execute:
+                 - fix-qa → fixes the issues
+                 - verify-qa → confirms fixes work
+
+              ## Important
+              - Focus on compilation and integration (no unit test suite yet)
+              - Reference context/sprint-plan.md for acceptance criteria
+              - QA failures MUST result in injected fix tasks, not just reports
+      - id: step-5
+        prompt: |
+          Phase 2.1: Erstelle docs/reference/commands.md
+
+          Ziel: Unified Command Reference - alle 10 Commands
+
+          Datei: plugins/m42-sprint/docs/reference/commands.md
+
+          Aufgaben:
+          - Alle Commands in einer Datei konsolidieren
+          - Sections: Lifecycle, Control, Monitoring, Step Management
+          - Pro Command: Usage, Beschreibung, Optionen, Beispiele
+          - Quick Reference Tabelle am Anfang
+
+          Erfolg:
+          - Alle Commands an einem Ort
+          - Schnell scannbar
+          - Copy-paste ready Beispiele
+        status: pending
+        phases:
+          - id: implement
+            status: pending
+            prompt: |
+              Execute the following task:
+
+              Phase 2.1: Erstelle docs/reference/commands.md
+
+              Ziel: Unified Command Reference - alle 10 Commands
+
+              Datei: plugins/m42-sprint/docs/reference/commands.md
+
+              Aufgaben:
+              - Alle Commands in einer Datei konsolidieren
+              - Sections: Lifecycle, Control, Monitoring, Step Management
+              - Pro Command: Usage, Beschreibung, Optionen, Beispiele
+              - Quick Reference Tabelle am Anfang
+
+              Erfolg:
+              - Alle Commands an einem Ort
+              - Schnell scannbar
+              - Copy-paste ready Beispiele
+
+
+              ## Before Starting
+              1. Read context/sprint-plan.md to understand:
+                 - How this step fits into the overall sprint goal
+                 - Architecture decisions that affect this step
+                 - Success criteria for this specific step
+                 - Dependencies on previous steps
+
+              ## Implementation Guidelines
+              - Follow existing patterns in the codebase
+              - Keep code simple and focused on the task
+              - Make atomic commits for logical units of work
+              - If blocked or unclear, set status to needs-human
+
+              ## Complete this task fully before marking as done.
+          - id: qa
+            status: pending
+            prompt: |
+              Quality Assurance verification for the m42-sprint plugin.
+
+              ## Context
+              Step: step-5
+              Task: Phase 2.1: Erstelle docs/reference/commands.md
+
+              Ziel: Unified Command Reference - alle 10 Commands
+
+              Datei: plugins/m42-sprint/docs/reference/commands.md
+
+              Aufgaben:
+              - Alle Commands in einer Datei konsolidieren
+              - Sections: Lifecycle, Control, Monitoring, Step Management
+              - Pro Command: Usage, Beschreibung, Optionen, Beispiele
+              - Quick Reference Tabelle am Anfang
+
+              Erfolg:
+              - Alle Commands an einem Ort
+              - Schnell scannbar
+              - Copy-paste ready Beispiele
+
+
+              ## Step 1: Run QA Checks
+
+              ### TypeScript (if compiler/ was modified)
+              ```bash
+              cd plugins/m42-sprint/compiler && npm run build
+              ```
+              - Build completes without errors
+              - New code integrates with existing types
+
+              ### Shell Scripts (if scripts/ was modified)
+              ```bash
+              bash -n plugins/m42-sprint/scripts/<script>.sh
+              ```
+              - Script syntax is valid
+
+              ### Commands/Workflows (if modified)
+              - YAML syntax valid (use yq to verify)
+              - Template variables correct
+
+              ### Integration
+              - Matches architecture in context/sprint-plan.md
+              - Follows existing codebase patterns
+              - No breaking changes
+
+              ### Smoke Test
+              - Manually verify the implementation works
+
+              ## Step 2: Write QA Report
+
+              Write report to: artifacts/step-5-qa-report.md
+
+              ```markdown
+              # QA Report: step-5
+
+              ## Checks Performed
+              | Check | Result | Details |
+              |-------|--------|---------|
+              | TypeScript build | PASS/FAIL/SKIP | ... |
+              | Script validation | PASS/FAIL/SKIP | ... |
+              | Integration | PASS/FAIL | ... |
+              | Smoke test | PASS/FAIL | ... |
+
+              ## Issues Found
+              1. [Issue description]
+              2. [Issue description]
+
+              ## Status: PASS / FAIL
+              ```
+
+              ## Step 3: Handle Outcome
+
+              ### If ALL checks PASS:
+              - Ensure QA report shows "Status: PASS"
+              - Mark this phase as completed
+              - Done!
+
+              ### If ANY check FAILS:
+              You MUST inject fix tasks into PROGRESS.yaml. Do NOT just report issues.
+
+              1. Ensure QA report shows "Status: FAIL" with specific issues listed
+
+              2. Determine the sprint directory (where PROGRESS.yaml lives):
+                 ```bash
+                 # The sprint directory is the parent of context/ and artifacts/
+                 SPRINT_DIR=$(dirname "$(pwd)/artifacts" 2>/dev/null || echo ".")
+                 # Or find it from PROGRESS.yaml location
+                 PROGRESS_FILE=$(find .claude/sprints -name "PROGRESS.yaml" -newer .claude/sprints/*/SPRINT.yaml 2>/dev/null | head -1)
+                 ```
+
+              3. Insert fix + verify phases using yq:
+                 ```bash
+                 # Add fix-qa and verify-qa phases after the current qa phase
+                 yq -i '
+                   (.phases[] | select(.steps) | .steps[] | select(.status == "in-progress")).phases +=
+                   [
+                     {
+                       "id": "fix-qa",
+                       "status": "pending",
+                       "prompt": "Fix the QA issues identified in artifacts/step-5-qa-report.md.\n\nInstructions:\n1. Read the QA report carefully\n2. Fix each identified issue\n3. Re-run the failed checks to confirm fixes\n4. Update artifacts/step-5-qa-report.md with fix status"
+                     },
+                     {
+                       "id": "verify-qa",
+                       "status": "pending",
+                       "prompt": "Verify all QA issues from step-5 are resolved.\n\nRe-run ALL checks from the original QA:\n- TypeScript build (if applicable)\n- Script validation (if applicable)\n- Integration verification\n- Smoke test\n\nUpdate artifacts/step-5-qa-report.md with final PASS status.\nIf still failing, inject another fix-qa phase."
+                     }
+                   ]
+                 ' "$PROGRESS_FILE"
+                 ```
+
+              4. Mark current QA phase as failed:
+                 ```bash
+                 yq -i '
+                   (.. | select(.id == "qa" and .status == "in-progress")) |=
+                   (.status = "failed" | .error = "QA failed - see artifacts/step-5-qa-report.md - fix-qa phase added")
+                 ' "$PROGRESS_FILE"
+                 ```
+
+              5. The sprint loop will now execute:
+                 - fix-qa → fixes the issues
+                 - verify-qa → confirms fixes work
+
+              ## Important
+              - Focus on compilation and integration (no unit test suite yet)
+              - Reference context/sprint-plan.md for acceptance criteria
+              - QA failures MUST result in injected fix tasks, not just reports
+      - id: step-6
+        prompt: |
+          Phase 2.2: Erstelle docs/reference/sprint-yaml-schema.md
+
+          Ziel: SPRINT.yaml Spezifikation konsolidieren
+
+          Quelle: plugins/m42-sprint/skills/creating-sprints/references/sprint-schema.md
+          Datei: plugins/m42-sprint/docs/reference/sprint-yaml-schema.md
+
+          Aufgaben:
+          - Minimal Example
+          - Full Example mit allen Optionen
+          - Field Reference Tabelle
+          - Validation Rules
+          - Common Patterns
+          - Step Format Variants (string vs object)
+
+          Erfolg:
+          - Schema vollständig dokumentiert
+          - Beispiele lauffähig
+          - Validation Rules klar
+        status: pending
+        phases:
+          - id: implement
+            status: pending
+            prompt: |
+              Execute the following task:
+
+              Phase 2.2: Erstelle docs/reference/sprint-yaml-schema.md
+
+              Ziel: SPRINT.yaml Spezifikation konsolidieren
+
+              Quelle: plugins/m42-sprint/skills/creating-sprints/references/sprint-schema.md
+              Datei: plugins/m42-sprint/docs/reference/sprint-yaml-schema.md
+
+              Aufgaben:
+              - Minimal Example
+              - Full Example mit allen Optionen
+              - Field Reference Tabelle
+              - Validation Rules
+              - Common Patterns
+              - Step Format Variants (string vs object)
+
+              Erfolg:
+              - Schema vollständig dokumentiert
+              - Beispiele lauffähig
+              - Validation Rules klar
+
+
+              ## Before Starting
+              1. Read context/sprint-plan.md to understand:
+                 - How this step fits into the overall sprint goal
+                 - Architecture decisions that affect this step
+                 - Success criteria for this specific step
+                 - Dependencies on previous steps
+
+              ## Implementation Guidelines
+              - Follow existing patterns in the codebase
+              - Keep code simple and focused on the task
+              - Make atomic commits for logical units of work
+              - If blocked or unclear, set status to needs-human
+
+              ## Complete this task fully before marking as done.
+          - id: qa
+            status: pending
+            prompt: |
+              Quality Assurance verification for the m42-sprint plugin.
+
+              ## Context
+              Step: step-6
+              Task: Phase 2.2: Erstelle docs/reference/sprint-yaml-schema.md
+
+              Ziel: SPRINT.yaml Spezifikation konsolidieren
+
+              Quelle: plugins/m42-sprint/skills/creating-sprints/references/sprint-schema.md
+              Datei: plugins/m42-sprint/docs/reference/sprint-yaml-schema.md
+
+              Aufgaben:
+              - Minimal Example
+              - Full Example mit allen Optionen
+              - Field Reference Tabelle
+              - Validation Rules
+              - Common Patterns
+              - Step Format Variants (string vs object)
+
+              Erfolg:
+              - Schema vollständig dokumentiert
+              - Beispiele lauffähig
+              - Validation Rules klar
+
+
+              ## Step 1: Run QA Checks
+
+              ### TypeScript (if compiler/ was modified)
+              ```bash
+              cd plugins/m42-sprint/compiler && npm run build
+              ```
+              - Build completes without errors
+              - New code integrates with existing types
+
+              ### Shell Scripts (if scripts/ was modified)
+              ```bash
+              bash -n plugins/m42-sprint/scripts/<script>.sh
+              ```
+              - Script syntax is valid
+
+              ### Commands/Workflows (if modified)
+              - YAML syntax valid (use yq to verify)
+              - Template variables correct
+
+              ### Integration
+              - Matches architecture in context/sprint-plan.md
+              - Follows existing codebase patterns
+              - No breaking changes
+
+              ### Smoke Test
+              - Manually verify the implementation works
+
+              ## Step 2: Write QA Report
+
+              Write report to: artifacts/step-6-qa-report.md
+
+              ```markdown
+              # QA Report: step-6
+
+              ## Checks Performed
+              | Check | Result | Details |
+              |-------|--------|---------|
+              | TypeScript build | PASS/FAIL/SKIP | ... |
+              | Script validation | PASS/FAIL/SKIP | ... |
+              | Integration | PASS/FAIL | ... |
+              | Smoke test | PASS/FAIL | ... |
+
+              ## Issues Found
+              1. [Issue description]
+              2. [Issue description]
+
+              ## Status: PASS / FAIL
+              ```
+
+              ## Step 3: Handle Outcome
+
+              ### If ALL checks PASS:
+              - Ensure QA report shows "Status: PASS"
+              - Mark this phase as completed
+              - Done!
+
+              ### If ANY check FAILS:
+              You MUST inject fix tasks into PROGRESS.yaml. Do NOT just report issues.
+
+              1. Ensure QA report shows "Status: FAIL" with specific issues listed
+
+              2. Determine the sprint directory (where PROGRESS.yaml lives):
+                 ```bash
+                 # The sprint directory is the parent of context/ and artifacts/
+                 SPRINT_DIR=$(dirname "$(pwd)/artifacts" 2>/dev/null || echo ".")
+                 # Or find it from PROGRESS.yaml location
+                 PROGRESS_FILE=$(find .claude/sprints -name "PROGRESS.yaml" -newer .claude/sprints/*/SPRINT.yaml 2>/dev/null | head -1)
+                 ```
+
+              3. Insert fix + verify phases using yq:
+                 ```bash
+                 # Add fix-qa and verify-qa phases after the current qa phase
+                 yq -i '
+                   (.phases[] | select(.steps) | .steps[] | select(.status == "in-progress")).phases +=
+                   [
+                     {
+                       "id": "fix-qa",
+                       "status": "pending",
+                       "prompt": "Fix the QA issues identified in artifacts/step-6-qa-report.md.\n\nInstructions:\n1. Read the QA report carefully\n2. Fix each identified issue\n3. Re-run the failed checks to confirm fixes\n4. Update artifacts/step-6-qa-report.md with fix status"
+                     },
+                     {
+                       "id": "verify-qa",
+                       "status": "pending",
+                       "prompt": "Verify all QA issues from step-6 are resolved.\n\nRe-run ALL checks from the original QA:\n- TypeScript build (if applicable)\n- Script validation (if applicable)\n- Integration verification\n- Smoke test\n\nUpdate artifacts/step-6-qa-report.md with final PASS status.\nIf still failing, inject another fix-qa phase."
+                     }
+                   ]
+                 ' "$PROGRESS_FILE"
+                 ```
+
+              4. Mark current QA phase as failed:
+                 ```bash
+                 yq -i '
+                   (.. | select(.id == "qa" and .status == "in-progress")) |=
+                   (.status = "failed" | .error = "QA failed - see artifacts/step-6-qa-report.md - fix-qa phase added")
+                 ' "$PROGRESS_FILE"
+                 ```
+
+              5. The sprint loop will now execute:
+                 - fix-qa → fixes the issues
+                 - verify-qa → confirms fixes work
+
+              ## Important
+              - Focus on compilation and integration (no unit test suite yet)
+              - Reference context/sprint-plan.md for acceptance criteria
+              - QA failures MUST result in injected fix tasks, not just reports
+      - id: step-7
+        prompt: |
+          Phase 2.3: Erstelle docs/reference/progress-yaml-schema.md
+
+          Ziel: PROGRESS.yaml Spezifikation konsolidieren
+
+          Quelle: plugins/m42-sprint/skills/orchestrating-sprints/references/progress-schema.md
+          Datei: plugins/m42-sprint/docs/reference/progress-yaml-schema.md
+
+          Aufgaben:
+          - Generated Structure erklären
+          - Status Values dokumentieren (in-progress, completed, blocked, paused, needs-human)
+          - Current Pointer erklären (phase, step, sub-phase)
+          - Stats Tracking dokumentieren
+          - Phase Hierarchy Visualisierung (ASCII tree)
+
+          Erfolg:
+          - Generated Format verständlich
+          - Status Values dokumentiert
+          - Pointer Navigation klar
+        status: pending
+        phases:
+          - id: implement
+            status: pending
+            prompt: |
+              Execute the following task:
+
+              Phase 2.3: Erstelle docs/reference/progress-yaml-schema.md
+
+              Ziel: PROGRESS.yaml Spezifikation konsolidieren
+
+              Quelle: plugins/m42-sprint/skills/orchestrating-sprints/references/progress-schema.md
+              Datei: plugins/m42-sprint/docs/reference/progress-yaml-schema.md
+
+              Aufgaben:
+              - Generated Structure erklären
+              - Status Values dokumentieren (in-progress, completed, blocked, paused, needs-human)
+              - Current Pointer erklären (phase, step, sub-phase)
+              - Stats Tracking dokumentieren
+              - Phase Hierarchy Visualisierung (ASCII tree)
+
+              Erfolg:
+              - Generated Format verständlich
+              - Status Values dokumentiert
+              - Pointer Navigation klar
+
+
+              ## Before Starting
+              1. Read context/sprint-plan.md to understand:
+                 - How this step fits into the overall sprint goal
+                 - Architecture decisions that affect this step
+                 - Success criteria for this specific step
+                 - Dependencies on previous steps
+
+              ## Implementation Guidelines
+              - Follow existing patterns in the codebase
+              - Keep code simple and focused on the task
+              - Make atomic commits for logical units of work
+              - If blocked or unclear, set status to needs-human
+
+              ## Complete this task fully before marking as done.
+          - id: qa
+            status: pending
+            prompt: |
+              Quality Assurance verification for the m42-sprint plugin.
+
+              ## Context
+              Step: step-7
+              Task: Phase 2.3: Erstelle docs/reference/progress-yaml-schema.md
+
+              Ziel: PROGRESS.yaml Spezifikation konsolidieren
+
+              Quelle: plugins/m42-sprint/skills/orchestrating-sprints/references/progress-schema.md
+              Datei: plugins/m42-sprint/docs/reference/progress-yaml-schema.md
+
+              Aufgaben:
+              - Generated Structure erklären
+              - Status Values dokumentieren (in-progress, completed, blocked, paused, needs-human)
+              - Current Pointer erklären (phase, step, sub-phase)
+              - Stats Tracking dokumentieren
+              - Phase Hierarchy Visualisierung (ASCII tree)
+
+              Erfolg:
+              - Generated Format verständlich
+              - Status Values dokumentiert
+              - Pointer Navigation klar
+
+
+              ## Step 1: Run QA Checks
+
+              ### TypeScript (if compiler/ was modified)
+              ```bash
+              cd plugins/m42-sprint/compiler && npm run build
+              ```
+              - Build completes without errors
+              - New code integrates with existing types
+
+              ### Shell Scripts (if scripts/ was modified)
+              ```bash
+              bash -n plugins/m42-sprint/scripts/<script>.sh
+              ```
+              - Script syntax is valid
+
+              ### Commands/Workflows (if modified)
+              - YAML syntax valid (use yq to verify)
+              - Template variables correct
+
+              ### Integration
+              - Matches architecture in context/sprint-plan.md
+              - Follows existing codebase patterns
+              - No breaking changes
+
+              ### Smoke Test
+              - Manually verify the implementation works
+
+              ## Step 2: Write QA Report
+
+              Write report to: artifacts/step-7-qa-report.md
+
+              ```markdown
+              # QA Report: step-7
+
+              ## Checks Performed
+              | Check | Result | Details |
+              |-------|--------|---------|
+              | TypeScript build | PASS/FAIL/SKIP | ... |
+              | Script validation | PASS/FAIL/SKIP | ... |
+              | Integration | PASS/FAIL | ... |
+              | Smoke test | PASS/FAIL | ... |
+
+              ## Issues Found
+              1. [Issue description]
+              2. [Issue description]
+
+              ## Status: PASS / FAIL
+              ```
+
+              ## Step 3: Handle Outcome
+
+              ### If ALL checks PASS:
+              - Ensure QA report shows "Status: PASS"
+              - Mark this phase as completed
+              - Done!
+
+              ### If ANY check FAILS:
+              You MUST inject fix tasks into PROGRESS.yaml. Do NOT just report issues.
+
+              1. Ensure QA report shows "Status: FAIL" with specific issues listed
+
+              2. Determine the sprint directory (where PROGRESS.yaml lives):
+                 ```bash
+                 # The sprint directory is the parent of context/ and artifacts/
+                 SPRINT_DIR=$(dirname "$(pwd)/artifacts" 2>/dev/null || echo ".")
+                 # Or find it from PROGRESS.yaml location
+                 PROGRESS_FILE=$(find .claude/sprints -name "PROGRESS.yaml" -newer .claude/sprints/*/SPRINT.yaml 2>/dev/null | head -1)
+                 ```
+
+              3. Insert fix + verify phases using yq:
+                 ```bash
+                 # Add fix-qa and verify-qa phases after the current qa phase
+                 yq -i '
+                   (.phases[] | select(.steps) | .steps[] | select(.status == "in-progress")).phases +=
+                   [
+                     {
+                       "id": "fix-qa",
+                       "status": "pending",
+                       "prompt": "Fix the QA issues identified in artifacts/step-7-qa-report.md.\n\nInstructions:\n1. Read the QA report carefully\n2. Fix each identified issue\n3. Re-run the failed checks to confirm fixes\n4. Update artifacts/step-7-qa-report.md with fix status"
+                     },
+                     {
+                       "id": "verify-qa",
+                       "status": "pending",
+                       "prompt": "Verify all QA issues from step-7 are resolved.\n\nRe-run ALL checks from the original QA:\n- TypeScript build (if applicable)\n- Script validation (if applicable)\n- Integration verification\n- Smoke test\n\nUpdate artifacts/step-7-qa-report.md with final PASS status.\nIf still failing, inject another fix-qa phase."
+                     }
+                   ]
+                 ' "$PROGRESS_FILE"
+                 ```
+
+              4. Mark current QA phase as failed:
+                 ```bash
+                 yq -i '
+                   (.. | select(.id == "qa" and .status == "in-progress")) |=
+                   (.status = "failed" | .error = "QA failed - see artifacts/step-7-qa-report.md - fix-qa phase added")
+                 ' "$PROGRESS_FILE"
+                 ```
+
+              5. The sprint loop will now execute:
+                 - fix-qa → fixes the issues
+                 - verify-qa → confirms fixes work
+
+              ## Important
+              - Focus on compilation and integration (no unit test suite yet)
+              - Reference context/sprint-plan.md for acceptance criteria
+              - QA failures MUST result in injected fix tasks, not just reports
+      - id: step-8
+        prompt: |
+          Phase 2.4: Erstelle docs/reference/workflow-yaml-schema.md
+
+          Ziel: Workflow Template Spezifikation
+
+          Quelle: plugins/m42-sprint/skills/creating-workflows/references/workflow-schema.md
+          Datei: plugins/m42-sprint/docs/reference/workflow-yaml-schema.md
+
+          Aufgaben:
+          - Workflow Structure dokumentieren
+          - Phase Types (simple vs for-each)
+          - Template Variables Referenz
+          - Workflow Patterns mit Beispielen
+          - Nested Workflows erklären
+
+          Erfolg:
+          - Workflow Authoring klar dokumentiert
+          - Patterns wiederverwendbar
+          - Template System verständlich
+        status: pending
+        phases:
+          - id: implement
+            status: pending
+            prompt: |
+              Execute the following task:
+
+              Phase 2.4: Erstelle docs/reference/workflow-yaml-schema.md
+
+              Ziel: Workflow Template Spezifikation
+
+              Quelle: plugins/m42-sprint/skills/creating-workflows/references/workflow-schema.md
+              Datei: plugins/m42-sprint/docs/reference/workflow-yaml-schema.md
+
+              Aufgaben:
+              - Workflow Structure dokumentieren
+              - Phase Types (simple vs for-each)
+              - Template Variables Referenz
+              - Workflow Patterns mit Beispielen
+              - Nested Workflows erklären
+
+              Erfolg:
+              - Workflow Authoring klar dokumentiert
+              - Patterns wiederverwendbar
+              - Template System verständlich
+
+
+              ## Before Starting
+              1. Read context/sprint-plan.md to understand:
+                 - How this step fits into the overall sprint goal
+                 - Architecture decisions that affect this step
+                 - Success criteria for this specific step
+                 - Dependencies on previous steps
+
+              ## Implementation Guidelines
+              - Follow existing patterns in the codebase
+              - Keep code simple and focused on the task
+              - Make atomic commits for logical units of work
+              - If blocked or unclear, set status to needs-human
+
+              ## Complete this task fully before marking as done.
+          - id: qa
+            status: pending
+            prompt: |
+              Quality Assurance verification for the m42-sprint plugin.
+
+              ## Context
+              Step: step-8
+              Task: Phase 2.4: Erstelle docs/reference/workflow-yaml-schema.md
+
+              Ziel: Workflow Template Spezifikation
+
+              Quelle: plugins/m42-sprint/skills/creating-workflows/references/workflow-schema.md
+              Datei: plugins/m42-sprint/docs/reference/workflow-yaml-schema.md
+
+              Aufgaben:
+              - Workflow Structure dokumentieren
+              - Phase Types (simple vs for-each)
+              - Template Variables Referenz
+              - Workflow Patterns mit Beispielen
+              - Nested Workflows erklären
+
+              Erfolg:
+              - Workflow Authoring klar dokumentiert
+              - Patterns wiederverwendbar
+              - Template System verständlich
+
+
+              ## Step 1: Run QA Checks
+
+              ### TypeScript (if compiler/ was modified)
+              ```bash
+              cd plugins/m42-sprint/compiler && npm run build
+              ```
+              - Build completes without errors
+              - New code integrates with existing types
+
+              ### Shell Scripts (if scripts/ was modified)
+              ```bash
+              bash -n plugins/m42-sprint/scripts/<script>.sh
+              ```
+              - Script syntax is valid
+
+              ### Commands/Workflows (if modified)
+              - YAML syntax valid (use yq to verify)
+              - Template variables correct
+
+              ### Integration
+              - Matches architecture in context/sprint-plan.md
+              - Follows existing codebase patterns
+              - No breaking changes
+
+              ### Smoke Test
+              - Manually verify the implementation works
+
+              ## Step 2: Write QA Report
+
+              Write report to: artifacts/step-8-qa-report.md
+
+              ```markdown
+              # QA Report: step-8
+
+              ## Checks Performed
+              | Check | Result | Details |
+              |-------|--------|---------|
+              | TypeScript build | PASS/FAIL/SKIP | ... |
+              | Script validation | PASS/FAIL/SKIP | ... |
+              | Integration | PASS/FAIL | ... |
+              | Smoke test | PASS/FAIL | ... |
+
+              ## Issues Found
+              1. [Issue description]
+              2. [Issue description]
+
+              ## Status: PASS / FAIL
+              ```
+
+              ## Step 3: Handle Outcome
+
+              ### If ALL checks PASS:
+              - Ensure QA report shows "Status: PASS"
+              - Mark this phase as completed
+              - Done!
+
+              ### If ANY check FAILS:
+              You MUST inject fix tasks into PROGRESS.yaml. Do NOT just report issues.
+
+              1. Ensure QA report shows "Status: FAIL" with specific issues listed
+
+              2. Determine the sprint directory (where PROGRESS.yaml lives):
+                 ```bash
+                 # The sprint directory is the parent of context/ and artifacts/
+                 SPRINT_DIR=$(dirname "$(pwd)/artifacts" 2>/dev/null || echo ".")
+                 # Or find it from PROGRESS.yaml location
+                 PROGRESS_FILE=$(find .claude/sprints -name "PROGRESS.yaml" -newer .claude/sprints/*/SPRINT.yaml 2>/dev/null | head -1)
+                 ```
+
+              3. Insert fix + verify phases using yq:
+                 ```bash
+                 # Add fix-qa and verify-qa phases after the current qa phase
+                 yq -i '
+                   (.phases[] | select(.steps) | .steps[] | select(.status == "in-progress")).phases +=
+                   [
+                     {
+                       "id": "fix-qa",
+                       "status": "pending",
+                       "prompt": "Fix the QA issues identified in artifacts/step-8-qa-report.md.\n\nInstructions:\n1. Read the QA report carefully\n2. Fix each identified issue\n3. Re-run the failed checks to confirm fixes\n4. Update artifacts/step-8-qa-report.md with fix status"
+                     },
+                     {
+                       "id": "verify-qa",
+                       "status": "pending",
+                       "prompt": "Verify all QA issues from step-8 are resolved.\n\nRe-run ALL checks from the original QA:\n- TypeScript build (if applicable)\n- Script validation (if applicable)\n- Integration verification\n- Smoke test\n\nUpdate artifacts/step-8-qa-report.md with final PASS status.\nIf still failing, inject another fix-qa phase."
+                     }
+                   ]
+                 ' "$PROGRESS_FILE"
+                 ```
+
+              4. Mark current QA phase as failed:
+                 ```bash
+                 yq -i '
+                   (.. | select(.id == "qa" and .status == "in-progress")) |=
+                   (.status = "failed" | .error = "QA failed - see artifacts/step-8-qa-report.md - fix-qa phase added")
+                 ' "$PROGRESS_FILE"
+                 ```
+
+              5. The sprint loop will now execute:
+                 - fix-qa → fixes the issues
+                 - verify-qa → confirms fixes work
+
+              ## Important
+              - Focus on compilation and integration (no unit test suite yet)
+              - Reference context/sprint-plan.md for acceptance criteria
+              - QA failures MUST result in injected fix tasks, not just reports
+      - id: step-9
+        prompt: |
+          Phase 3.1: Erstelle docs/getting-started/quick-start.md
+
+          Ziel: 5-Minuten Tutorial
+
+          Datei: plugins/m42-sprint/docs/getting-started/quick-start.md
+
+          Aufgaben:
+          - 4 Schritte: start-sprint → add-step (2x) → run-sprint → observe status
+          - Jeder Schritt mit Command und erwarteter Output
+          - Prerequisites check (yq, Node.js)
+          - "Was passiert jetzt?" Erklärungen
+          - Link zu first-sprint.md für Details
+
+          Erfolg:
+          - Tutorial in < 5 Minuten durchführbar
+          - Copy-paste ready
+          - Erfolgserlebnis für Nutzer
+        status: pending
+        phases:
+          - id: implement
+            status: pending
+            prompt: |
+              Execute the following task:
+
+              Phase 3.1: Erstelle docs/getting-started/quick-start.md
+
+              Ziel: 5-Minuten Tutorial
+
+              Datei: plugins/m42-sprint/docs/getting-started/quick-start.md
+
+              Aufgaben:
+              - 4 Schritte: start-sprint → add-step (2x) → run-sprint → observe status
+              - Jeder Schritt mit Command und erwarteter Output
+              - Prerequisites check (yq, Node.js)
+              - "Was passiert jetzt?" Erklärungen
+              - Link zu first-sprint.md für Details
+
+              Erfolg:
+              - Tutorial in < 5 Minuten durchführbar
+              - Copy-paste ready
+              - Erfolgserlebnis für Nutzer
+
+
+              ## Before Starting
+              1. Read context/sprint-plan.md to understand:
+                 - How this step fits into the overall sprint goal
+                 - Architecture decisions that affect this step
+                 - Success criteria for this specific step
+                 - Dependencies on previous steps
+
+              ## Implementation Guidelines
+              - Follow existing patterns in the codebase
+              - Keep code simple and focused on the task
+              - Make atomic commits for logical units of work
+              - If blocked or unclear, set status to needs-human
+
+              ## Complete this task fully before marking as done.
+          - id: qa
+            status: pending
+            prompt: |
+              Quality Assurance verification for the m42-sprint plugin.
+
+              ## Context
+              Step: step-9
+              Task: Phase 3.1: Erstelle docs/getting-started/quick-start.md
+
+              Ziel: 5-Minuten Tutorial
+
+              Datei: plugins/m42-sprint/docs/getting-started/quick-start.md
+
+              Aufgaben:
+              - 4 Schritte: start-sprint → add-step (2x) → run-sprint → observe status
+              - Jeder Schritt mit Command und erwarteter Output
+              - Prerequisites check (yq, Node.js)
+              - "Was passiert jetzt?" Erklärungen
+              - Link zu first-sprint.md für Details
+
+              Erfolg:
+              - Tutorial in < 5 Minuten durchführbar
+              - Copy-paste ready
+              - Erfolgserlebnis für Nutzer
+
+
+              ## Step 1: Run QA Checks
+
+              ### TypeScript (if compiler/ was modified)
+              ```bash
+              cd plugins/m42-sprint/compiler && npm run build
+              ```
+              - Build completes without errors
+              - New code integrates with existing types
+
+              ### Shell Scripts (if scripts/ was modified)
+              ```bash
+              bash -n plugins/m42-sprint/scripts/<script>.sh
+              ```
+              - Script syntax is valid
+
+              ### Commands/Workflows (if modified)
+              - YAML syntax valid (use yq to verify)
+              - Template variables correct
+
+              ### Integration
+              - Matches architecture in context/sprint-plan.md
+              - Follows existing codebase patterns
+              - No breaking changes
+
+              ### Smoke Test
+              - Manually verify the implementation works
+
+              ## Step 2: Write QA Report
+
+              Write report to: artifacts/step-9-qa-report.md
+
+              ```markdown
+              # QA Report: step-9
+
+              ## Checks Performed
+              | Check | Result | Details |
+              |-------|--------|---------|
+              | TypeScript build | PASS/FAIL/SKIP | ... |
+              | Script validation | PASS/FAIL/SKIP | ... |
+              | Integration | PASS/FAIL | ... |
+              | Smoke test | PASS/FAIL | ... |
+
+              ## Issues Found
+              1. [Issue description]
+              2. [Issue description]
+
+              ## Status: PASS / FAIL
+              ```
+
+              ## Step 3: Handle Outcome
+
+              ### If ALL checks PASS:
+              - Ensure QA report shows "Status: PASS"
+              - Mark this phase as completed
+              - Done!
+
+              ### If ANY check FAILS:
+              You MUST inject fix tasks into PROGRESS.yaml. Do NOT just report issues.
+
+              1. Ensure QA report shows "Status: FAIL" with specific issues listed
+
+              2. Determine the sprint directory (where PROGRESS.yaml lives):
+                 ```bash
+                 # The sprint directory is the parent of context/ and artifacts/
+                 SPRINT_DIR=$(dirname "$(pwd)/artifacts" 2>/dev/null || echo ".")
+                 # Or find it from PROGRESS.yaml location
+                 PROGRESS_FILE=$(find .claude/sprints -name "PROGRESS.yaml" -newer .claude/sprints/*/SPRINT.yaml 2>/dev/null | head -1)
+                 ```
+
+              3. Insert fix + verify phases using yq:
+                 ```bash
+                 # Add fix-qa and verify-qa phases after the current qa phase
+                 yq -i '
+                   (.phases[] | select(.steps) | .steps[] | select(.status == "in-progress")).phases +=
+                   [
+                     {
+                       "id": "fix-qa",
+                       "status": "pending",
+                       "prompt": "Fix the QA issues identified in artifacts/step-9-qa-report.md.\n\nInstructions:\n1. Read the QA report carefully\n2. Fix each identified issue\n3. Re-run the failed checks to confirm fixes\n4. Update artifacts/step-9-qa-report.md with fix status"
+                     },
+                     {
+                       "id": "verify-qa",
+                       "status": "pending",
+                       "prompt": "Verify all QA issues from step-9 are resolved.\n\nRe-run ALL checks from the original QA:\n- TypeScript build (if applicable)\n- Script validation (if applicable)\n- Integration verification\n- Smoke test\n\nUpdate artifacts/step-9-qa-report.md with final PASS status.\nIf still failing, inject another fix-qa phase."
+                     }
+                   ]
+                 ' "$PROGRESS_FILE"
+                 ```
+
+              4. Mark current QA phase as failed:
+                 ```bash
+                 yq -i '
+                   (.. | select(.id == "qa" and .status == "in-progress")) |=
+                   (.status = "failed" | .error = "QA failed - see artifacts/step-9-qa-report.md - fix-qa phase added")
+                 ' "$PROGRESS_FILE"
+                 ```
+
+              5. The sprint loop will now execute:
+                 - fix-qa → fixes the issues
+                 - verify-qa → confirms fixes work
+
+              ## Important
+              - Focus on compilation and integration (no unit test suite yet)
+              - Reference context/sprint-plan.md for acceptance criteria
+              - QA failures MUST result in injected fix tasks, not just reports
+      - id: step-10
+        prompt: |
+          Phase 3.2: Erstelle docs/getting-started/first-sprint.md
+
+          Ziel: 15-Minuten vollständiger Walkthrough
+
+          Datei: plugins/m42-sprint/docs/getting-started/first-sprint.md
+
+          Aufgaben:
+          - Voraussetzungen (yq, Node.js) mit Installation
+          - Schritt-für-Schritt Anleitung
+          - SPRINT.yaml editieren und verstehen
+          - Workflow auswählen und verstehen
+          - Output interpretieren (PROGRESS.yaml, Status Page)
+          - Troubleshooting Tipps
+
+          Erfolg:
+          - Vollständiges Verständnis des Prozesses
+          - Nutzer kann eigene Sprints erstellen
+          - Troubleshooting vorbereitet
+        status: pending
+        phases:
+          - id: implement
+            status: pending
+            prompt: |
+              Execute the following task:
+
+              Phase 3.2: Erstelle docs/getting-started/first-sprint.md
+
+              Ziel: 15-Minuten vollständiger Walkthrough
+
+              Datei: plugins/m42-sprint/docs/getting-started/first-sprint.md
+
+              Aufgaben:
+              - Voraussetzungen (yq, Node.js) mit Installation
+              - Schritt-für-Schritt Anleitung
+              - SPRINT.yaml editieren und verstehen
+              - Workflow auswählen und verstehen
+              - Output interpretieren (PROGRESS.yaml, Status Page)
+              - Troubleshooting Tipps
+
+              Erfolg:
+              - Vollständiges Verständnis des Prozesses
+              - Nutzer kann eigene Sprints erstellen
+              - Troubleshooting vorbereitet
+
+
+              ## Before Starting
+              1. Read context/sprint-plan.md to understand:
+                 - How this step fits into the overall sprint goal
+                 - Architecture decisions that affect this step
+                 - Success criteria for this specific step
+                 - Dependencies on previous steps
+
+              ## Implementation Guidelines
+              - Follow existing patterns in the codebase
+              - Keep code simple and focused on the task
+              - Make atomic commits for logical units of work
+              - If blocked or unclear, set status to needs-human
+
+              ## Complete this task fully before marking as done.
+          - id: qa
+            status: pending
+            prompt: |
+              Quality Assurance verification for the m42-sprint plugin.
+
+              ## Context
+              Step: step-10
+              Task: Phase 3.2: Erstelle docs/getting-started/first-sprint.md
+
+              Ziel: 15-Minuten vollständiger Walkthrough
+
+              Datei: plugins/m42-sprint/docs/getting-started/first-sprint.md
+
+              Aufgaben:
+              - Voraussetzungen (yq, Node.js) mit Installation
+              - Schritt-für-Schritt Anleitung
+              - SPRINT.yaml editieren und verstehen
+              - Workflow auswählen und verstehen
+              - Output interpretieren (PROGRESS.yaml, Status Page)
+              - Troubleshooting Tipps
+
+              Erfolg:
+              - Vollständiges Verständnis des Prozesses
+              - Nutzer kann eigene Sprints erstellen
+              - Troubleshooting vorbereitet
+
+
+              ## Step 1: Run QA Checks
+
+              ### TypeScript (if compiler/ was modified)
+              ```bash
+              cd plugins/m42-sprint/compiler && npm run build
+              ```
+              - Build completes without errors
+              - New code integrates with existing types
+
+              ### Shell Scripts (if scripts/ was modified)
+              ```bash
+              bash -n plugins/m42-sprint/scripts/<script>.sh
+              ```
+              - Script syntax is valid
+
+              ### Commands/Workflows (if modified)
+              - YAML syntax valid (use yq to verify)
+              - Template variables correct
+
+              ### Integration
+              - Matches architecture in context/sprint-plan.md
+              - Follows existing codebase patterns
+              - No breaking changes
+
+              ### Smoke Test
+              - Manually verify the implementation works
+
+              ## Step 2: Write QA Report
+
+              Write report to: artifacts/step-10-qa-report.md
+
+              ```markdown
+              # QA Report: step-10
+
+              ## Checks Performed
+              | Check | Result | Details |
+              |-------|--------|---------|
+              | TypeScript build | PASS/FAIL/SKIP | ... |
+              | Script validation | PASS/FAIL/SKIP | ... |
+              | Integration | PASS/FAIL | ... |
+              | Smoke test | PASS/FAIL | ... |
+
+              ## Issues Found
+              1. [Issue description]
+              2. [Issue description]
+
+              ## Status: PASS / FAIL
+              ```
+
+              ## Step 3: Handle Outcome
+
+              ### If ALL checks PASS:
+              - Ensure QA report shows "Status: PASS"
+              - Mark this phase as completed
+              - Done!
+
+              ### If ANY check FAILS:
+              You MUST inject fix tasks into PROGRESS.yaml. Do NOT just report issues.
+
+              1. Ensure QA report shows "Status: FAIL" with specific issues listed
+
+              2. Determine the sprint directory (where PROGRESS.yaml lives):
+                 ```bash
+                 # The sprint directory is the parent of context/ and artifacts/
+                 SPRINT_DIR=$(dirname "$(pwd)/artifacts" 2>/dev/null || echo ".")
+                 # Or find it from PROGRESS.yaml location
+                 PROGRESS_FILE=$(find .claude/sprints -name "PROGRESS.yaml" -newer .claude/sprints/*/SPRINT.yaml 2>/dev/null | head -1)
+                 ```
+
+              3. Insert fix + verify phases using yq:
+                 ```bash
+                 # Add fix-qa and verify-qa phases after the current qa phase
+                 yq -i '
+                   (.phases[] | select(.steps) | .steps[] | select(.status == "in-progress")).phases +=
+                   [
+                     {
+                       "id": "fix-qa",
+                       "status": "pending",
+                       "prompt": "Fix the QA issues identified in artifacts/step-10-qa-report.md.\n\nInstructions:\n1. Read the QA report carefully\n2. Fix each identified issue\n3. Re-run the failed checks to confirm fixes\n4. Update artifacts/step-10-qa-report.md with fix status"
+                     },
+                     {
+                       "id": "verify-qa",
+                       "status": "pending",
+                       "prompt": "Verify all QA issues from step-10 are resolved.\n\nRe-run ALL checks from the original QA:\n- TypeScript build (if applicable)\n- Script validation (if applicable)\n- Integration verification\n- Smoke test\n\nUpdate artifacts/step-10-qa-report.md with final PASS status.\nIf still failing, inject another fix-qa phase."
+                     }
+                   ]
+                 ' "$PROGRESS_FILE"
+                 ```
+
+              4. Mark current QA phase as failed:
+                 ```bash
+                 yq -i '
+                   (.. | select(.id == "qa" and .status == "in-progress")) |=
+                   (.status = "failed" | .error = "QA failed - see artifacts/step-10-qa-report.md - fix-qa phase added")
+                 ' "$PROGRESS_FILE"
+                 ```
+
+              5. The sprint loop will now execute:
+                 - fix-qa → fixes the issues
+                 - verify-qa → confirms fixes work
+
+              ## Important
+              - Focus on compilation and integration (no unit test suite yet)
+              - Reference context/sprint-plan.md for acceptance criteria
+              - QA failures MUST result in injected fix tasks, not just reports
+      - id: step-11
+        prompt: |
+          Phase 4.1: Erstelle docs/troubleshooting/common-issues.md
+
+          Ziel: FAQ & Lösungen konsolidieren
+
+          Quellen: docs/USER-GUIDE.md Troubleshooting, command Fehlerbehandlung
+          Datei: plugins/m42-sprint/docs/troubleshooting/common-issues.md
+
+          Aufgaben:
+          - Kategorien: Compilation, Execution, Environment, Status
+          - Pro Issue: Symptom, Ursache, Lösung, Prävention
+          - Häufigste Probleme zuerst
+          - Debug-Kommandos für Diagnostik
+
+          Erfolg:
+          - Häufige Probleme schnell lösbar
+          - Clear troubleshooting path
+          - Präventive Tipps
+        status: pending
+        phases:
+          - id: implement
+            status: pending
+            prompt: |
+              Execute the following task:
+
+              Phase 4.1: Erstelle docs/troubleshooting/common-issues.md
+
+              Ziel: FAQ & Lösungen konsolidieren
+
+              Quellen: docs/USER-GUIDE.md Troubleshooting, command Fehlerbehandlung
+              Datei: plugins/m42-sprint/docs/troubleshooting/common-issues.md
+
+              Aufgaben:
+              - Kategorien: Compilation, Execution, Environment, Status
+              - Pro Issue: Symptom, Ursache, Lösung, Prävention
+              - Häufigste Probleme zuerst
+              - Debug-Kommandos für Diagnostik
+
+              Erfolg:
+              - Häufige Probleme schnell lösbar
+              - Clear troubleshooting path
+              - Präventive Tipps
+
+
+              ## Before Starting
+              1. Read context/sprint-plan.md to understand:
+                 - How this step fits into the overall sprint goal
+                 - Architecture decisions that affect this step
+                 - Success criteria for this specific step
+                 - Dependencies on previous steps
+
+              ## Implementation Guidelines
+              - Follow existing patterns in the codebase
+              - Keep code simple and focused on the task
+              - Make atomic commits for logical units of work
+              - If blocked or unclear, set status to needs-human
+
+              ## Complete this task fully before marking as done.
+          - id: qa
+            status: pending
+            prompt: |
+              Quality Assurance verification for the m42-sprint plugin.
+
+              ## Context
+              Step: step-11
+              Task: Phase 4.1: Erstelle docs/troubleshooting/common-issues.md
+
+              Ziel: FAQ & Lösungen konsolidieren
+
+              Quellen: docs/USER-GUIDE.md Troubleshooting, command Fehlerbehandlung
+              Datei: plugins/m42-sprint/docs/troubleshooting/common-issues.md
+
+              Aufgaben:
+              - Kategorien: Compilation, Execution, Environment, Status
+              - Pro Issue: Symptom, Ursache, Lösung, Prävention
+              - Häufigste Probleme zuerst
+              - Debug-Kommandos für Diagnostik
+
+              Erfolg:
+              - Häufige Probleme schnell lösbar
+              - Clear troubleshooting path
+              - Präventive Tipps
+
+
+              ## Step 1: Run QA Checks
+
+              ### TypeScript (if compiler/ was modified)
+              ```bash
+              cd plugins/m42-sprint/compiler && npm run build
+              ```
+              - Build completes without errors
+              - New code integrates with existing types
+
+              ### Shell Scripts (if scripts/ was modified)
+              ```bash
+              bash -n plugins/m42-sprint/scripts/<script>.sh
+              ```
+              - Script syntax is valid
+
+              ### Commands/Workflows (if modified)
+              - YAML syntax valid (use yq to verify)
+              - Template variables correct
+
+              ### Integration
+              - Matches architecture in context/sprint-plan.md
+              - Follows existing codebase patterns
+              - No breaking changes
+
+              ### Smoke Test
+              - Manually verify the implementation works
+
+              ## Step 2: Write QA Report
+
+              Write report to: artifacts/step-11-qa-report.md
+
+              ```markdown
+              # QA Report: step-11
+
+              ## Checks Performed
+              | Check | Result | Details |
+              |-------|--------|---------|
+              | TypeScript build | PASS/FAIL/SKIP | ... |
+              | Script validation | PASS/FAIL/SKIP | ... |
+              | Integration | PASS/FAIL | ... |
+              | Smoke test | PASS/FAIL | ... |
+
+              ## Issues Found
+              1. [Issue description]
+              2. [Issue description]
+
+              ## Status: PASS / FAIL
+              ```
+
+              ## Step 3: Handle Outcome
+
+              ### If ALL checks PASS:
+              - Ensure QA report shows "Status: PASS"
+              - Mark this phase as completed
+              - Done!
+
+              ### If ANY check FAILS:
+              You MUST inject fix tasks into PROGRESS.yaml. Do NOT just report issues.
+
+              1. Ensure QA report shows "Status: FAIL" with specific issues listed
+
+              2. Determine the sprint directory (where PROGRESS.yaml lives):
+                 ```bash
+                 # The sprint directory is the parent of context/ and artifacts/
+                 SPRINT_DIR=$(dirname "$(pwd)/artifacts" 2>/dev/null || echo ".")
+                 # Or find it from PROGRESS.yaml location
+                 PROGRESS_FILE=$(find .claude/sprints -name "PROGRESS.yaml" -newer .claude/sprints/*/SPRINT.yaml 2>/dev/null | head -1)
+                 ```
+
+              3. Insert fix + verify phases using yq:
+                 ```bash
+                 # Add fix-qa and verify-qa phases after the current qa phase
+                 yq -i '
+                   (.phases[] | select(.steps) | .steps[] | select(.status == "in-progress")).phases +=
+                   [
+                     {
+                       "id": "fix-qa",
+                       "status": "pending",
+                       "prompt": "Fix the QA issues identified in artifacts/step-11-qa-report.md.\n\nInstructions:\n1. Read the QA report carefully\n2. Fix each identified issue\n3. Re-run the failed checks to confirm fixes\n4. Update artifacts/step-11-qa-report.md with fix status"
+                     },
+                     {
+                       "id": "verify-qa",
+                       "status": "pending",
+                       "prompt": "Verify all QA issues from step-11 are resolved.\n\nRe-run ALL checks from the original QA:\n- TypeScript build (if applicable)\n- Script validation (if applicable)\n- Integration verification\n- Smoke test\n\nUpdate artifacts/step-11-qa-report.md with final PASS status.\nIf still failing, inject another fix-qa phase."
+                     }
+                   ]
+                 ' "$PROGRESS_FILE"
+                 ```
+
+              4. Mark current QA phase as failed:
+                 ```bash
+                 yq -i '
+                   (.. | select(.id == "qa" and .status == "in-progress")) |=
+                   (.status = "failed" | .error = "QA failed - see artifacts/step-11-qa-report.md - fix-qa phase added")
+                 ' "$PROGRESS_FILE"
+                 ```
+
+              5. The sprint loop will now execute:
+                 - fix-qa → fixes the issues
+                 - verify-qa → confirms fixes work
+
+              ## Important
+              - Focus on compilation and integration (no unit test suite yet)
+              - Reference context/sprint-plan.md for acceptance criteria
+              - QA failures MUST result in injected fix tasks, not just reports
+      - id: step-12
+        prompt: |
+          Phase 4.2: Erstelle docs/guides/writing-sprints.md
+
+          Ziel: SPRINT.yaml Best Practices
+
+          Datei: plugins/m42-sprint/docs/guides/writing-sprints.md
+
+          Aufgaben:
+          - Sprint Sizing Guidelines (3-8 steps optimal)
+          - Step Writing Best Practices
+          - Workflow Selection Guide
+          - Per-Step Workflow Overrides
+          - Context File Usage
+          - Real Examples aus aktuellen Sprints
+
+          Erfolg:
+          - Nutzer schreibt effektive Sprints
+          - Best Practices klar
+          - Reale Beispiele inspirierend
+        status: pending
+        phases:
+          - id: implement
+            status: pending
+            prompt: |
+              Execute the following task:
+
+              Phase 4.2: Erstelle docs/guides/writing-sprints.md
+
+              Ziel: SPRINT.yaml Best Practices
+
+              Datei: plugins/m42-sprint/docs/guides/writing-sprints.md
+
+              Aufgaben:
+              - Sprint Sizing Guidelines (3-8 steps optimal)
+              - Step Writing Best Practices
+              - Workflow Selection Guide
+              - Per-Step Workflow Overrides
+              - Context File Usage
+              - Real Examples aus aktuellen Sprints
+
+              Erfolg:
+              - Nutzer schreibt effektive Sprints
+              - Best Practices klar
+              - Reale Beispiele inspirierend
+
+
+              ## Before Starting
+              1. Read context/sprint-plan.md to understand:
+                 - How this step fits into the overall sprint goal
+                 - Architecture decisions that affect this step
+                 - Success criteria for this specific step
+                 - Dependencies on previous steps
+
+              ## Implementation Guidelines
+              - Follow existing patterns in the codebase
+              - Keep code simple and focused on the task
+              - Make atomic commits for logical units of work
+              - If blocked or unclear, set status to needs-human
+
+              ## Complete this task fully before marking as done.
+          - id: qa
+            status: pending
+            prompt: |
+              Quality Assurance verification for the m42-sprint plugin.
+
+              ## Context
+              Step: step-12
+              Task: Phase 4.2: Erstelle docs/guides/writing-sprints.md
+
+              Ziel: SPRINT.yaml Best Practices
+
+              Datei: plugins/m42-sprint/docs/guides/writing-sprints.md
+
+              Aufgaben:
+              - Sprint Sizing Guidelines (3-8 steps optimal)
+              - Step Writing Best Practices
+              - Workflow Selection Guide
+              - Per-Step Workflow Overrides
+              - Context File Usage
+              - Real Examples aus aktuellen Sprints
+
+              Erfolg:
+              - Nutzer schreibt effektive Sprints
+              - Best Practices klar
+              - Reale Beispiele inspirierend
+
+
+              ## Step 1: Run QA Checks
+
+              ### TypeScript (if compiler/ was modified)
+              ```bash
+              cd plugins/m42-sprint/compiler && npm run build
+              ```
+              - Build completes without errors
+              - New code integrates with existing types
+
+              ### Shell Scripts (if scripts/ was modified)
+              ```bash
+              bash -n plugins/m42-sprint/scripts/<script>.sh
+              ```
+              - Script syntax is valid
+
+              ### Commands/Workflows (if modified)
+              - YAML syntax valid (use yq to verify)
+              - Template variables correct
+
+              ### Integration
+              - Matches architecture in context/sprint-plan.md
+              - Follows existing codebase patterns
+              - No breaking changes
+
+              ### Smoke Test
+              - Manually verify the implementation works
+
+              ## Step 2: Write QA Report
+
+              Write report to: artifacts/step-12-qa-report.md
+
+              ```markdown
+              # QA Report: step-12
+
+              ## Checks Performed
+              | Check | Result | Details |
+              |-------|--------|---------|
+              | TypeScript build | PASS/FAIL/SKIP | ... |
+              | Script validation | PASS/FAIL/SKIP | ... |
+              | Integration | PASS/FAIL | ... |
+              | Smoke test | PASS/FAIL | ... |
+
+              ## Issues Found
+              1. [Issue description]
+              2. [Issue description]
+
+              ## Status: PASS / FAIL
+              ```
+
+              ## Step 3: Handle Outcome
+
+              ### If ALL checks PASS:
+              - Ensure QA report shows "Status: PASS"
+              - Mark this phase as completed
+              - Done!
+
+              ### If ANY check FAILS:
+              You MUST inject fix tasks into PROGRESS.yaml. Do NOT just report issues.
+
+              1. Ensure QA report shows "Status: FAIL" with specific issues listed
+
+              2. Determine the sprint directory (where PROGRESS.yaml lives):
+                 ```bash
+                 # The sprint directory is the parent of context/ and artifacts/
+                 SPRINT_DIR=$(dirname "$(pwd)/artifacts" 2>/dev/null || echo ".")
+                 # Or find it from PROGRESS.yaml location
+                 PROGRESS_FILE=$(find .claude/sprints -name "PROGRESS.yaml" -newer .claude/sprints/*/SPRINT.yaml 2>/dev/null | head -1)
+                 ```
+
+              3. Insert fix + verify phases using yq:
+                 ```bash
+                 # Add fix-qa and verify-qa phases after the current qa phase
+                 yq -i '
+                   (.phases[] | select(.steps) | .steps[] | select(.status == "in-progress")).phases +=
+                   [
+                     {
+                       "id": "fix-qa",
+                       "status": "pending",
+                       "prompt": "Fix the QA issues identified in artifacts/step-12-qa-report.md.\n\nInstructions:\n1. Read the QA report carefully\n2. Fix each identified issue\n3. Re-run the failed checks to confirm fixes\n4. Update artifacts/step-12-qa-report.md with fix status"
+                     },
+                     {
+                       "id": "verify-qa",
+                       "status": "pending",
+                       "prompt": "Verify all QA issues from step-12 are resolved.\n\nRe-run ALL checks from the original QA:\n- TypeScript build (if applicable)\n- Script validation (if applicable)\n- Integration verification\n- Smoke test\n\nUpdate artifacts/step-12-qa-report.md with final PASS status.\nIf still failing, inject another fix-qa phase."
+                     }
+                   ]
+                 ' "$PROGRESS_FILE"
+                 ```
+
+              4. Mark current QA phase as failed:
+                 ```bash
+                 yq -i '
+                   (.. | select(.id == "qa" and .status == "in-progress")) |=
+                   (.status = "failed" | .error = "QA failed - see artifacts/step-12-qa-report.md - fix-qa phase added")
+                 ' "$PROGRESS_FILE"
+                 ```
+
+              5. The sprint loop will now execute:
+                 - fix-qa → fixes the issues
+                 - verify-qa → confirms fixes work
+
+              ## Important
+              - Focus on compilation and integration (no unit test suite yet)
+              - Reference context/sprint-plan.md for acceptance criteria
+              - QA failures MUST result in injected fix tasks, not just reports
+      - id: step-13
+        prompt: |
+          Phase 4.3: Erstelle docs/guides/writing-workflows.md
+
+          Ziel: Custom Workflows erstellen
+
+          Datei: plugins/m42-sprint/docs/guides/writing-workflows.md
+
+          Aufgaben:
+          - Workflow Authoring Guide
+          - Phase Types (simple, for-each)
+          - Template Variables nutzen
+          - Workflow Patterns (aus workflow-patterns.md)
+          - Testing und Validation
+          - Migration von alten Workflows
+
+          Erfolg:
+          - Nutzer kann eigene Workflows schreiben
+          - Pattern Catalog nutzbar
+          - Validation klar
+        status: pending
+        phases:
+          - id: implement
+            status: pending
+            prompt: |
+              Execute the following task:
+
+              Phase 4.3: Erstelle docs/guides/writing-workflows.md
+
+              Ziel: Custom Workflows erstellen
+
+              Datei: plugins/m42-sprint/docs/guides/writing-workflows.md
+
+              Aufgaben:
+              - Workflow Authoring Guide
+              - Phase Types (simple, for-each)
+              - Template Variables nutzen
+              - Workflow Patterns (aus workflow-patterns.md)
+              - Testing und Validation
+              - Migration von alten Workflows
+
+              Erfolg:
+              - Nutzer kann eigene Workflows schreiben
+              - Pattern Catalog nutzbar
+              - Validation klar
+
+
+              ## Before Starting
+              1. Read context/sprint-plan.md to understand:
+                 - How this step fits into the overall sprint goal
+                 - Architecture decisions that affect this step
+                 - Success criteria for this specific step
+                 - Dependencies on previous steps
+
+              ## Implementation Guidelines
+              - Follow existing patterns in the codebase
+              - Keep code simple and focused on the task
+              - Make atomic commits for logical units of work
+              - If blocked or unclear, set status to needs-human
+
+              ## Complete this task fully before marking as done.
+          - id: qa
+            status: pending
+            prompt: |
+              Quality Assurance verification for the m42-sprint plugin.
+
+              ## Context
+              Step: step-13
+              Task: Phase 4.3: Erstelle docs/guides/writing-workflows.md
+
+              Ziel: Custom Workflows erstellen
+
+              Datei: plugins/m42-sprint/docs/guides/writing-workflows.md
+
+              Aufgaben:
+              - Workflow Authoring Guide
+              - Phase Types (simple, for-each)
+              - Template Variables nutzen
+              - Workflow Patterns (aus workflow-patterns.md)
+              - Testing und Validation
+              - Migration von alten Workflows
+
+              Erfolg:
+              - Nutzer kann eigene Workflows schreiben
+              - Pattern Catalog nutzbar
+              - Validation klar
+
+
+              ## Step 1: Run QA Checks
+
+              ### TypeScript (if compiler/ was modified)
+              ```bash
+              cd plugins/m42-sprint/compiler && npm run build
+              ```
+              - Build completes without errors
+              - New code integrates with existing types
+
+              ### Shell Scripts (if scripts/ was modified)
+              ```bash
+              bash -n plugins/m42-sprint/scripts/<script>.sh
+              ```
+              - Script syntax is valid
+
+              ### Commands/Workflows (if modified)
+              - YAML syntax valid (use yq to verify)
+              - Template variables correct
+
+              ### Integration
+              - Matches architecture in context/sprint-plan.md
+              - Follows existing codebase patterns
+              - No breaking changes
+
+              ### Smoke Test
+              - Manually verify the implementation works
+
+              ## Step 2: Write QA Report
+
+              Write report to: artifacts/step-13-qa-report.md
+
+              ```markdown
+              # QA Report: step-13
+
+              ## Checks Performed
+              | Check | Result | Details |
+              |-------|--------|---------|
+              | TypeScript build | PASS/FAIL/SKIP | ... |
+              | Script validation | PASS/FAIL/SKIP | ... |
+              | Integration | PASS/FAIL | ... |
+              | Smoke test | PASS/FAIL | ... |
+
+              ## Issues Found
+              1. [Issue description]
+              2. [Issue description]
+
+              ## Status: PASS / FAIL
+              ```
+
+              ## Step 3: Handle Outcome
+
+              ### If ALL checks PASS:
+              - Ensure QA report shows "Status: PASS"
+              - Mark this phase as completed
+              - Done!
+
+              ### If ANY check FAILS:
+              You MUST inject fix tasks into PROGRESS.yaml. Do NOT just report issues.
+
+              1. Ensure QA report shows "Status: FAIL" with specific issues listed
+
+              2. Determine the sprint directory (where PROGRESS.yaml lives):
+                 ```bash
+                 # The sprint directory is the parent of context/ and artifacts/
+                 SPRINT_DIR=$(dirname "$(pwd)/artifacts" 2>/dev/null || echo ".")
+                 # Or find it from PROGRESS.yaml location
+                 PROGRESS_FILE=$(find .claude/sprints -name "PROGRESS.yaml" -newer .claude/sprints/*/SPRINT.yaml 2>/dev/null | head -1)
+                 ```
+
+              3. Insert fix + verify phases using yq:
+                 ```bash
+                 # Add fix-qa and verify-qa phases after the current qa phase
+                 yq -i '
+                   (.phases[] | select(.steps) | .steps[] | select(.status == "in-progress")).phases +=
+                   [
+                     {
+                       "id": "fix-qa",
+                       "status": "pending",
+                       "prompt": "Fix the QA issues identified in artifacts/step-13-qa-report.md.\n\nInstructions:\n1. Read the QA report carefully\n2. Fix each identified issue\n3. Re-run the failed checks to confirm fixes\n4. Update artifacts/step-13-qa-report.md with fix status"
+                     },
+                     {
+                       "id": "verify-qa",
+                       "status": "pending",
+                       "prompt": "Verify all QA issues from step-13 are resolved.\n\nRe-run ALL checks from the original QA:\n- TypeScript build (if applicable)\n- Script validation (if applicable)\n- Integration verification\n- Smoke test\n\nUpdate artifacts/step-13-qa-report.md with final PASS status.\nIf still failing, inject another fix-qa phase."
+                     }
+                   ]
+                 ' "$PROGRESS_FILE"
+                 ```
+
+              4. Mark current QA phase as failed:
+                 ```bash
+                 yq -i '
+                   (.. | select(.id == "qa" and .status == "in-progress")) |=
+                   (.status = "failed" | .error = "QA failed - see artifacts/step-13-qa-report.md - fix-qa phase added")
+                 ' "$PROGRESS_FILE"
+                 ```
+
+              5. The sprint loop will now execute:
+                 - fix-qa → fixes the issues
+                 - verify-qa → confirms fixes work
+
+              ## Important
+              - Focus on compilation and integration (no unit test suite yet)
+              - Reference context/sprint-plan.md for acceptance criteria
+              - QA failures MUST result in injected fix tasks, not just reports
+current:
+  phase: 1
+  step: 0
+  sub-phase: 0
+stats:
+  started-at: "2026-01-16T16:16:12Z"
+  total-phases: 30
+  completed-phases: 0
+  total-steps: 14
+  completed-steps: 0

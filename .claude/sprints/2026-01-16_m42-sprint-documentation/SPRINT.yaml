@@ -1,0 +1,284 @@
+# SPRINT.yaml - M42-Sprint Plugin Documentation
+# This file is compiled into PROGRESS.yaml by /run-sprint
+
+workflow: flat-foreach-qa
+
+steps:
+  - prompt: |
+      Phase 1.1: Überarbeite README.md
+
+      Ziel: Streamlined Entry Point - Hook in 30 Sekunden, dann weiterleiten
+
+      Datei: plugins/m42-sprint/README.md
+
+      Aufgaben:
+      - README auf Essentials reduzieren (Ziel: ~100 Zeilen statt 143)
+      - Klare Struktur: Was ist M42? → Quick Links → 30-Second Example → Installation
+      - ASCII Diagramm der Three-Tier Architecture hinzufügen
+      - Quick Links zu neuen Dokumentationspfaden
+      - Memorable Terminology verwenden: "Ralph Loop", "Fresh Context Pattern"
+
+      Erfolg:
+      - README ist scanbar und führt Nutzer schnell weiter
+      - Kernkonzept in 30 Sekunden verständlich
+
+  - prompt: |
+      Phase 1.2: Erstelle docs/index.md
+
+      Ziel: Navigation Hub für verschiedene User-Typen
+
+      Datei: plugins/m42-sprint/docs/index.md
+
+      Aufgaben:
+      - Landing Page erstellen mit klaren Pfaden
+      - Sections: "Neu hier?", "Architektur verstehen", "Sprints bauen", "Referenz", "Troubleshooting"
+      - Jede Section mit 2-3 Links zu relevanten Docs
+      - Progressive Disclosure: 5min → 15min → Deep Dive
+
+      Erfolg:
+      - Nutzer findet sofort die passende Dokumentation
+      - Klare User Journey erkennbar
+
+  - prompt: |
+      Phase 1.3: Erstelle docs/concepts/overview.md
+
+      Ziel: Der "Aha-Moment" - Entwickler verstehen das System
+
+      Datei: plugins/m42-sprint/docs/concepts/overview.md
+
+      Aufgaben:
+      - Three-Tier Model Diagramm (SPRINT.yaml → Compiler → PROGRESS.yaml → Sprint Loop)
+      - Ralph Loop Visualisierung mit ASCII art
+      - Component Map der Verzeichnisstruktur
+      - "Warum diese Architektur?" Sektion
+      - Key Benefits Tabelle
+      - Links zu Deep Dive Docs
+
+      Erfolg:
+      - Leser versteht die Gesamtarchitektur
+      - ASCII Diagramme visualisieren den Flow
+      - "Warum" ist klar beantwortet
+
+  - prompt: |
+      Phase 1.4: Erstelle docs/concepts/ralph-loop.md
+
+      Ziel: Das Ralph Loop Pattern unvergesslich machen
+
+      Datei: plugins/m42-sprint/docs/concepts/ralph-loop.md
+
+      Aufgaben:
+      - Das Problem erklären: Context Accumulation in langen Sessions
+      - Die Lösung: Fresh Context per Task
+      - Sequence Diagram der Execution (ASCII)
+      - Key Benefits Tabelle
+      - Implementation Details (sprint-loop.sh Highlights)
+      - Code-Beispiele aus der tatsächlichen Implementation
+
+      Erfolg:
+      - Pattern ist memorable ("Ralph Loop")
+      - Problem und Lösung kristallklar
+      - Technische Details für Interessierte verfügbar
+
+  - prompt: |
+      Phase 1.5: Erstelle docs/concepts/workflow-compilation.md
+
+      Ziel: Three-Tier Model im Detail erklären
+
+      Datei: plugins/m42-sprint/docs/concepts/workflow-compilation.md
+
+      Aufgaben:
+      - Compilation Pipeline visualisieren
+      - Schritt-für-Schritt: Load → Resolve → Expand → Substitute → Generate
+      - Beispiel-Expansion zeigen (SPRINT.yaml → Workflow → PROGRESS.yaml)
+      - Template Variables dokumentieren
+      - Compiler Module Übersicht
+
+      Erfolg:
+      - Compilation Process ist nachvollziehbar
+      - Beispiel zeigt konkrete Expansion
+      - Nutzer versteht Template System
+
+  - prompt: |
+      Phase 2.1: Erstelle docs/reference/commands.md
+
+      Ziel: Unified Command Reference - alle 10 Commands
+
+      Datei: plugins/m42-sprint/docs/reference/commands.md
+
+      Aufgaben:
+      - Alle Commands in einer Datei konsolidieren
+      - Sections: Lifecycle, Control, Monitoring, Step Management
+      - Pro Command: Usage, Beschreibung, Optionen, Beispiele
+      - Quick Reference Tabelle am Anfang
+
+      Erfolg:
+      - Alle Commands an einem Ort
+      - Schnell scannbar
+      - Copy-paste ready Beispiele
+
+  - prompt: |
+      Phase 2.2: Erstelle docs/reference/sprint-yaml-schema.md
+
+      Ziel: SPRINT.yaml Spezifikation konsolidieren
+
+      Quelle: plugins/m42-sprint/skills/creating-sprints/references/sprint-schema.md
+      Datei: plugins/m42-sprint/docs/reference/sprint-yaml-schema.md
+
+      Aufgaben:
+      - Minimal Example
+      - Full Example mit allen Optionen
+      - Field Reference Tabelle
+      - Validation Rules
+      - Common Patterns
+      - Step Format Variants (string vs object)
+
+      Erfolg:
+      - Schema vollständig dokumentiert
+      - Beispiele lauffähig
+      - Validation Rules klar
+
+  - prompt: |
+      Phase 2.3: Erstelle docs/reference/progress-yaml-schema.md
+
+      Ziel: PROGRESS.yaml Spezifikation konsolidieren
+
+      Quelle: plugins/m42-sprint/skills/orchestrating-sprints/references/progress-schema.md
+      Datei: plugins/m42-sprint/docs/reference/progress-yaml-schema.md
+
+      Aufgaben:
+      - Generated Structure erklären
+      - Status Values dokumentieren (in-progress, completed, blocked, paused, needs-human)
+      - Current Pointer erklären (phase, step, sub-phase)
+      - Stats Tracking dokumentieren
+      - Phase Hierarchy Visualisierung (ASCII tree)
+
+      Erfolg:
+      - Generated Format verständlich
+      - Status Values dokumentiert
+      - Pointer Navigation klar
+
+  - prompt: |
+      Phase 2.4: Erstelle docs/reference/workflow-yaml-schema.md
+
+      Ziel: Workflow Template Spezifikation
+
+      Quelle: plugins/m42-sprint/skills/creating-workflows/references/workflow-schema.md
+      Datei: plugins/m42-sprint/docs/reference/workflow-yaml-schema.md
+
+      Aufgaben:
+      - Workflow Structure dokumentieren
+      - Phase Types (simple vs for-each)
+      - Template Variables Referenz
+      - Workflow Patterns mit Beispielen
+      - Nested Workflows erklären
+
+      Erfolg:
+      - Workflow Authoring klar dokumentiert
+      - Patterns wiederverwendbar
+      - Template System verständlich
+
+  - prompt: |
+      Phase 3.1: Erstelle docs/getting-started/quick-start.md
+
+      Ziel: 5-Minuten Tutorial
+
+      Datei: plugins/m42-sprint/docs/getting-started/quick-start.md
+
+      Aufgaben:
+      - 4 Schritte: start-sprint → add-step (2x) → run-sprint → observe status
+      - Jeder Schritt mit Command und erwarteter Output
+      - Prerequisites check (yq, Node.js)
+      - "Was passiert jetzt?" Erklärungen
+      - Link zu first-sprint.md für Details
+
+      Erfolg:
+      - Tutorial in < 5 Minuten durchführbar
+      - Copy-paste ready
+      - Erfolgserlebnis für Nutzer
+
+  - prompt: |
+      Phase 3.2: Erstelle docs/getting-started/first-sprint.md
+
+      Ziel: 15-Minuten vollständiger Walkthrough
+
+      Datei: plugins/m42-sprint/docs/getting-started/first-sprint.md
+
+      Aufgaben:
+      - Voraussetzungen (yq, Node.js) mit Installation
+      - Schritt-für-Schritt Anleitung
+      - SPRINT.yaml editieren und verstehen
+      - Workflow auswählen und verstehen
+      - Output interpretieren (PROGRESS.yaml, Status Page)
+      - Troubleshooting Tipps
+
+      Erfolg:
+      - Vollständiges Verständnis des Prozesses
+      - Nutzer kann eigene Sprints erstellen
+      - Troubleshooting vorbereitet
+
+  - prompt: |
+      Phase 4.1: Erstelle docs/troubleshooting/common-issues.md
+
+      Ziel: FAQ & Lösungen konsolidieren
+
+      Quellen: docs/USER-GUIDE.md Troubleshooting, command Fehlerbehandlung
+      Datei: plugins/m42-sprint/docs/troubleshooting/common-issues.md
+
+      Aufgaben:
+      - Kategorien: Compilation, Execution, Environment, Status
+      - Pro Issue: Symptom, Ursache, Lösung, Prävention
+      - Häufigste Probleme zuerst
+      - Debug-Kommandos für Diagnostik
+
+      Erfolg:
+      - Häufige Probleme schnell lösbar
+      - Clear troubleshooting path
+      - Präventive Tipps
+
+  - prompt: |
+      Phase 4.2: Erstelle docs/guides/writing-sprints.md
+
+      Ziel: SPRINT.yaml Best Practices
+
+      Datei: plugins/m42-sprint/docs/guides/writing-sprints.md
+
+      Aufgaben:
+      - Sprint Sizing Guidelines (3-8 steps optimal)
+      - Step Writing Best Practices
+      - Workflow Selection Guide
+      - Per-Step Workflow Overrides
+      - Context File Usage
+      - Real Examples aus aktuellen Sprints
+
+      Erfolg:
+      - Nutzer schreibt effektive Sprints
+      - Best Practices klar
+      - Reale Beispiele inspirierend
+
+  - prompt: |
+      Phase 4.3: Erstelle docs/guides/writing-workflows.md
+
+      Ziel: Custom Workflows erstellen
+
+      Datei: plugins/m42-sprint/docs/guides/writing-workflows.md
+
+      Aufgaben:
+      - Workflow Authoring Guide
+      - Phase Types (simple, for-each)
+      - Template Variables nutzen
+      - Workflow Patterns (aus workflow-patterns.md)
+      - Testing und Validation
+      - Migration von alten Workflows
+
+      Erfolg:
+      - Nutzer kann eigene Workflows schreiben
+      - Pattern Catalog nutzbar
+      - Validation klar
+
+# Sprint metadata
+sprint-id: 2026-01-16_m42-sprint-documentation
+name: M42-Sprint Plugin Documentation
+created: 2026-01-16T00:00:00Z
+description: |
+  Create comprehensive "awesome" developer and user documentation for the m42-sprint plugin.
+  Focus on clear architecture explanation, quick start, and unified reference documentation.
