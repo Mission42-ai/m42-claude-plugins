@@ -1439,6 +1439,7 @@ phases:
               - QA failures MUST result in injected fix tasks, not just reports
             started-at: "2026-01-16T16:49:55Z"
             completed-at: "2026-01-16T16:50:00Z"
+            elapsed: 00:00:05
         started-at: "2026-01-16T16:48:10Z"
       - id: step-7
         prompt: |
@@ -1460,10 +1461,10 @@ phases:
           - Generated Format verständlich
           - Status Values dokumentiert
           - Pointer Navigation klar
-        status: pending
+        status: completed
         phases:
           - id: implement
-            status: pending
+            status: completed
             prompt: |
               Execute the following task:
 
@@ -1501,8 +1502,11 @@ phases:
               - If blocked or unclear, set status to needs-human
 
               ## Complete this task fully before marking as done.
+            started-at: "2026-01-16T16:52:00Z"
+            completed-at: "2026-01-16T16:53:00Z"
+            elapsed: 00:01:00
           - id: qa
-            status: pending
+            status: completed
             prompt: |
               Quality Assurance verification for the m42-sprint plugin.
 
@@ -1633,6 +1637,9 @@ phases:
               - Focus on compilation and integration (no unit test suite yet)
               - Reference context/sprint-plan.md for acceptance criteria
               - QA failures MUST result in injected fix tasks, not just reports
+            started-at: "2026-01-16T16:53:59Z"
+            completed-at: "2026-01-16T16:54:00Z"
+        started-at: "2026-01-16T16:52:00Z"
       - id: step-8
         prompt: |
           Phase 2.4: Erstelle docs/reference/workflow-yaml-schema.md
@@ -2788,7 +2795,7 @@ phases:
     started-at: "2026-01-16T16:18:41Z"
 current:
   phase: 1
-  step: 7
+  step: 8
   sub-phase: 0
 stats:
   started-at: "2026-01-16T16:16:12Z"
@@ -2797,6 +2804,6 @@ stats:
   total-steps: 14
   completed-steps: 0
   max-iterations: 30
-  current-iteration: 14
+  current-iteration: 16
   completed-at: "2026-01-16T16:24:41Z"
   elapsed: 00:08:29
