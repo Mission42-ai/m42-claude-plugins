@@ -1,1 +1,5 @@
 /tmp
+
+# Sprint status server port files
+*.port
+.sprint-status.port

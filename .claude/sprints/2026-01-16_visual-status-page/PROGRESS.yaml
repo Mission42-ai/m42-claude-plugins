@@ -1,5 +1,5 @@
 sprint-id: 2026-01-16_visual-status-page
-status: in-progress
+status: completed
 phases:
   - id: prepare
     status: completed
@@ -2140,6 +2140,7 @@ phases:
               - QA failures MUST result in injected fix tasks, not just reports
             started-at: "2026-01-16T11:08:34Z"
             completed-at: "2026-01-16T11:14:00Z"
+            elapsed: 00:05:26
         started-at: "2026-01-16T11:06:21Z"
     started-at: "2026-01-16T10:35:31Z"
 current:
@@ -2152,3 +2153,5 @@ stats:
   completed-phases: 1
   total-steps: 12
   completed-steps: 0
+  completed-at: "2026-01-16T11:14:17Z"
+  elapsed: 00:41:21
