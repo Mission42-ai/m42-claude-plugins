@@ -2236,6 +2236,7 @@ phases:
               - QA failures MUST result in injected fix tasks, not just reports
             started-at: "2026-01-16T17:05:28Z"
             completed-at: "2026-01-16T17:05:28Z"
+            elapsed: 00:00:00
         started-at: "2026-01-16T17:03:25Z"
       - id: step-11
         prompt: |
@@ -2256,10 +2257,10 @@ phases:
           - Häufige Probleme schnell lösbar
           - Clear troubleshooting path
           - Präventive Tipps
-        status: pending
+        status: in-progress
         phases:
           - id: implement
-            status: pending
+            status: completed
             prompt: |
               Execute the following task:
 
@@ -2296,6 +2297,8 @@ phases:
               - If blocked or unclear, set status to needs-human
 
               ## Complete this task fully before marking as done.
+            started-at: "2026-01-16T17:07:26Z"
+            completed-at: "2026-01-16T17:09:26Z"
           - id: qa
             status: pending
             prompt: |
@@ -2427,6 +2430,7 @@ phases:
               - Focus on compilation and integration (no unit test suite yet)
               - Reference context/sprint-plan.md for acceptance criteria
               - QA failures MUST result in injected fix tasks, not just reports
+        started-at: "2026-01-16T17:07:26Z"
       - id: step-12
         prompt: |
           Phase 4.2: Erstelle docs/guides/writing-sprints.md
@@ -2817,7 +2821,7 @@ phases:
 current:
   phase: 1
   step: 11
-  sub-phase: 0
+  sub-phase: 1
 stats:
   started-at: "2026-01-16T16:16:12Z"
   total-phases: 30
@@ -2825,6 +2829,6 @@ stats:
   total-steps: 14
   completed-steps: 0
   max-iterations: 30
-  current-iteration: 22
+  current-iteration: 23
   completed-at: "2026-01-16T16:24:41Z"
   elapsed: 00:08:29
