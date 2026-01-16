@@ -404,6 +404,7 @@ phases:
               - QA failures MUST result in injected fix tasks, not just reports
             started-at: "2026-01-16T10:39:02Z"
             completed-at: "2026-01-16T10:39:02Z"
+            elapsed: 00:00:00
         started-at: "2026-01-16T10:37:58Z"
       - id: step-2
         prompt: |
@@ -416,10 +417,10 @@ phases:
           - Generate log entries for status changes (started, completed, failed)
           - Calculate progress percentages
           - Format timestamps for display
-        status: pending
+        status: in-progress
         phases:
           - id: implement
-            status: pending
+            status: completed
             prompt: |
               Execute the following task:
 
@@ -448,6 +449,8 @@ phases:
               - If blocked or unclear, set status to needs-human
 
               ## Complete this task fully before marking as done.
+            started-at: "2026-01-16T10:40:32Z"
+            completed-at: "2026-01-16T10:42:05Z"
           - id: qa
             status: pending
             prompt: |
@@ -571,6 +574,7 @@ phases:
               - Focus on compilation and integration (no unit test suite yet)
               - Reference context/sprint-plan.md for acceptance criteria
               - QA failures MUST result in injected fix tasks, not just reports
+        started-at: "2026-01-16T10:40:32Z"
       - id: step-3
         prompt: |
           Create HTML page with embedded CSS and JavaScript.
@@ -2075,7 +2079,7 @@ phases:
 current:
   phase: 1
   step: 2
-  sub-phase: 0
+  sub-phase: 1
 stats:
   started-at: "2026-01-16T10:32:56Z"
   total-phases: 26
