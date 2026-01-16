@@ -35,9 +35,45 @@ ${getStyles()}
         </div>
         <div class="header-actions">
           <button class="header-download-btn" id="download-all-logs-btn" title="Download All Logs">⬇ All Logs</button>
+          <button class="header-notification-btn" id="notification-settings-btn" title="Notification Settings">🔔</button>
         </div>
       </div>
     </header>
+
+    <div id="notification-settings" class="notification-settings-panel">
+      <div class="notification-settings-header">
+        <span class="notification-settings-title">Notifications</span>
+        <button class="notification-settings-close" id="notification-settings-close">×</button>
+      </div>
+      <div class="notification-settings-body">
+        <div class="notification-permission-prompt" id="notification-permission-prompt">
+          <p>Enable desktop notifications to stay informed about sprint events.</p>
+          <button class="notification-enable-btn" id="notification-enable-btn">Enable Notifications</button>
+        </div>
+        <label class="notification-settings-toggle">
+          <input type="checkbox" id="notifications-enabled" />
+          <span>Enable Desktop Notifications</span>
+        </label>
+        <div class="notification-settings-section">
+          <span class="notification-settings-section-title">Notify on:</span>
+          <label class="notification-checkbox"><input type="checkbox" id="notify-completed" /> Sprint Completed</label>
+          <label class="notification-checkbox"><input type="checkbox" id="notify-failed" /> Sprint Failed</label>
+          <label class="notification-checkbox"><input type="checkbox" id="notify-blocked" /> Phase Blocked</label>
+          <label class="notification-checkbox"><input type="checkbox" id="notify-human" /> Needs Human</label>
+        </div>
+        <div class="notification-settings-section">
+          <label class="notification-settings-toggle">
+            <input type="checkbox" id="sound-enabled" />
+            <span>Sound Alerts</span>
+          </label>
+          <select id="sound-select" class="notification-sound-select">
+            <option value="default">Default</option>
+            <option value="chime">Chime</option>
+            <option value="bell">Bell</option>
+          </select>
+        </div>
+      </div>
+    </div>
 
     <div class="control-bar" id="control-bar">
       <button class="control-btn" id="pause-btn" style="display: none;">
@@ -1281,6 +1317,181 @@ function getStyles(): string {
     ::-webkit-scrollbar-thumb:hover {
       background: var(--text-muted);
     }
+
+    /* Notification Settings */
+    .header-notification-btn {
+      padding: 4px 10px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background-color: var(--bg-tertiary);
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .header-notification-btn:hover {
+      background-color: var(--bg-highlight);
+      color: var(--text-primary);
+      border-color: var(--text-muted);
+    }
+
+    .header-notification-btn.has-permission {
+      color: var(--accent-green);
+    }
+
+    .notification-settings-panel {
+      display: none;
+      position: absolute;
+      top: 60px;
+      right: 20px;
+      width: 300px;
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      z-index: 100;
+    }
+
+    .notification-settings-panel.visible {
+      display: block;
+    }
+
+    .notification-settings-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .notification-settings-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .notification-settings-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 18px;
+      cursor: pointer;
+      padding: 0;
+      line-height: 1;
+    }
+
+    .notification-settings-close:hover {
+      color: var(--text-primary);
+    }
+
+    .notification-settings-body {
+      padding: 12px 16px;
+    }
+
+    .notification-permission-prompt {
+      padding: 12px;
+      background-color: rgba(88, 166, 255, 0.1);
+      border: 1px solid rgba(88, 166, 255, 0.3);
+      border-radius: 6px;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+
+    .notification-permission-prompt.hidden {
+      display: none;
+    }
+
+    .notification-permission-prompt p {
+      margin: 0 0 10px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .notification-enable-btn {
+      padding: 6px 12px;
+      border: 1px solid var(--accent-blue);
+      border-radius: 4px;
+      background-color: var(--accent-blue);
+      color: white;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .notification-enable-btn:hover {
+      background-color: #4a9eff;
+    }
+
+    .notification-settings-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      font-size: 12px;
+      color: var(--text-primary);
+      cursor: pointer;
+    }
+
+    .notification-settings-toggle input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+
+    .notification-settings-section {
+      margin-bottom: 12px;
+    }
+
+    .notification-settings-section-title {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+
+    .notification-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+      font-size: 12px;
+      color: var(--text-primary);
+      cursor: pointer;
+    }
+
+    .notification-checkbox input[type="checkbox"] {
+      width: 14px;
+      height: 14px;
+      cursor: pointer;
+    }
+
+    .notification-sound-select {
+      width: 100%;
+      padding: 6px 10px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background-color: var(--bg-tertiary);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      margin-top: 8px;
+      cursor: pointer;
+    }
+
+    .notification-sound-select:hover {
+      border-color: var(--text-muted);
+    }
+
+    .notification-sound-select:focus {
+      outline: none;
+      border-color: var(--accent-blue);
+    }
   `;
 }
 
@@ -1326,7 +1537,19 @@ function getScript(): string {
         logViewerClose: document.getElementById('log-viewer-close'),
         logSearchInput: document.getElementById('log-search-input'),
         logDownloadBtn: document.getElementById('log-download-btn'),
-        downloadAllLogsBtn: document.getElementById('download-all-logs-btn')
+        downloadAllLogsBtn: document.getElementById('download-all-logs-btn'),
+        notificationSettingsBtn: document.getElementById('notification-settings-btn'),
+        notificationSettingsPanel: document.getElementById('notification-settings'),
+        notificationSettingsClose: document.getElementById('notification-settings-close'),
+        notificationPermissionPrompt: document.getElementById('notification-permission-prompt'),
+        notificationEnableBtn: document.getElementById('notification-enable-btn'),
+        notificationsEnabledCheckbox: document.getElementById('notifications-enabled'),
+        notifyCompletedCheckbox: document.getElementById('notify-completed'),
+        notifyFailedCheckbox: document.getElementById('notify-failed'),
+        notifyBlockedCheckbox: document.getElementById('notify-blocked'),
+        notifyHumanCheckbox: document.getElementById('notify-human'),
+        soundEnabledCheckbox: document.getElementById('sound-enabled'),
+        soundSelect: document.getElementById('sound-select')
       };
 
       // State
@@ -1356,6 +1579,46 @@ function getScript(): string {
       // Log viewer state
       let currentLogPhaseId = null;
       let currentLogContent = '';
+
+      // Notification state
+      let previousSprintStatus = null;
+      let notificationPreferences = loadNotificationPreferences();
+
+      function getDefaultNotificationPreferences() {
+        return {
+          enabled: true,
+          events: {
+            sprintCompleted: true,
+            sprintFailed: true,
+            phaseBlocked: true,
+            needsHuman: true
+          },
+          sound: {
+            enabled: false,
+            soundId: 'default'
+          }
+        };
+      }
+
+      function loadNotificationPreferences() {
+        try {
+          var stored = localStorage.getItem('notificationPreferences');
+          if (stored) {
+            return JSON.parse(stored);
+          }
+        } catch (e) {
+          console.error('Failed to load notification preferences:', e);
+        }
+        return getDefaultNotificationPreferences();
+      }
+
+      function saveNotificationPreferences() {
+        try {
+          localStorage.setItem('notificationPreferences', JSON.stringify(notificationPreferences));
+        } catch (e) {
+          console.error('Failed to save notification preferences:', e);
+        }
+      }
 
       // ANSI escape code to HTML converter
       function ansiToHtml(text) {
@@ -1445,6 +1708,7 @@ function getScript(): string {
         setupLiveActivityControls();
         setupSkipModal();
         setupLogViewer();
+        setupNotifications();
         // Update elapsed time every second
         setInterval(updateElapsedTimes, 1000);
         // Update relative times in activity panel
@@ -1540,6 +1804,230 @@ function getScript(): string {
         var phaseId = e.target.dataset.phaseId;
         if (phaseId) {
           showLogViewer(phaseId);
+        }
+      }
+
+      // Notification Setup
+      function setupNotifications() {
+        // Initialize permission prompt visibility
+        updateNotificationPermissionUI();
+
+        // Load preferences into UI
+        applyNotificationPreferencesToUI();
+
+        // Settings panel toggle
+        elements.notificationSettingsBtn.addEventListener('click', function() {
+          elements.notificationSettingsPanel.classList.toggle('visible');
+        });
+
+        // Close button
+        elements.notificationSettingsClose.addEventListener('click', function() {
+          elements.notificationSettingsPanel.classList.remove('visible');
+        });
+
+        // Close on outside click
+        document.addEventListener('click', function(e) {
+          if (!elements.notificationSettingsPanel.contains(e.target) &&
+              !elements.notificationSettingsBtn.contains(e.target)) {
+            elements.notificationSettingsPanel.classList.remove('visible');
+          }
+        });
+
+        // Enable notifications button
+        elements.notificationEnableBtn.addEventListener('click', function() {
+          Notification.requestPermission().then(function(permission) {
+            updateNotificationPermissionUI();
+            if (permission === 'granted') {
+              notificationPreferences.enabled = true;
+              saveNotificationPreferences();
+              applyNotificationPreferencesToUI();
+            }
+          });
+        });
+
+        // Master toggle
+        elements.notificationsEnabledCheckbox.addEventListener('change', function() {
+          notificationPreferences.enabled = this.checked;
+          saveNotificationPreferences();
+        });
+
+        // Event toggles
+        elements.notifyCompletedCheckbox.addEventListener('change', function() {
+          notificationPreferences.events.sprintCompleted = this.checked;
+          saveNotificationPreferences();
+        });
+
+        elements.notifyFailedCheckbox.addEventListener('change', function() {
+          notificationPreferences.events.sprintFailed = this.checked;
+          saveNotificationPreferences();
+        });
+
+        elements.notifyBlockedCheckbox.addEventListener('change', function() {
+          notificationPreferences.events.phaseBlocked = this.checked;
+          saveNotificationPreferences();
+        });
+
+        elements.notifyHumanCheckbox.addEventListener('change', function() {
+          notificationPreferences.events.needsHuman = this.checked;
+          saveNotificationPreferences();
+        });
+
+        // Sound toggle
+        elements.soundEnabledCheckbox.addEventListener('change', function() {
+          notificationPreferences.sound.enabled = this.checked;
+          saveNotificationPreferences();
+        });
+
+        // Sound select
+        elements.soundSelect.addEventListener('change', function() {
+          notificationPreferences.sound.soundId = this.value;
+          saveNotificationPreferences();
+          // Play preview sound
+          if (notificationPreferences.sound.enabled) {
+            playNotificationSound(this.value);
+          }
+        });
+      }
+
+      function updateNotificationPermissionUI() {
+        if (!('Notification' in window)) {
+          elements.notificationPermissionPrompt.innerHTML = '<p>Desktop notifications are not supported in this browser.</p>';
+          return;
+        }
+
+        var permission = Notification.permission;
+
+        if (permission === 'granted') {
+          elements.notificationPermissionPrompt.classList.add('hidden');
+          elements.notificationSettingsBtn.classList.add('has-permission');
+        } else if (permission === 'denied') {
+          elements.notificationPermissionPrompt.innerHTML = '<p>Notifications are blocked. Please enable them in your browser settings.</p>';
+        } else {
+          elements.notificationPermissionPrompt.classList.remove('hidden');
+        }
+      }
+
+      function applyNotificationPreferencesToUI() {
+        elements.notificationsEnabledCheckbox.checked = notificationPreferences.enabled;
+        elements.notifyCompletedCheckbox.checked = notificationPreferences.events.sprintCompleted;
+        elements.notifyFailedCheckbox.checked = notificationPreferences.events.sprintFailed;
+        elements.notifyBlockedCheckbox.checked = notificationPreferences.events.phaseBlocked;
+        elements.notifyHumanCheckbox.checked = notificationPreferences.events.needsHuman;
+        elements.soundEnabledCheckbox.checked = notificationPreferences.sound.enabled;
+        elements.soundSelect.value = notificationPreferences.sound.soundId;
+      }
+
+      function checkAndSendNotification(newStatus, previousStatus, update) {
+        if (!('Notification' in window)) return;
+        if (Notification.permission !== 'granted') return;
+        if (!notificationPreferences.enabled) return;
+
+        var title = '';
+        var body = '';
+        var shouldNotify = false;
+
+        // sendNotification for completed - Sprint completed (success)
+        if (newStatus === 'completed' && previousStatus !== 'completed') {
+          if (notificationPreferences.events.sprintCompleted) {
+            title = 'Sprint Completed!';
+            body = 'Sprint ' + (update.header ? update.header.sprintId : '') + ' has completed successfully.';
+            shouldNotify = true;
+          }
+        }
+
+        // sendNotification for failed - Sprint failed
+        if (newStatus === 'failed' && previousStatus !== 'failed') {
+          if (notificationPreferences.events.sprintFailed) {
+            title = 'Sprint Failed';
+            body = 'Sprint ' + (update.header ? update.header.sprintId : '') + ' has failed.';
+            shouldNotify = true;
+          }
+        }
+
+        // sendNotification for blocked - Phase blocked
+        if (newStatus === 'blocked' && previousStatus !== 'blocked') {
+          if (notificationPreferences.events.phaseBlocked) {
+            title = 'Phase Blocked';
+            body = 'Sprint ' + (update.header ? update.header.sprintId : '') + ' is blocked and needs attention.';
+            shouldNotify = true;
+          }
+        }
+
+        // sendNotification for needs-human - Needs human intervention
+        if (newStatus === 'needs-human' && previousStatus !== 'needs-human') {
+          if (notificationPreferences.events.needsHuman) {
+            title = 'Human Intervention Needed';
+            body = 'Sprint ' + (update.header ? update.header.sprintId : '') + ' requires human intervention.';
+            shouldNotify = true;
+          }
+        }
+
+        if (shouldNotify) {
+          showNotification(title, body);
+        }
+      }
+
+      function showNotification(title, body) {
+        var notification = new Notification(title, {
+          body: body,
+          icon: '/favicon.ico',
+          tag: 'sprint-status'
+        });
+
+        notification.onclick = function() { window.focus(); notification.close(); };
+
+        // Play sound if enabled
+        if (notificationPreferences.sound.enabled) {
+          playNotificationSound(notificationPreferences.sound.soundId);
+        }
+
+        // Auto-close after 10 seconds
+        setTimeout(function() {
+          notification.close();
+        }, 10000);
+      }
+
+      function playNotificationSound(soundId) {
+        // Use Web Audio API to generate notification sounds
+        try {
+          var audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          var oscillator = audioContext.createOscillator();
+          var gainNode = audioContext.createGain();
+
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+
+          // Different sounds based on soundId
+          switch (soundId) {
+            case 'chime':
+              oscillator.type = 'sine';
+              oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
+              oscillator.frequency.setValueAtTime(1100, audioContext.currentTime + 0.1);
+              oscillator.frequency.setValueAtTime(1320, audioContext.currentTime + 0.2);
+              gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+              gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+              oscillator.start(audioContext.currentTime);
+              oscillator.stop(audioContext.currentTime + 0.4);
+              break;
+            case 'bell':
+              oscillator.type = 'sine';
+              oscillator.frequency.setValueAtTime(660, audioContext.currentTime);
+              gainNode.gain.setValueAtTime(0.4, audioContext.currentTime);
+              gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.6);
+              oscillator.start(audioContext.currentTime);
+              oscillator.stop(audioContext.currentTime + 0.6);
+              break;
+            default: // 'default'
+              oscillator.type = 'square';
+              oscillator.frequency.setValueAtTime(440, audioContext.currentTime);
+              oscillator.frequency.setValueAtTime(550, audioContext.currentTime + 0.1);
+              gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+              gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+              oscillator.start(audioContext.currentTime);
+              oscillator.stop(audioContext.currentTime + 0.3);
+          }
+        } catch (e) {
+          console.error('Failed to play notification sound:', e);
         }
       }
 
@@ -1847,6 +2335,14 @@ function getScript(): string {
 
       // Status Update Handler
       function handleStatusUpdate(update) {
+        var newStatus = update.header ? update.header.status : null;
+
+        // Check for status change and send notification if needed
+        if (previousSprintStatus !== newStatus && newStatus) {
+          checkAndSendNotification(newStatus, previousSprintStatus, update);
+          previousSprintStatus = newStatus;
+        }
+
         updateHeader(update.header);
         updatePhaseTree(update.phaseTree);
         updateCurrentTask(update.currentTask);
