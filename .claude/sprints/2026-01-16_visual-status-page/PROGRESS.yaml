@@ -577,6 +577,7 @@ phases:
               - QA failures MUST result in injected fix tasks, not just reports
             started-at: "2026-01-16T10:42:29Z"
             completed-at: "2026-01-16T10:42:29Z"
+            elapsed: 00:00:00
         started-at: "2026-01-16T10:40:32Z"
       - id: step-3
         prompt: |
@@ -592,10 +593,10 @@ phases:
           - Right bottom: activity feed (log entries)
           - Client JS uses EventSource for SSE connection
           - All CSS/JS embedded as template literal (no external files)
-        status: pending
+        status: completed
         phases:
           - id: implement
-            status: pending
+            status: completed
             prompt: |
               Execute the following task:
 
@@ -627,8 +628,11 @@ phases:
               - If blocked or unclear, set status to needs-human
 
               ## Complete this task fully before marking as done.
+            started-at: "2026-01-16T10:44:01Z"
+            completed-at: "2026-01-16T10:44:01Z"
+            elapsed: 00:00:00
           - id: qa
-            status: pending
+            status: completed
             prompt: |
               Quality Assurance verification for the m42-sprint plugin.
 
@@ -753,6 +757,9 @@ phases:
               - Focus on compilation and integration (no unit test suite yet)
               - Reference context/sprint-plan.md for acceptance criteria
               - QA failures MUST result in injected fix tasks, not just reports
+            started-at: "2026-01-16T10:46:38Z"
+            completed-at: "2026-01-16T10:46:38Z"
+        started-at: "2026-01-16T10:44:01Z"
       - id: step-4
         prompt: |
           Create HTTP server with SSE endpoint.
@@ -2081,7 +2088,7 @@ phases:
     started-at: "2026-01-16T10:35:31Z"
 current:
   phase: 1
-  step: 3
+  step: 4
   sub-phase: 0
 stats:
   started-at: "2026-01-16T10:32:56Z"
