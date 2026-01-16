@@ -1466,7 +1466,7 @@ phases:
           - Write current iteration using yq: .stats."current-iteration" = $i
           - Write max iterations using yq: .stats."max-iterations" = $MAX_ITERATIONS
           - Place updates after PROGRESS.yaml is created/updated
-        status: in-progress
+        status: completed
         phases:
           - id: implement
             status: completed
@@ -1499,8 +1499,9 @@ phases:
               ## Complete this task fully before marking as done.
             started-at: "2026-01-16T10:57:48Z"
             completed-at: "2026-01-16T10:57:48Z"
+            elapsed: 00:00:00
           - id: qa
-            status: pending
+            status: completed
             prompt: |
               Quality Assurance verification for the m42-sprint plugin.
 
@@ -1621,6 +1622,8 @@ phases:
               - Focus on compilation and integration (no unit test suite yet)
               - Reference context/sprint-plan.md for acceptance criteria
               - QA failures MUST result in injected fix tasks, not just reports
+            started-at: "2026-01-16T10:58:50Z"
+            completed-at: "2026-01-16T10:58:50Z"
         started-at: "2026-01-16T10:57:48Z"
       - id: step-9
         prompt: |
@@ -2120,8 +2123,8 @@ phases:
     started-at: "2026-01-16T10:35:31Z"
 current:
   phase: 1
-  step: 8
-  sub-phase: 1
+  step: 9
+  sub-phase: 0
 stats:
   started-at: "2026-01-16T10:32:56Z"
   total-phases: 26
