@@ -159,7 +159,7 @@ export class StatusServer {
 
     // Enable CORS for all requests
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
     if (req.method === 'OPTIONS') {
@@ -168,7 +168,18 @@ export class StatusServer {
       return;
     }
 
-    if (req.method !== 'GET') {
+    // Control endpoints that accept POST
+    const controlEndpoints = ['/api/pause', '/api/resume', '/api/stop'];
+    const isControlEndpoint = controlEndpoints.includes(url);
+
+    // Allow POST for control endpoints, GET for everything else
+    if (isControlEndpoint) {
+      if (req.method !== 'POST') {
+        res.writeHead(405, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Method Not Allowed', message: 'Use POST for this endpoint' }));
+        return;
+      }
+    } else if (req.method !== 'GET') {
       res.writeHead(405, { 'Content-Type': 'text/plain' });
       res.end('Method Not Allowed');
       return;
@@ -183,6 +194,18 @@ export class StatusServer {
         break;
       case '/api/status':
         this.handleAPIRequest(res);
+        break;
+      case '/api/controls':
+        this.handleControlsRequest(res);
+        break;
+      case '/api/pause':
+        this.handlePauseRequest(res);
+        break;
+      case '/api/resume':
+        this.handleResumeRequest(res);
+        break;
+      case '/api/stop':
+        this.handleStopRequest(res);
         break;
       default:
         res.writeHead(404, { 'Content-Type': 'text/plain' });
@@ -254,6 +277,163 @@ export class StatusServer {
           message: error instanceof Error ? error.message : String(error),
         })
       );
+    }
+  }
+
+  /**
+   * Get available actions based on current sprint status
+   */
+  private getAvailableActions(status: string): Array<'pause' | 'resume' | 'stop'> {
+    switch (status) {
+      case 'in-progress':
+        return ['pause', 'stop'];
+      case 'paused':
+        return ['resume', 'stop'];
+      case 'blocked':
+      case 'needs-human':
+        return ['stop'];
+      default:
+        return [];
+    }
+  }
+
+  /**
+   * Handle GET /api/controls request
+   * Returns available actions based on current sprint state
+   */
+  private handleControlsRequest(res: http.ServerResponse): void {
+    try {
+      const progress = this.loadProgress();
+      const availableActions = this.getAvailableActions(progress.status);
+
+      res.writeHead(200, {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+      });
+      res.end(JSON.stringify({
+        sprintStatus: progress.status,
+        availableActions,
+      }, null, 2));
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        error: 'Failed to load progress',
+        message: error instanceof Error ? error.message : String(error),
+      }));
+    }
+  }
+
+  /**
+   * Handle POST /api/pause request
+   * Creates .pause-requested signal file
+   */
+  private handlePauseRequest(res: http.ServerResponse): void {
+    try {
+      const progress = this.loadProgress();
+      const availableActions = this.getAvailableActions(progress.status);
+
+      if (!availableActions.includes('pause')) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: false,
+          action: 'pause',
+          error: `Cannot pause - sprint status is "${progress.status}"`,
+        }));
+        return;
+      }
+
+      const signalPath = path.join(this.config.sprintDir, '.pause-requested');
+      fs.writeFileSync(signalPath, new Date().toISOString());
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        action: 'pause',
+        message: 'Pause requested - sprint will pause after current task',
+      }));
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: false,
+        action: 'pause',
+        error: error instanceof Error ? error.message : String(error),
+      }));
+    }
+  }
+
+  /**
+   * Handle POST /api/resume request
+   * Creates .resume-requested signal file
+   */
+  private handleResumeRequest(res: http.ServerResponse): void {
+    try {
+      const progress = this.loadProgress();
+      const availableActions = this.getAvailableActions(progress.status);
+
+      if (!availableActions.includes('resume')) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: false,
+          action: 'resume',
+          error: `Cannot resume - sprint status is "${progress.status}"`,
+        }));
+        return;
+      }
+
+      const signalPath = path.join(this.config.sprintDir, '.resume-requested');
+      fs.writeFileSync(signalPath, new Date().toISOString());
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        action: 'resume',
+        message: 'Resume requested - sprint will resume execution',
+      }));
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: false,
+        action: 'resume',
+        error: error instanceof Error ? error.message : String(error),
+      }));
+    }
+  }
+
+  /**
+   * Handle POST /api/stop request
+   * Creates .stop-requested signal file
+   */
+  private handleStopRequest(res: http.ServerResponse): void {
+    try {
+      const progress = this.loadProgress();
+      const availableActions = this.getAvailableActions(progress.status);
+
+      if (!availableActions.includes('stop')) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: false,
+          action: 'stop',
+          error: `Cannot stop - sprint status is "${progress.status}"`,
+        }));
+        return;
+      }
+
+      const signalPath = path.join(this.config.sprintDir, '.stop-requested');
+      fs.writeFileSync(signalPath, new Date().toISOString());
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        action: 'stop',
+        message: 'Stop requested - sprint will stop after current task',
+      }));
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: false,
+        action: 'stop',
+        error: error instanceof Error ? error.message : String(error),
+      }));
     }
   }
 
