@@ -273,7 +273,7 @@ phases:
           Erfolg:
           - Nutzer findet sofort die passende Dokumentation
           - Klare User Journey erkennbar
-        status: in-progress
+        status: completed
         phases:
           - id: implement
             status: completed
@@ -313,8 +313,9 @@ phases:
               ## Complete this task fully before marking as done.
             started-at: "2026-01-16T16:28:06Z"
             completed-at: "2026-01-16T16:28:06Z"
+            elapsed: 00:00:00
           - id: qa
-            status: pending
+            status: completed
             prompt: |
               Quality Assurance verification for the m42-sprint plugin.
 
@@ -442,6 +443,8 @@ phases:
               - Focus on compilation and integration (no unit test suite yet)
               - Reference context/sprint-plan.md for acceptance criteria
               - QA failures MUST result in injected fix tasks, not just reports
+            started-at: "2026-01-16T16:29:16Z"
+            completed-at: "2026-01-16T16:29:16Z"
         started-at: "2026-01-16T16:28:06Z"
       - id: step-2
         prompt: |
@@ -2750,8 +2753,8 @@ phases:
     started-at: "2026-01-16T16:18:41Z"
 current:
   phase: 1
-  step: 1
-  sub-phase: 1
+  step: 2
+  sub-phase: 0
 stats:
   started-at: "2026-01-16T16:16:12Z"
   total-phases: 30
@@ -2759,6 +2762,6 @@ stats:
   total-steps: 14
   completed-steps: 0
   max-iterations: 30
-  current-iteration: 3
+  current-iteration: 4
   completed-at: "2026-01-16T16:24:41Z"
   elapsed: 00:08:29
