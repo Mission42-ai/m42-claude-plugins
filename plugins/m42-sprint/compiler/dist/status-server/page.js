@@ -69,6 +69,25 @@ ${getStyles()}
           </div>
         </section>
 
+        <section class="live-activity" id="live-activity-section">
+          <div class="section-header-row">
+            <h2 class="section-title">Live Activity</h2>
+            <div class="activity-controls">
+              <select id="verbosity-select" class="verbosity-dropdown">
+                <option value="minimal">Minimal</option>
+                <option value="basic">Basic</option>
+                <option value="detailed" selected>Detailed</option>
+                <option value="verbose">Verbose</option>
+              </select>
+              <button class="clear-activity-btn" id="clear-activity-btn" title="Clear Activity">Clear</button>
+              <button class="collapse-btn" id="collapse-activity-btn" title="Collapse/Expand">▼</button>
+            </div>
+          </div>
+          <div class="live-activity-content" id="live-activity-content">
+            <div class="activity-empty">Waiting for activity...</div>
+          </div>
+        </section>
+
         <section class="activity-feed">
           <h2 class="section-title">Activity Feed</h2>
           <div class="feed-content" id="activity-feed">
@@ -512,6 +531,152 @@ function getStyles() {
       word-break: break-word;
     }
 
+    /* Live Activity Panel */
+    .live-activity {
+      flex-shrink: 0;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      max-height: 300px;
+      transition: max-height 0.2s ease;
+    }
+
+    .live-activity.collapsed {
+      max-height: 36px;
+      overflow: hidden;
+    }
+
+    .section-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 16px;
+      background-color: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+      flex-shrink: 0;
+    }
+
+    .section-header-row .section-title {
+      padding: 0;
+      border: none;
+      background: none;
+    }
+
+    .activity-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .verbosity-dropdown {
+      padding: 4px 8px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background-color: var(--bg-tertiary);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    .verbosity-dropdown:hover {
+      border-color: var(--text-muted);
+    }
+
+    .verbosity-dropdown:focus {
+      outline: none;
+      border-color: var(--accent-blue);
+    }
+
+    .clear-activity-btn,
+    .collapse-btn {
+      padding: 4px 8px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background-color: var(--bg-tertiary);
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .clear-activity-btn:hover,
+    .collapse-btn:hover {
+      background-color: var(--bg-highlight);
+      color: var(--text-primary);
+      border-color: var(--text-muted);
+    }
+
+    .live-activity-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 0;
+      background-color: var(--bg-primary);
+      min-height: 60px;
+    }
+
+    .activity-empty {
+      color: var(--text-muted);
+      padding: 16px;
+      text-align: center;
+      font-style: italic;
+    }
+
+    .activity-entry {
+      display: flex;
+      padding: 4px 16px;
+      gap: 8px;
+      font-size: 12px;
+      align-items: flex-start;
+    }
+
+    .activity-entry:hover {
+      background-color: var(--bg-secondary);
+    }
+
+    .activity-time {
+      color: var(--text-muted);
+      flex-shrink: 0;
+      font-size: 11px;
+      min-width: 55px;
+      cursor: help;
+    }
+
+    .activity-icon {
+      width: 18px;
+      flex-shrink: 0;
+      text-align: center;
+      font-size: 13px;
+    }
+
+    .activity-tool {
+      color: var(--accent-purple);
+      font-weight: 500;
+      flex-shrink: 0;
+      min-width: 60px;
+    }
+
+    .activity-desc {
+      flex: 1;
+      color: var(--text-primary);
+      word-break: break-word;
+    }
+
+    .activity-path {
+      color: var(--accent-blue);
+      max-width: 250px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      cursor: help;
+    }
+
+    .activity-params {
+      color: var(--text-secondary);
+      font-size: 11px;
+    }
+
     /* Footer */
     .footer {
       display: flex;
@@ -850,7 +1015,12 @@ function getScript() {
         stopConfirmModal: document.getElementById('stop-confirm-modal'),
         stopCancelBtn: document.getElementById('stop-cancel-btn'),
         stopConfirmBtn: document.getElementById('stop-confirm-btn'),
-        toastContainer: document.getElementById('toast-container')
+        toastContainer: document.getElementById('toast-container'),
+        liveActivitySection: document.getElementById('live-activity-section'),
+        liveActivityContent: document.getElementById('live-activity-content'),
+        verbositySelect: document.getElementById('verbosity-select'),
+        clearActivityBtn: document.getElementById('clear-activity-btn'),
+        collapseActivityBtn: document.getElementById('collapse-activity-btn')
       };
 
       // State
@@ -863,12 +1033,43 @@ function getScript() {
       let currentSprintStatus = null;
       let isLoading = { pause: false, resume: false, stop: false };
 
+      // Live Activity State
+      const liveActivityLog = [];
+      const MAX_ACTIVITY_ENTRIES = 100;
+      let verbosityLevel = localStorage.getItem('verbosity') || 'detailed';
+      let activityAutoScroll = true;
+      let activityCollapsed = false;
+
+      // Verbosity level ordering for filtering
+      const VERBOSITY_ORDER = { minimal: 0, basic: 1, detailed: 2, verbose: 3 };
+
+      // Tool icons mapping
+      const toolIcons = {
+        Read: '📖',
+        Write: '✏️',
+        Edit: '📝',
+        Bash: '⚡',
+        Grep: '🔍',
+        Glob: '📂',
+        Task: '🔄',
+        WebFetch: '🌐',
+        WebSearch: '🔎',
+        TodoWrite: '📋',
+        TodoRead: '📋',
+        AskUserQuestion: '❓',
+        Skill: '🎯',
+        default: '🔧'
+      };
+
       // Initialize
       function init() {
         connect();
         setupControlButtons();
+        setupLiveActivityControls();
         // Update elapsed time every second
         setInterval(updateElapsedTimes, 1000);
+        // Update relative times in activity panel
+        setInterval(updateActivityRelativeTimes, 1000);
       }
 
       // Control Button Setup
@@ -1050,6 +1251,15 @@ function getScript() {
 
         eventSource.addEventListener('keep-alive', function() {
           // Keep-alive received, connection is healthy
+        });
+
+        eventSource.addEventListener('activity-event', function(e) {
+          try {
+            const event = JSON.parse(e.data);
+            handleActivityEvent(event.data);
+          } catch (err) {
+            console.error('Failed to parse activity event:', err);
+          }
         });
       }
 
@@ -1248,6 +1458,149 @@ function getScript() {
         }).join('');
 
         elements.activityFeed.innerHTML = html;
+      }
+
+      // Live Activity Functions
+      function setupLiveActivityControls() {
+        // Restore verbosity from localStorage
+        if (verbosityLevel && elements.verbositySelect) {
+          elements.verbositySelect.value = verbosityLevel;
+        }
+
+        // Verbosity change handler
+        elements.verbositySelect.addEventListener('change', function() {
+          verbosityLevel = this.value;
+          localStorage.setItem('verbosity', verbosityLevel);
+          renderLiveActivity();
+        });
+
+        // Clear activity button
+        elements.clearActivityBtn.addEventListener('click', function() {
+          liveActivityLog.length = 0;
+          renderLiveActivity();
+        });
+
+        // Collapse toggle button
+        elements.collapseActivityBtn.addEventListener('click', function() {
+          activityCollapsed = !activityCollapsed;
+          if (activityCollapsed) {
+            elements.liveActivitySection.classList.add('collapsed');
+            this.textContent = '▶';
+          } else {
+            elements.liveActivitySection.classList.remove('collapsed');
+            this.textContent = '▼';
+          }
+        });
+
+        // Scroll lock detection
+        elements.liveActivityContent.addEventListener('scroll', function() {
+          const el = this;
+          const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 20;
+          activityAutoScroll = atBottom;
+        });
+      }
+
+      function handleActivityEvent(event) {
+        // Add to log
+        liveActivityLog.unshift(event);
+
+        // Trim to max entries
+        if (liveActivityLog.length > MAX_ACTIVITY_ENTRIES) {
+          liveActivityLog.pop();
+        }
+
+        renderLiveActivity();
+      }
+
+      function shouldShowActivityEvent(eventLevel) {
+        return VERBOSITY_ORDER[eventLevel] <= VERBOSITY_ORDER[verbosityLevel];
+      }
+
+      function getToolIcon(toolName) {
+        return toolIcons[toolName] || toolIcons.default;
+      }
+
+      function formatRelativeTime(isoString) {
+        const now = Date.now();
+        const then = new Date(isoString).getTime();
+        const diff = Math.floor((now - then) / 1000);
+
+        if (diff < 5) return 'just now';
+        if (diff < 60) return diff + 's ago';
+        if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+        return Math.floor(diff / 3600) + 'h ago';
+      }
+
+      function truncatePath(filePath, maxLength) {
+        maxLength = maxLength || 40;
+        if (!filePath || filePath.length <= maxLength) return filePath;
+        const parts = filePath.split('/');
+        const fileName = parts.pop();
+        const remaining = maxLength - fileName.length - 3;
+        if (remaining <= 0) return '...' + fileName.slice(-(maxLength - 3));
+        return filePath.slice(0, remaining) + '...' + fileName;
+      }
+
+      function renderLiveActivity() {
+        // Filter by verbosity
+        const filtered = liveActivityLog.filter(function(event) {
+          return shouldShowActivityEvent(event.level);
+        });
+
+        if (filtered.length === 0) {
+          elements.liveActivityContent.innerHTML = '<div class="activity-empty">Waiting for activity...</div>';
+          return;
+        }
+
+        const html = filtered.map(function(event) {
+          const icon = getToolIcon(event.tool);
+          const relTime = formatRelativeTime(event.ts);
+          const absTime = new Date(event.ts).toLocaleString();
+
+          let desc = '';
+          if (event.file) {
+            const truncated = truncatePath(event.file);
+            desc = '<span class="activity-path" title="' + escapeHtml(event.file) + '">' + escapeHtml(truncated) + '</span>';
+          }
+          if (event.params) {
+            desc += (desc ? ' ' : '') + '<span class="activity-params">' + escapeHtml(event.params) + '</span>';
+          }
+          if (!desc) {
+            desc = '<span class="activity-desc">-</span>';
+          }
+
+          return '<div class="activity-entry">' +
+            '<span class="activity-time" title="' + escapeHtml(absTime) + '">' + escapeHtml(relTime) + '</span>' +
+            '<span class="activity-icon">' + icon + '</span>' +
+            '<span class="activity-tool">' + escapeHtml(event.tool) + '</span>' +
+            '<span class="activity-desc">' + desc + '</span>' +
+            '</div>';
+        }).join('');
+
+        const wasAtBottom = activityAutoScroll;
+        elements.liveActivityContent.innerHTML = html;
+
+        // Auto-scroll to top (newest entries are at top)
+        if (wasAtBottom) {
+          elements.liveActivityContent.scrollTop = 0;
+        }
+      }
+
+      function updateActivityRelativeTimes() {
+        // Update relative times for visible activity entries
+        const entries = elements.liveActivityContent.querySelectorAll('.activity-time');
+        const filtered = liveActivityLog.filter(function(event) {
+          return shouldShowActivityEvent(event.level);
+        });
+
+        entries.forEach(function(el, index) {
+          if (filtered[index]) {
+            const relTime = formatRelativeTime(filtered[index].ts);
+            const absTime = new Date(filtered[index].ts).toLocaleString();
+            el.textContent = relTime;
+            el.title = absTime;
+          }
+        });
       }
 
       // Utilities
