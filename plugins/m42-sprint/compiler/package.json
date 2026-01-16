@@ -4,7 +4,8 @@
   "description": "Workflow compiler for m42-sprint plugin",
   "main": "dist/index.js",
   "bin": {
-    "sprint-compile": "./dist/index.js"
+    "sprint-compile": "./dist/index.js",
+    "sprint-status-server": "./dist/status-server/index.js"
   },
   "scripts": {
     "build": "tsc",
