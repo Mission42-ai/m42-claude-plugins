@@ -774,7 +774,7 @@ phases:
           - GET /api/status - JSON API (optional)
           - Integrate watcher and transforms
           - Handle client disconnections gracefully
-        status: in-progress
+        status: completed
         phases:
           - id: implement
             status: completed
@@ -810,8 +810,9 @@ phases:
               ## Complete this task fully before marking as done.
             started-at: "2026-01-16T10:48:30Z"
             completed-at: "2026-01-16T10:49:38Z"
+            elapsed: 00:01:08
           - id: qa
-            status: pending
+            status: completed
             prompt: |
               Quality Assurance verification for the m42-sprint plugin.
 
@@ -935,6 +936,8 @@ phases:
               - Focus on compilation and integration (no unit test suite yet)
               - Reference context/sprint-plan.md for acceptance criteria
               - QA failures MUST result in injected fix tasks, not just reports
+            started-at: "2026-01-16T10:49:58Z"
+            completed-at: "2026-01-16T10:51:30Z"
         started-at: "2026-01-16T10:48:30Z"
       - id: step-5
         prompt: |
@@ -2092,8 +2095,8 @@ phases:
     started-at: "2026-01-16T10:35:31Z"
 current:
   phase: 1
-  step: 4
-  sub-phase: 1
+  step: 5
+  sub-phase: 0
 stats:
   started-at: "2026-01-16T10:32:56Z"
   total-phases: 26
