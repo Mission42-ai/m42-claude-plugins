@@ -1042,6 +1042,7 @@ phases:
               - QA failures MUST result in injected fix tasks, not just reports
             started-at: "2026-01-16T16:42:07Z"
             completed-at: "2026-01-16T16:43:11Z"
+            elapsed: 00:01:04
         started-at: "2026-01-16T16:39:25Z"
       - id: step-5
         prompt: |
@@ -1061,10 +1062,10 @@ phases:
           - Alle Commands an einem Ort
           - Schnell scannbar
           - Copy-paste ready Beispiele
-        status: pending
+        status: completed
         phases:
           - id: implement
-            status: pending
+            status: completed
             prompt: |
               Execute the following task:
 
@@ -1100,8 +1101,11 @@ phases:
               - If blocked or unclear, set status to needs-human
 
               ## Complete this task fully before marking as done.
+            started-at: "2026-01-16T16:43:37Z"
+            completed-at: "2026-01-16T16:43:37Z"
+            elapsed: 00:00:00
           - id: qa
-            status: pending
+            status: completed
             prompt: |
               Quality Assurance verification for the m42-sprint plugin.
 
@@ -1230,6 +1234,9 @@ phases:
               - Focus on compilation and integration (no unit test suite yet)
               - Reference context/sprint-plan.md for acceptance criteria
               - QA failures MUST result in injected fix tasks, not just reports
+            started-at: "2026-01-16T16:45:44Z"
+            completed-at: "2026-01-16T17:50:00Z"
+        started-at: "2026-01-16T16:43:37Z"
       - id: step-6
         prompt: |
           Phase 2.2: Erstelle docs/reference/sprint-yaml-schema.md
@@ -2774,7 +2781,7 @@ phases:
     started-at: "2026-01-16T16:18:41Z"
 current:
   phase: 1
-  step: 5
+  step: 6
   sub-phase: 0
 stats:
   started-at: "2026-01-16T16:16:12Z"
@@ -2783,6 +2790,6 @@ stats:
   total-steps: 14
   completed-steps: 0
   max-iterations: 30
-  current-iteration: 10
+  current-iteration: 12
   completed-at: "2026-01-16T16:24:41Z"
   elapsed: 00:08:29
