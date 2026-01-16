@@ -7,6 +7,7 @@ import * as http from 'http';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
+import * as zlib from 'zlib';
 
 import type {
   ServerConfig,
@@ -253,6 +254,27 @@ export class StatusServer {
     if (retryMatch) {
       const phaseId = decodeURIComponent(retryMatch[1]);
       this.handleRetryRequest(res, phaseId);
+      return;
+    }
+
+    // Log endpoints (GET only)
+    const logContentMatch = url.match(/^\/api\/logs\/([^/]+)$/);
+    const logDownloadMatch = url.match(/^\/api\/logs\/download\/([^/]+)$/);
+
+    if (logContentMatch && !url.includes('/download')) {
+      const phaseId = decodeURIComponent(logContentMatch[1]);
+      this.handleLogContentRequest(res, phaseId);
+      return;
+    }
+
+    if (logDownloadMatch) {
+      const phaseId = decodeURIComponent(logDownloadMatch[1]);
+      this.handleLogDownloadRequest(res, phaseId);
+      return;
+    }
+
+    if (url === '/api/logs/download-all') {
+      this.handleDownloadAllLogs(res);
       return;
     }
 
@@ -734,6 +756,147 @@ export class StatusServer {
         phaseId,
         error: error instanceof Error ? error.message : String(error),
       } as PhaseActionResponse));
+    }
+  }
+
+  /**
+   * Get log file path from phase ID
+   * Phase IDs use ' > ' as separator (e.g., "development > step-0 > context")
+   * Log files use '-' as separator (e.g., "development-step-0-context.log")
+   */
+  private getLogFilePath(phaseId: string): string {
+    // Convert phase ID to log filename format
+    const sanitized = phaseId.replace(/ > /g, '-').replace(/[^a-zA-Z0-9-_]/g, '_');
+    return path.join(this.config.sprintDir, 'logs', `${sanitized}.log`);
+  }
+
+  /**
+   * Get list of all log files in the logs directory
+   */
+  private getLogFiles(): string[] {
+    const logsDir = path.join(this.config.sprintDir, 'logs');
+    if (!fs.existsSync(logsDir)) {
+      return [];
+    }
+    return fs.readdirSync(logsDir)
+      .filter((file) => file.endsWith('.log'))
+      .map((file) => path.join(logsDir, file));
+  }
+
+  /**
+   * Handle GET /api/logs/:phaseId request
+   * Returns the log content for a specific phase
+   */
+  private handleLogContentRequest(res: http.ServerResponse, phaseId: string): void {
+    try {
+      const logPath = this.getLogFilePath(phaseId);
+
+      if (!fs.existsSync(logPath)) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          error: 'Log not found',
+          phaseId,
+          path: logPath,
+        }));
+        return;
+      }
+
+      const content = fs.readFileSync(logPath, 'utf-8');
+
+      res.writeHead(200, {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-cache',
+      });
+      res.end(content);
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        error: 'Failed to read log',
+        message: error instanceof Error ? error.message : String(error),
+      }));
+    }
+  }
+
+  /**
+   * Handle GET /api/logs/download/:phaseId request
+   * Downloads a single log file
+   */
+  private handleLogDownloadRequest(res: http.ServerResponse, phaseId: string): void {
+    try {
+      const logPath = this.getLogFilePath(phaseId);
+
+      if (!fs.existsSync(logPath)) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          error: 'Log not found',
+          phaseId,
+        }));
+        return;
+      }
+
+      const content = fs.readFileSync(logPath);
+      const filename = path.basename(logPath);
+
+      res.writeHead(200, {
+        'Content-Type': 'text/plain',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Length': content.length,
+      });
+      res.end(content);
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        error: 'Failed to download log',
+        message: error instanceof Error ? error.message : String(error),
+      }));
+    }
+  }
+
+  /**
+   * Handle GET /api/logs/download-all request
+   * Downloads all logs as a gzipped tar archive
+   */
+  private handleDownloadAllLogs(res: http.ServerResponse): void {
+    try {
+      const logFiles = this.getLogFiles();
+
+      if (logFiles.length === 0) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          error: 'No logs found',
+          message: 'No log files exist in the logs directory',
+        }));
+        return;
+      }
+
+      // Create a simple archive format: JSON with all log contents
+      // This avoids needing external tar/zip dependencies
+      const archive: Record<string, string> = {};
+
+      for (const logPath of logFiles) {
+        const filename = path.basename(logPath);
+        const content = fs.readFileSync(logPath, 'utf-8');
+        archive[filename] = content;
+      }
+
+      const jsonData = JSON.stringify(archive, null, 2);
+      const compressed = zlib.gzipSync(Buffer.from(jsonData, 'utf-8'));
+
+      const sprintId = path.basename(this.config.sprintDir);
+      const filename = `${sprintId}-logs.json.gz`;
+
+      res.writeHead(200, {
+        'Content-Type': 'application/gzip',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Length': compressed.length,
+      });
+      res.end(compressed);
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        error: 'Failed to download logs',
+        message: error instanceof Error ? error.message : String(error),
+      }));
     }
   }
 

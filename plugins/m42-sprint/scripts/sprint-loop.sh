@@ -240,6 +240,41 @@ echo "Max iterations: $MAX_ITERATIONS"
 echo "Max retries per phase: $MAX_RETRIES"
 echo ""
 
+# Create logs directory for phase output
+mkdir -p "$SPRINT_DIR/logs"
+echo "Logs directory: $SPRINT_DIR/logs"
+echo ""
+
+# Helper function to generate log filename from current pointer
+get_log_filename() {
+  local phase_idx=$(yq -r '.current.phase // 0' "$PROGRESS_FILE")
+  local step_idx=$(yq -r '.current.step // "null"' "$PROGRESS_FILE")
+  local sub_phase_idx=$(yq -r '.current."sub-phase" // "null"' "$PROGRESS_FILE")
+
+  # Get phase name
+  local phase_name=$(yq -r ".phases[$phase_idx].id // \"phase-$phase_idx\"" "$PROGRESS_FILE")
+
+  # Build filename
+  local log_name="$phase_name"
+
+  # Check if phase has steps
+  local has_steps=$(yq -r ".phases[$phase_idx].steps // \"null\"" "$PROGRESS_FILE")
+  if [[ "$has_steps" != "null" ]] && [[ "$step_idx" != "null" ]]; then
+    local step_name=$(yq -r ".phases[$phase_idx].steps[$step_idx].id // \"step-$step_idx\"" "$PROGRESS_FILE")
+    log_name="${log_name}-${step_name}"
+
+    if [[ "$sub_phase_idx" != "null" ]]; then
+      local sub_name=$(yq -r ".phases[$phase_idx].steps[$step_idx].phases[$sub_phase_idx].id // \"subphase-$sub_phase_idx\"" "$PROGRESS_FILE")
+      log_name="${log_name}-${sub_name}"
+    fi
+  fi
+
+  # Sanitize filename (replace spaces and special chars)
+  log_name=$(echo "$log_name" | tr ' ' '-' | tr -cd 'a-zA-Z0-9_-')
+
+  echo "$SPRINT_DIR/logs/${log_name}.log"
+}
+
 # Run preflight checks before starting the loop
 PREFLIGHT_SCRIPT="$SCRIPT_DIR/preflight-check.sh"
 if [[ -f "$PREFLIGHT_SCRIPT" ]]; then
@@ -301,13 +336,17 @@ for ((i=1; i<=MAX_ITERATIONS; i++)); do
   CLI_OUTPUT=""
   CLI_EXIT_CODE=0
 
-  # Build claude command with optional hook config
+  # Get log file path for this phase
+  LOG_FILE=$(get_log_filename)
+  echo "Logging to: $LOG_FILE"
+  echo ""
+
+  # Build claude command with optional hook config, tee output to .log file
   if [[ -n "$HOOK_CONFIG" ]] && [[ -f "$HOOK_CONFIG" ]]; then
-    CLI_OUTPUT=$(claude -p "$PROMPT" --dangerously-skip-permissions --hook-config "$HOOK_CONFIG" 2>&1) || CLI_EXIT_CODE=$?
+    CLI_OUTPUT=$(claude -p "$PROMPT" --dangerously-skip-permissions --hook-config "$HOOK_CONFIG" 2>&1 | tee "$LOG_FILE") || CLI_EXIT_CODE=${PIPESTATUS[0]}
   else
-    CLI_OUTPUT=$(claude -p "$PROMPT" --dangerously-skip-permissions 2>&1) || CLI_EXIT_CODE=$?
+    CLI_OUTPUT=$(claude -p "$PROMPT" --dangerously-skip-permissions 2>&1 | tee "$LOG_FILE") || CLI_EXIT_CODE=${PIPESTATUS[0]}
   fi
-  echo "$CLI_OUTPUT"
 
   if [[ "$CLI_EXIT_CODE" -ne 0 ]]; then
     echo ""

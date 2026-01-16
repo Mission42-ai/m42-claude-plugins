@@ -95,6 +95,31 @@ export declare class StatusServer {
      */
     private handleRetryRequest;
     /**
+     * Get log file path from phase ID
+     * Phase IDs use ' > ' as separator (e.g., "development > step-0 > context")
+     * Log files use '-' as separator (e.g., "development-step-0-context.log")
+     */
+    private getLogFilePath;
+    /**
+     * Get list of all log files in the logs directory
+     */
+    private getLogFiles;
+    /**
+     * Handle GET /api/logs/:phaseId request
+     * Returns the log content for a specific phase
+     */
+    private handleLogContentRequest;
+    /**
+     * Handle GET /api/logs/download/:phaseId request
+     * Downloads a single log file
+     */
+    private handleLogDownloadRequest;
+    /**
+     * Handle GET /api/logs/download-all request
+     * Downloads all logs as a gzipped tar archive
+     */
+    private handleDownloadAllLogs;
+    /**
      * Advance the current pointer after skipping a phase
      */
     private advancePointerAfterSkip;

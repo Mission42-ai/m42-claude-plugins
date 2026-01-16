@@ -35,6 +35,9 @@ ${getStyles()}
           </div>
           <span class="progress-text" id="progress-text">0%</span>
         </div>
+        <div class="header-actions">
+          <button class="header-download-btn" id="download-all-logs-btn" title="Download All Logs">⬇ All Logs</button>
+        </div>
       </div>
     </header>
 
@@ -142,6 +145,22 @@ ${getStyles()}
   </div>
 
   <div class="toast-container" id="toast-container"></div>
+
+  <div class="log-viewer-modal" id="log-viewer-modal">
+    <div class="log-viewer-content">
+      <div class="log-viewer-header">
+        <span class="log-viewer-title" id="log-viewer-title">Phase Log</span>
+        <div class="log-viewer-controls">
+          <input type="text" class="log-search-input" id="log-search-input" placeholder="Search logs..." />
+          <button class="log-download-btn" id="log-download-btn">Download Log</button>
+          <button class="log-viewer-close" id="log-viewer-close">Close</button>
+        </div>
+      </div>
+      <div class="log-viewer-body" id="log-viewer-body">
+        <div class="log-loading">Loading log...</div>
+      </div>
+    </div>
+  </div>
 
   <script>
 ${getScript()}
@@ -1057,6 +1076,194 @@ function getStyles() {
       }
     }
 
+    /* Log Viewer */
+    .log-viewer-toggle {
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      border: 1px solid transparent;
+      background-color: transparent;
+      color: var(--accent-purple);
+    }
+
+    .log-viewer-toggle:hover {
+      background-color: rgba(163, 113, 247, 0.15);
+      border-color: var(--accent-purple);
+    }
+
+    .log-viewer-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0, 0, 0, 0.8);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .log-viewer-modal.visible {
+      display: flex;
+    }
+
+    .log-viewer-content {
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      width: 90%;
+      max-width: 1200px;
+      height: 80vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .log-viewer-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-color);
+      flex-shrink: 0;
+    }
+
+    .log-viewer-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .log-viewer-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .log-search-input {
+      padding: 6px 10px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background-color: var(--bg-tertiary);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      width: 200px;
+    }
+
+    .log-search-input:focus {
+      outline: none;
+      border-color: var(--accent-blue);
+    }
+
+    .log-download-btn {
+      padding: 6px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background-color: var(--bg-tertiary);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .log-download-btn:hover {
+      background-color: var(--bg-highlight);
+      border-color: var(--text-muted);
+    }
+
+    .log-viewer-close {
+      padding: 6px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background-color: var(--bg-tertiary);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .log-viewer-close:hover {
+      background-color: var(--bg-highlight);
+    }
+
+    .log-viewer-body {
+      flex: 1;
+      overflow: auto;
+      padding: 12px;
+      background-color: var(--bg-primary);
+    }
+
+    .log-content-pre {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-all;
+      margin: 0;
+      color: var(--text-primary);
+    }
+
+    .log-content-pre .highlight {
+      background-color: rgba(210, 153, 34, 0.3);
+      border-radius: 2px;
+      padding: 0 2px;
+    }
+
+    .log-loading {
+      color: var(--text-muted);
+      text-align: center;
+      padding: 40px;
+      font-style: italic;
+    }
+
+    .log-error {
+      color: var(--accent-red);
+      text-align: center;
+      padding: 40px;
+    }
+
+    /* ANSI color code styles */
+    .ansi-black { color: #6e7681; }
+    .ansi-red { color: #f85149; }
+    .ansi-green { color: #3fb950; }
+    .ansi-yellow { color: #d29922; }
+    .ansi-blue { color: #58a6ff; }
+    .ansi-magenta { color: #a371f7; }
+    .ansi-cyan { color: #56d4dd; }
+    .ansi-white { color: #c9d1d9; }
+    .ansi-bold { font-weight: bold; }
+    .ansi-dim { opacity: 0.7; }
+
+    /* Header download buttons */
+    .header-actions {
+      display: flex;
+      gap: 8px;
+      margin-left: 16px;
+    }
+
+    .header-download-btn {
+      padding: 4px 10px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background-color: var(--bg-tertiary);
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .header-download-btn:hover {
+      background-color: var(--bg-highlight);
+      color: var(--text-primary);
+      border-color: var(--text-muted);
+    }
+
     /* Scrollbar styling */
     ::-webkit-scrollbar {
       width: 8px;
@@ -1112,7 +1319,14 @@ function getScript() {
         skipConfirmModal: document.getElementById('skip-confirm-modal'),
         skipCancelBtn: document.getElementById('skip-cancel-btn'),
         skipConfirmBtn: document.getElementById('skip-confirm-btn'),
-        skipPhaseInfo: document.getElementById('skip-phase-info')
+        skipPhaseInfo: document.getElementById('skip-phase-info'),
+        logViewerModal: document.getElementById('log-viewer-modal'),
+        logViewerTitle: document.getElementById('log-viewer-title'),
+        logViewerBody: document.getElementById('log-viewer-body'),
+        logViewerClose: document.getElementById('log-viewer-close'),
+        logSearchInput: document.getElementById('log-search-input'),
+        logDownloadBtn: document.getElementById('log-download-btn'),
+        downloadAllLogsBtn: document.getElementById('download-all-logs-btn')
       };
 
       // State
@@ -1139,6 +1353,73 @@ function getScript() {
       let pendingSkipPhaseId = null;
       let phaseActionLoading = {};
 
+      // Log viewer state
+      let currentLogPhaseId = null;
+      let currentLogContent = '';
+
+      // ANSI escape code to HTML converter
+      function ansiToHtml(text) {
+        // Handle both \\x1b and \\033 escape sequences
+        const ansiRegex = /\\x1b\\[(\\d+)m|\\033\\[(\\d+)m/g;
+        let result = '';
+        let lastIndex = 0;
+        let currentSpan = null;
+
+        // Map ANSI codes to CSS classes
+        const ansiMap = {
+          '0': null, // Reset
+          '1': 'ansi-bold',
+          '2': 'ansi-dim',
+          '30': 'ansi-black',
+          '31': 'ansi-red',
+          '32': 'ansi-green',
+          '33': 'ansi-yellow',
+          '34': 'ansi-blue',
+          '35': 'ansi-magenta',
+          '36': 'ansi-cyan',
+          '37': 'ansi-white',
+          '90': 'ansi-black',  // Bright black
+          '91': 'ansi-red',    // Bright red
+          '92': 'ansi-green',  // Bright green
+          '93': 'ansi-yellow', // Bright yellow
+          '94': 'ansi-blue',   // Bright blue
+          '95': 'ansi-magenta',// Bright magenta
+          '96': 'ansi-cyan',   // Bright cyan
+          '97': 'ansi-white'   // Bright white
+        };
+
+        let match;
+        while ((match = ansiRegex.exec(text)) !== null) {
+          // Add text before this escape sequence
+          result += escapeHtml(text.slice(lastIndex, match.index));
+
+          const code = match[1] || match[2];
+          const cssClass = ansiMap[code];
+
+          if (currentSpan) {
+            result += '</span>';
+            currentSpan = null;
+          }
+
+          if (cssClass) {
+            result += '<span class="' + cssClass + '">';
+            currentSpan = cssClass;
+          }
+
+          lastIndex = match.index + match[0].length;
+        }
+
+        // Add remaining text
+        result += escapeHtml(text.slice(lastIndex));
+
+        // Close any open span
+        if (currentSpan) {
+          result += '</span>';
+        }
+
+        return result;
+      }
+
       // Tool icons mapping
       const toolIcons = {
         Read: '📖',
@@ -1163,10 +1444,103 @@ function getScript() {
         setupControlButtons();
         setupLiveActivityControls();
         setupSkipModal();
+        setupLogViewer();
         // Update elapsed time every second
         setInterval(updateElapsedTimes, 1000);
         // Update relative times in activity panel
         setInterval(updateActivityRelativeTimes, 1000);
+      }
+
+      // Log Viewer Setup
+      function setupLogViewer() {
+        elements.logViewerClose.addEventListener('click', hideLogViewer);
+        elements.logDownloadBtn.addEventListener('click', downloadCurrentLog);
+        elements.downloadAllLogsBtn.addEventListener('click', downloadAllLogs);
+        elements.logSearchInput.addEventListener('input', handleLogSearch);
+
+        // Close on Escape key
+        document.addEventListener('keydown', function(e) {
+          if (e.key === 'Escape' && elements.logViewerModal.classList.contains('visible')) {
+            hideLogViewer();
+          }
+        });
+
+        // Close on backdrop click
+        elements.logViewerModal.addEventListener('click', function(e) {
+          if (e.target === elements.logViewerModal) {
+            hideLogViewer();
+          }
+        });
+      }
+
+      function showLogViewer(phaseId) {
+        currentLogPhaseId = phaseId;
+        elements.logViewerTitle.textContent = 'Log: ' + phaseId;
+        elements.logViewerBody.innerHTML = '<div class="log-loading">Loading log...</div>';
+        elements.logSearchInput.value = '';
+        elements.logViewerModal.classList.add('visible');
+
+        fetchLogContent(phaseId);
+      }
+
+      function hideLogViewer() {
+        elements.logViewerModal.classList.remove('visible');
+        currentLogPhaseId = null;
+        currentLogContent = '';
+      }
+
+      async function fetchLogContent(phaseId) {
+        try {
+          const response = await fetch('/api/logs/' + encodeURIComponent(phaseId));
+
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to fetch log');
+          }
+
+          currentLogContent = await response.text();
+          renderLogContent(currentLogContent);
+        } catch (err) {
+          elements.logViewerBody.innerHTML = '<div class="log-error">Error: ' + escapeHtml(err.message) + '</div>';
+        }
+      }
+
+      function renderLogContent(content, searchTerm) {
+        let html = ansiToHtml(content);
+
+        // Apply search highlighting if search term is provided
+        if (searchTerm && searchTerm.length > 0) {
+          // Escape regex special characters in the search term
+          var escapedTerm = escapeHtml(searchTerm).replace(/[.*+?^$\\{\\}()|\\[\\]\\\\]/g, '\\\\$&');
+          var regex = new RegExp('(' + escapedTerm + ')', 'gi');
+          html = html.replace(regex, '<span class="highlight">$1</span>');
+        }
+
+        elements.logViewerBody.innerHTML = '<pre class="log-content-pre">' + html + '</pre>';
+      }
+
+      function handleLogSearch() {
+        const searchTerm = elements.logSearchInput.value;
+        if (currentLogContent) {
+          renderLogContent(currentLogContent, searchTerm);
+        }
+      }
+
+      function downloadCurrentLog() {
+        if (!currentLogPhaseId) return;
+        window.location.href = '/api/logs/download/' + encodeURIComponent(currentLogPhaseId);
+      }
+
+      function downloadAllLogs() {
+        window.location.href = '/api/logs/download-all';
+      }
+
+      function handleViewLogClick(e) {
+        e.stopPropagation();
+        var phaseId = e.target.dataset.phaseId;
+        if (phaseId) {
+          showLogViewer(phaseId);
+        }
       }
 
       // Control Button Setup
@@ -1544,6 +1918,11 @@ function getScript() {
         elements.phaseTree.querySelectorAll('.retry-btn').forEach(btn => {
           btn.addEventListener('click', handleRetryClick);
         });
+
+        // Add click handlers for view log buttons
+        elements.phaseTree.querySelectorAll('.log-viewer-toggle').forEach(btn => {
+          btn.addEventListener('click', handleViewLogClick);
+        });
       }
 
       function renderTreeNode(node, parentPath = '') {
@@ -1579,8 +1958,13 @@ function getScript() {
           html += '<span class="tree-elapsed">' + node.elapsed + '</span>';
         }
 
-        // Add skip/retry action buttons based on status
+        // Add skip/retry/view-log action buttons based on status
         html += '<span class="tree-actions">';
+
+        // View Log button: visible for completed or in-progress phases (leaf nodes only)
+        if (!hasChildren && (node.status === 'completed' || node.status === 'in-progress')) {
+          html += '<button class="log-viewer-toggle" data-phase-id="' + escapeHtml(phaseId) + '" title="View Log">View Log</button>';
+        }
 
         // Skip button: visible for blocked, in-progress, or pending (stuck phases)
         if (node.status === 'blocked' || node.status === 'in-progress' || node.status === 'pending') {
