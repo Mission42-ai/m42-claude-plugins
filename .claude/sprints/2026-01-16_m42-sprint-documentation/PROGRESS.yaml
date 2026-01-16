@@ -845,6 +845,7 @@ phases:
               - QA failures MUST result in injected fix tasks, not just reports
             started-at: "2026-01-16T16:36:58Z"
             completed-at: "2026-01-16T16:40:00Z"
+            elapsed: 00:03:02
         started-at: "2026-01-16T16:35:01Z"
       - id: step-4
         prompt: |
@@ -865,10 +866,10 @@ phases:
           - Compilation Process ist nachvollziehbar
           - Beispiel zeigt konkrete Expansion
           - Nutzer versteht Template System
-        status: pending
+        status: in-progress
         phases:
           - id: implement
-            status: pending
+            status: completed
             prompt: |
               Execute the following task:
 
@@ -905,6 +906,8 @@ phases:
               - If blocked or unclear, set status to needs-human
 
               ## Complete this task fully before marking as done.
+            started-at: "2026-01-16T16:39:25Z"
+            completed-at: "2026-01-16T16:45:00Z"
           - id: qa
             status: pending
             prompt: |
@@ -1036,6 +1039,7 @@ phases:
               - Focus on compilation and integration (no unit test suite yet)
               - Reference context/sprint-plan.md for acceptance criteria
               - QA failures MUST result in injected fix tasks, not just reports
+        started-at: "2026-01-16T16:39:25Z"
       - id: step-5
         prompt: |
           Phase 2.1: Erstelle docs/reference/commands.md
@@ -2768,7 +2772,7 @@ phases:
 current:
   phase: 1
   step: 4
-  sub-phase: 0
+  sub-phase: 1
 stats:
   started-at: "2026-01-16T16:16:12Z"
   total-phases: 30
@@ -2776,6 +2780,6 @@ stats:
   total-steps: 14
   completed-steps: 0
   max-iterations: 30
-  current-iteration: 8
+  current-iteration: 9
   completed-at: "2026-01-16T16:24:41Z"
   elapsed: 00:08:29
