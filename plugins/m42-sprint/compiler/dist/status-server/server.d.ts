@@ -105,6 +105,11 @@ export declare class StatusServer {
      */
     private handleRetryRequest;
     /**
+     * Handle POST /api/force-retry/:phaseId request
+     * Creates .force-retry-requested signal file to bypass backoff
+     */
+    private handleForceRetryRequest;
+    /**
      * Get log file path from phase ID
      * Phase IDs use ' > ' as separator (e.g., "development > step-0 > context")
      * Log files use '-' as separator (e.g., "development-step-0-context.log")

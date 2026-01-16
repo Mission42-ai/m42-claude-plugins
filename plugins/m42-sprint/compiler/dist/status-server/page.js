@@ -581,6 +581,81 @@ function getStyles() {
       pointer-events: none;
     }
 
+    .phase-action-btn.force-retry-btn {
+      color: var(--accent-orange, #f0883e);
+    }
+
+    .phase-action-btn.force-retry-btn:hover {
+      background-color: rgba(240, 136, 62, 0.15);
+      border-color: var(--accent-orange, #f0883e);
+    }
+
+    /* Retry Status Display */
+    .retry-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      color: var(--accent-orange, #f0883e);
+      background-color: rgba(240, 136, 62, 0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-left: 6px;
+    }
+
+    .retry-countdown {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      color: var(--text-secondary);
+      margin-left: 4px;
+    }
+
+    .retry-countdown.active {
+      color: var(--accent-yellow);
+      animation: pulse-retry 1s ease-in-out infinite;
+    }
+
+    @keyframes pulse-retry {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .error-category-badge {
+      font-size: 9px;
+      padding: 1px 4px;
+      border-radius: 3px;
+      text-transform: uppercase;
+      font-weight: 500;
+      margin-left: 4px;
+    }
+
+    .error-category-badge.network {
+      background-color: rgba(88, 166, 255, 0.15);
+      color: var(--accent-blue);
+    }
+
+    .error-category-badge.rate-limit {
+      background-color: rgba(240, 136, 62, 0.15);
+      color: var(--accent-orange, #f0883e);
+    }
+
+    .error-category-badge.timeout {
+      background-color: rgba(210, 153, 34, 0.15);
+      color: var(--accent-yellow);
+    }
+
+    .error-category-badge.validation {
+      background-color: rgba(248, 81, 73, 0.15);
+      color: var(--accent-red);
+    }
+
+    .error-category-badge.logic {
+      background-color: rgba(139, 148, 158, 0.15);
+      color: var(--text-secondary);
+    }
+
     /* Content Area */
     .content {
       flex: 1;
@@ -2305,6 +2380,29 @@ function getScript() {
         }
       }
 
+      async function forceRetryPhase(phaseId) {
+        if (phaseActionLoading[phaseId]) return;
+        phaseActionLoading[phaseId] = true;
+
+        try {
+          const response = await fetch('/api/force-retry/' + encodeURIComponent(phaseId), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          });
+          const result = await response.json();
+
+          if (result.success) {
+            showToast('success', result.message || 'Force retry initiated');
+          } else {
+            showToast('error', result.error || 'Failed to force retry phase');
+          }
+        } catch (err) {
+          showToast('error', 'Failed to force retry: ' + err.message);
+        } finally {
+          phaseActionLoading[phaseId] = false;
+        }
+      }
+
       function handleSkipClick(e) {
         e.stopPropagation();
         var phaseId = e.target.dataset.phaseId;
@@ -2318,6 +2416,14 @@ function getScript() {
         var phaseId = e.target.dataset.phaseId;
         if (phaseId) {
           retryPhase(phaseId);
+        }
+      }
+
+      function handleForceRetryClick(e) {
+        e.stopPropagation();
+        var phaseId = e.target.dataset.phaseId;
+        if (phaseId) {
+          forceRetryPhase(phaseId);
         }
       }
 
@@ -2538,6 +2644,11 @@ function getScript() {
           btn.addEventListener('click', handleRetryClick);
         });
 
+        // Add click handlers for force retry buttons
+        elements.phaseTree.querySelectorAll('.force-retry-btn').forEach(btn => {
+          btn.addEventListener('click', handleForceRetryClick);
+        });
+
         // Add click handlers for view log buttons
         elements.phaseTree.querySelectorAll('.log-viewer-toggle').forEach(btn => {
           btn.addEventListener('click', handleViewLogClick);
@@ -2577,6 +2688,26 @@ function getScript() {
           html += '<span class="tree-elapsed">' + node.elapsed + '</span>';
         }
 
+        // Show retry attempt counter if retries have been made
+        var retryCount = node['retry-count'] || 0;
+        var maxAttempts = window.retryConfig?.maxAttempts || 3;
+        if (retryCount > 0) {
+          html += '<span class="retry-status">Attempt ' + (retryCount + 1) + '/' + (maxAttempts + 1) + '</span>';
+        }
+
+        // Show countdown to next retry if set
+        var nextRetryAt = node['next-retry-at'];
+        if (nextRetryAt) {
+          var countdownSec = Math.max(0, Math.floor((new Date(nextRetryAt) - Date.now()) / 1000));
+          html += '<span class="retry-countdown' + (countdownSec > 0 ? ' active' : '') + '">Next retry in ' + countdownSec + 's</span>';
+        }
+
+        // Show error category badge if present
+        var errorCategory = node['error-category'];
+        if (errorCategory) {
+          html += '<span class="error-category-badge ' + escapeHtml(errorCategory) + '">' + escapeHtml(errorCategory) + '</span>';
+        }
+
         // Add skip/retry/view-log action buttons based on status
         html += '<span class="tree-actions">';
 
@@ -2585,13 +2716,18 @@ function getScript() {
           html += '<button class="log-viewer-toggle" data-phase-id="' + escapeHtml(phaseId) + '" title="View Log">View Log</button>';
         }
 
+        // Force Retry button: visible when phase is waiting for backoff (has next-retry-at)
+        if (nextRetryAt) {
+          html += '<button class="phase-action-btn force-retry-btn" data-phase-id="' + escapeHtml(phaseId) + '" title="Force immediate retry (bypass backoff)">Force Retry</button>';
+        }
+
         // Skip button: visible for blocked, in-progress, or pending (stuck phases)
         if (node.status === 'blocked' || node.status === 'in-progress' || node.status === 'pending') {
           html += '<button class="phase-action-btn skip-btn" data-phase-id="' + escapeHtml(phaseId) + '" title="Skip this phase">Skip</button>';
         }
 
-        // Retry button: visible for failed phases
-        if (node.status === 'failed') {
+        // Retry button: visible for failed or blocked phases (not during backoff wait)
+        if ((node.status === 'failed' || node.status === 'blocked') && !nextRetryAt) {
           html += '<button class="phase-action-btn retry-btn" data-phase-id="' + escapeHtml(phaseId) + '" title="Retry this phase">Retry</button>';
         }
 

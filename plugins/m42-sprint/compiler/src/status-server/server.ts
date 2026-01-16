@@ -232,10 +232,11 @@ export class StatusServer {
     const controlEndpoints = ['/api/pause', '/api/resume', '/api/stop'];
     const isControlEndpoint = controlEndpoints.includes(url);
 
-    // Check for skip/retry endpoints with phaseId param
+    // Check for skip/retry/force-retry endpoints with phaseId param
     const skipMatch = url.match(/^\/api\/skip\/(.+)$/);
     const retryMatch = url.match(/^\/api\/retry\/(.+)$/);
-    const isPhaseActionEndpoint = skipMatch || retryMatch;
+    const forceRetryMatch = url.match(/^\/api\/force-retry\/(.+)$/);
+    const isPhaseActionEndpoint = skipMatch || retryMatch || forceRetryMatch;
 
     // Allow POST for control endpoints and phase action endpoints, GET for everything else
     if (isControlEndpoint || isPhaseActionEndpoint) {
@@ -260,6 +261,12 @@ export class StatusServer {
     if (retryMatch) {
       const phaseId = decodeURIComponent(retryMatch[1]);
       this.handleRetryRequest(res, phaseId);
+      return;
+    }
+
+    if (forceRetryMatch) {
+      const phaseId = decodeURIComponent(forceRetryMatch[1]);
+      this.handleForceRetryRequest(res, phaseId);
       return;
     }
 
@@ -791,14 +798,14 @@ export class StatusServer {
       const targetItem = location.subPhase || location.step || location.phase;
       const currentStatus = targetItem.status;
 
-      // Only allow retrying failed phases
-      if (currentStatus !== 'failed') {
+      // Only allow retrying failed or blocked phases
+      if (currentStatus !== 'failed' && currentStatus !== 'blocked') {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
           success: false,
           action: 'retry',
           phaseId,
-          error: `Cannot retry phase with status "${currentStatus}" - only failed phases can be retried`,
+          error: `Cannot retry phase with status "${currentStatus}" - only failed or blocked phases can be retried`,
         } as PhaseActionResponse));
         return;
       }
@@ -806,10 +813,12 @@ export class StatusServer {
       // Reset to pending
       targetItem.status = 'pending' as PhaseStatus;
 
-      // Clear error field and timing but preserve partial work
+      // Clear error field, timing, and retry state but preserve partial work
       delete targetItem.error;
       delete targetItem['started-at'];
       delete targetItem['completed-at'];
+      delete targetItem['next-retry-at'];
+      delete targetItem['error-category'];
 
       // Increment retry count
       targetItem['retry-count'] = (targetItem['retry-count'] || 0) + 1;
@@ -838,6 +847,72 @@ export class StatusServer {
         phaseId,
         error: error instanceof Error ? error.message : String(error),
       } as PhaseActionResponse));
+    }
+  }
+
+  /**
+   * Handle POST /api/force-retry/:phaseId request
+   * Creates .force-retry-requested signal file to bypass backoff
+   */
+  private handleForceRetryRequest(res: http.ServerResponse, phaseId: string): void {
+    try {
+      const progress = this.loadProgress();
+      const location = this.findPhaseByPath(progress, phaseId);
+
+      if (!location) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: false,
+          action: 'force-retry',
+          phaseId,
+          error: `Phase not found: "${phaseId}"`,
+        }));
+        return;
+      }
+
+      // Determine which item to force retry
+      const targetItem = location.subPhase || location.step || location.phase;
+
+      // Force retry is only valid when there's a next-retry-at (in backoff wait)
+      const nextRetryAt = targetItem['next-retry-at'];
+      if (!nextRetryAt) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: false,
+          action: 'force-retry',
+          phaseId,
+          error: `Phase is not in backoff wait state - use regular retry instead`,
+        }));
+        return;
+      }
+
+      // Create force-retry signal file
+      const signalPath = path.join(this.config.sprintDir, '.force-retry-requested');
+      const signalData = {
+        phaseId,
+        timestamp: new Date().toISOString(),
+      };
+      fs.writeFileSync(signalPath, JSON.stringify(signalData));
+
+      // Clear the next-retry-at from PROGRESS.yaml to reflect immediate retry
+      delete targetItem['next-retry-at'];
+      this.saveProgress(progress);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        action: 'force-retry',
+        phaseId,
+        message: `Force retry initiated for "${phaseId}" - bypassing backoff`,
+      }));
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: false,
+        action: 'force-retry',
+        phaseId,
+        error: error instanceof Error ? error.message : String(error),
+      }));
     }
   }
 
