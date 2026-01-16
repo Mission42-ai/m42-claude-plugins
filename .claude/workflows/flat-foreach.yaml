@@ -1,0 +1,10 @@
+# Flat For-Each Workflow
+# Simple workflow that iterates through steps without nested phases
+
+name: Flat For-Each
+description: Minimal workflow that executes each step directly in sequence.
+
+phases:
+  - id: execute-all
+    for-each: step
+    workflow: execute-step

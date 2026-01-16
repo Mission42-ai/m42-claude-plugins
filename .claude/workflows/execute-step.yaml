@@ -1,0 +1,14 @@
+# Execute Step Workflow
+# Minimal workflow for direct step execution
+
+name: Execute Step
+description: Single-phase workflow that executes a step directly.
+
+phases:
+  - id: execute
+    prompt: |
+      Execute the following task:
+
+      {{step.prompt}}
+
+      Complete this task fully before marking as done.
