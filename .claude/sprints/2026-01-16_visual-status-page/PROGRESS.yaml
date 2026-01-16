@@ -231,6 +231,7 @@ phases:
               - QA failures MUST result in injected fix tasks, not just reports
             started-at: "2026-01-16T10:36:55Z"
             completed-at: "2026-01-16T10:37:39Z"
+            elapsed: 00:00:44
         started-at: "2026-01-16T10:35:31Z"
       - id: step-1
         prompt: |
@@ -243,10 +244,10 @@ phases:
           - Implement 100ms debounce to prevent excessive updates
           - Emit events on file changes
           - Handle file deletion/recreation gracefully
-        status: pending
+        status: completed
         phases:
           - id: implement
-            status: pending
+            status: completed
             prompt: |
               Execute the following task:
 
@@ -275,8 +276,11 @@ phases:
               - If blocked or unclear, set status to needs-human
 
               ## Complete this task fully before marking as done.
+            started-at: "2026-01-16T10:37:58Z"
+            completed-at: "2026-01-16T10:37:58Z"
+            elapsed: 00:00:00
           - id: qa
-            status: pending
+            status: completed
             prompt: |
               Quality Assurance verification for the m42-sprint plugin.
 
@@ -398,6 +402,9 @@ phases:
               - Focus on compilation and integration (no unit test suite yet)
               - Reference context/sprint-plan.md for acceptance criteria
               - QA failures MUST result in injected fix tasks, not just reports
+            started-at: "2026-01-16T10:39:02Z"
+            completed-at: "2026-01-16T10:39:02Z"
+        started-at: "2026-01-16T10:37:58Z"
       - id: step-2
         prompt: |
           Create data transformation functions.
@@ -2067,7 +2074,7 @@ phases:
     started-at: "2026-01-16T10:35:31Z"
 current:
   phase: 1
-  step: 1
+  step: 2
   sub-phase: 0
 stats:
   started-at: "2026-01-16T10:32:56Z"
