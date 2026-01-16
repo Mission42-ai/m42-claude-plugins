@@ -1,0 +1,863 @@
+/**
+ * HTML page generator for the Sprint Status Server
+ * All CSS and JavaScript is embedded as template literals
+ */
+
+/**
+ * Generate the complete HTML page for the status dashboard
+ * @returns Complete HTML document as a string
+ */
+export function getPageHtml(): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sprint Status</title>
+  <style>
+${getStyles()}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div class="header-left">
+        <h1 class="sprint-name" id="sprint-name">Loading...</h1>
+        <span class="status-badge" id="status-badge">--</span>
+      </div>
+      <div class="header-right">
+        <div class="iteration" id="iteration"></div>
+        <div class="progress-container">
+          <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill"></div>
+          </div>
+          <span class="progress-text" id="progress-text">0%</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="main">
+      <aside class="sidebar">
+        <h2 class="sidebar-title">Phase Tree</h2>
+        <div class="phase-tree" id="phase-tree">
+          <div class="loading">Loading...</div>
+        </div>
+      </aside>
+
+      <main class="content">
+        <section class="current-task" id="current-task-section">
+          <h2 class="section-title">Current Task</h2>
+          <div class="task-content" id="current-task">
+            <div class="no-task">No active task</div>
+          </div>
+        </section>
+
+        <section class="activity-feed">
+          <h2 class="section-title">Activity Feed</h2>
+          <div class="feed-content" id="activity-feed">
+            <div class="feed-empty">Waiting for updates...</div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <footer class="footer">
+      <div class="connection-status" id="connection-status">
+        <span class="status-dot disconnected"></span>
+        <span class="status-text">Connecting...</span>
+      </div>
+      <div class="elapsed" id="elapsed"></div>
+    </footer>
+  </div>
+
+  <script>
+${getScript()}
+  </script>
+</body>
+</html>`;
+}
+
+/**
+ * Generate the CSS styles for the status page
+ */
+function getStyles(): string {
+  return `
+    :root {
+      --bg-primary: #0d1117;
+      --bg-secondary: #161b22;
+      --bg-tertiary: #21262d;
+      --bg-highlight: #30363d;
+      --border-color: #30363d;
+      --text-primary: #c9d1d9;
+      --text-secondary: #8b949e;
+      --text-muted: #6e7681;
+      --accent-blue: #58a6ff;
+      --accent-green: #3fb950;
+      --accent-yellow: #d29922;
+      --accent-red: #f85149;
+      --accent-purple: #a371f7;
+      --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--text-primary);
+      background-color: var(--bg-primary);
+      min-height: 100vh;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      max-width: 100%;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 20px;
+      background-color: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+      flex-shrink: 0;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .sprint-name {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+    }
+
+    .status-badge.pending { background-color: var(--bg-tertiary); color: var(--text-secondary); }
+    .status-badge.in-progress { background-color: rgba(88, 166, 255, 0.15); color: var(--accent-blue); }
+    .status-badge.completed { background-color: rgba(63, 185, 80, 0.15); color: var(--accent-green); }
+    .status-badge.failed { background-color: rgba(248, 81, 73, 0.15); color: var(--accent-red); }
+    .status-badge.blocked { background-color: rgba(210, 153, 34, 0.15); color: var(--accent-yellow); }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .iteration {
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    .progress-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .progress-bar {
+      width: 150px;
+      height: 6px;
+      background-color: var(--bg-tertiary);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background-color: var(--accent-green);
+      border-radius: 3px;
+      transition: width 0.3s ease;
+      width: 0%;
+    }
+
+    .progress-text {
+      font-size: 12px;
+      color: var(--text-secondary);
+      min-width: 35px;
+    }
+
+    /* Main Layout */
+    .main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 320px;
+      background-color: var(--bg-secondary);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .sidebar-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-secondary);
+      padding: 12px 16px 8px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .phase-tree {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 0;
+    }
+
+    .loading {
+      color: var(--text-muted);
+      padding: 16px;
+      text-align: center;
+    }
+
+    /* Phase Tree Nodes */
+    .tree-node {
+      padding: 4px 12px 4px 0;
+      cursor: default;
+    }
+
+    .tree-node-content {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+
+    .tree-node-content:hover {
+      background-color: var(--bg-tertiary);
+    }
+
+    .tree-node-content.active {
+      background-color: rgba(88, 166, 255, 0.1);
+    }
+
+    .tree-toggle {
+      width: 16px;
+      height: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    .tree-toggle:hover {
+      color: var(--text-secondary);
+    }
+
+    .tree-toggle.collapsed::before {
+      content: '\\25B6';
+      font-size: 8px;
+    }
+
+    .tree-toggle.expanded::before {
+      content: '\\25BC';
+      font-size: 8px;
+    }
+
+    .tree-toggle.leaf {
+      visibility: hidden;
+    }
+
+    .tree-icon {
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+    }
+
+    .tree-icon.pending { color: var(--text-muted); }
+    .tree-icon.pending::before { content: '\\25CB'; }
+
+    .tree-icon.in-progress { color: var(--accent-blue); }
+    .tree-icon.in-progress::before { content: '\\25CF'; animation: pulse 1.5s infinite; }
+
+    .tree-icon.completed { color: var(--accent-green); }
+    .tree-icon.completed::before { content: '\\2713'; }
+
+    .tree-icon.failed { color: var(--accent-red); }
+    .tree-icon.failed::before { content: '\\2717'; }
+
+    .tree-icon.blocked { color: var(--accent-yellow); }
+    .tree-icon.blocked::before { content: '\\26A0'; }
+
+    .tree-icon.skipped { color: var(--text-muted); }
+    .tree-icon.skipped::before { content: '\\2014'; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .tree-label {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 12px;
+    }
+
+    .tree-elapsed {
+      font-size: 10px;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    .tree-children {
+      margin-left: 16px;
+    }
+
+    .tree-children.collapsed {
+      display: none;
+    }
+
+    /* Content Area */
+    .content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-secondary);
+      padding: 12px 16px 8px;
+      border-bottom: 1px solid var(--border-color);
+      background-color: var(--bg-secondary);
+    }
+
+    /* Current Task */
+    .current-task {
+      flex-shrink: 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .task-content {
+      padding: 12px 16px;
+      background-color: var(--bg-primary);
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .no-task {
+      color: var(--text-muted);
+      font-style: italic;
+    }
+
+    .task-path {
+      color: var(--accent-blue);
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+
+    .task-prompt {
+      color: var(--text-primary);
+      font-size: 12px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 120px;
+      overflow-y: auto;
+      padding: 8px;
+      background-color: var(--bg-secondary);
+      border-radius: 4px;
+      border: 1px solid var(--border-color);
+    }
+
+    .task-meta {
+      display: flex;
+      gap: 16px;
+      margin-top: 8px;
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    /* Activity Feed */
+    .activity-feed {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .feed-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 0;
+      background-color: var(--bg-primary);
+    }
+
+    .feed-empty {
+      color: var(--text-muted);
+      padding: 16px;
+      text-align: center;
+      font-style: italic;
+    }
+
+    .feed-entry {
+      display: flex;
+      padding: 6px 16px;
+      gap: 8px;
+      font-size: 12px;
+    }
+
+    .feed-entry:hover {
+      background-color: var(--bg-secondary);
+    }
+
+    .feed-time {
+      color: var(--text-muted);
+      flex-shrink: 0;
+      width: 65px;
+    }
+
+    .feed-icon {
+      width: 16px;
+      flex-shrink: 0;
+      text-align: center;
+    }
+
+    .feed-icon.info { color: var(--text-secondary); }
+    .feed-icon.info::before { content: '\\2022'; }
+
+    .feed-icon.start { color: var(--accent-blue); }
+    .feed-icon.start::before { content: '\\25B6'; }
+
+    .feed-icon.complete { color: var(--accent-green); }
+    .feed-icon.complete::before { content: '\\2713'; }
+
+    .feed-icon.error { color: var(--accent-red); }
+    .feed-icon.error::before { content: '\\2717'; }
+
+    .feed-icon.warning { color: var(--accent-yellow); }
+    .feed-icon.warning::before { content: '\\26A0'; }
+
+    .feed-icon.skip { color: var(--text-muted); }
+    .feed-icon.skip::before { content: '\\2014'; }
+
+    .feed-message {
+      flex: 1;
+      color: var(--text-primary);
+      word-break: break-word;
+    }
+
+    /* Footer */
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 16px;
+      background-color: var(--bg-secondary);
+      border-top: 1px solid var(--border-color);
+      font-size: 11px;
+      flex-shrink: 0;
+    }
+
+    .connection-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .status-dot.connected {
+      background-color: var(--accent-green);
+    }
+
+    .status-dot.disconnected {
+      background-color: var(--accent-red);
+    }
+
+    .status-dot.connecting {
+      background-color: var(--accent-yellow);
+      animation: pulse 1s infinite;
+    }
+
+    .status-text {
+      color: var(--text-secondary);
+    }
+
+    .elapsed {
+      color: var(--text-muted);
+    }
+
+    /* Scrollbar styling */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--bg-primary);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--bg-highlight);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-muted);
+    }
+  `;
+}
+
+/**
+ * Generate the JavaScript for the status page
+ */
+function getScript(): string {
+  return `
+    (function() {
+      'use strict';
+
+      // DOM Elements
+      const elements = {
+        sprintName: document.getElementById('sprint-name'),
+        statusBadge: document.getElementById('status-badge'),
+        iteration: document.getElementById('iteration'),
+        progressFill: document.getElementById('progress-fill'),
+        progressText: document.getElementById('progress-text'),
+        phaseTree: document.getElementById('phase-tree'),
+        currentTask: document.getElementById('current-task'),
+        activityFeed: document.getElementById('activity-feed'),
+        connectionStatus: document.getElementById('connection-status'),
+        elapsed: document.getElementById('elapsed')
+      };
+
+      // State
+      let eventSource = null;
+      let reconnectAttempts = 0;
+      const maxReconnectDelay = 30000;
+      const activityLog = [];
+      const maxLogEntries = 100;
+      let expandedNodes = new Set();
+
+      // Initialize
+      function init() {
+        connect();
+        // Update elapsed time every second
+        setInterval(updateElapsedTimes, 1000);
+      }
+
+      // SSE Connection
+      function connect() {
+        updateConnectionStatus('connecting');
+
+        eventSource = new EventSource('/events');
+
+        eventSource.onopen = function() {
+          reconnectAttempts = 0;
+          updateConnectionStatus('connected');
+        };
+
+        eventSource.onerror = function() {
+          eventSource.close();
+          updateConnectionStatus('disconnected');
+          scheduleReconnect();
+        };
+
+        eventSource.addEventListener('status-update', function(e) {
+          try {
+            const event = JSON.parse(e.data);
+            handleStatusUpdate(event.data);
+          } catch (err) {
+            console.error('Failed to parse status update:', err);
+          }
+        });
+
+        eventSource.addEventListener('log-entry', function(e) {
+          try {
+            const event = JSON.parse(e.data);
+            handleLogEntry(event.data);
+          } catch (err) {
+            console.error('Failed to parse log entry:', err);
+          }
+        });
+
+        eventSource.addEventListener('keep-alive', function() {
+          // Keep-alive received, connection is healthy
+        });
+      }
+
+      function scheduleReconnect() {
+        reconnectAttempts++;
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), maxReconnectDelay);
+        setTimeout(connect, delay);
+      }
+
+      function updateConnectionStatus(status) {
+        const dot = elements.connectionStatus.querySelector('.status-dot');
+        const text = elements.connectionStatus.querySelector('.status-text');
+
+        dot.className = 'status-dot ' + status;
+
+        switch (status) {
+          case 'connected':
+            text.textContent = 'Connected';
+            break;
+          case 'connecting':
+            text.textContent = 'Connecting...';
+            break;
+          case 'disconnected':
+            text.textContent = 'Disconnected - Reconnecting...';
+            break;
+        }
+      }
+
+      // Status Update Handler
+      function handleStatusUpdate(update) {
+        updateHeader(update.header);
+        updatePhaseTree(update.phaseTree);
+        updateCurrentTask(update.currentTask);
+      }
+
+      function updateHeader(header) {
+        elements.sprintName.textContent = header.sprintId;
+
+        elements.statusBadge.textContent = header.status;
+        elements.statusBadge.className = 'status-badge ' + header.status;
+
+        elements.progressFill.style.width = header.progressPercent + '%';
+        elements.progressText.textContent = header.progressPercent + '%';
+
+        if (header.currentIteration && header.maxIterations) {
+          elements.iteration.textContent = 'Iteration ' + header.currentIteration + '/' + header.maxIterations;
+        } else if (header.currentIteration) {
+          elements.iteration.textContent = 'Iteration ' + header.currentIteration;
+        } else {
+          elements.iteration.textContent = '';
+        }
+
+        if (header.startedAt) {
+          elements.elapsed.dataset.startedAt = header.startedAt;
+        }
+      }
+
+      function updatePhaseTree(phaseTree) {
+        if (!phaseTree || phaseTree.length === 0) {
+          elements.phaseTree.innerHTML = '<div class="loading">No phases</div>';
+          return;
+        }
+
+        const html = phaseTree.map(node => renderTreeNode(node)).join('');
+        elements.phaseTree.innerHTML = html;
+
+        // Add click handlers for toggles
+        elements.phaseTree.querySelectorAll('.tree-toggle').forEach(toggle => {
+          toggle.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const nodeId = this.dataset.nodeId;
+            const children = this.closest('.tree-node').querySelector('.tree-children');
+
+            if (children) {
+              if (expandedNodes.has(nodeId)) {
+                expandedNodes.delete(nodeId);
+                children.classList.add('collapsed');
+                this.classList.remove('expanded');
+                this.classList.add('collapsed');
+              } else {
+                expandedNodes.add(nodeId);
+                children.classList.remove('collapsed');
+                this.classList.remove('collapsed');
+                this.classList.add('expanded');
+              }
+            }
+          });
+        });
+      }
+
+      function renderTreeNode(node, parentPath = '') {
+        const nodePath = parentPath ? parentPath + '/' + node.id : node.id;
+        const hasChildren = node.children && node.children.length > 0;
+        const isExpanded = expandedNodes.has(nodePath) || node.status === 'in-progress' || hasActiveChild(node);
+        const isActive = node.status === 'in-progress';
+
+        // Auto-expand active nodes
+        if (isActive && !expandedNodes.has(nodePath)) {
+          expandedNodes.add(nodePath);
+        }
+
+        const depth = (parentPath.match(/\\//g) || []).length;
+        const indent = depth * 16;
+
+        let html = '<div class="tree-node" style="padding-left: ' + indent + 'px">';
+        html += '<div class="tree-node-content' + (isActive ? ' active' : '') + '">';
+
+        if (hasChildren) {
+          html += '<span class="tree-toggle ' + (isExpanded ? 'expanded' : 'collapsed') + '" data-node-id="' + nodePath + '"></span>';
+        } else {
+          html += '<span class="tree-toggle leaf"></span>';
+        }
+
+        html += '<span class="tree-icon ' + node.status + '"></span>';
+        html += '<span class="tree-label" title="' + escapeHtml(node.label) + '">' + escapeHtml(node.label) + '</span>';
+
+        if (node.elapsed) {
+          html += '<span class="tree-elapsed">' + node.elapsed + '</span>';
+        }
+
+        html += '</div>';
+
+        if (hasChildren) {
+          html += '<div class="tree-children' + (isExpanded ? '' : ' collapsed') + '">';
+          html += node.children.map(child => renderTreeNode(child, nodePath)).join('');
+          html += '</div>';
+        }
+
+        html += '</div>';
+        return html;
+      }
+
+      function hasActiveChild(node) {
+        if (!node.children) return false;
+        return node.children.some(child =>
+          child.status === 'in-progress' || hasActiveChild(child)
+        );
+      }
+
+      function updateCurrentTask(task) {
+        if (!task) {
+          elements.currentTask.innerHTML = '<div class="no-task">No active task</div>';
+          return;
+        }
+
+        let html = '<div class="task-path">' + escapeHtml(task.path) + '</div>';
+
+        // Truncate prompt for display
+        const promptPreview = task.prompt.length > 500
+          ? task.prompt.substring(0, 500) + '...'
+          : task.prompt;
+
+        html += '<div class="task-prompt">' + escapeHtml(promptPreview) + '</div>';
+        html += '<div class="task-meta">';
+
+        if (task.startedAt) {
+          html += '<span data-started-at="' + task.startedAt + '">Started: ' + formatTime(task.startedAt) + '</span>';
+        }
+
+        if (task.elapsed) {
+          html += '<span class="task-elapsed">Elapsed: ' + task.elapsed + '</span>';
+        }
+
+        html += '</div>';
+
+        elements.currentTask.innerHTML = html;
+      }
+
+      // Log Entry Handler
+      function handleLogEntry(entry) {
+        activityLog.unshift(entry);
+
+        // Trim to max entries
+        if (activityLog.length > maxLogEntries) {
+          activityLog.pop();
+        }
+
+        renderActivityFeed();
+      }
+
+      function renderActivityFeed() {
+        if (activityLog.length === 0) {
+          elements.activityFeed.innerHTML = '<div class="feed-empty">Waiting for updates...</div>';
+          return;
+        }
+
+        const html = activityLog.map(entry => {
+          return '<div class="feed-entry">' +
+            '<span class="feed-time">' + formatTime(entry.timestamp) + '</span>' +
+            '<span class="feed-icon ' + entry.type + '"></span>' +
+            '<span class="feed-message">' + escapeHtml(entry.message) + '</span>' +
+            '</div>';
+        }).join('');
+
+        elements.activityFeed.innerHTML = html;
+      }
+
+      // Utilities
+      function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      function formatTime(isoString) {
+        const date = new Date(isoString);
+        return date.toLocaleTimeString('en-US', {
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        });
+      }
+
+      function formatElapsed(ms) {
+        if (ms < 0) return '0s';
+
+        const seconds = Math.floor(ms / 1000) % 60;
+        const minutes = Math.floor(ms / (1000 * 60)) % 60;
+        const hours = Math.floor(ms / (1000 * 60 * 60));
+
+        if (hours > 0) {
+          return hours + 'h ' + minutes + 'm';
+        }
+        if (minutes > 0) {
+          return minutes + 'm ' + seconds + 's';
+        }
+        return seconds + 's';
+      }
+
+      function updateElapsedTimes() {
+        // Update footer elapsed time
+        const startedAt = elements.elapsed.dataset.startedAt;
+        if (startedAt) {
+          const elapsed = Date.now() - new Date(startedAt).getTime();
+          elements.elapsed.textContent = 'Total: ' + formatElapsed(elapsed);
+        }
+      }
+
+      // Start the application
+      init();
+    })();
+  `;
+}
