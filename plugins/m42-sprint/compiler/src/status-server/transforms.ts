@@ -164,6 +164,9 @@ function buildSubPhaseNode(phase: CompiledPhase, depth: number): PhaseTreeNode {
     completedAt: phase['completed-at'],
     elapsed: phase.elapsed,
     error: phase.error,
+    'retry-count': phase['retry-count'],
+    'next-retry-at': phase['next-retry-at'],
+    'error-category': phase['error-category'],
   };
 }
 
@@ -182,6 +185,9 @@ function buildStepNode(step: CompiledStep, depth: number): PhaseTreeNode {
     completedAt: step['completed-at'],
     elapsed: step.elapsed,
     error: step.error,
+    'retry-count': step['retry-count'],
+    'next-retry-at': step['next-retry-at'],
+    'error-category': step['error-category'],
   };
 }
 
@@ -199,6 +205,9 @@ function buildTopPhaseNode(topPhase: CompiledTopPhase, depth: number): PhaseTree
     completedAt: topPhase['completed-at'],
     elapsed: topPhase.elapsed,
     error: topPhase.error,
+    'retry-count': topPhase['retry-count'],
+    'next-retry-at': topPhase['next-retry-at'],
+    'error-category': topPhase['error-category'],
   };
 
   if (topPhase.steps) {

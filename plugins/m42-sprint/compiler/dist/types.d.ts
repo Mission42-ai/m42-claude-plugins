@@ -13,6 +13,21 @@ export interface SprintStep {
     id?: string;
 }
 /**
+ * Error category types for classification and retry configuration
+ */
+export type ErrorCategory = 'network' | 'rate-limit' | 'timeout' | 'validation' | 'logic';
+/**
+ * Retry configuration for automatic error recovery
+ */
+export interface RetryConfig {
+    /** Maximum number of retry attempts per phase */
+    maxAttempts: number;
+    /** Exponential backoff delays in milliseconds */
+    backoffMs: number[];
+    /** Error categories that should trigger automatic retry */
+    retryOn: ErrorCategory[];
+}
+/**
  * Sprint Definition - the input format (SPRINT.yaml)
  */
 export interface SprintDefinition {
@@ -31,6 +46,8 @@ export interface SprintDefinition {
         'time-box'?: string;
         'auto-commit'?: boolean;
     };
+    /** Optional retry configuration for error recovery */
+    retry?: RetryConfig;
 }
 /**
  * A phase within a workflow
@@ -75,6 +92,10 @@ export interface CompiledPhase {
     error?: string;
     /** Number of retry attempts made */
     'retry-count'?: number;
+    /** ISO timestamp for next scheduled retry */
+    'next-retry-at'?: string;
+    /** Classified error category */
+    'error-category'?: ErrorCategory;
 }
 /**
  * A compiled step (contains sub-phases from the step's workflow)
@@ -94,6 +115,10 @@ export interface CompiledStep {
     error?: string;
     /** Number of retry attempts made */
     'retry-count'?: number;
+    /** ISO timestamp for next scheduled retry */
+    'next-retry-at'?: string;
+    /** Classified error category */
+    'error-category'?: ErrorCategory;
 }
 /**
  * A top-level phase that may contain steps (for for-each phases)
@@ -114,6 +139,10 @@ export interface CompiledTopPhase {
     error?: string;
     /** Number of retry attempts made */
     'retry-count'?: number;
+    /** ISO timestamp for next scheduled retry */
+    'next-retry-at'?: string;
+    /** Classified error category */
+    'error-category'?: ErrorCategory;
 }
 /**
  * Current position pointer in the workflow

@@ -48,6 +48,12 @@ export interface PhaseTreeNode {
   completedAt?: string;
   elapsed?: string;
   error?: string;
+  /** Number of retry attempts made */
+  'retry-count'?: number;
+  /** ISO timestamp for next scheduled retry */
+  'next-retry-at'?: string;
+  /** Classified error category */
+  'error-category'?: string;
 }
 
 // ============================================================================
