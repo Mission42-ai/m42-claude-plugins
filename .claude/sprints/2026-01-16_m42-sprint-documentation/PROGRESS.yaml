@@ -56,8 +56,9 @@ phases:
       ```
     started-at: "2026-01-16T16:16:12Z"
     completed-at: "2026-01-16T16:18:20Z"
+    elapsed: 00:02:08
   - id: execute-all
-    status: pending
+    status: in-progress
     steps:
       - id: step-0
         prompt: |
@@ -80,7 +81,7 @@ phases:
         status: pending
         phases:
           - id: implement
-            status: pending
+            status: completed
             prompt: |
               Execute the following task:
 
@@ -116,6 +117,10 @@ phases:
               - If blocked or unclear, set status to needs-human
 
               ## Complete this task fully before marking as done.
+            started-at: "2026-01-16T16:18:41Z"
+            error-category: logic
+            error: 'Exit code: 1 - error: unknown option ''--hook-config'' '
+            completed-at: "2026-01-16T16:26:20Z"
           - id: qa
             status: pending
             prompt: |
@@ -246,6 +251,7 @@ phases:
               - Focus on compilation and integration (no unit test suite yet)
               - Reference context/sprint-plan.md for acceptance criteria
               - QA failures MUST result in injected fix tasks, not just reports
+        started-at: "2026-01-16T16:18:41Z"
       - id: step-1
         prompt: |
           Phase 1.2: Erstelle docs/index.md
@@ -2734,13 +2740,18 @@ phases:
               - Focus on compilation and integration (no unit test suite yet)
               - Reference context/sprint-plan.md for acceptance criteria
               - QA failures MUST result in injected fix tasks, not just reports
+    started-at: "2026-01-16T16:18:41Z"
 current:
   phase: 1
   step: 0
-  sub-phase: 0
+  sub-phase: 1
 stats:
   started-at: "2026-01-16T16:16:12Z"
   total-phases: 30
   completed-phases: 0
   total-steps: 14
   completed-steps: 0
+  max-iterations: 30
+  current-iteration: 1
+  completed-at: "2026-01-16T16:24:41Z"
+  elapsed: 00:08:29
