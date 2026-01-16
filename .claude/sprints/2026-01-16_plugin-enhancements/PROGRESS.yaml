@@ -329,6 +329,12 @@ phases:
 
 
 
+
+
+
+
+
+
                 ↓
               step-3
       ```
@@ -365,6 +371,12 @@ phases:
       - context/sprint-plan.md with step analysis
 
       - Commit preflight artifacts:
+
+
+
+
+
+
 
 
 
@@ -1941,11 +1953,23 @@ phases:
 
 
 
+
+
+
+
+
+
                 - workflow-schema.md (Full YAML schema reference)
                 - template-variables.md (All available template variables)
                 - phase-types.md (Simple vs for-each phase explanations)
                 - workflow-patterns.md (Common workflow patterns)
               - Create assets/ subdirectory with:
+
+
+
+
+
+
 
 
 
@@ -2328,6 +2352,12 @@ phases:
 
 
 
+
+
+
+
+
+
                 Given [precondition or context]
                 When [action taken]
                 Then [expected outcome]
@@ -2349,6 +2379,12 @@ phases:
               ```gherkin
 
               Scenario: Source file exists
+
+
+
+
+
+
 
 
 
@@ -2701,6 +2737,12 @@ phases:
 
 
 
+
+
+
+
+
+
                 Given the file src/auth/service.ts exists
                 When I run the TypeScript compiler
                 Then no compilation errors occur
@@ -2719,6 +2761,12 @@ phases:
               ```gherkin
 
               Scenario: Login function is exported
+
+
+
+
+
+
 
 
 
@@ -3071,6 +3119,12 @@ phases:
 
 
 
+
+
+
+
+
+
                 Given tests exist in src/auth/service.test.ts
                 When I run the test suite
                 Then all tests pass
@@ -3089,6 +3143,12 @@ phases:
               ```gherkin
 
               Scenario: Code passes linting
+
+
+
+
+
+
 
 
 
@@ -3461,11 +3521,23 @@ phases:
 
 
 
+
+
+
+
+
+
                 - workflow-schema.md (Full YAML schema reference)
                 - template-variables.md (All available template variables)
                 - phase-types.md (Simple vs for-each phase explanations)
                 - workflow-patterns.md (Common workflow patterns)
               - Create assets/ subdirectory with:
+
+
+
+
+
+
 
 
 
@@ -3884,11 +3956,23 @@ phases:
 
 
 
+
+
+
+
+
+
                 - workflow-schema.md (Full YAML schema reference)
                 - template-variables.md (All available template variables)
                 - phase-types.md (Simple vs for-each phase explanations)
                 - workflow-patterns.md (Common workflow patterns)
               - Create assets/ subdirectory with:
+
+
+
+
+
+
 
 
 
@@ -4256,11 +4340,23 @@ phases:
 
 
 
+
+
+
+
+
+
                  - Find similar implementations to follow as patterns
                  - Identify modules this step will import from
                  - Note any interfaces/types to implement or extend
 
               2. **Dependencies**
+
+
+
+
+
+
 
 
 
@@ -4600,11 +4696,23 @@ phases:
 
 
 
+
+
+
+
+
+
                  - How will this code be called/used?
                  - What modules will import from this step's output?
                  - Are there existing tests to extend?
 
               4. **Specific Patterns**
+
+
+
+
+
+
 
 
 
@@ -4968,11 +5076,23 @@ phases:
 
 
 
+
+
+
+
+
+
                 - workflow-schema.md (Full YAML schema reference)
                 - template-variables.md (All available template variables)
                 - phase-types.md (Simple vs for-each phase explanations)
                 - workflow-patterns.md (Common workflow patterns)
               - Create assets/ subdirectory with:
+
+
+
+
+
+
 
 
 
@@ -5365,6 +5485,12 @@ phases:
 
 
 
+
+
+
+
+
+
                 [relevant fields]
               }
 
@@ -5590,11 +5716,23 @@ phases:
 
 
 
+
+
+
+
+
+
                 - workflow-schema.md (Full YAML schema reference)
                 - template-variables.md (All available template variables)
                 - phase-types.md (Simple vs for-each phase explanations)
                 - workflow-patterns.md (Common workflow patterns)
               - Create assets/ subdirectory with:
+
+
+
+
+
+
 
 
 
@@ -6183,11 +6321,23 @@ phases:
 
 
 
+
+
+
+
+
+
                 - workflow-schema.md (Full YAML schema reference)
                 - template-variables.md (All available template variables)
                 - phase-types.md (Simple vs for-each phase explanations)
                 - workflow-patterns.md (Common workflow patterns)
               - Create assets/ subdirectory with:
+
+
+
+
+
+
 
 
 
@@ -7474,8 +7624,9 @@ phases:
               - Do NOT leave partial/broken implementation
             started-at: "2026-01-16T13:45:10Z"
             completed-at: "2026-01-16T13:46:45Z"
+            elapsed: 00:01:35
           - id: qa
-            status: pending
+            status: failed
             prompt: |
               Verify implementation against gherkin scenarios.
 
@@ -7593,6 +7744,8 @@ phases:
               - EVERY scenario must pass for the step to be complete
               - Failed QA MUST inject fix phases, not just report
               - This creates a self-healing loop until all pass
+            started-at: "2026-01-16T13:47:35Z"
+            error: step-4 QA failed - scenario 6 gherkin bug - fix phase injected
           - id: verify
             status: pending
             prompt: |
@@ -7663,6 +7816,54 @@ phases:
               This is the final gate before moving to the next step.
               The step's gherkin scenarios already passed in QA.
               This phase ensures the step works in the broader context.
+          - id: fix
+            status: pending
+            prompt: |
+              Fix failing Scenario 6 in gherkin verification.
+
+              ## Context
+              Read: artifacts/step-4-qa-report.md
+
+              ## Issue
+              The gherkin verification command for Scenario 6 has a shell quoting bug.
+              The command uses `bash -c '...$SPRINT_DIR...'` where $SPRINT_DIR is inside
+              single quotes, preventing variable expansion from the outer shell.
+
+              ## Fix Required
+              Update artifacts/step-4-gherkin.md Scenario 6 verification command.
+
+              Replace the current verification:
+              ```
+              SPRINT_DIR=$(mktemp -d) && SPRINT_ACTIVITY_VERBOSITY=verbose bash -c 'echo "{...}" | bash plugins/m42-sprint/hooks/sprint-activity-hook.sh "$SPRINT_DIR"' && jq...
+              ```
+
+              With this corrected version that exports the env var and doesn't use bash -c:
+              ```
+              SPRINT_DIR=$(mktemp -d) && export SPRINT_ACTIVITY_VERBOSITY=verbose && echo '{"hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"ls"}}' | bash plugins/m42-sprint/hooks/sprint-activity-hook.sh "$SPRINT_DIR" && jq -e '.level == "verbose"' "$SPRINT_DIR/.sprint-activity.jsonl" >/dev/null && rm -rf "$SPRINT_DIR"
+              ```
+
+              ## After Fixing
+              Commit the gherkin fix:
+              ```bash
+              git add artifacts/step-4-gherkin.md
+              git commit -m "fix(step-4): correct gherkin scenario 6 variable expansion"
+              ```
+          - id: reverify
+            status: pending
+            prompt: |
+              Re-verify all scenarios after fixes.
+
+              ## Instructions
+              Re-run ALL verification commands from artifacts/step-4-gherkin.md
+
+              ## If ALL pass:
+              - Update artifacts/step-4-qa-report.md with PASS status
+              - Commit the updated report
+
+              ## If ANY still fail:
+              - Update the QA report with new results
+              - Document the issue
+              - Loop continues until all pass
         started-at: "2026-01-16T13:42:22Z"
       - id: step-5
         prompt: |
@@ -8670,6 +8871,12 @@ phases:
 
 
 
+
+
+
+
+
+
                 Given [precondition or context]
                 When [action taken]
                 Then [expected outcome]
@@ -8691,6 +8898,12 @@ phases:
               ```gherkin
 
               Scenario: Source file exists
+
+
+
+
+
+
 
 
 
@@ -9043,6 +9256,12 @@ phases:
 
 
 
+
+
+
+
+
+
                 Given the file src/auth/service.ts exists
                 When I run the TypeScript compiler
                 Then no compilation errors occur
@@ -9061,6 +9280,12 @@ phases:
               ```gherkin
 
               Scenario: Login function is exported
+
+
+
+
+
+
 
 
 
@@ -9413,6 +9638,12 @@ phases:
 
 
 
+
+
+
+
+
+
                 Given tests exist in src/auth/service.test.ts
                 When I run the test suite
                 Then all tests pass
@@ -9431,6 +9662,12 @@ phases:
               ```gherkin
 
               Scenario: Code passes linting
+
+
+
+
+
+
 
 
 
@@ -9931,11 +10168,23 @@ phases:
 
 
 
+
+
+
+
+
+
                  - Find similar implementations to follow as patterns
                  - Identify modules this step will import from
                  - Note any interfaces/types to implement or extend
 
               2. **Dependencies**
+
+
+
+
+
+
 
 
 
@@ -10275,11 +10524,23 @@ phases:
 
 
 
+
+
+
+
+
+
                  - How will this code be called/used?
                  - What modules will import from this step's output?
                  - Are there existing tests to extend?
 
               4. **Specific Patterns**
+
+
+
+
+
+
 
 
 
@@ -10541,6 +10802,12 @@ phases:
               // From [source]
 
               interface [Name] {
+
+
+
+
+
+
 
 
 
@@ -13149,6 +13416,12 @@ phases:
 
 
 
+
+
+
+
+
+
             - "Estimated time remaining" in sprint header
             - Per-phase ETA based on similar past phases
             - Visual timeline showing projected completion
@@ -13202,6 +13475,12 @@ phases:
               - Calculate rolling averages per workflow/phase type
 
               - Display in status page:
+
+
+
+
+
+
 
 
 
@@ -13590,6 +13869,12 @@ phases:
 
 
 
+
+
+
+
+
+
                 Given [precondition or context]
                 When [action taken]
                 Then [expected outcome]
@@ -13611,6 +13896,12 @@ phases:
               ```gherkin
 
               Scenario: Source file exists
+
+
+
+
+
+
 
 
 
@@ -13963,6 +14254,12 @@ phases:
 
 
 
+
+
+
+
+
+
                 Given the file src/auth/service.ts exists
                 When I run the TypeScript compiler
                 Then no compilation errors occur
@@ -13981,6 +14278,12 @@ phases:
               ```gherkin
 
               Scenario: Login function is exported
+
+
+
+
+
+
 
 
 
@@ -14333,6 +14636,12 @@ phases:
 
 
 
+
+
+
+
+
+
                 Given tests exist in src/auth/service.test.ts
                 When I run the test suite
                 Then all tests pass
@@ -14351,6 +14660,12 @@ phases:
               ```gherkin
 
               Scenario: Code passes linting
+
+
+
+
+
+
 
 
 
@@ -14562,6 +14877,12 @@ phases:
               - Calculate rolling averages per workflow/phase type
 
               - Display in status page:
+
+
+
+
+
+
 
 
 
@@ -14989,6 +15310,12 @@ phases:
 
 
 
+
+
+
+
+
+
                 - "Estimated time remaining" in sprint header
                 - Per-phase ETA based on similar past phases
                 - Visual timeline showing projected completion
@@ -15028,6 +15355,12 @@ phases:
 
 
               1. **Related Existing Code**
+
+
+
+
+
+
 
 
 
@@ -15367,11 +15700,23 @@ phases:
 
 
 
+
+
+
+
+
+
                  - List imports needed from internal modules
                  - List any new external packages needed
                  - Check for peer dependencies or version constraints
 
               3. **Integration Points**
+
+
+
+
+
+
 
 
 
@@ -15711,6 +16056,12 @@ phases:
 
 
 
+
+
+
+
+
+
                  - Error handling patterns used in similar code
                  - Naming conventions for this area
                  - File organization patterns
@@ -15746,6 +16097,12 @@ phases:
               - Calculate rolling averages per workflow/phase type
 
               - Display in status page:
+
+
+
+
+
+
 
 
 
@@ -16144,6 +16501,12 @@ phases:
 
 
 
+
+
+
+
+
+
                 [relevant fields]
               }
 
@@ -16205,6 +16568,12 @@ phases:
               - Calculate rolling averages per workflow/phase type
 
               - Display in status page:
+
+
+
+
+
+
 
 
 
@@ -16632,6 +17001,12 @@ phases:
               - Calculate rolling averages per workflow/phase type
 
               - Display in status page:
+
+
+
+
+
+
 
 
 
