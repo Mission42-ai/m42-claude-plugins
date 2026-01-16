@@ -1,0 +1,28 @@
+# PROGRESS.yaml - Sprint Progress Tracking
+sprint-id: 2026-01-15_Test-Ralph-Loop
+status: in-progress
+current-task: null
+
+# Task queue (ordered by execution priority)
+queue: []
+
+# Completed tasks with metadata
+completed:
+  - id: custom-refactor-sprint-command-workflow
+    type: custom
+    completed-at: "2026-01-15T01:21:00Z"
+    commit: "961b518"
+    summary: "Refactored sprint loop workflow to use dynamic command invocation instead of hardcoded 6-phase workflow. Tasks can now specify optional 'command' field for custom workflows. Agent ends turn with summary (no inline continuation). Loop control unchanged."
+
+# Blocked tasks with reasons
+blocked: []
+
+# Execution statistics
+stats:
+  started-at: "2026-01-15T00:00:00Z"
+  completed-at: null
+  tasks-total: 1
+  tasks-completed: 1
+  tasks-blocked: 0
+  elapsed: null
+  avg-task-time: null

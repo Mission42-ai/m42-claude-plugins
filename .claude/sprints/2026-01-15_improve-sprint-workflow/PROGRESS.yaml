@@ -1,0 +1,52 @@
+# PROGRESS.yaml - Sprint Progress Tracking
+sprint-id: 2026-01-15_improve-sprint-workflow
+status: in-progress
+current-task: custom-dry-run-mode
+
+# Task queue (ordered by execution priority)
+queue:
+  - id: custom-dry-run-mode
+    type: custom
+    description: "Create a dry-run mode for run-sprint command with --dry-run flag"
+    done-when: "/run-sprint --dry-run lists tasks in execution order without actually running them"
+    priority: low
+
+# Completed tasks with metadata
+completed:
+  - id: custom-fix-command-permissions
+    type: custom
+    description: "Fix bash command substitution permission issues in m42-sprint commands (add-task, run-sprint, etc)"
+    done-when: "All m42-sprint commands work without requiring bypass permission. Replace $() command substitution with direct tool calls or simpler bash patterns"
+    priority: high
+    completed-at: 2026-01-15T00:30:00Z
+    elapsed: 15m
+    summary: "Replaced $() command substitution in 5 commands (add-task, import-tasks, pause-sprint, resume-sprint, sprint-status) with simple ls preflight checks and Read tool instructions"
+  - id: custom-user-documentation-guide
+    type: custom
+    description: "Create comprehensive user documentation and how-to guide for the m42-sprint plugin"
+    done-when: "Documentation includes: plugin overview, installation, all commands with examples, workflow patterns, and troubleshooting section"
+    priority: medium
+    completed-at: 2026-01-15T00:45:00Z
+    elapsed: 20m
+    summary: "Created docs/USER-GUIDE.md with 566 lines covering installation, commands reference, task types, 5 workflow patterns, configuration, troubleshooting, and best practices"
+  - id: custom-elapsed-time-tracking
+    type: custom
+    description: "Add elapsed time tracking to task completion - record actual elapsed time in completed entries"
+    done-when: "Completed tasks show completed-at timestamp and elapsed duration in PROGRESS.yaml"
+    priority: medium
+    completed-at: 2026-01-15T01:00:00Z
+    elapsed: 10m
+    summary: "Updated setup-sprint-loop.sh workflow to include timing instructions, documented elapsed field schema in progress-tracking.md, added example to USER-GUIDE.md"
+
+# Blocked tasks with reasons
+blocked: []
+
+# Execution statistics
+stats:
+  started-at: 2026-01-15T00:00:00Z
+  completed-at: null
+  tasks-total: 4
+  tasks-completed: 3
+  tasks-blocked: 0
+  elapsed: null
+  avg-task-time: null

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "defaultMode": "bypassPermissions"
+  },
+  "enabledPlugins": {
+    "m42-sprint@m42-claude-plugins": true
+  },
+  "defaultMode": "plan"
+}
