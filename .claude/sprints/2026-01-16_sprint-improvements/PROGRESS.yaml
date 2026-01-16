@@ -1,8 +1,8 @@
 sprint-id: 2026-01-16_sprint-improvements
-status: paused
+status: in-progress
 phases:
   - id: execute-all
-    status: in-progress
+    status: completed
     steps:
       - id: step-0
         prompt: |
@@ -43,6 +43,7 @@ phases:
 
               Complete this task fully before marking as done.
             completed-at: "2026-01-16T00:09:27Z"
+            elapsed: 00:00:00
       - id: step-1
         prompt: |
           Add empty workflow validation to the compiler.
@@ -79,6 +80,7 @@ phases:
               Complete this task fully before marking as done.
             started-at: "2026-01-16T00:11:51Z"
             completed-at: "2026-01-16T00:12:00Z"
+            elapsed: 00:00:09
         started-at: "2026-01-16T00:11:51Z"
       - id: step-2
         prompt: |
@@ -120,6 +122,7 @@ phases:
               Complete this task fully before marking as done.
             started-at: "2026-01-16T00:14:03Z"
             completed-at: "2026-01-16T00:14:03Z"
+            elapsed: 00:00:00
         started-at: "2026-01-16T00:14:03Z"
       - id: step-3
         prompt: |
@@ -138,10 +141,10 @@ phases:
           ## Files to create/modify
           - plugins/m42-sprint/scripts/preflight-check.sh (new)
           - plugins/m42-sprint/scripts/sprint-loop.sh
-        status: pending
+        status: completed
         phases:
           - id: execute
-            status: pending
+            status: completed
             prompt: |
               Execute the following task:
 
@@ -163,6 +166,10 @@ phases:
 
 
               Complete this task fully before marking as done.
+            started-at: "2026-01-16T09:33:40Z"
+            completed-at: "2026-01-16T09:34:17Z"
+            elapsed: 00:00:37
+        started-at: "2026-01-16T09:33:40Z"
       - id: step-4
         prompt: |
           Make unresolved template variables a compilation error (not warning).
@@ -178,10 +185,10 @@ phases:
           - plugins/m42-sprint/compiler/src/validate.ts
           - plugins/m42-sprint/compiler/src/index.ts
           - plugins/m42-sprint/compiler/src/compile.ts
-        status: pending
+        status: completed
         phases:
           - id: execute
-            status: pending
+            status: completed
             prompt: |
               Execute the following task:
 
@@ -201,6 +208,8 @@ phases:
 
 
               Complete this task fully before marking as done.
+            completed-at: "2026-01-16T09:35:57Z"
+            elapsed: 00:00:00
       - id: step-5
         prompt: |
           Add basic error recovery mechanism for failed phases.
@@ -217,10 +226,10 @@ phases:
           - plugins/m42-sprint/compiler/src/types.ts
           - plugins/m42-sprint/scripts/sprint-loop.sh
           - plugins/m42-sprint/scripts/build-sprint-prompt.sh
-        status: pending
+        status: in-progress
         phases:
           - id: execute
-            status: pending
+            status: completed
             prompt: |
               Execute the following task:
 
@@ -241,10 +250,13 @@ phases:
 
 
               Complete this task fully before marking as done.
+            started-at: "2026-01-16T09:36:21Z"
+            completed-at: "2026-01-16T09:36:21Z"
+        started-at: "2026-01-16T09:36:21Z"
     started-at: "2026-01-16T00:11:51Z"
 current:
-  phase: 0
-  step: 3
+  phase: 1
+  step: 0
   sub-phase: 0
 stats:
   started-at: "2026-01-16T00:06:30Z"

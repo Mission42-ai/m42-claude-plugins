@@ -71,9 +71,16 @@ if [[ "$HAS_STEPS" != "null" ]]; then
   SUB_PHASE_ID=$(yq -r ".phases[$PHASE_IDX].steps[$STEP_IDX].phases[$SUB_PHASE_IDX].id" "$PROGRESS_FILE")
   SUB_PHASE_PROMPT=$(yq -r ".phases[$PHASE_IDX].steps[$STEP_IDX].phases[$SUB_PHASE_IDX].prompt" "$PROGRESS_FILE")
   SUB_PHASE_STATUS=$(yq -r ".phases[$PHASE_IDX].steps[$STEP_IDX].phases[$SUB_PHASE_IDX].status" "$PROGRESS_FILE")
+  SUB_PHASE_RETRY_COUNT=$(yq -r ".phases[$PHASE_IDX].steps[$STEP_IDX].phases[$SUB_PHASE_IDX].\"retry-count\" // 0" "$PROGRESS_FILE")
+  SUB_PHASE_ERROR=$(yq -r ".phases[$PHASE_IDX].steps[$STEP_IDX].phases[$SUB_PHASE_IDX].error // \"null\"" "$PROGRESS_FILE")
 
   # Skip if already completed
   if [[ "$SUB_PHASE_STATUS" == "completed" ]]; then
+    exit 0
+  fi
+
+  # Skip if blocked (retries exhausted)
+  if [[ "$SUB_PHASE_STATUS" == "blocked" ]]; then
     exit 0
   fi
 
@@ -107,6 +114,20 @@ Sprint: $SPRINT_ID | Iteration: $ITERATION
 - Phase: **$PHASE_ID** ($((PHASE_IDX + 1))/$TOTAL_PHASES)
 - Step: **$STEP_ID** ($((STEP_IDX + 1))/$TOTAL_STEPS)
 - Sub-Phase: **$SUB_PHASE_ID** ($((SUB_PHASE_IDX + 1))/$TOTAL_SUB_PHASES)
+EOF
+
+  # Add retry information if this is a retry attempt
+  if [[ "$SUB_PHASE_RETRY_COUNT" -gt 0 ]]; then
+    cat <<EOF
+
+## ⚠️ RETRY ATTEMPT $SUB_PHASE_RETRY_COUNT
+This task previously failed. Please review the error and try a different approach.
+
+Previous error: $SUB_PHASE_ERROR
+EOF
+  fi
+
+  cat <<EOF
 
 ## Step Context
 $STEP_PROMPT
@@ -178,9 +199,16 @@ EOF
 else
   # Simple phase (no steps)
   PHASE_PROMPT=$(yq -r ".phases[$PHASE_IDX].prompt" "$PROGRESS_FILE")
+  PHASE_RETRY_COUNT=$(yq -r ".phases[$PHASE_IDX].\"retry-count\" // 0" "$PROGRESS_FILE")
+  PHASE_ERROR=$(yq -r ".phases[$PHASE_IDX].error // \"null\"" "$PROGRESS_FILE")
 
   # Skip if already completed
   if [[ "$PHASE_STATUS" == "completed" ]]; then
+    exit 0
+  fi
+
+  # Skip if blocked (retries exhausted)
+  if [[ "$PHASE_STATUS" == "blocked" ]]; then
     exit 0
   fi
 
@@ -197,6 +225,20 @@ Sprint: $SPRINT_ID | Iteration: $ITERATION
 
 ## Current Position
 - Phase: **$PHASE_ID** ($((PHASE_IDX + 1))/$TOTAL_PHASES)
+EOF
+
+  # Add retry information if this is a retry attempt
+  if [[ "$PHASE_RETRY_COUNT" -gt 0 ]]; then
+    cat <<EOF
+
+## ⚠️ RETRY ATTEMPT $PHASE_RETRY_COUNT
+This task previously failed. Please review the error and try a different approach.
+
+Previous error: $PHASE_ERROR
+EOF
+  fi
+
+  cat <<EOF
 
 ## Your Task
 

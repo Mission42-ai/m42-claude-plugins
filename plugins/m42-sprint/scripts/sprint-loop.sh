@@ -20,6 +20,7 @@ ARGUMENTS:
 
 OPTIONS:
   --max-iterations <n>    Maximum iterations (default: 100)
+  --max-retries <n>       Maximum retries per phase on failure (default: 0)
   --delay <seconds>       Delay between iterations (default: 2)
   -h, --help              Show this help message
 
@@ -45,6 +46,7 @@ EOF
 # Parse arguments
 SPRINT_DIR=""
 MAX_ITERATIONS=100
+MAX_RETRIES=0
 DELAY=2
 
 if [[ $# -gt 0 ]] && [[ ! "$1" =~ ^-- ]]; then
@@ -60,6 +62,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --max-iterations)
       MAX_ITERATIONS="$2"
+      shift 2
+      ;;
+    --max-retries)
+      MAX_RETRIES="$2"
       shift 2
       ;;
     --delay)
@@ -159,6 +165,52 @@ update_phase_elapsed() {
   fi
 }
 
+# Helper function to get the YAML path for the current phase
+get_current_phase_path() {
+  local phase_idx=$(yq -r '.current.phase // 0' "$PROGRESS_FILE")
+  local step_idx=$(yq -r '.current.step // "null"' "$PROGRESS_FILE")
+  local sub_phase_idx=$(yq -r '.current."sub-phase" // "null"' "$PROGRESS_FILE")
+
+  local base_path=".phases[$phase_idx]"
+
+  # Check if phase has steps
+  local has_steps=$(yq -r ".phases[$phase_idx].steps // \"null\"" "$PROGRESS_FILE")
+  if [[ "$has_steps" != "null" ]] && [[ "$step_idx" != "null" ]]; then
+    base_path="$base_path.steps[$step_idx]"
+    if [[ "$sub_phase_idx" != "null" ]]; then
+      base_path="$base_path.phases[$sub_phase_idx]"
+    fi
+  fi
+
+  echo "$base_path"
+}
+
+# Helper function to handle phase failure with retry logic
+handle_phase_failure() {
+  local exit_code="$1"
+  local error_output="$2"
+  local phase_path=$(get_current_phase_path)
+
+  # Get current retry count
+  local retry_count=$(yq -r "$phase_path.\"retry-count\" // 0" "$PROGRESS_FILE")
+
+  if [[ "$retry_count" -lt "$MAX_RETRIES" ]]; then
+    # Increment retry count and keep status as in-progress for retry
+    local new_retry_count=$((retry_count + 1))
+    echo "Phase failed (attempt $new_retry_count/$((MAX_RETRIES + 1))). Retrying..."
+    yq -i "$phase_path.\"retry-count\" = $new_retry_count" "$PROGRESS_FILE"
+    yq -i "$phase_path.error = \"Exit code: $exit_code - $error_output\"" "$PROGRESS_FILE"
+    return 0  # Continue loop for retry
+  else
+    # Max retries exhausted, mark as blocked
+    echo "Phase failed after $((retry_count + 1)) attempt(s). Marking as blocked."
+    yq -i "$phase_path.status = \"blocked\"" "$PROGRESS_FILE"
+    yq -i "$phase_path.error = \"Exit code: $exit_code - $error_output (retries exhausted)\"" "$PROGRESS_FILE"
+    yq -i '.status = "blocked"' "$PROGRESS_FILE"
+    return 1  # Signal to exit loop
+  fi
+}
+
 echo "============================================================"
 echo "SPRINT LOOP STARTING (Hierarchical Workflow)"
 echo "============================================================"
@@ -166,6 +218,7 @@ echo ""
 echo "Sprint: $SPRINT_NAME"
 echo "Directory: $SPRINT_DIR"
 echo "Max iterations: $MAX_ITERATIONS"
+echo "Max retries per phase: $MAX_RETRIES"
 echo ""
 
 # Run preflight checks before starting the loop
@@ -219,8 +272,31 @@ for ((i=1; i<=MAX_ITERATIONS; i++)); do
   echo "Invoking Claude CLI..."
   echo ""
 
-  if ! claude -p "$PROMPT" --dangerously-skip-permissions; then
-    echo "Warning: Claude CLI returned non-zero exit code"
+  # Capture output and exit code
+  CLI_OUTPUT=""
+  CLI_EXIT_CODE=0
+  CLI_OUTPUT=$(claude -p "$PROMPT" --dangerously-skip-permissions 2>&1) || CLI_EXIT_CODE=$?
+  echo "$CLI_OUTPUT"
+
+  if [[ "$CLI_EXIT_CODE" -ne 0 ]]; then
+    echo ""
+    echo "Warning: Claude CLI returned non-zero exit code: $CLI_EXIT_CODE"
+
+    # Handle the failure with retry logic
+    ERROR_MSG=$(echo "$CLI_OUTPUT" | tail -c 500 | tr '\n' ' ')
+    if ! handle_phase_failure "$CLI_EXIT_CODE" "$ERROR_MSG"; then
+      echo ""
+      echo "============================================================"
+      echo "SPRINT BLOCKED - Phase failed after exhausting retries"
+      echo "============================================================"
+      exit 1
+    fi
+
+    # Retry will happen on next iteration, apply delay and continue
+    if [[ $DELAY -gt 0 ]]; then
+      sleep "$DELAY"
+    fi
+    continue
   fi
 
   # Update elapsed times for any completed phases
