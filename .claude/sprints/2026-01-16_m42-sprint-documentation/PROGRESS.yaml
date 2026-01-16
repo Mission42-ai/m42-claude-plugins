@@ -667,7 +667,7 @@ phases:
           - Pattern ist memorable ("Ralph Loop")
           - Problem und Lösung kristallklar
           - Technische Details für Interessierte verfügbar
-        status: in-progress
+        status: completed
         phases:
           - id: implement
             status: completed
@@ -710,8 +710,9 @@ phases:
               ## Complete this task fully before marking as done.
             started-at: "2026-01-16T16:35:01Z"
             completed-at: "2026-01-16T16:36:37Z"
+            elapsed: 00:01:36
           - id: qa
-            status: pending
+            status: completed
             prompt: |
               Quality Assurance verification for the m42-sprint plugin.
 
@@ -842,6 +843,8 @@ phases:
               - Focus on compilation and integration (no unit test suite yet)
               - Reference context/sprint-plan.md for acceptance criteria
               - QA failures MUST result in injected fix tasks, not just reports
+            started-at: "2026-01-16T16:36:58Z"
+            completed-at: "2026-01-16T16:40:00Z"
         started-at: "2026-01-16T16:35:01Z"
       - id: step-4
         prompt: |
@@ -2764,8 +2767,8 @@ phases:
     started-at: "2026-01-16T16:18:41Z"
 current:
   phase: 1
-  step: 3
-  sub-phase: 1
+  step: 4
+  sub-phase: 0
 stats:
   started-at: "2026-01-16T16:16:12Z"
   total-phases: 30
@@ -2773,6 +2776,6 @@ stats:
   total-steps: 14
   completed-steps: 0
   max-iterations: 30
-  current-iteration: 7
+  current-iteration: 8
   completed-at: "2026-01-16T16:24:41Z"
   elapsed: 00:08:29
