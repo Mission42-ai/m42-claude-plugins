@@ -144,6 +144,12 @@ export function validateWorkflowDefinition(
       message: `Workflow ${name} must have a phases array`,
       path: `${name}.phases`
     });
+  } else if (w.phases.length === 0) {
+    errors.push({
+      code: 'EMPTY_WORKFLOW',
+      message: `Workflow ${name} has zero phases`,
+      path: `${name}.phases`
+    });
   } else {
     // Validate each phase
     const phaseIds = new Set<string>();

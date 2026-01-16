@@ -2,7 +2,7 @@ sprint-id: 2026-01-16_sprint-improvements
 status: in-progress
 phases:
   - id: execute-all
-    status: pending
+    status: in-progress
     steps:
       - id: step-0
         prompt: |
@@ -56,10 +56,10 @@ phases:
           ## Files to modify
           - plugins/m42-sprint/compiler/src/validate.ts
           - plugins/m42-sprint/compiler/src/types.ts (if new error code needed)
-        status: pending
+        status: completed
         phases:
           - id: execute
-            status: pending
+            status: completed
             prompt: |
               Execute the following task:
 
@@ -77,6 +77,9 @@ phases:
 
 
               Complete this task fully before marking as done.
+            started-at: "2026-01-16T00:11:51Z"
+            completed-at: "2026-01-16T00:12:00Z"
+        started-at: "2026-01-16T00:11:51Z"
       - id: step-2
         prompt: |
           Improve YAML error messages with line numbers and context.
@@ -235,9 +238,10 @@ phases:
 
 
               Complete this task fully before marking as done.
+    started-at: "2026-01-16T00:11:51Z"
 current:
   phase: 0
-  step: 1
+  step: 2
   sub-phase: 0
 stats:
   started-at: "2026-01-16T00:06:30Z"
