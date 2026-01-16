@@ -48,6 +48,10 @@ SPRINT_DIR=""
 MAX_ITERATIONS=100
 MAX_RETRIES=0
 DELAY=2
+HOOK_CONFIG=""
+
+# Export PLUGIN_DIR for hook script to use
+export PLUGIN_DIR="${SCRIPT_DIR%/scripts}"
 
 if [[ $# -gt 0 ]] && [[ ! "$1" =~ ^-- ]]; then
   SPRINT_DIR="$1"
@@ -70,6 +74,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --delay)
       DELAY="$2"
+      shift 2
+      ;;
+    --hook-config)
+      HOOK_CONFIG="$2"
       shift 2
       ;;
     *)
@@ -103,6 +111,17 @@ if ! command -v yq &> /dev/null; then
 fi
 
 SPRINT_NAME=$(basename "$SPRINT_DIR")
+
+# Cleanup function for hook config file on exit
+cleanup_hook_config() {
+  if [[ -n "$HOOK_CONFIG" ]] && [[ -f "$HOOK_CONFIG" ]]; then
+    rm -f "$HOOK_CONFIG"
+    echo "Cleaned up hook config: $HOOK_CONFIG"
+  fi
+}
+
+# Register cleanup trap for EXIT, INT, TERM signals
+trap cleanup_hook_config EXIT
 
 # Helper function to calculate elapsed time in HH:MM:SS format
 calculate_elapsed() {
@@ -281,7 +300,13 @@ for ((i=1; i<=MAX_ITERATIONS; i++)); do
   # Capture output and exit code
   CLI_OUTPUT=""
   CLI_EXIT_CODE=0
-  CLI_OUTPUT=$(claude -p "$PROMPT" --dangerously-skip-permissions 2>&1) || CLI_EXIT_CODE=$?
+
+  # Build claude command with optional hook config
+  if [[ -n "$HOOK_CONFIG" ]] && [[ -f "$HOOK_CONFIG" ]]; then
+    CLI_OUTPUT=$(claude -p "$PROMPT" --dangerously-skip-permissions --hook-config "$HOOK_CONFIG" 2>&1) || CLI_EXIT_CODE=$?
+  else
+    CLI_OUTPUT=$(claude -p "$PROMPT" --dangerously-skip-permissions 2>&1) || CLI_EXIT_CODE=$?
+  fi
   echo "$CLI_OUTPUT"
 
   if [[ "$CLI_EXIT_CODE" -ne 0 ]]; then
