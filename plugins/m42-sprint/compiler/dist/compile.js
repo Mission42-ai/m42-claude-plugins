@@ -202,8 +202,16 @@ async function compile(config) {
         return { success: false, errors, warnings };
     }
     // Check for unresolved variables
-    const unresolvedWarnings = (0, validate_js_1.checkUnresolvedVariables)(progress);
-    warnings.push(...unresolvedWarnings);
+    const unresolvedIssues = (0, validate_js_1.checkUnresolvedVariables)(progress);
+    if (config.strict && unresolvedIssues.length > 0) {
+        // In strict mode, unresolved variables are errors
+        errors.push(...unresolvedIssues);
+        return { success: false, errors, warnings };
+    }
+    else {
+        // In non-strict mode, unresolved variables are warnings
+        warnings.push(...unresolvedIssues.map(e => `${e.message}${e.path ? ` at ${e.path}` : ''}`));
+    }
     return {
         success: true,
         progress,

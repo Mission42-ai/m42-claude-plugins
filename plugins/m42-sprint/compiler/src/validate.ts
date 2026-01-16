@@ -238,16 +238,21 @@ export function validateWorkflowPhase(
  * Check for unresolved template variables in compiled progress
  *
  * @param progress - The compiled progress to check
- * @returns Array of warnings about unresolved variables
+ * @param asErrors - If true, return as CompilerError[] for strict mode; otherwise return as string[]
+ * @returns Array of issues about unresolved variables (errors or warnings based on asErrors)
  */
-export function checkUnresolvedVariables(progress: CompiledProgress): string[] {
-  const warnings: string[] = [];
+export function checkUnresolvedVariables(progress: CompiledProgress): CompilerError[] {
+  const issues: CompilerError[] = [];
 
   function checkPhasePrompt(prompt: string | undefined, path: string): void {
     if (!prompt) return;
     const unresolved = findUnresolvedVars(prompt);
     if (unresolved.length > 0) {
-      warnings.push(`Unresolved variables in ${path}: ${unresolved.join(', ')}`);
+      issues.push({
+        code: 'UNRESOLVED_VARIABLES',
+        message: `Unresolved variables: ${unresolved.join(', ')}`,
+        path
+      });
     }
   }
 
@@ -266,7 +271,7 @@ export function checkUnresolvedVariables(progress: CompiledProgress): string[] {
     }
   }
 
-  return warnings;
+  return issues;
 }
 
 /**

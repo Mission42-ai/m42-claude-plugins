@@ -55,6 +55,7 @@ program
     .option('-o, --output <file>', 'Output file path (default: <sprint-dir>/PROGRESS.yaml)')
     .option('-v, --verbose', 'Enable verbose output')
     .option('--dry-run', 'Validate and show result without writing')
+    .option('--strict', 'Treat unresolved template variables as errors (fail compilation)')
     .action(async (sprintDir, options) => {
     try {
         // Resolve paths
@@ -91,7 +92,8 @@ program
         const config = {
             workflowsDir: absoluteWorkflowsDir,
             sprintDir: absoluteSprintDir,
-            verbose: options.verbose
+            verbose: options.verbose,
+            strict: options.strict
         };
         const result = await (0, compile_js_1.compile)(config);
         // Report warnings

@@ -41,9 +41,10 @@ export declare function validateWorkflowPhase(phase: unknown, index: number, wor
  * Check for unresolved template variables in compiled progress
  *
  * @param progress - The compiled progress to check
- * @returns Array of warnings about unresolved variables
+ * @param asErrors - If true, return as CompilerError[] for strict mode; otherwise return as string[]
+ * @returns Array of issues about unresolved variables (errors or warnings based on asErrors)
  */
-export declare function checkUnresolvedVariables(progress: CompiledProgress): string[];
+export declare function checkUnresolvedVariables(progress: CompiledProgress): CompilerError[];
 /**
  * Validate the entire compiled progress structure
  *

@@ -222,8 +222,18 @@ export async function compile(config: CompilerConfig): Promise<CompilerResult> {
   }
 
   // Check for unresolved variables
-  const unresolvedWarnings = checkUnresolvedVariables(progress);
-  warnings.push(...unresolvedWarnings);
+  const unresolvedIssues = checkUnresolvedVariables(progress);
+
+  if (config.strict && unresolvedIssues.length > 0) {
+    // In strict mode, unresolved variables are errors
+    errors.push(...unresolvedIssues);
+    return { success: false, errors, warnings };
+  } else {
+    // In non-strict mode, unresolved variables are warnings
+    warnings.push(...unresolvedIssues.map(e =>
+      `${e.message}${e.path ? ` at ${e.path}` : ''}`
+    ));
+  }
 
   return {
     success: true,

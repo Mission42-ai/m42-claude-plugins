@@ -174,6 +174,8 @@ export interface CompilerConfig {
     sprintDir: string;
     /** Enable verbose logging */
     verbose?: boolean;
+    /** Treat unresolved template variables as errors (fail compilation) */
+    strict?: boolean;
 }
 /**
  * Compiler error with context
