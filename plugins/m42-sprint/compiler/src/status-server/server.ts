@@ -14,12 +14,39 @@ import type {
   LogEntry,
   AnySSEEvent,
   CompiledProgress,
+  CompiledTopPhase,
+  CompiledStep,
+  CompiledPhase,
+  PhaseStatus,
 } from './status-types.js';
 import type { ActivityEvent } from './activity-types.js';
 import { ProgressWatcher } from './watcher.js';
 import { ActivityWatcher } from './activity-watcher.js';
 import { toStatusUpdate, generateDiffLogEntries, createLogEntry } from './transforms.js';
 import { getPageHtml } from './page.js';
+
+/**
+ * Response type for phase actions (skip/retry)
+ */
+interface PhaseActionResponse {
+  success: boolean;
+  action: 'skip' | 'retry';
+  phaseId: string;
+  message?: string;
+  error?: string;
+}
+
+/**
+ * Result of finding a phase by path
+ */
+interface PhaseLocation {
+  phase: CompiledTopPhase;
+  phaseIndex: number;
+  step?: CompiledStep;
+  stepIndex?: number;
+  subPhase?: CompiledPhase;
+  subPhaseIndex?: number;
+}
 
 /**
  * Connected SSE client
@@ -198,8 +225,13 @@ export class StatusServer {
     const controlEndpoints = ['/api/pause', '/api/resume', '/api/stop'];
     const isControlEndpoint = controlEndpoints.includes(url);
 
-    // Allow POST for control endpoints, GET for everything else
-    if (isControlEndpoint) {
+    // Check for skip/retry endpoints with phaseId param
+    const skipMatch = url.match(/^\/api\/skip\/(.+)$/);
+    const retryMatch = url.match(/^\/api\/retry\/(.+)$/);
+    const isPhaseActionEndpoint = skipMatch || retryMatch;
+
+    // Allow POST for control endpoints and phase action endpoints, GET for everything else
+    if (isControlEndpoint || isPhaseActionEndpoint) {
       if (req.method !== 'POST') {
         res.writeHead(405, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Method Not Allowed', message: 'Use POST for this endpoint' }));
@@ -208,6 +240,19 @@ export class StatusServer {
     } else if (req.method !== 'GET') {
       res.writeHead(405, { 'Content-Type': 'text/plain' });
       res.end('Method Not Allowed');
+      return;
+    }
+
+    // Handle phase action endpoints first (before switch)
+    if (skipMatch) {
+      const phaseId = decodeURIComponent(skipMatch[1]);
+      this.handleSkipRequest(res, phaseId);
+      return;
+    }
+
+    if (retryMatch) {
+      const phaseId = decodeURIComponent(retryMatch[1]);
+      this.handleRetryRequest(res, phaseId);
       return;
     }
 
@@ -461,6 +506,339 @@ export class StatusServer {
         error: error instanceof Error ? error.message : String(error),
       }));
     }
+  }
+
+  /**
+   * Find a phase by its path (e.g., "execute-all > step-0 > plan")
+   * Returns the location information including indices for updating
+   */
+  private findPhaseByPath(progress: CompiledProgress, phaseId: string): PhaseLocation | null {
+    const parts = phaseId.split(' > ').map(p => p.trim());
+
+    if (parts.length === 0) return null;
+
+    // Find top-level phase
+    const phaseIndex = progress.phases.findIndex(p => p.id === parts[0]);
+    if (phaseIndex === -1) return null;
+
+    const phase = progress.phases[phaseIndex];
+
+    // Single-level path (top phase only)
+    if (parts.length === 1) {
+      return { phase, phaseIndex };
+    }
+
+    // Check if phase has steps
+    if (!phase.steps) return null;
+
+    // Find step within phase
+    const stepIndex = phase.steps.findIndex(s => s.id === parts[1]);
+    if (stepIndex === -1) return null;
+
+    const step = phase.steps[stepIndex];
+
+    // Two-level path (phase > step)
+    if (parts.length === 2) {
+      return { phase, phaseIndex, step, stepIndex };
+    }
+
+    // Find sub-phase within step
+    if (!step.phases) return null;
+
+    const subPhaseIndex = step.phases.findIndex(sp => sp.id === parts[2]);
+    if (subPhaseIndex === -1) return null;
+
+    const subPhase = step.phases[subPhaseIndex];
+
+    return { phase, phaseIndex, step, stepIndex, subPhase, subPhaseIndex };
+  }
+
+  /**
+   * Save progress to PROGRESS.yaml and trigger SSE broadcast
+   */
+  private saveProgress(progress: CompiledProgress): void {
+    const content = yaml.dump(progress, {
+      lineWidth: -1,
+      noRefs: true,
+      quotingType: '"',
+    });
+    fs.writeFileSync(this.progressFilePath, content, 'utf-8');
+    // Trigger update broadcast
+    this.handleProgressChange();
+  }
+
+  /**
+   * Handle POST /api/skip/:phaseId request
+   * Marks the specified phase as "skipped" and advances to next phase
+   */
+  private handleSkipRequest(res: http.ServerResponse, phaseId: string): void {
+    try {
+      const progress = this.loadProgress();
+      const location = this.findPhaseByPath(progress, phaseId);
+
+      if (!location) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: false,
+          action: 'skip',
+          phaseId,
+          error: `Phase not found: "${phaseId}"`,
+        } as PhaseActionResponse));
+        return;
+      }
+
+      // Determine which item to skip
+      const targetItem = location.subPhase || location.step || location.phase;
+      const currentStatus = targetItem.status;
+
+      // Only allow skipping phases that are blocked, in-progress, or pending
+      if (!['blocked', 'in-progress', 'pending'].includes(currentStatus)) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: false,
+          action: 'skip',
+          phaseId,
+          error: `Cannot skip phase with status "${currentStatus}" - only blocked, in-progress, or pending phases can be skipped`,
+        } as PhaseActionResponse));
+        return;
+      }
+
+      // Mark as skipped
+      targetItem.status = 'skipped' as PhaseStatus;
+
+      // If skipping a container (phase with steps, or step with sub-phases), skip all children
+      if (location.subPhase) {
+        // Skipping a sub-phase - no children to handle
+      } else if (location.step) {
+        // Skipping a step - mark all sub-phases as skipped
+        if (location.step.phases) {
+          for (const subPhase of location.step.phases) {
+            if (subPhase.status === 'pending' || subPhase.status === 'in-progress' || subPhase.status === 'blocked') {
+              subPhase.status = 'skipped';
+            }
+          }
+        }
+      } else {
+        // Skipping a top-level phase - mark all steps and sub-phases as skipped
+        if (location.phase.steps) {
+          for (const step of location.phase.steps) {
+            if (step.status === 'pending' || step.status === 'in-progress' || step.status === 'blocked') {
+              step.status = 'skipped';
+              if (step.phases) {
+                for (const subPhase of step.phases) {
+                  if (subPhase.status === 'pending' || subPhase.status === 'in-progress' || subPhase.status === 'blocked') {
+                    subPhase.status = 'skipped';
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Advance the current pointer to the next phase
+      this.advancePointerAfterSkip(progress, location);
+
+      // Update stats
+      this.updateProgressStats(progress);
+
+      // Save changes
+      this.saveProgress(progress);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        action: 'skip',
+        phaseId,
+        message: `Phase "${phaseId}" has been skipped`,
+      } as PhaseActionResponse));
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: false,
+        action: 'skip',
+        phaseId,
+        error: error instanceof Error ? error.message : String(error),
+      } as PhaseActionResponse));
+    }
+  }
+
+  /**
+   * Handle POST /api/retry/:phaseId request
+   * Resets the specified phase to "pending" for re-execution
+   */
+  private handleRetryRequest(res: http.ServerResponse, phaseId: string): void {
+    try {
+      const progress = this.loadProgress();
+      const location = this.findPhaseByPath(progress, phaseId);
+
+      if (!location) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: false,
+          action: 'retry',
+          phaseId,
+          error: `Phase not found: "${phaseId}"`,
+        } as PhaseActionResponse));
+        return;
+      }
+
+      // Determine which item to retry
+      const targetItem = location.subPhase || location.step || location.phase;
+      const currentStatus = targetItem.status;
+
+      // Only allow retrying failed phases
+      if (currentStatus !== 'failed') {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: false,
+          action: 'retry',
+          phaseId,
+          error: `Cannot retry phase with status "${currentStatus}" - only failed phases can be retried`,
+        } as PhaseActionResponse));
+        return;
+      }
+
+      // Reset to pending
+      targetItem.status = 'pending' as PhaseStatus;
+
+      // Clear error field and timing but preserve partial work
+      delete targetItem.error;
+      delete targetItem['started-at'];
+      delete targetItem['completed-at'];
+
+      // Increment retry count
+      targetItem['retry-count'] = (targetItem['retry-count'] || 0) + 1;
+
+      // Set the current pointer to this phase for re-execution
+      this.setPointerToPhase(progress, location);
+
+      // Update stats
+      this.updateProgressStats(progress);
+
+      // Save changes
+      this.saveProgress(progress);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        action: 'retry',
+        phaseId,
+        message: `Phase "${phaseId}" has been queued for retry`,
+      } as PhaseActionResponse));
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: false,
+        action: 'retry',
+        phaseId,
+        error: error instanceof Error ? error.message : String(error),
+      } as PhaseActionResponse));
+    }
+  }
+
+  /**
+   * Advance the current pointer after skipping a phase
+   */
+  private advancePointerAfterSkip(progress: CompiledProgress, location: PhaseLocation): void {
+    const current = progress.current;
+
+    if (location.subPhase !== undefined && location.subPhaseIndex !== undefined) {
+      // Skipped a sub-phase, try to move to next sub-phase
+      const step = location.step!;
+      if (location.subPhaseIndex < step.phases!.length - 1) {
+        current['sub-phase'] = location.subPhaseIndex + 1;
+      } else {
+        // No more sub-phases, move to next step
+        current['sub-phase'] = 0;
+        if (location.stepIndex !== undefined && location.stepIndex < location.phase.steps!.length - 1) {
+          current.step = location.stepIndex + 1;
+        } else {
+          // No more steps, move to next phase
+          current.step = 0;
+          if (location.phaseIndex < progress.phases.length - 1) {
+            current.phase = location.phaseIndex + 1;
+          }
+        }
+      }
+    } else if (location.step !== undefined && location.stepIndex !== undefined) {
+      // Skipped a step, try to move to next step
+      current['sub-phase'] = 0;
+      if (location.stepIndex < location.phase.steps!.length - 1) {
+        current.step = location.stepIndex + 1;
+      } else {
+        // No more steps, move to next phase
+        current.step = 0;
+        if (location.phaseIndex < progress.phases.length - 1) {
+          current.phase = location.phaseIndex + 1;
+        }
+      }
+    } else {
+      // Skipped a top-level phase, move to next phase
+      current.step = 0;
+      current['sub-phase'] = 0;
+      if (location.phaseIndex < progress.phases.length - 1) {
+        current.phase = location.phaseIndex + 1;
+      }
+    }
+  }
+
+  /**
+   * Set the current pointer to a specific phase for retry
+   */
+  private setPointerToPhase(progress: CompiledProgress, location: PhaseLocation): void {
+    const current = progress.current;
+    current.phase = location.phaseIndex;
+
+    if (location.stepIndex !== undefined) {
+      current.step = location.stepIndex;
+    } else {
+      current.step = location.phase.steps ? 0 : null;
+    }
+
+    if (location.subPhaseIndex !== undefined) {
+      current['sub-phase'] = location.subPhaseIndex;
+    } else if (location.step?.phases) {
+      current['sub-phase'] = 0;
+    } else {
+      current['sub-phase'] = null;
+    }
+  }
+
+  /**
+   * Update progress stats after modifying phase statuses
+   */
+  private updateProgressStats(progress: CompiledProgress): void {
+    let completedPhases = 0;
+    let totalPhases = 0;
+
+    for (const phase of progress.phases) {
+      if (phase.steps) {
+        for (const step of phase.steps) {
+          if (step.phases) {
+            for (const subPhase of step.phases) {
+              totalPhases++;
+              if (subPhase.status === 'completed' || subPhase.status === 'skipped') {
+                completedPhases++;
+              }
+            }
+          } else {
+            totalPhases++;
+            if (step.status === 'completed' || step.status === 'skipped') {
+              completedPhases++;
+            }
+          }
+        }
+      } else {
+        totalPhases++;
+        if (phase.status === 'completed' || phase.status === 'skipped') {
+          completedPhases++;
+        }
+      }
+    }
+
+    progress.stats['total-phases'] = totalPhases;
+    progress.stats['completed-phases'] = completedPhases;
   }
 
   /**

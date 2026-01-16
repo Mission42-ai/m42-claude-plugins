@@ -123,6 +123,24 @@ ${getStyles()}
     </div>
   </div>
 
+  <div class="modal-overlay" id="skip-confirm-modal">
+    <div class="modal-content">
+      <div class="modal-title">Skip Phase</div>
+      <div class="modal-warning">
+        <span class="modal-warning-icon">⚠</span>
+        <span class="modal-warning-text">
+          Warning: Skipping this phase may result in incomplete work and potential data loss.
+          Any progress in this phase will be abandoned. Are you sure you want to skip?
+        </span>
+      </div>
+      <div class="modal-phase-info" id="skip-phase-info"></div>
+      <div class="modal-actions">
+        <button class="modal-btn modal-btn-cancel" id="skip-cancel-btn">Cancel</button>
+        <button class="modal-btn modal-btn-confirm modal-btn-warning" id="skip-confirm-btn">Skip Phase</button>
+      </div>
+    </div>
+  </div>
+
   <div class="toast-container" id="toast-container"></div>
 
   <script>
@@ -396,6 +414,57 @@ function getStyles() {
 
     .tree-children.collapsed {
       display: none;
+    }
+
+    /* Phase Action Buttons (Skip/Retry) */
+    .tree-actions {
+      display: none;
+      gap: 4px;
+      margin-left: auto;
+      flex-shrink: 0;
+    }
+
+    .tree-node-content:hover .tree-actions {
+      display: flex;
+    }
+
+    .phase-action-btn {
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      border: 1px solid transparent;
+      background-color: transparent;
+    }
+
+    .phase-action-btn.skip-btn {
+      color: var(--accent-yellow);
+    }
+
+    .phase-action-btn.skip-btn:hover {
+      background-color: rgba(210, 153, 34, 0.15);
+      border-color: var(--accent-yellow);
+    }
+
+    .phase-action-btn.retry-btn {
+      color: var(--accent-blue);
+    }
+
+    .phase-action-btn.retry-btn:hover {
+      background-color: rgba(88, 166, 255, 0.15);
+      border-color: var(--accent-blue);
+    }
+
+    .phase-action-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .phase-action-btn.loading {
+      position: relative;
+      pointer-events: none;
     }
 
     /* Content Area */
@@ -884,6 +953,25 @@ function getStyles() {
       background-color: #da3633;
     }
 
+    .modal-btn-warning {
+      background-color: var(--accent-yellow);
+      border: 1px solid var(--accent-yellow);
+      color: #0d1117;
+    }
+
+    .modal-btn-warning:hover {
+      background-color: #b88a1b;
+    }
+
+    .modal-phase-info {
+      padding: 8px 12px;
+      background-color: var(--bg-tertiary);
+      border-radius: 4px;
+      margin-bottom: 16px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
     /* Toast Notifications */
     .toast-container {
       position: fixed;
@@ -1020,7 +1108,11 @@ function getScript() {
         liveActivityContent: document.getElementById('live-activity-content'),
         verbositySelect: document.getElementById('verbosity-select'),
         clearActivityBtn: document.getElementById('clear-activity-btn'),
-        collapseActivityBtn: document.getElementById('collapse-activity-btn')
+        collapseActivityBtn: document.getElementById('collapse-activity-btn'),
+        skipConfirmModal: document.getElementById('skip-confirm-modal'),
+        skipCancelBtn: document.getElementById('skip-cancel-btn'),
+        skipConfirmBtn: document.getElementById('skip-confirm-btn'),
+        skipPhaseInfo: document.getElementById('skip-phase-info')
       };
 
       // State
@@ -1042,6 +1134,10 @@ function getScript() {
 
       // Verbosity level ordering for filtering
       const VERBOSITY_ORDER = { minimal: 0, basic: 1, detailed: 2, verbose: 3 };
+
+      // Phase action state
+      let pendingSkipPhaseId = null;
+      let phaseActionLoading = {};
 
       // Tool icons mapping
       const toolIcons = {
@@ -1066,6 +1162,7 @@ function getScript() {
         connect();
         setupControlButtons();
         setupLiveActivityControls();
+        setupSkipModal();
         // Update elapsed time every second
         setInterval(updateElapsedTimes, 1000);
         // Update relative times in activity panel
@@ -1214,6 +1311,92 @@ function getScript() {
         }, 200);
       }
 
+      // Skip Modal Functions
+      function setupSkipModal() {
+        elements.skipCancelBtn.addEventListener('click', hideSkipModal);
+        elements.skipConfirmBtn.addEventListener('click', confirmSkipPhase);
+      }
+
+      function showSkipModal(phaseId) {
+        pendingSkipPhaseId = phaseId;
+        elements.skipPhaseInfo.textContent = 'Phase: ' + phaseId;
+        elements.skipConfirmModal.classList.add('visible');
+      }
+
+      function hideSkipModal() {
+        elements.skipConfirmModal.classList.remove('visible');
+        pendingSkipPhaseId = null;
+      }
+
+      async function confirmSkipPhase() {
+        if (!pendingSkipPhaseId) return;
+        hideSkipModal();
+        await skipPhase(pendingSkipPhaseId);
+      }
+
+      // Phase Action Functions (Skip/Retry)
+      async function skipPhase(phaseId) {
+        if (phaseActionLoading[phaseId]) return;
+        phaseActionLoading[phaseId] = true;
+
+        try {
+          const response = await fetch('/api/skip/' + encodeURIComponent(phaseId), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          });
+          const result = await response.json();
+
+          if (result.success) {
+            showToast('success', result.message || 'Phase skipped');
+          } else {
+            showToast('error', result.error || 'Failed to skip phase');
+          }
+        } catch (err) {
+          showToast('error', 'Failed to skip phase: ' + err.message);
+        } finally {
+          phaseActionLoading[phaseId] = false;
+        }
+      }
+
+      async function retryPhase(phaseId) {
+        if (phaseActionLoading[phaseId]) return;
+        phaseActionLoading[phaseId] = true;
+
+        try {
+          const response = await fetch('/api/retry/' + encodeURIComponent(phaseId), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          });
+          const result = await response.json();
+
+          if (result.success) {
+            showToast('success', result.message || 'Phase queued for retry');
+          } else {
+            showToast('error', result.error || 'Failed to retry phase');
+          }
+        } catch (err) {
+          showToast('error', 'Failed to retry phase: ' + err.message);
+        } finally {
+          phaseActionLoading[phaseId] = false;
+        }
+      }
+
+      function handleSkipClick(e) {
+        e.stopPropagation();
+        var phaseId = e.target.dataset.phaseId;
+        if (phaseId) {
+          showSkipModal(phaseId);
+        }
+      }
+
+      function handleRetryClick(e) {
+        e.stopPropagation();
+        var phaseId = e.target.dataset.phaseId;
+        if (phaseId) {
+          retryPhase(phaseId);
+        }
+      }
+
       // SSE Connection
       function connect() {
         updateConnectionStatus('connecting');
@@ -1351,6 +1534,16 @@ function getScript() {
             }
           });
         });
+
+        // Add click handlers for skip buttons
+        elements.phaseTree.querySelectorAll('.skip-btn').forEach(btn => {
+          btn.addEventListener('click', handleSkipClick);
+        });
+
+        // Add click handlers for retry buttons
+        elements.phaseTree.querySelectorAll('.retry-btn').forEach(btn => {
+          btn.addEventListener('click', handleRetryClick);
+        });
       }
 
       function renderTreeNode(node, parentPath = '') {
@@ -1367,6 +1560,9 @@ function getScript() {
         const depth = (parentPath.match(/\\//g) || []).length;
         const indent = depth * 16;
 
+        // Build phaseId for API calls (use ' > ' separator)
+        const phaseId = parentPath ? parentPath.replace(/\\//g, ' > ') + ' > ' + node.id : node.id;
+
         let html = '<div class="tree-node" style="padding-left: ' + indent + 'px">';
         html += '<div class="tree-node-content' + (isActive ? ' active' : '') + '">';
 
@@ -1382,6 +1578,21 @@ function getScript() {
         if (node.elapsed) {
           html += '<span class="tree-elapsed">' + node.elapsed + '</span>';
         }
+
+        // Add skip/retry action buttons based on status
+        html += '<span class="tree-actions">';
+
+        // Skip button: visible for blocked, in-progress, or pending (stuck phases)
+        if (node.status === 'blocked' || node.status === 'in-progress' || node.status === 'pending') {
+          html += '<button class="phase-action-btn skip-btn" data-phase-id="' + escapeHtml(phaseId) + '" title="Skip this phase">Skip</button>';
+        }
+
+        // Retry button: visible for failed phases
+        if (node.status === 'failed') {
+          html += '<button class="phase-action-btn retry-btn" data-phase-id="' + escapeHtml(phaseId) + '" title="Retry this phase">Retry</button>';
+        }
+
+        html += '</span>';
 
         html += '</div>';
 

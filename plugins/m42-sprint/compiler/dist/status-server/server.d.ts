@@ -76,6 +76,37 @@ export declare class StatusServer {
      */
     private handleStopRequest;
     /**
+     * Find a phase by its path (e.g., "execute-all > step-0 > plan")
+     * Returns the location information including indices for updating
+     */
+    private findPhaseByPath;
+    /**
+     * Save progress to PROGRESS.yaml and trigger SSE broadcast
+     */
+    private saveProgress;
+    /**
+     * Handle POST /api/skip/:phaseId request
+     * Marks the specified phase as "skipped" and advances to next phase
+     */
+    private handleSkipRequest;
+    /**
+     * Handle POST /api/retry/:phaseId request
+     * Resets the specified phase to "pending" for re-execution
+     */
+    private handleRetryRequest;
+    /**
+     * Advance the current pointer after skipping a phase
+     */
+    private advancePointerAfterSkip;
+    /**
+     * Set the current pointer to a specific phase for retry
+     */
+    private setPointerToPhase;
+    /**
+     * Update progress stats after modifying phase statuses
+     */
+    private updateProgressStats;
+    /**
      * Send initial status to a newly connected client
      */
     private sendInitialStatus;
