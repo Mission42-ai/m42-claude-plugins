@@ -78,7 +78,7 @@ phases:
           Erfolg:
           - README ist scanbar und führt Nutzer schnell weiter
           - Kernkonzept in 30 Sekunden verständlich
-        status: pending
+        status: completed
         phases:
           - id: implement
             status: completed
@@ -121,8 +121,9 @@ phases:
             error-category: logic
             error: 'Exit code: 1 - error: unknown option ''--hook-config'' '
             completed-at: "2026-01-16T16:26:20Z"
+            elapsed: 00:07:39
           - id: qa
-            status: pending
+            status: completed
             prompt: |
               Quality Assurance verification for the m42-sprint plugin.
 
@@ -251,6 +252,8 @@ phases:
               - Focus on compilation and integration (no unit test suite yet)
               - Reference context/sprint-plan.md for acceptance criteria
               - QA failures MUST result in injected fix tasks, not just reports
+            started-at: "2026-01-16T16:26:33Z"
+            completed-at: "2026-01-16T16:27:39Z"
         started-at: "2026-01-16T16:18:41Z"
       - id: step-1
         prompt: |
@@ -2743,8 +2746,8 @@ phases:
     started-at: "2026-01-16T16:18:41Z"
 current:
   phase: 1
-  step: 0
-  sub-phase: 1
+  step: 1
+  sub-phase: 0
 stats:
   started-at: "2026-01-16T16:16:12Z"
   total-phases: 30
@@ -2752,6 +2755,6 @@ stats:
   total-steps: 14
   completed-steps: 0
   max-iterations: 30
-  current-iteration: 1
+  current-iteration: 2
   completed-at: "2026-01-16T16:24:41Z"
   elapsed: 00:08:29
