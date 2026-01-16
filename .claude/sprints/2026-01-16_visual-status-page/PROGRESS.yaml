@@ -1117,6 +1117,7 @@ phases:
               - QA failures MUST result in injected fix tasks, not just reports
             started-at: "2026-01-16T10:52:55Z"
             completed-at: "2026-01-16T10:52:55Z"
+            elapsed: 00:00:00
         started-at: "2026-01-16T10:51:54Z"
       - id: step-6
         prompt: |
@@ -1127,10 +1128,10 @@ phases:
           Requirements:
           - Add "sprint-status-server": "./dist/status-server/index.js" to bin section
           - Ensure it's alongside existing "sprint-compile" entry
-        status: pending
+        status: completed
         phases:
           - id: implement
-            status: pending
+            status: completed
             prompt: |
               Execute the following task:
 
@@ -1157,8 +1158,11 @@ phases:
               - If blocked or unclear, set status to needs-human
 
               ## Complete this task fully before marking as done.
+            started-at: "2026-01-16T10:54:31Z"
+            completed-at: "2026-01-16T10:54:31Z"
+            elapsed: 00:00:00
           - id: qa
-            status: pending
+            status: completed
             prompt: |
               Quality Assurance verification for the m42-sprint plugin.
 
@@ -1278,6 +1282,9 @@ phases:
               - Focus on compilation and integration (no unit test suite yet)
               - Reference context/sprint-plan.md for acceptance criteria
               - QA failures MUST result in injected fix tasks, not just reports
+            started-at: "2026-01-16T10:55:00Z"
+            completed-at: "2026-01-16T10:55:00Z"
+        started-at: "2026-01-16T10:54:31Z"
       - id: step-7
         prompt: |
           Add iteration fields to SprintStats interface.
@@ -2102,7 +2109,7 @@ phases:
     started-at: "2026-01-16T10:35:31Z"
 current:
   phase: 1
-  step: 6
+  step: 7
   sub-phase: 0
 stats:
   started-at: "2026-01-16T10:32:56Z"
