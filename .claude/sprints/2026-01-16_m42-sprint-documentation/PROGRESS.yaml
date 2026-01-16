@@ -467,7 +467,7 @@ phases:
           - Leser versteht die Gesamtarchitektur
           - ASCII Diagramme visualisieren den Flow
           - "Warum" ist klar beantwortet
-        status: in-progress
+        status: completed
         phases:
           - id: implement
             status: completed
@@ -510,8 +510,9 @@ phases:
               ## Complete this task fully before marking as done.
             started-at: "2026-01-16T16:31:07Z"
             completed-at: "2026-01-16T17:32:00Z"
+            elapsed: 01:00:53
           - id: qa
-            status: pending
+            status: completed
             prompt: |
               Quality Assurance verification for the m42-sprint plugin.
 
@@ -642,6 +643,8 @@ phases:
               - Focus on compilation and integration (no unit test suite yet)
               - Reference context/sprint-plan.md for acceptance criteria
               - QA failures MUST result in injected fix tasks, not just reports
+            started-at: "2026-01-16T16:33:17Z"
+            completed-at: "2026-01-16T16:34:38Z"
         started-at: "2026-01-16T16:31:07Z"
       - id: step-3
         prompt: |
@@ -2757,8 +2760,8 @@ phases:
     started-at: "2026-01-16T16:18:41Z"
 current:
   phase: 1
-  step: 2
-  sub-phase: 1
+  step: 3
+  sub-phase: 0
 stats:
   started-at: "2026-01-16T16:16:12Z"
   total-phases: 30
@@ -2766,6 +2769,6 @@ stats:
   total-steps: 14
   completed-steps: 0
   max-iterations: 30
-  current-iteration: 5
+  current-iteration: 6
   completed-at: "2026-01-16T16:24:41Z"
   elapsed: 00:08:29
