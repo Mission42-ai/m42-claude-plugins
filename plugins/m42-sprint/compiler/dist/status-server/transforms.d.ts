@@ -4,6 +4,15 @@
  */
 import type { CompiledProgress, PhaseStatus, StatusUpdate, CurrentTask, PhaseTreeNode, LogEntry, LogEntryType } from './status-types.js';
 /**
+ * Timing information passed to toStatusUpdate
+ */
+export interface TimingInfo {
+    estimatedRemainingMs: number;
+    estimatedRemaining: string;
+    estimateConfidence: 'low' | 'medium' | 'high' | 'no-data';
+    estimatedCompletionTime: string | null;
+}
+/**
  * Format an ISO timestamp to a human-readable relative time
  * e.g., "2 minutes ago", "just now", "1 hour ago"
  */
@@ -53,5 +62,5 @@ export declare function generateDiffLogEntries(oldProgress: CompiledProgress | n
  * Convert CompiledProgress to StatusUpdate format
  * This is the main entry point for transforming progress data for the UI
  */
-export declare function toStatusUpdate(progress: CompiledProgress, includeRaw?: boolean): StatusUpdate;
+export declare function toStatusUpdate(progress: CompiledProgress, includeRaw?: boolean, timingInfo?: TimingInfo): StatusUpdate;
 //# sourceMappingURL=transforms.d.ts.map

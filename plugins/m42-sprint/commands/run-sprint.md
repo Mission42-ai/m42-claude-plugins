@@ -126,12 +126,50 @@ Then STOP - do not start the loop or modify any files.
 
 ### If --dry-run flag is NOT present:
 
-1. **Launch Sprint Loop**
+1. **Generate Hook Configuration**
 
-   Execute the sprint loop as a **background task**:
+   Before launching the sprint loop, generate `.sprint-hooks.json` in the sprint directory to enable activity logging. The hook captures PostToolCall events and writes them to `.sprint-activity.jsonl`.
+
+   Create the hook config file at `$SPRINT_DIR/.sprint-hooks.json`:
 
    ```bash
-   "${CLAUDE_PLUGIN_ROOT}/scripts/sprint-loop.sh" "$SPRINT_DIR" --max-iterations [N]
+   cat > "$SPRINT_DIR/.sprint-hooks.json" << 'HOOKEOF'
+   {
+     "hooks": {
+       "PostToolUse": [
+         {
+           "matcher": "",
+           "hooks": [
+             {
+               "type": "command",
+               "command": "bash ${PLUGIN_DIR}/hooks/sprint-activity-hook.sh ${SPRINT_DIR}"
+             }
+           ]
+         }
+       ]
+     }
+   }
+   HOOKEOF
+   ```
+
+   **Important**: Replace `${PLUGIN_DIR}` and `${SPRINT_DIR}` with their actual absolute paths when generating the file. The JSON doesn't support variable expansion.
+
+   The hook config format uses PostToolCall events to trigger the sprint-activity-hook.sh script, which logs tool usage to enable the live activity panel in the status page.
+
+   **Verbosity Configuration**: Set the `SPRINT_ACTIVITY_VERBOSITY` environment variable before launching to control detail level:
+   - `minimal` - Tool names only
+   - `basic` - Tool names + file paths (default)
+   - `detailed` - Full input summaries
+   - `verbose` - Complete tool data
+
+   If not set, defaults to "basic".
+
+2. **Launch Sprint Loop**
+
+   Execute the sprint loop as a **background task** with the hook config:
+
+   ```bash
+   "${CLAUDE_PLUGIN_ROOT}/scripts/sprint-loop.sh" "$SPRINT_DIR" --max-iterations [N] --hook-config "$SPRINT_DIR/.sprint-hooks.json"
    ```
 
    Use `run_in_background: true` when calling the Bash tool. This allows:
@@ -139,7 +177,7 @@ Then STOP - do not start the loop or modify any files.
    - Progress monitoring via `/sprint-status`
    - Output checking via TaskOutput tool
 
-2. **Launch Status Server** (unless `--no-status` flag is present)
+3. **Launch Status Server** (unless `--no-status` flag is present)
 
    After starting the sprint loop, launch the status server in background:
 
@@ -172,7 +210,7 @@ Then STOP - do not start the loop or modify any files.
    - Display warning: "Status server failed to start. Sprint continues without live status."
    - The sprint loop is the critical path; status server is enhancement only
 
-3. **Report Launch Status**
+4. **Report Launch Status**
 
    After launching, inform the user:
 

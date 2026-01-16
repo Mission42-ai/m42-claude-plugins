@@ -48,6 +48,12 @@ export interface PhaseTreeNode {
   completedAt?: string;
   elapsed?: string;
   error?: string;
+  /** Number of retry attempts made */
+  'retry-count'?: number;
+  /** ISO timestamp for next scheduled retry */
+  'next-retry-at'?: string;
+  /** Classified error category */
+  'error-category'?: string;
 }
 
 // ============================================================================
@@ -90,6 +96,14 @@ export interface SprintHeader {
   startedAt?: string;
   /** Total elapsed time */
   elapsed?: string;
+  /** Estimated milliseconds remaining */
+  estimatedRemainingMs?: number;
+  /** Formatted estimated time remaining */
+  estimatedRemaining?: string;
+  /** Confidence level of the estimate */
+  estimateConfidence?: 'low' | 'medium' | 'high' | 'no-data';
+  /** Estimated completion time (ISO) */
+  estimatedCompletionTime?: string;
 }
 
 /**

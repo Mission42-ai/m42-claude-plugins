@@ -141,6 +141,9 @@ function buildSubPhaseNode(phase, depth) {
         completedAt: phase['completed-at'],
         elapsed: phase.elapsed,
         error: phase.error,
+        'retry-count': phase['retry-count'],
+        'next-retry-at': phase['next-retry-at'],
+        'error-category': phase['error-category'],
     };
 }
 /**
@@ -158,6 +161,9 @@ function buildStepNode(step, depth) {
         completedAt: step['completed-at'],
         elapsed: step.elapsed,
         error: step.error,
+        'retry-count': step['retry-count'],
+        'next-retry-at': step['next-retry-at'],
+        'error-category': step['error-category'],
     };
 }
 /**
@@ -174,6 +180,9 @@ function buildTopPhaseNode(topPhase, depth) {
         completedAt: topPhase['completed-at'],
         elapsed: topPhase.elapsed,
         error: topPhase.error,
+        'retry-count': topPhase['retry-count'],
+        'next-retry-at': topPhase['next-retry-at'],
+        'error-category': topPhase['error-category'],
     };
     if (topPhase.steps) {
         node.children = topPhase.steps.map((s) => buildStepNode(s, depth + 1));
@@ -377,7 +386,7 @@ function generateDiffLogEntries(oldProgress, newProgress) {
  * Convert CompiledProgress to StatusUpdate format
  * This is the main entry point for transforming progress data for the UI
  */
-function toStatusUpdate(progress, includeRaw = false) {
+function toStatusUpdate(progress, includeRaw = false, timingInfo) {
     const { total, completed } = countPhases(progress);
     // Build the header
     const header = {
@@ -397,6 +406,15 @@ function toStatusUpdate(progress, includeRaw = false) {
     }
     if (typeof stats['max-iterations'] === 'number') {
         header.maxIterations = stats['max-iterations'];
+    }
+    // Add timing estimates if available
+    if (timingInfo) {
+        header.estimatedRemainingMs = timingInfo.estimatedRemainingMs;
+        header.estimatedRemaining = timingInfo.estimatedRemaining;
+        header.estimateConfidence = timingInfo.estimateConfidence;
+        if (timingInfo.estimatedCompletionTime) {
+            header.estimatedCompletionTime = timingInfo.estimatedCompletionTime;
+        }
     }
     // Build the phase tree
     const phaseTree = buildPhaseTree(progress);

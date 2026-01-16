@@ -11,11 +11,14 @@ export declare class StatusServer {
     private readonly config;
     private server;
     private watcher;
+    private activityWatcher;
+    private timingTracker;
     private clients;
     private keepAliveTimer;
     private lastProgress;
     private clientIdCounter;
     private progressFilePath;
+    private activityFilePath;
     constructor(config: ServerConfig);
     /**
      * Start the HTTP server and file watcher
@@ -49,6 +52,100 @@ export declare class StatusServer {
      * Handle JSON API request
      */
     private handleAPIRequest;
+    /**
+     * Get timing info for the current progress
+     */
+    private getTimingInfo;
+    /**
+     * Get available actions based on current sprint status
+     */
+    private getAvailableActions;
+    /**
+     * Handle GET /api/controls request
+     * Returns available actions based on current sprint state
+     */
+    private handleControlsRequest;
+    /**
+     * Handle GET /api/timing request
+     * Returns timing estimates and historical statistics for the sprint
+     */
+    private handleTimingRequest;
+    /**
+     * Handle POST /api/pause request
+     * Creates .pause-requested signal file
+     */
+    private handlePauseRequest;
+    /**
+     * Handle POST /api/resume request
+     * Creates .resume-requested signal file
+     */
+    private handleResumeRequest;
+    /**
+     * Handle POST /api/stop request
+     * Creates .stop-requested signal file
+     */
+    private handleStopRequest;
+    /**
+     * Find a phase by its path (e.g., "execute-all > step-0 > plan")
+     * Returns the location information including indices for updating
+     */
+    private findPhaseByPath;
+    /**
+     * Save progress to PROGRESS.yaml and trigger SSE broadcast
+     */
+    private saveProgress;
+    /**
+     * Handle POST /api/skip/:phaseId request
+     * Marks the specified phase as "skipped" and advances to next phase
+     */
+    private handleSkipRequest;
+    /**
+     * Handle POST /api/retry/:phaseId request
+     * Resets the specified phase to "pending" for re-execution
+     */
+    private handleRetryRequest;
+    /**
+     * Handle POST /api/force-retry/:phaseId request
+     * Creates .force-retry-requested signal file to bypass backoff
+     */
+    private handleForceRetryRequest;
+    /**
+     * Get log file path from phase ID
+     * Phase IDs use ' > ' as separator (e.g., "development > step-0 > context")
+     * Log files use '-' as separator (e.g., "development-step-0-context.log")
+     */
+    private getLogFilePath;
+    /**
+     * Get list of all log files in the logs directory
+     */
+    private getLogFiles;
+    /**
+     * Handle GET /api/logs/:phaseId request
+     * Returns the log content for a specific phase
+     */
+    private handleLogContentRequest;
+    /**
+     * Handle GET /api/logs/download/:phaseId request
+     * Downloads a single log file
+     */
+    private handleLogDownloadRequest;
+    /**
+     * Handle GET /api/logs/download-all request
+     * Downloads all logs as a gzipped tar archive
+     */
+    private handleDownloadAllLogs;
+    /**
+     * Advance the current pointer after skipping a phase
+     */
+    private advancePointerAfterSkip;
+    /**
+     * Set the current pointer to a specific phase for retry
+     */
+    private setPointerToPhase;
+    /**
+     * Update progress stats after modifying phase statuses
+     */
+    private updateProgressStats;
     /**
      * Send initial status to a newly connected client
      */

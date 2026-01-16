@@ -1,0 +1,371 @@
+# SPRINT.yaml - M42-Sprint Plugin Enhancement Sprint
+# This file is compiled into PROGRESS.yaml by /run-sprint
+
+workflow: gherkin-verified-execution
+
+steps:
+  # Track A: Status Page Interactive Buttons
+  - prompt: |
+      Track A - Step 1: Add API Endpoints for Status Page Controls
+
+      Add pause/resume/stop control API endpoints to the status server.
+
+      Requirements:
+      - Add POST /api/pause endpoint that creates .pause-requested signal file
+      - Add POST /api/resume endpoint that creates .resume-requested signal file
+      - Add POST /api/stop endpoint that creates .stop-requested signal file
+      - Add GET /api/controls endpoint that returns available actions based on current sprint state
+      - Signal files should be created in the sprint directory
+      - Endpoints should read current PROGRESS.yaml to determine valid actions
+      - Return appropriate HTTP status codes and JSON responses
+
+      Files to modify:
+      - compiler/src/status-server/server.ts
+
+      Reference:
+      - See compiler/src/status-server/server.ts for existing SSE implementation
+      - sprint-loop.sh already checks for pause/resume state in PROGRESS.yaml
+
+  - prompt: |
+      Track A - Step 2: Add Button UI Components to Status Page
+
+      Implement interactive control buttons in the status page UI.
+
+      Requirements:
+      - Add control bar below header with Pause/Resume/Stop buttons
+      - Button visibility based on sprint status (show Pause when running, Resume when paused)
+      - Stop button should be red and always visible when sprint is active
+      - Add confirmation modal for Stop button with warning about incomplete work
+      - Implement click handlers that call the new API endpoints
+      - Add loading states during API calls
+      - Add toast notifications for success/error feedback
+      - Ensure buttons are styled consistently with existing GitHub dark theme
+
+      Files to modify:
+      - compiler/src/status-server/page.ts
+
+      Reference:
+      - Existing page structure in compiler/src/status-server/page.ts
+      - Use fetch API for POST requests to control endpoints
+
+  # Track B: Skills Development
+  - prompt: |
+      Track B - Step 1: Create creating-workflows Skill Structure
+
+      Create a new skill for workflow definition guidance.
+
+      Requirements:
+      - Create skills/creating-workflows/ directory structure
+      - Create main skill file: skills/creating-workflows/creating-workflows.md
+      - Create references/ subdirectory with:
+        - workflow-schema.md (Full YAML schema reference)
+        - template-variables.md (All available template variables)
+        - phase-types.md (Simple vs for-each phase explanations)
+        - workflow-patterns.md (Common workflow patterns)
+      - Create assets/ subdirectory with:
+        - feature-workflow.yaml (Example feature workflow)
+        - bugfix-workflow.yaml (Example bugfix workflow)
+        - validation-checklist.md (Pre-deployment checklist)
+      - Main skill file should trigger on: "create workflow", "new workflow", "workflow definition", "define phases"
+      - Include comprehensive documentation for workflow authoring
+      - Reference existing workflows in .claude/workflows/ as examples
+
+      New files to create:
+      - skills/creating-workflows/creating-workflows.md
+      - skills/creating-workflows/references/*.md
+      - skills/creating-workflows/assets/*.{yaml,md}
+
+  - prompt: |
+      Track B - Step 2: Create creating-sprints Skill Structure
+
+      Create a new skill for sprint definition guidance.
+
+      Requirements:
+      - Create skills/creating-sprints/ directory structure
+      - Create main skill file: skills/creating-sprints/creating-sprints.md
+      - Create references/ subdirectory with:
+        - sprint-schema.md (SPRINT.yaml structure reference)
+        - step-writing-guide.md (How to write effective step prompts)
+        - workflow-selection.md (Guide for choosing appropriate workflows)
+      - Create assets/ subdirectory with:
+        - sprint-template.yaml (Annotated example sprint definition)
+      - Main skill file should trigger on: "create sprint", "new sprint", "sprint definition", "define steps"
+      - Include best practices for step prompts (clear, actionable, scoped)
+      - Guidance on sprint sizing (3-8 steps, single responsibility)
+      - Integration instructions with existing workflows
+
+      New files to create:
+      - skills/creating-sprints/creating-sprints.md
+      - skills/creating-sprints/references/*.md
+      - skills/creating-sprints/assets/sprint-template.yaml
+
+  # Track C: Live Claude Code Hook Integration
+  - prompt: |
+      Track C - Step 1: Create Sprint Activity Hook Script
+
+      Implement PostToolCall hook for sprint activity logging.
+
+      Requirements:
+      - Create hooks/sprint-activity-hook.sh shell script
+      - Hook receives sprint directory path as argument
+      - Parse Claude Code tool call information from stdin (JSON format)
+      - Extract: tool name, file paths, key parameters, timestamps
+      - Write activity events to <sprint-dir>/.sprint-activity.jsonl in JSONL format
+      - Support verbosity levels: minimal, basic, detailed, verbose
+      - Event format: {"ts":"ISO-timestamp","type":"tool","tool":"ToolName","file":"path","level":"basic"}
+      - Handle different tool types: Read, Write, Edit, Bash, Grep, Glob, etc.
+      - Ensure atomic writes to prevent corruption
+      - Add error handling for malformed input
+
+      New file to create:
+      - hooks/sprint-activity-hook.sh
+
+      Reference:
+      - Claude Code hook documentation for PostToolCall format
+      - Existing hook examples in the codebase
+
+  - prompt: |
+      Track C - Step 2: Implement Activity Watcher in Status Server
+
+      Add activity log watching and SSE streaming to status server.
+
+      Requirements:
+      - Create compiler/src/status-server/activity-watcher.ts module
+      - Create compiler/src/status-server/activity-types.ts with TypeScript types
+      - Watch .sprint-activity.jsonl file for changes using fs.watch or chokidar
+      - Parse JSONL events and validate against activity types
+      - Stream activity events via SSE to status page clients
+      - Filter events based on verbosity level (stored in client preference)
+      - Handle log rotation and large files efficiently
+      - Add error recovery for corrupted log entries
+      - Export ActivityWatcher class for integration with server.ts
+
+      New files to create:
+      - compiler/src/status-server/activity-watcher.ts
+      - compiler/src/status-server/activity-types.ts
+
+      Files to modify:
+      - compiler/src/status-server/server.ts (integrate ActivityWatcher)
+
+  - prompt: |
+      Track C - Step 3: Add Live Activity UI Panel to Status Page
+
+      Implement Live Activity display panel in the status page.
+
+      Requirements:
+      - Add "Live Activity" panel below current task section
+      - Subscribe to activity SSE events from server
+      - Display activity entries with timestamps, icons, and descriptions
+      - Add verbosity dropdown selector (Minimal/Basic/Detailed/Verbose)
+      - Store verbosity preference in localStorage
+      - Implement auto-scroll behavior with manual scroll lock
+      - Add "Clear Activity" button to reset display
+      - Use appropriate icons for different tool types (Read=📖, Write=✏️, Bash=⚡, etc.)
+      - Limit displayed entries (e.g., last 100) for performance
+      - Style consistently with existing GitHub dark theme
+
+      Files to modify:
+      - compiler/src/status-server/page.ts
+
+      Design considerations:
+      - Activity panel should be collapsible to save space
+      - Timestamps should be relative (e.g., "2s ago") with tooltip showing absolute time
+      - Long file paths should be truncated with tooltip showing full path
+
+  - prompt: |
+      Track C - Step 4: Integrate Hook Auto-Configuration in run-sprint
+
+      Automatically configure and inject sprint activity hook during sprint execution.
+
+      Requirements:
+      - Modify .claude/commands/m42-sprint/run-sprint command
+      - Generate .sprint-hooks.json in sprint directory before execution
+      - Hook config format: {"hooks":{"PostToolCall":[{"command":"bash $PLUGIN_DIR/hooks/sprint-activity-hook.sh $SPRINT_DIR"}]}}
+      - Pass --hook-config flag to claude -p invocations in sprint-loop.sh
+      - Clean up hook config file on sprint completion/stop
+      - Ensure PLUGIN_DIR environment variable is available to hook
+      - Add verbosity level detection from status page preferences (or default to "basic")
+      - Document hook configuration in USER-GUIDE.md
+
+      Files to modify:
+      - .claude/commands/m42-sprint/run-sprint
+      - scripts/sprint-loop.sh (add --hook-config flag to claude invocations)
+
+      Reference:
+      - Existing sprint-loop.sh for claude -p invocation pattern
+      - Claude Code --hook-config documentation
+
+  # Track D: Future Enhancements (Phase 2+)
+  - prompt: |
+      Track D - Step 1: Add Skip/Retry Phase Buttons
+
+      Implement Skip and Retry buttons for individual phases in the status page.
+
+      Requirements:
+      - Add POST /api/skip/:phaseId endpoint to skip blocked/stuck phases
+      - Add POST /api/retry/:phaseId endpoint to retry failed phases without full restart
+      - Skip endpoint should:
+        - Mark current phase as "skipped" in PROGRESS.yaml
+        - Advance to next phase
+        - Show confirmation dialog with data loss warning
+      - Retry endpoint should:
+        - Reset phase status to "pending" in PROGRESS.yaml
+        - Re-queue phase for execution
+        - Preserve any partial work if possible
+      - Add contextual buttons in phase cards (Skip visible for stuck/blocked, Retry for failed)
+      - Include confirmation modal for Skip with warning about incomplete work
+      - Update SSE to reflect phase status changes immediately
+
+      Files to modify:
+      - compiler/src/status-server/server.ts (add API endpoints)
+      - compiler/src/status-server/page.ts (add contextual buttons per phase)
+
+  - prompt: |
+      Track D - Step 2: Implement Phase Log Viewer
+
+      Add expandable log viewer for each phase showing Claude's actual output.
+
+      Requirements:
+      - Capture stdout/stderr from each `claude -p` invocation in sprint-loop.sh
+      - Store phase logs in <sprint-dir>/logs/<phase-id>.log
+      - Create logs/ directory in sprint directory structure
+      - Modify sprint-loop.sh to tee output to log files while displaying
+      - Add expandable "View Log" section in each phase card
+      - Implement syntax highlighting for code blocks in output
+      - Add search/filter functionality within logs
+      - Add "Download Log" button for individual phase logs
+      - Add "Download All Logs" button (zip archive) in sprint header
+      - Handle large log files efficiently (lazy loading, virtualized scrolling)
+      - Preserve ANSI color codes and convert to HTML for display
+
+      Files to modify:
+      - scripts/sprint-loop.sh (add logging to files)
+      - compiler/src/status-server/server.ts (add log serving endpoints)
+      - compiler/src/status-server/page.ts (add log viewer UI)
+
+      New endpoints:
+      - GET /api/logs/:phaseId - Get log content for a phase
+      - GET /api/logs/download/:phaseId - Download individual log
+      - GET /api/logs/download-all - Download all logs as zip
+
+  - prompt: |
+      Track D - Step 3: Add Desktop Notifications
+
+      Implement browser desktop notifications for sprint events.
+
+      Requirements:
+      - Use Browser Notification API for desktop alerts
+      - Notify on the following events:
+        - Sprint completed (success)
+        - Sprint failed
+        - Phase blocked/stuck
+        - Human intervention needed
+      - Add notification permission request flow on first visit
+      - Add optional sound alerts (configurable)
+      - Create notification settings panel in status page:
+        - Enable/disable notifications toggle
+        - Per-event notification toggles
+        - Sound on/off toggle
+        - Sound selection dropdown
+      - Persist notification preferences in localStorage
+      - Include sprint/phase info in notification body
+      - Add click handler to focus status page tab
+
+      Files to modify:
+      - compiler/src/status-server/page.ts (notification logic and settings UI)
+
+      Assets to add:
+      - compiler/src/status-server/assets/notification-sounds/ (optional sound files)
+
+  - prompt: |
+      Track D - Step 4: Implement Progress Estimation
+
+      Add time estimation and progress tracking for sprints and phases.
+
+      Requirements:
+      - Track historical phase durations in <sprint-dir>/timing.jsonl
+      - Record format: {"phaseId":"string","workflow":"string","startTime":"ISO","endTime":"ISO","durationMs":number}
+      - Create timing database aggregating data from all past sprints
+      - Store in .claude/sprints/.timing-history.jsonl
+      - Calculate rolling averages per workflow/phase type
+      - Display in status page:
+        - "Estimated time remaining" in sprint header
+        - Per-phase ETA based on similar past phases
+        - Visual timeline showing projected completion
+        - Actual vs estimated comparison for completed phases
+      - Handle first-run case (no historical data) gracefully
+      - Update estimates in real-time as phases complete
+      - Show confidence level based on sample size
+
+      Files to modify:
+      - scripts/sprint-loop.sh (record phase timing)
+      - compiler/src/status-server/server.ts (timing aggregation endpoints)
+      - compiler/src/status-server/page.ts (estimation UI)
+
+      New files:
+      - compiler/src/status-server/timing-tracker.ts (timing logic)
+
+  - prompt: |
+      Track D - Step 5: Implement Improved Error Recovery
+
+      Add automatic retry with backoff and smart failure detection.
+
+      Requirements:
+      - Implement automatic retry with configurable exponential backoff (1s, 5s, 30s)
+      - Add retry configuration to SPRINT.yaml:
+        ```yaml
+        retry:
+          maxAttempts: 3
+          backoffMs: [1000, 5000, 30000]
+          retryOn: [network, rate-limit, timeout]
+        ```
+      - Classify errors into categories:
+        - network: Connection failures, DNS issues
+        - rate-limit: API rate limiting (429 errors)
+        - timeout: Execution timeout exceeded
+        - validation: Schema/input validation failures
+        - logic: Claude reasoning/execution errors
+      - Implement recovery strategies per error type:
+        - network/rate-limit/timeout: Auto-retry with backoff
+        - validation: Log and skip (or block for human review)
+        - logic: Capture context and queue for human intervention
+      - Preserve partial completion on failure (don't lose work)
+      - Add "intervention queue" for unrecoverable errors
+      - Display retry status in phase cards (attempt 2/3, next retry in Xs)
+      - Add manual "Force Retry" button that bypasses backoff
+
+      Files to modify:
+      - scripts/sprint-loop.sh (retry logic)
+      - compiler/src/compiler.ts (retry config parsing)
+      - compiler/src/status-server/page.ts (retry status UI)
+
+      New files:
+      - compiler/src/error-classifier.ts (error classification logic)
+
+# Sprint metadata
+sprint-id: 2026-01-16_plugin-enhancements
+name: M42-Sprint Plugin Enhancements - Full Feature Implementation
+created: 2026-01-16T13:56:32+01:00
+description: |
+  Implement four tracks of enhancements to the m42-sprint plugin:
+
+  Track A: Status Page Interactive Buttons (2 steps)
+  - Add API endpoints for sprint control (pause/resume/stop)
+  - Implement button UI with confirmation modals
+
+  Track B: Skills Development (2 steps)
+  - Create comprehensive workflow authoring guidance (creating-workflows)
+  - Create sprint definition guidance with best practices (creating-sprints)
+
+  Track C: Live Claude Code Hook Integration (4 steps)
+  - PostToolCall hook for activity logging
+  - Activity watcher and SSE streaming
+  - Live Activity UI panel with verbosity control
+  - Auto-configuration in run-sprint command
+
+  Track D: Future Enhancements (5 steps)
+  - Skip/Retry phase buttons for stuck/failed phases
+  - Phase log viewer with syntax highlighting and download
+  - Desktop notifications for sprint events
+  - Progress estimation with historical timing data
+  - Improved error recovery with auto-retry and classification
