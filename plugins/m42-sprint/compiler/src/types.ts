@@ -159,6 +159,10 @@ export interface SprintStats {
   'total-steps'?: number;
   'completed-steps'?: number;
   elapsed?: string;
+  /** Current iteration number (1-based) */
+  'current-iteration'?: number;
+  /** Maximum number of iterations configured */
+  'max-iterations'?: number;
 }
 
 /**
