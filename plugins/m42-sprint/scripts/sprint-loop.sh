@@ -243,10 +243,16 @@ if [[ "$CURRENT_STATUS" == "not-started" ]]; then
   yq -i ".stats.\"started-at\" = \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"" "$PROGRESS_FILE"
 fi
 
+# Write max iterations to PROGRESS.yaml for status display
+yq -i ".stats.\"max-iterations\" = $MAX_ITERATIONS" "$PROGRESS_FILE"
+
 # Main loop
 for ((i=1; i<=MAX_ITERATIONS; i++)); do
   echo ""
   echo "=== Iteration $i/$MAX_ITERATIONS ==="
+
+  # Write current iteration to PROGRESS.yaml for status display
+  yq -i ".stats.\"current-iteration\" = $i" "$PROGRESS_FILE"
 
   # Build prompt for current position
   PROMPT=$("$SCRIPT_DIR/build-sprint-prompt.sh" "$SPRINT_DIR" "$i")
