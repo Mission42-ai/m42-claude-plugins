@@ -1797,6 +1797,7 @@ phases:
               - QA failures MUST result in injected fix tasks, not just reports
             started-at: "2026-01-16T11:02:22Z"
             completed-at: "2026-01-16T11:02:22Z"
+            elapsed: 00:00:00
         started-at: "2026-01-16T11:00:19Z"
       - id: step-10
         prompt: |
@@ -1809,10 +1810,10 @@ phases:
           - Usage: /sprint-watch [sprint-dir]
           - Start status server for existing sprint
           - Show URL and usage instructions
-        status: pending
+        status: in-progress
         phases:
           - id: implement
-            status: pending
+            status: completed
             prompt: |
               Execute the following task:
 
@@ -1841,6 +1842,8 @@ phases:
               - If blocked or unclear, set status to needs-human
 
               ## Complete this task fully before marking as done.
+            started-at: "2026-01-16T11:03:48Z"
+            completed-at: "2026-01-16T11:03:48Z"
           - id: qa
             status: pending
             prompt: |
@@ -1964,6 +1967,7 @@ phases:
               - Focus on compilation and integration (no unit test suite yet)
               - Reference context/sprint-plan.md for acceptance criteria
               - QA failures MUST result in injected fix tasks, not just reports
+        started-at: "2026-01-16T11:03:48Z"
       - id: step-11
         prompt: |
           Build and verify the implementation.
@@ -2131,7 +2135,7 @@ phases:
 current:
   phase: 1
   step: 10
-  sub-phase: 0
+  sub-phase: 1
 stats:
   started-at: "2026-01-16T10:32:56Z"
   total-phases: 26
