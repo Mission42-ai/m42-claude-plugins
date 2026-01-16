@@ -77,6 +77,27 @@ if [[ "$HAS_STEPS" != "null" ]]; then
     exit 0
   fi
 
+  # Set started-at timestamp for sub-phase if not already set
+  SUB_PHASE_STARTED=$(yq -r ".phases[$PHASE_IDX].steps[$STEP_IDX].phases[$SUB_PHASE_IDX].\"started-at\" // \"null\"" "$PROGRESS_FILE")
+  if [[ "$SUB_PHASE_STARTED" == "null" ]]; then
+    yq -i ".phases[$PHASE_IDX].steps[$STEP_IDX].phases[$SUB_PHASE_IDX].\"started-at\" = \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"" "$PROGRESS_FILE"
+    yq -i ".phases[$PHASE_IDX].steps[$STEP_IDX].phases[$SUB_PHASE_IDX].status = \"in-progress\"" "$PROGRESS_FILE"
+  fi
+
+  # Set started-at for step if this is the first sub-phase starting
+  STEP_STARTED=$(yq -r ".phases[$PHASE_IDX].steps[$STEP_IDX].\"started-at\" // \"null\"" "$PROGRESS_FILE")
+  if [[ "$STEP_STARTED" == "null" ]]; then
+    yq -i ".phases[$PHASE_IDX].steps[$STEP_IDX].\"started-at\" = \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"" "$PROGRESS_FILE"
+    yq -i ".phases[$PHASE_IDX].steps[$STEP_IDX].status = \"in-progress\"" "$PROGRESS_FILE"
+  fi
+
+  # Set started-at for top phase if this is the first step starting
+  PHASE_STARTED=$(yq -r ".phases[$PHASE_IDX].\"started-at\" // \"null\"" "$PROGRESS_FILE")
+  if [[ "$PHASE_STARTED" == "null" ]]; then
+    yq -i ".phases[$PHASE_IDX].\"started-at\" = \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"" "$PROGRESS_FILE"
+    yq -i ".phases[$PHASE_IDX].status = \"in-progress\"" "$PROGRESS_FILE"
+  fi
+
   # Generate prompt for sub-phase within step
   cat <<EOF
 # Sprint Workflow Execution
@@ -161,6 +182,13 @@ else
   # Skip if already completed
   if [[ "$PHASE_STATUS" == "completed" ]]; then
     exit 0
+  fi
+
+  # Set started-at timestamp for phase if not already set
+  PHASE_STARTED=$(yq -r ".phases[$PHASE_IDX].\"started-at\" // \"null\"" "$PROGRESS_FILE")
+  if [[ "$PHASE_STARTED" == "null" ]]; then
+    yq -i ".phases[$PHASE_IDX].\"started-at\" = \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"" "$PROGRESS_FILE"
+    yq -i ".phases[$PHASE_IDX].status = \"in-progress\"" "$PROGRESS_FILE"
   fi
 
   cat <<EOF
