@@ -36,6 +36,21 @@ ${getStyles()}
       </div>
     </header>
 
+    <div class="control-bar" id="control-bar">
+      <button class="control-btn" id="pause-btn" style="display: none;">
+        <span class="control-btn-icon">⏸</span>
+        <span>Pause</span>
+      </button>
+      <button class="control-btn" id="resume-btn" style="display: none;">
+        <span class="control-btn-icon">▶</span>
+        <span>Resume</span>
+      </button>
+      <button class="control-btn danger" id="stop-btn" style="display: none;">
+        <span class="control-btn-icon">⏹</span>
+        <span>Stop</span>
+      </button>
+    </div>
+
     <div class="main">
       <aside class="sidebar">
         <h2 class="sidebar-title">Phase Tree</h2>
@@ -69,6 +84,25 @@ ${getStyles()}
       <div class="elapsed" id="elapsed"></div>
     </footer>
   </div>
+
+  <div class="modal-overlay" id="stop-confirm-modal">
+    <div class="modal-content">
+      <div class="modal-title">Stop Sprint</div>
+      <div class="modal-warning">
+        <span class="modal-warning-icon">⚠</span>
+        <span class="modal-warning-text">
+          This will stop the sprint immediately. Any incomplete work will be left in its current state.
+          Are you sure you want to stop?
+        </span>
+      </div>
+      <div class="modal-actions">
+        <button class="modal-btn modal-btn-cancel" id="stop-cancel-btn">Cancel</button>
+        <button class="modal-btn modal-btn-confirm" id="stop-confirm-btn">Stop Sprint</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toast-container"></div>
 
   <script>
 ${getScript()}
@@ -522,6 +556,253 @@ function getStyles(): string {
       color: var(--text-muted);
     }
 
+    /* Control Bar */
+    .control-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 20px;
+      background-color: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .control-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      background-color: var(--bg-tertiary);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .control-btn:hover:not(:disabled) {
+      background-color: var(--bg-highlight);
+      border-color: var(--text-muted);
+    }
+
+    .control-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .control-btn.loading {
+      position: relative;
+      pointer-events: none;
+    }
+
+    .control-btn.loading::after {
+      content: '';
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      border: 2px solid transparent;
+      border-top-color: currentColor;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      margin-left: 6px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .control-btn.danger {
+      border-color: var(--accent-red);
+      color: var(--accent-red);
+    }
+
+    .control-btn.danger:hover:not(:disabled) {
+      background-color: rgba(248, 81, 73, 0.15);
+      border-color: var(--accent-red);
+    }
+
+    .control-btn-icon {
+      font-size: 10px;
+    }
+
+    /* Confirmation Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0, 0, 0, 0.7);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-overlay.visible {
+      display: flex;
+    }
+
+    .modal-content {
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 20px;
+      max-width: 400px;
+      width: 90%;
+    }
+
+    .modal-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 12px;
+    }
+
+    .modal-warning {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px;
+      background-color: rgba(248, 81, 73, 0.1);
+      border: 1px solid rgba(248, 81, 73, 0.3);
+      border-radius: 6px;
+      margin-bottom: 16px;
+    }
+
+    .modal-warning-icon {
+      color: var(--accent-red);
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .modal-warning-text {
+      color: var(--text-primary);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .modal-btn {
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .modal-btn-cancel {
+      background-color: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+    }
+
+    .modal-btn-cancel:hover {
+      background-color: var(--bg-highlight);
+    }
+
+    .modal-btn-confirm {
+      background-color: var(--accent-red);
+      border: 1px solid var(--accent-red);
+      color: white;
+    }
+
+    .modal-btn-confirm:hover {
+      background-color: #da3633;
+    }
+
+    /* Toast Notifications */
+    .toast-container {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 1001;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .toast {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-size: 12px;
+      animation: slideIn 0.2s ease;
+      max-width: 350px;
+    }
+
+    .toast.success {
+      border-color: var(--accent-green);
+    }
+
+    .toast.error {
+      border-color: var(--accent-red);
+    }
+
+    .toast-icon {
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .toast.success .toast-icon {
+      color: var(--accent-green);
+    }
+
+    .toast.error .toast-icon {
+      color: var(--accent-red);
+    }
+
+    .toast-message {
+      color: var(--text-primary);
+      flex: 1;
+    }
+
+    .toast-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 0;
+      font-size: 14px;
+    }
+
+    .toast-close:hover {
+      color: var(--text-primary);
+    }
+
+    @keyframes slideIn {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    @keyframes slideOut {
+      from {
+        transform: translateX(0);
+        opacity: 1;
+      }
+      to {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+    }
+
     /* Scrollbar styling */
     ::-webkit-scrollbar {
       width: 8px;
@@ -562,7 +843,14 @@ function getScript(): string {
         currentTask: document.getElementById('current-task'),
         activityFeed: document.getElementById('activity-feed'),
         connectionStatus: document.getElementById('connection-status'),
-        elapsed: document.getElementById('elapsed')
+        elapsed: document.getElementById('elapsed'),
+        pauseBtn: document.getElementById('pause-btn'),
+        resumeBtn: document.getElementById('resume-btn'),
+        stopBtn: document.getElementById('stop-btn'),
+        stopConfirmModal: document.getElementById('stop-confirm-modal'),
+        stopCancelBtn: document.getElementById('stop-cancel-btn'),
+        stopConfirmBtn: document.getElementById('stop-confirm-btn'),
+        toastContainer: document.getElementById('toast-container')
       };
 
       // State
@@ -572,12 +860,157 @@ function getScript(): string {
       const activityLog = [];
       const maxLogEntries = 100;
       let expandedNodes = new Set();
+      let currentSprintStatus = null;
+      let isLoading = { pause: false, resume: false, stop: false };
 
       // Initialize
       function init() {
         connect();
+        setupControlButtons();
         // Update elapsed time every second
         setInterval(updateElapsedTimes, 1000);
+      }
+
+      // Control Button Setup
+      function setupControlButtons() {
+        elements.pauseBtn.addEventListener('click', handlePauseClick);
+        elements.resumeBtn.addEventListener('click', handleResumeClick);
+        elements.stopBtn.addEventListener('click', handleStopClick);
+        elements.stopCancelBtn.addEventListener('click', hideStopModal);
+        elements.stopConfirmBtn.addEventListener('click', confirmStop);
+      }
+
+      async function handlePauseClick() {
+        if (isLoading.pause) return;
+        setLoading('pause', true);
+        try {
+          const response = await fetch('/api/pause', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+          const result = await response.json();
+          handleControlResponse('pause', result);
+        } catch (err) {
+          showToast('error', 'Failed to pause: ' + err.message);
+        } finally {
+          setLoading('pause', false);
+        }
+      }
+
+      async function handleResumeClick() {
+        if (isLoading.resume) return;
+        setLoading('resume', true);
+        try {
+          const response = await fetch('/api/resume', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+          const result = await response.json();
+          handleControlResponse('resume', result);
+        } catch (err) {
+          showToast('error', 'Failed to resume: ' + err.message);
+        } finally {
+          setLoading('resume', false);
+        }
+      }
+
+      function handleStopClick() {
+        showStopModal();
+      }
+
+      function showStopModal() {
+        elements.stopConfirmModal.classList.add('visible');
+      }
+
+      function hideStopModal() {
+        elements.stopConfirmModal.classList.remove('visible');
+      }
+
+      async function confirmStop() {
+        hideStopModal();
+        if (isLoading.stop) return;
+        setLoading('stop', true);
+        try {
+          const response = await fetch('/api/stop', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+          const result = await response.json();
+          handleControlResponse('stop', result);
+        } catch (err) {
+          showToast('error', 'Failed to stop: ' + err.message);
+        } finally {
+          setLoading('stop', false);
+        }
+      }
+
+      function handleControlResponse(action, result) {
+        if (result.success) {
+          showToast('success', result.message || (action.charAt(0).toUpperCase() + action.slice(1) + ' request sent'));
+        } else {
+          showToast('error', result.error || 'Failed to ' + action);
+        }
+      }
+
+      function setLoading(action, loading) {
+        isLoading[action] = loading;
+        const btn = elements[action + 'Btn'];
+        if (btn) {
+          btn.disabled = loading;
+          if (loading) {
+            btn.classList.add('loading');
+          } else {
+            btn.classList.remove('loading');
+          }
+        }
+      }
+
+      function updateControlButtons(status) {
+        currentSprintStatus = status;
+
+        // Hide all buttons first
+        elements.pauseBtn.style.display = 'none';
+        elements.resumeBtn.style.display = 'none';
+        elements.stopBtn.style.display = 'none';
+
+        switch (status) {
+          case 'in-progress':
+            elements.pauseBtn.style.display = 'inline-flex';
+            elements.stopBtn.style.display = 'inline-flex';
+            break;
+          case 'paused':
+            elements.resumeBtn.style.display = 'inline-flex';
+            elements.stopBtn.style.display = 'inline-flex';
+            break;
+          case 'blocked':
+          case 'needs-human':
+            elements.stopBtn.style.display = 'inline-flex';
+            break;
+        }
+      }
+
+      // Toast Notifications
+      function showToast(type, message) {
+        const toast = document.createElement('div');
+        toast.className = 'toast ' + type;
+
+        const icon = type === 'success' ? '✓' : '✕';
+        toast.innerHTML = '<span class="toast-icon">' + icon + '</span>' +
+          '<span class="toast-message">' + escapeHtml(message) + '</span>' +
+          '<button class="toast-close">×</button>';
+
+        const closeBtn = toast.querySelector('.toast-close');
+        closeBtn.addEventListener('click', function() {
+          removeToast(toast);
+        });
+
+        elements.toastContainer.appendChild(toast);
+
+        // Auto-remove after 5 seconds
+        setTimeout(function() {
+          removeToast(toast);
+        }, 5000);
+      }
+
+      function removeToast(toast) {
+        if (!toast.parentNode) return;
+        toast.style.animation = 'slideOut 0.2s ease forwards';
+        setTimeout(function() {
+          if (toast.parentNode) {
+            toast.parentNode.removeChild(toast);
+          }
+        }, 200);
       }
 
       // SSE Connection
@@ -672,6 +1105,9 @@ function getScript(): string {
         if (header.startedAt) {
           elements.elapsed.dataset.startedAt = header.startedAt;
         }
+
+        // Update control buttons based on sprint status
+        updateControlButtons(header.status);
       }
 
       function updatePhaseTree(phaseTree) {
