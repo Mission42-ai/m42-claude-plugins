@@ -1284,6 +1284,7 @@ phases:
               - QA failures MUST result in injected fix tasks, not just reports
             started-at: "2026-01-16T10:55:00Z"
             completed-at: "2026-01-16T10:55:00Z"
+            elapsed: 00:00:00
         started-at: "2026-01-16T10:54:31Z"
       - id: step-7
         prompt: |
@@ -1295,10 +1296,10 @@ phases:
           - Add 'current-iteration'?: number field
           - Add 'max-iterations'?: number field
           - Update SprintStats interface in existing types
-        status: pending
+        status: in-progress
         phases:
           - id: implement
-            status: pending
+            status: completed
             prompt: |
               Execute the following task:
 
@@ -1326,6 +1327,8 @@ phases:
               - If blocked or unclear, set status to needs-human
 
               ## Complete this task fully before marking as done.
+            started-at: "2026-01-16T10:55:56Z"
+            completed-at: "2026-01-16T10:55:56Z"
           - id: qa
             status: pending
             prompt: |
@@ -1448,6 +1451,7 @@ phases:
               - Focus on compilation and integration (no unit test suite yet)
               - Reference context/sprint-plan.md for acceptance criteria
               - QA failures MUST result in injected fix tasks, not just reports
+        started-at: "2026-01-16T10:55:56Z"
       - id: step-8
         prompt: |
           Update sprint loop to write iteration to PROGRESS.yaml.
@@ -2110,7 +2114,7 @@ phases:
 current:
   phase: 1
   step: 7
-  sub-phase: 0
+  sub-phase: 1
 stats:
   started-at: "2026-01-16T10:32:56Z"
   total-phases: 26
