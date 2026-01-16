@@ -377,7 +377,7 @@ function generateDiffLogEntries(oldProgress, newProgress) {
  * Convert CompiledProgress to StatusUpdate format
  * This is the main entry point for transforming progress data for the UI
  */
-function toStatusUpdate(progress, includeRaw = false) {
+function toStatusUpdate(progress, includeRaw = false, timingInfo) {
     const { total, completed } = countPhases(progress);
     // Build the header
     const header = {
@@ -397,6 +397,15 @@ function toStatusUpdate(progress, includeRaw = false) {
     }
     if (typeof stats['max-iterations'] === 'number') {
         header.maxIterations = stats['max-iterations'];
+    }
+    // Add timing estimates if available
+    if (timingInfo) {
+        header.estimatedRemainingMs = timingInfo.estimatedRemainingMs;
+        header.estimatedRemaining = timingInfo.estimatedRemaining;
+        header.estimateConfidence = timingInfo.estimateConfidence;
+        if (timingInfo.estimatedCompletionTime) {
+            header.estimatedCompletionTime = timingInfo.estimatedCompletionTime;
+        }
     }
     // Build the phase tree
     const phaseTree = buildPhaseTree(progress);

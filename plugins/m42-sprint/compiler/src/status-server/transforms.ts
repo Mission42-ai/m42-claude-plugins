@@ -17,6 +17,16 @@ import type {
   LogEntryType,
 } from './status-types.js';
 
+/**
+ * Timing information passed to toStatusUpdate
+ */
+export interface TimingInfo {
+  estimatedRemainingMs: number;
+  estimatedRemaining: string;
+  estimateConfidence: 'low' | 'medium' | 'high' | 'no-data';
+  estimatedCompletionTime: string | null;
+}
+
 // ============================================================================
 // Timestamp Formatting
 // ============================================================================
@@ -459,7 +469,8 @@ export function generateDiffLogEntries(
  */
 export function toStatusUpdate(
   progress: CompiledProgress,
-  includeRaw: boolean = false
+  includeRaw: boolean = false,
+  timingInfo?: TimingInfo
 ): StatusUpdate {
   const { total, completed } = countPhases(progress);
 
@@ -482,6 +493,16 @@ export function toStatusUpdate(
   }
   if (typeof stats['max-iterations'] === 'number') {
     header.maxIterations = stats['max-iterations'];
+  }
+
+  // Add timing estimates if available
+  if (timingInfo) {
+    header.estimatedRemainingMs = timingInfo.estimatedRemainingMs;
+    header.estimatedRemaining = timingInfo.estimatedRemaining;
+    header.estimateConfidence = timingInfo.estimateConfidence;
+    if (timingInfo.estimatedCompletionTime) {
+      header.estimatedCompletionTime = timingInfo.estimatedCompletionTime;
+    }
   }
 
   // Build the phase tree

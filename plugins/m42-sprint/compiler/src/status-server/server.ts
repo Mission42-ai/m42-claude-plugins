@@ -23,8 +23,9 @@ import type {
 import type { ActivityEvent } from './activity-types.js';
 import { ProgressWatcher } from './watcher.js';
 import { ActivityWatcher } from './activity-watcher.js';
-import { toStatusUpdate, generateDiffLogEntries, createLogEntry } from './transforms.js';
+import { toStatusUpdate, generateDiffLogEntries, createLogEntry, type TimingInfo } from './transforms.js';
 import { getPageHtml } from './page.js';
+import { TimingTracker, type SprintTimingInfo, type PhaseTimingStats } from './timing-tracker.js';
 
 /**
  * Response type for phase actions (skip/retry)
@@ -74,6 +75,7 @@ export class StatusServer {
   private server: http.Server | null = null;
   private watcher: ProgressWatcher | null = null;
   private activityWatcher: ActivityWatcher | null = null;
+  private timingTracker: TimingTracker | null = null;
   private clients: Map<string, SSEClient> = new Map();
   private keepAliveTimer: ReturnType<typeof setInterval> | null = null;
   private lastProgress: CompiledProgress | null = null;
@@ -134,6 +136,10 @@ export class StatusServer {
     });
 
     this.activityWatcher.start();
+
+    // Initialize timing tracker for progress estimation
+    this.timingTracker = new TimingTracker(this.config.sprintDir);
+    this.timingTracker.loadTimingHistory();
 
     // Start keep-alive timer
     this.keepAliveTimer = setInterval(() => {
@@ -291,6 +297,9 @@ export class StatusServer {
       case '/api/controls':
         this.handleControlsRequest(res);
         break;
+      case '/api/timing':
+        this.handleTimingRequest(res);
+        break;
       case '/api/pause':
         this.handlePauseRequest(res);
         break;
@@ -355,7 +364,8 @@ export class StatusServer {
   private handleAPIRequest(res: http.ServerResponse): void {
     try {
       const progress = this.loadProgress();
-      const statusUpdate = toStatusUpdate(progress, true);
+      const timingInfo = this.getTimingInfo(progress);
+      const statusUpdate = toStatusUpdate(progress, true, timingInfo);
 
       res.writeHead(200, {
         'Content-Type': 'application/json',
@@ -370,6 +380,28 @@ export class StatusServer {
           message: error instanceof Error ? error.message : String(error),
         })
       );
+    }
+  }
+
+  /**
+   * Get timing info for the current progress
+   */
+  private getTimingInfo(progress: CompiledProgress): TimingInfo | undefined {
+    if (!this.timingTracker) {
+      return undefined;
+    }
+
+    try {
+      const timingData = this.timingTracker.estimateRemainingTime(progress);
+      return {
+        estimatedRemainingMs: timingData.estimatedRemainingMs,
+        estimatedRemaining: timingData.estimatedRemaining,
+        estimateConfidence: timingData.estimateConfidence,
+        estimatedCompletionTime: timingData.estimatedCompletionTime,
+      };
+    } catch (error) {
+      console.error('[StatusServer] Failed to calculate timing:', error);
+      return undefined;
     }
   }
 
@@ -411,6 +443,56 @@ export class StatusServer {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         error: 'Failed to load progress',
+        message: error instanceof Error ? error.message : String(error),
+      }));
+    }
+  }
+
+  /**
+   * Handle GET /api/timing request
+   * Returns timing estimates and historical statistics for the sprint
+   */
+  private handleTimingRequest(res: http.ServerResponse): void {
+    try {
+      const progress = this.loadProgress();
+
+      // Reload timing history to get latest data
+      if (this.timingTracker) {
+        this.timingTracker.loadTimingHistory();
+      }
+
+      const timingInfo = this.timingTracker
+        ? this.timingTracker.estimateRemainingTime(progress)
+        : null;
+
+      const stats = this.timingTracker
+        ? this.timingTracker.getAllStats()
+        : [];
+
+      // Convert Map to object for JSON serialization
+      const phaseEstimates: Record<string, unknown> = {};
+      if (timingInfo?.phaseEstimates) {
+        for (const [key, value] of timingInfo.phaseEstimates) {
+          phaseEstimates[key] = value;
+        }
+      }
+
+      res.writeHead(200, {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+      });
+      res.end(JSON.stringify({
+        estimatedRemainingMs: timingInfo?.estimatedRemainingMs ?? 0,
+        estimatedRemaining: timingInfo?.estimatedRemaining ?? 'unknown',
+        estimateConfidence: timingInfo?.estimateConfidence ?? 'no-data',
+        estimatedCompletionTime: timingInfo?.estimatedCompletionTime ?? null,
+        phaseEstimates,
+        historicalStats: stats,
+      }, null, 2));
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        error: 'Failed to calculate timing estimates',
         message: error instanceof Error ? error.message : String(error),
       }));
     }
@@ -1012,7 +1094,8 @@ export class StatusServer {
       const progress = this.loadProgress();
       this.lastProgress = progress;
 
-      const statusUpdate = toStatusUpdate(progress);
+      const timingInfo = this.getTimingInfo(progress);
+      const statusUpdate = toStatusUpdate(progress, false, timingInfo);
       this.sendEvent(client, 'status-update', statusUpdate);
 
       // Send a log entry for connection
@@ -1035,7 +1118,14 @@ export class StatusServer {
   private handleProgressChange(): void {
     try {
       const progress = this.loadProgress();
-      const statusUpdate = toStatusUpdate(progress);
+
+      // Reload timing history to capture newly completed phases
+      if (this.timingTracker) {
+        this.timingTracker.loadTimingHistory();
+      }
+
+      const timingInfo = this.getTimingInfo(progress);
+      const statusUpdate = toStatusUpdate(progress, false, timingInfo);
 
       // Generate log entries for status changes
       const logEntries = generateDiffLogEntries(this.lastProgress, progress);

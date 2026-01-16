@@ -12,6 +12,7 @@ export declare class StatusServer {
     private server;
     private watcher;
     private activityWatcher;
+    private timingTracker;
     private clients;
     private keepAliveTimer;
     private lastProgress;
@@ -52,6 +53,10 @@ export declare class StatusServer {
      */
     private handleAPIRequest;
     /**
+     * Get timing info for the current progress
+     */
+    private getTimingInfo;
+    /**
      * Get available actions based on current sprint status
      */
     private getAvailableActions;
@@ -60,6 +65,11 @@ export declare class StatusServer {
      * Returns available actions based on current sprint state
      */
     private handleControlsRequest;
+    /**
+     * Handle GET /api/timing request
+     * Returns timing estimates and historical statistics for the sprint
+     */
+    private handleTimingRequest;
     /**
      * Handle POST /api/pause request
      * Creates .pause-requested signal file

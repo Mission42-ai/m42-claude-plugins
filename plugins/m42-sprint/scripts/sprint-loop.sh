@@ -180,8 +180,68 @@ update_phase_elapsed() {
     if [[ "$completed_at" != "null" ]] && [[ "$existing_elapsed" == "null" ]]; then
       local elapsed=$(calculate_elapsed "$started_at" "$completed_at")
       yq -i "$base_path.elapsed = \"$elapsed\"" "$PROGRESS_FILE"
+
+      # Record timing to JSONL for progress estimation
+      record_phase_timing "$phase_idx" "$step_idx" "$sub_phase_idx" "$started_at" "$completed_at"
     fi
   fi
+}
+
+# Helper function to record phase timing to timing.jsonl
+# Format: {"phaseId":"string","workflow":"string","startTime":"ISO","endTime":"ISO","durationMs":number}
+record_phase_timing() {
+  local phase_idx="$1"
+  local step_idx="$2"
+  local sub_phase_idx="$3"
+  local startTime="$4"
+  local endTime="$5"
+
+  # Determine phaseId based on hierarchy level
+  local phaseId=""
+  if [[ "$sub_phase_idx" != "null" ]] && [[ -n "$sub_phase_idx" ]]; then
+    phaseId=$(yq -r ".phases[$phase_idx].steps[$step_idx].phases[$sub_phase_idx].id // \"unknown\"" "$PROGRESS_FILE")
+  elif [[ "$step_idx" != "null" ]] && [[ -n "$step_idx" ]]; then
+    phaseId=$(yq -r ".phases[$phase_idx].steps[$step_idx].id // \"unknown\"" "$PROGRESS_FILE")
+  else
+    phaseId=$(yq -r ".phases[$phase_idx].id // \"unknown\"" "$PROGRESS_FILE")
+  fi
+
+  # Get workflow name from PROGRESS.yaml
+  local workflow=$(yq -r '.workflow // "unknown"' "$PROGRESS_FILE")
+
+  # Calculate duration in milliseconds
+  local start_epoch end_epoch durationMs
+  if [[ "$(uname)" == "Darwin" ]]; then
+    start_epoch=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$startTime" "+%s" 2>/dev/null || echo "0")
+    end_epoch=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$endTime" "+%s" 2>/dev/null || echo "0")
+  else
+    start_epoch=$(date -d "$startTime" "+%s" 2>/dev/null || echo "0")
+    end_epoch=$(date -d "$endTime" "+%s" 2>/dev/null || echo "0")
+  fi
+  durationMs=$(( (end_epoch - start_epoch) * 1000 ))
+
+  # Get sprint ID
+  local sprintId=$(yq -r '."sprint-id" // "unknown"' "$PROGRESS_FILE")
+
+  # Build JSON record
+  local json_record
+  json_record=$(cat <<EOF
+{"phaseId":"$phaseId","workflow":"$workflow","startTime":"$startTime","endTime":"$endTime","durationMs":$durationMs,"sprintId":"$sprintId"}
+EOF
+)
+
+  # Append to timing.jsonl atomically
+  local TIMING_FILE="$SPRINT_DIR/timing.jsonl"
+  local TEMP_TIMING_FILE=$(mktemp -p "$SPRINT_DIR" .timing.tmp.XXXXXX 2>/dev/null || mktemp)
+
+  {
+    if [[ -f "$TIMING_FILE" ]]; then
+      cat "$TIMING_FILE"
+    fi
+    echo "$json_record"
+  } > "$TEMP_TIMING_FILE"
+
+  mv "$TEMP_TIMING_FILE" "$TIMING_FILE"
 }
 
 # Helper function to get the YAML path for the current phase

@@ -35,6 +35,11 @@ ${getStyles()}
           </div>
           <span class="progress-text" id="progress-text">0%</span>
         </div>
+        <div class="estimate-display" id="estimate-display">
+          <span class="estimate-label">ETA:</span>
+          <span class="estimate-time" id="estimate-time">--</span>
+          <span class="estimate-confidence" id="estimate-confidence" title="Estimate confidence based on historical data">--</span>
+        </div>
         <div class="header-actions">
           <button class="header-download-btn" id="download-all-logs-btn" title="Download All Logs">⬇ All Logs</button>
           <button class="header-notification-btn" id="notification-settings-btn" title="Notification Settings">🔔</button>
@@ -323,6 +328,60 @@ function getStyles() {
       font-size: 12px;
       color: var(--text-secondary);
       min-width: 35px;
+    }
+
+    /* Estimate Display */
+    .estimate-display {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background-color: var(--bg-tertiary);
+      border-radius: 4px;
+      font-size: 12px;
+    }
+
+    .estimate-label {
+      color: var(--text-secondary);
+    }
+
+    .estimate-time {
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    .estimate-time.no-data {
+      color: var(--text-tertiary);
+      font-style: italic;
+    }
+
+    .estimate-confidence {
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 500;
+      text-transform: uppercase;
+      cursor: help;
+    }
+
+    .estimate-confidence.high {
+      background-color: rgba(76, 175, 80, 0.2);
+      color: var(--accent-green);
+    }
+
+    .estimate-confidence.medium {
+      background-color: rgba(255, 193, 7, 0.2);
+      color: #ffc107;
+    }
+
+    .estimate-confidence.low {
+      background-color: rgba(255, 152, 0, 0.2);
+      color: #ff9800;
+    }
+
+    .estimate-confidence.no-data {
+      background-color: var(--bg-tertiary);
+      color: var(--text-tertiary);
     }
 
     /* Main Layout */
@@ -1549,7 +1608,10 @@ function getScript() {
         notifyBlockedCheckbox: document.getElementById('notify-blocked'),
         notifyHumanCheckbox: document.getElementById('notify-human'),
         soundEnabledCheckbox: document.getElementById('sound-enabled'),
-        soundSelect: document.getElementById('sound-select')
+        soundSelect: document.getElementById('sound-select'),
+        estimateDisplay: document.getElementById('estimate-display'),
+        estimateTime: document.getElementById('estimate-time'),
+        estimateConfidence: document.getElementById('estimate-confidence')
       };
 
       // State
@@ -2369,8 +2431,69 @@ function getScript() {
           elements.elapsed.dataset.startedAt = header.startedAt;
         }
 
+        // Update estimate display
+        updateEstimateDisplay(header);
+
         // Update control buttons based on sprint status
         updateControlButtons(header.status);
+      }
+
+      function updateEstimateDisplay(header) {
+        const timeEl = elements.estimateTime;
+        const confidenceEl = elements.estimateConfidence;
+
+        // Handle sprint completed or not in progress
+        if (header.status === 'completed' || header.status === 'not-started') {
+          timeEl.textContent = header.status === 'completed' ? 'Done' : '--';
+          timeEl.classList.toggle('no-data', header.status !== 'completed');
+          confidenceEl.textContent = '';
+          confidenceEl.className = 'estimate-confidence';
+          return;
+        }
+
+        // Show estimate remaining time
+        if (header.estimatedRemaining && header.estimatedRemainingMs > 0) {
+          timeEl.textContent = header.estimatedRemaining + ' remaining';
+          timeEl.classList.remove('no-data');
+
+          // Show estimated completion time in tooltip
+          if (header.estimatedCompletionTime) {
+            const completionDate = new Date(header.estimatedCompletionTime);
+            timeEl.title = 'Est. completion: ' + completionDate.toLocaleTimeString();
+          } else {
+            timeEl.title = '';
+          }
+        } else {
+          timeEl.textContent = 'Calculating...';
+          timeEl.classList.add('no-data');
+          timeEl.title = '';
+        }
+
+        // Show confidence level
+        const confidence = header.estimateConfidence || 'no-data';
+        confidenceEl.textContent = getConfidenceLabel(confidence);
+        confidenceEl.className = 'estimate-confidence ' + confidence;
+        confidenceEl.title = getConfidenceTooltip(confidence);
+      }
+
+      function getConfidenceLabel(confidence) {
+        switch (confidence) {
+          case 'high': return 'High';
+          case 'medium': return 'Med';
+          case 'low': return 'Low';
+          case 'no-data': return 'N/A';
+          default: return '--';
+        }
+      }
+
+      function getConfidenceTooltip(confidence) {
+        switch (confidence) {
+          case 'high': return 'High confidence: Based on 10+ similar past phases';
+          case 'medium': return 'Medium confidence: Based on 3-9 similar past phases';
+          case 'low': return 'Low confidence: Based on 1-2 similar past phases';
+          case 'no-data': return 'No historical data available for estimation';
+          default: return '';
+        }
       }
 
       function updatePhaseTree(phaseTree) {

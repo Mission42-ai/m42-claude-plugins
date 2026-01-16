@@ -90,6 +90,14 @@ export interface SprintHeader {
   startedAt?: string;
   /** Total elapsed time */
   elapsed?: string;
+  /** Estimated milliseconds remaining */
+  estimatedRemainingMs?: number;
+  /** Formatted estimated time remaining */
+  estimatedRemaining?: string;
+  /** Confidence level of the estimate */
+  estimateConfidence?: 'low' | 'medium' | 'high' | 'no-data';
+  /** Estimated completion time (ISO) */
+  estimatedCompletionTime?: string;
 }
 
 /**
