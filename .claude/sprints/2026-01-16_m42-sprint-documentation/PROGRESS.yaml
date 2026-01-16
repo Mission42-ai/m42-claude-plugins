@@ -1661,7 +1661,7 @@ phases:
           - Workflow Authoring klar dokumentiert
           - Patterns wiederverwendbar
           - Template System verständlich
-        status: in-progress
+        status: completed
         phases:
           - id: implement
             status: completed
@@ -1704,8 +1704,9 @@ phases:
               ## Complete this task fully before marking as done.
             started-at: "2026-01-16T16:55:37Z"
             completed-at: "2026-01-16T16:55:37Z"
+            elapsed: 00:00:00
           - id: qa
-            status: pending
+            status: completed
             prompt: |
               Quality Assurance verification for the m42-sprint plugin.
 
@@ -1836,6 +1837,8 @@ phases:
               - Focus on compilation and integration (no unit test suite yet)
               - Reference context/sprint-plan.md for acceptance criteria
               - QA failures MUST result in injected fix tasks, not just reports
+            started-at: "2026-01-16T16:57:53Z"
+            completed-at: "2026-01-16T17:05:00Z"
         started-at: "2026-01-16T16:55:37Z"
       - id: step-9
         prompt: |
@@ -2799,8 +2802,8 @@ phases:
     started-at: "2026-01-16T16:18:41Z"
 current:
   phase: 1
-  step: 8
-  sub-phase: 1
+  step: 9
+  sub-phase: 0
 stats:
   started-at: "2026-01-16T16:16:12Z"
   total-phases: 30
@@ -2808,6 +2811,6 @@ stats:
   total-steps: 14
   completed-steps: 0
   max-iterations: 30
-  current-iteration: 17
+  current-iteration: 18
   completed-at: "2026-01-16T16:24:41Z"
   elapsed: 00:08:29
