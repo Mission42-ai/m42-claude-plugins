@@ -84,24 +84,21 @@ if [[ "$HAS_STEPS" != "null" ]]; then
     exit 0
   fi
 
-  # Set started-at timestamp for sub-phase if not already set
-  SUB_PHASE_STARTED=$(yq -r ".phases[$PHASE_IDX].steps[$STEP_IDX].phases[$SUB_PHASE_IDX].\"started-at\" // \"null\"" "$PROGRESS_FILE")
-  if [[ "$SUB_PHASE_STARTED" == "null" ]]; then
-    yq -i ".phases[$PHASE_IDX].steps[$STEP_IDX].phases[$SUB_PHASE_IDX].\"started-at\" = \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"" "$PROGRESS_FILE"
+  # Mark sub-phase as in-progress (timestamps set by sprint-loop.sh for accuracy)
+  SUB_PHASE_STATUS=$(yq -r ".phases[$PHASE_IDX].steps[$STEP_IDX].phases[$SUB_PHASE_IDX].status // \"pending\"" "$PROGRESS_FILE")
+  if [[ "$SUB_PHASE_STATUS" == "pending" ]]; then
     yq -i ".phases[$PHASE_IDX].steps[$STEP_IDX].phases[$SUB_PHASE_IDX].status = \"in-progress\"" "$PROGRESS_FILE"
   fi
 
-  # Set started-at for step if this is the first sub-phase starting
-  STEP_STARTED=$(yq -r ".phases[$PHASE_IDX].steps[$STEP_IDX].\"started-at\" // \"null\"" "$PROGRESS_FILE")
-  if [[ "$STEP_STARTED" == "null" ]]; then
-    yq -i ".phases[$PHASE_IDX].steps[$STEP_IDX].\"started-at\" = \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"" "$PROGRESS_FILE"
+  # Mark step as in-progress if this is the first sub-phase starting
+  STEP_STATUS=$(yq -r ".phases[$PHASE_IDX].steps[$STEP_IDX].status // \"pending\"" "$PROGRESS_FILE")
+  if [[ "$STEP_STATUS" == "pending" ]]; then
     yq -i ".phases[$PHASE_IDX].steps[$STEP_IDX].status = \"in-progress\"" "$PROGRESS_FILE"
   fi
 
-  # Set started-at for top phase if this is the first step starting
-  PHASE_STARTED=$(yq -r ".phases[$PHASE_IDX].\"started-at\" // \"null\"" "$PROGRESS_FILE")
-  if [[ "$PHASE_STARTED" == "null" ]]; then
-    yq -i ".phases[$PHASE_IDX].\"started-at\" = \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"" "$PROGRESS_FILE"
+  # Mark top phase as in-progress if this is the first step starting
+  PHASE_STATUS_CHECK=$(yq -r ".phases[$PHASE_IDX].status // \"pending\"" "$PROGRESS_FILE")
+  if [[ "$PHASE_STATUS_CHECK" == "pending" ]]; then
     yq -i ".phases[$PHASE_IDX].status = \"in-progress\"" "$PROGRESS_FILE"
   fi
 
@@ -142,9 +139,8 @@ $SUB_PHASE_PROMPT
 2. When complete, update PROGRESS.yaml:
 
 \`\`\`bash
-# Mark current sub-phase as completed
+# Mark current sub-phase as completed (timestamps set automatically by sprint loop)
 yq -i '.phases[$PHASE_IDX].steps[$STEP_IDX].phases[$SUB_PHASE_IDX].status = "completed"' "$PROGRESS_FILE"
-yq -i '.phases[$PHASE_IDX].steps[$STEP_IDX].phases[$SUB_PHASE_IDX]."completed-at" = "$(date -u +%Y-%m-%dT%H:%M:%SZ)"' "$PROGRESS_FILE"
 
 # Advance the pointer
 EOF
@@ -212,10 +208,9 @@ else
     exit 0
   fi
 
-  # Set started-at timestamp for phase if not already set
-  PHASE_STARTED=$(yq -r ".phases[$PHASE_IDX].\"started-at\" // \"null\"" "$PROGRESS_FILE")
-  if [[ "$PHASE_STARTED" == "null" ]]; then
-    yq -i ".phases[$PHASE_IDX].\"started-at\" = \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"" "$PROGRESS_FILE"
+  # Mark phase as in-progress (timestamps set by sprint-loop.sh for accuracy)
+  PHASE_STATUS_SIMPLE=$(yq -r ".phases[$PHASE_IDX].status // \"pending\"" "$PROGRESS_FILE")
+  if [[ "$PHASE_STATUS_SIMPLE" == "pending" ]]; then
     yq -i ".phases[$PHASE_IDX].status = \"in-progress\"" "$PROGRESS_FILE"
   fi
 
@@ -250,9 +245,8 @@ $PHASE_PROMPT
 2. When complete, update PROGRESS.yaml:
 
 \`\`\`bash
-# Mark phase as completed and advance
+# Mark phase as completed and advance (timestamps set automatically by sprint loop)
 yq -i '.phases[$PHASE_IDX].status = "completed"' "$PROGRESS_FILE"
-yq -i '.phases[$PHASE_IDX]."completed-at" = "$(date -u +%Y-%m-%dT%H:%M:%SZ)"' "$PROGRESS_FILE"
 yq -i '.current.phase = $((PHASE_IDX + 1))' "$PROGRESS_FILE"
 yq -i '.current.step = 0' "$PROGRESS_FILE"
 yq -i '.current."sub-phase" = 0' "$PROGRESS_FILE"

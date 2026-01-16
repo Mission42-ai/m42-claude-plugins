@@ -193,14 +193,48 @@ update_phase_elapsed() {
   fi
 }
 
+# Set phase timestamps from loop-captured times (deterministic timing)
+# This function sets started-at and completed-at based on actual Claude process boundaries
+set_phase_timestamps() {
+  local phase_idx="$1"
+  local step_idx="$2"
+  local sub_phase_idx="$3"
+  local start_iso="$4"
+  local end_iso="$5"
+
+  local base_path=".phases[$phase_idx]"
+
+  if [[ "$step_idx" != "null" ]] && [[ -n "$step_idx" ]]; then
+    base_path="$base_path.steps[$step_idx]"
+    if [[ "$sub_phase_idx" != "null" ]] && [[ -n "$sub_phase_idx" ]]; then
+      base_path="$base_path.phases[$sub_phase_idx]"
+    fi
+  fi
+
+  # Update started-at if not already set (preserves original start on retries)
+  local existing_start=$(yq -r "$base_path.\"started-at\" // \"null\"" "$PROGRESS_FILE")
+  if [[ "$existing_start" == "null" ]]; then
+    yq -i "$base_path.\"started-at\" = \"$start_iso\"" "$PROGRESS_FILE"
+  fi
+
+  # Set completed-at with actual end time (only if phase is completed)
+  local status=$(yq -r "$base_path.status" "$PROGRESS_FILE")
+  if [[ "$status" == "completed" ]]; then
+    yq -i "$base_path.\"completed-at\" = \"$end_iso\"" "$PROGRESS_FILE"
+  fi
+}
+
 # Helper function to record phase timing to timing.jsonl
 # Format: {"phaseId":"string","workflow":"string","startTime":"ISO","endTime":"ISO","durationMs":number}
+# Optional epoch params (6,7) provide precise duration when available from loop capture
 record_phase_timing() {
   local phase_idx="$1"
   local step_idx="$2"
   local sub_phase_idx="$3"
   local startTime="$4"
   local endTime="$5"
+  local start_epoch_provided="${6:-}"  # Optional: epoch seconds from loop
+  local end_epoch_provided="${7:-}"    # Optional: epoch seconds from loop
 
   # Determine phaseId based on hierarchy level
   local phaseId=""
@@ -215,16 +249,22 @@ record_phase_timing() {
   # Get workflow name from PROGRESS.yaml
   local workflow=$(yq -r '.workflow // "unknown"' "$PROGRESS_FILE")
 
-  # Calculate duration in milliseconds
+  # Calculate duration in milliseconds - prefer provided epochs for precision
   local start_epoch end_epoch durationMs
-  if [[ "$(uname)" == "Darwin" ]]; then
-    start_epoch=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$startTime" "+%s" 2>/dev/null || echo "0")
-    end_epoch=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$endTime" "+%s" 2>/dev/null || echo "0")
+  if [[ -n "$start_epoch_provided" ]] && [[ -n "$end_epoch_provided" ]]; then
+    # Use loop-captured epochs for precise timing
+    durationMs=$(( (end_epoch_provided - start_epoch_provided) * 1000 ))
   else
-    start_epoch=$(date -d "$startTime" "+%s" 2>/dev/null || echo "0")
-    end_epoch=$(date -d "$endTime" "+%s" 2>/dev/null || echo "0")
+    # Fallback to ISO timestamp conversion
+    if [[ "$(uname)" == "Darwin" ]]; then
+      start_epoch=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$startTime" "+%s" 2>/dev/null || echo "0")
+      end_epoch=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$endTime" "+%s" 2>/dev/null || echo "0")
+    else
+      start_epoch=$(date -d "$startTime" "+%s" 2>/dev/null || echo "0")
+      end_epoch=$(date -d "$endTime" "+%s" 2>/dev/null || echo "0")
+    fi
+    durationMs=$(( (end_epoch - start_epoch) * 1000 ))
   fi
-  durationMs=$(( (end_epoch - start_epoch) * 1000 ))
 
   # Get sprint ID
   local sprintId=$(yq -r '."sprint-id" // "unknown"' "$PROGRESS_FILE")
@@ -598,9 +638,22 @@ for ((i=1; i<=MAX_ITERATIONS; i++)); do
   echo "Logging to: $LOG_FILE"
   echo ""
 
+  # Capture current position BEFORE Claude runs (it advances the pointer after completion)
+  PREV_PHASE_IDX=$(yq -r '.current.phase // 0' "$PROGRESS_FILE")
+  PREV_STEP_IDX=$(yq -r '.current.step // "null"' "$PROGRESS_FILE")
+  PREV_SUB_IDX=$(yq -r '.current."sub-phase" // "null"' "$PROGRESS_FILE")
+
+  # BEFORE Claude invocation - capture start time for deterministic timing
+  PHASE_START_EPOCH=$(date +%s)
+  PHASE_START_ISO=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
   # Build claude command, tee output to .log file
   # Note: HOOK_CONFIG is accepted but not used - Claude Code hooks are configured via settings files
   CLI_OUTPUT=$(claude -p "$PROMPT" --dangerously-skip-permissions 2>&1 | tee "$LOG_FILE") || CLI_EXIT_CODE=${PIPESTATUS[0]}
+
+  # AFTER Claude exits - capture end time for deterministic timing
+  PHASE_END_EPOCH=$(date +%s)
+  PHASE_END_ISO=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
   if [[ "$CLI_EXIT_CODE" -ne 0 ]]; then
     echo ""
@@ -623,6 +676,11 @@ for ((i=1; i<=MAX_ITERATIONS; i++)); do
     fi
     continue
   fi
+
+  # Set timestamps for the phase that was just executed using loop-captured times
+  # (Claude advances pointer after marking complete, so we use PREV_* indices)
+  set_phase_timestamps "$PREV_PHASE_IDX" "$PREV_STEP_IDX" "$PREV_SUB_IDX" \
+    "$PHASE_START_ISO" "$PHASE_END_ISO"
 
   # Update elapsed times for any completed phases
   # Read current pointer to know which phases to check
