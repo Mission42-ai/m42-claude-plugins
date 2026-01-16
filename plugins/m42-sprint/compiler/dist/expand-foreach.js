@@ -122,13 +122,17 @@ function expandForEach(phase, steps, workflowsDir, defaultWorkflow, context, err
         let stepWorkflow;
         if (step.workflow) {
             // Step has its own workflow override
-            const loaded = (0, resolve_workflows_js_1.loadWorkflow)(step.workflow, workflowsDir);
+            const loaded = (0, resolve_workflows_js_1.loadWorkflow)(step.workflow, workflowsDir, errors);
             if (!loaded) {
-                errors.push({
-                    code: 'STEP_WORKFLOW_NOT_FOUND',
-                    message: `Workflow not found for step ${i}: ${step.workflow}`,
-                    path: `steps[${i}].workflow`
-                });
+                // Only add "not found" error if no parse error was added
+                const hasParseError = errors.some(e => e.code === 'WORKFLOW_PARSE_ERROR' && e.path?.includes(step.workflow));
+                if (!hasParseError) {
+                    errors.push({
+                        code: 'STEP_WORKFLOW_NOT_FOUND',
+                        message: `Workflow not found for step ${i}: ${step.workflow}`,
+                        path: `steps[${i}].workflow`
+                    });
+                }
                 // Use a minimal fallback workflow
                 stepWorkflow = {
                     name: 'Fallback',
@@ -141,13 +145,17 @@ function expandForEach(phase, steps, workflowsDir, defaultWorkflow, context, err
         }
         else if (phase.workflow && phase.workflow !== defaultWorkflow?.definition.name) {
             // Phase specifies a default workflow for its steps
-            const loaded = (0, resolve_workflows_js_1.loadWorkflow)(phase.workflow, workflowsDir);
+            const loaded = (0, resolve_workflows_js_1.loadWorkflow)(phase.workflow, workflowsDir, errors);
             if (!loaded) {
-                errors.push({
-                    code: 'PHASE_WORKFLOW_NOT_FOUND',
-                    message: `Default workflow for phase '${phase.id}' not found: ${phase.workflow}`,
-                    path: `phases[${phase.id}].workflow`
-                });
+                // Only add "not found" error if no parse error was added
+                const hasParseError = errors.some(e => e.code === 'WORKFLOW_PARSE_ERROR' && e.path?.includes(phase.workflow));
+                if (!hasParseError) {
+                    errors.push({
+                        code: 'PHASE_WORKFLOW_NOT_FOUND',
+                        message: `Default workflow for phase '${phase.id}' not found: ${phase.workflow}`,
+                        path: `phases[${phase.id}].workflow`
+                    });
+                }
                 stepWorkflow = {
                     name: 'Fallback',
                     phases: [{ id: 'execute', prompt: '{{step.prompt}}' }]

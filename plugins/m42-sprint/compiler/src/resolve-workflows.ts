@@ -12,6 +12,7 @@ import type {
   LoadedWorkflow,
   CompilerError
 } from './types.js';
+import { formatYamlError } from './compile.js';
 
 /**
  * Cache for loaded workflows to avoid re-reading files
@@ -23,11 +24,13 @@ const workflowCache = new Map<string, LoadedWorkflow>();
  *
  * @param name - Workflow name (without .yaml extension)
  * @param workflowsDir - Directory containing workflow files
- * @returns Loaded workflow or null if not found
+ * @param errors - Optional array to collect errors (for YAML parsing errors)
+ * @returns Loaded workflow or null if not found or failed to parse
  */
 export function loadWorkflow(
   name: string,
-  workflowsDir: string
+  workflowsDir: string,
+  errors?: CompilerError[]
 ): LoadedWorkflow | null {
   // Check cache first
   const cacheKey = `${workflowsDir}:${name}`;
@@ -55,18 +58,29 @@ export function loadWorkflow(
   }
 
   // Load and parse the workflow
-  const content = fs.readFileSync(workflowPath, 'utf8');
-  const definition = yaml.load(content) as WorkflowDefinition;
+  try {
+    const content = fs.readFileSync(workflowPath, 'utf8');
+    const definition = yaml.load(content) as WorkflowDefinition;
 
-  const loaded: LoadedWorkflow = {
-    definition,
-    path: workflowPath
-  };
+    const loaded: LoadedWorkflow = {
+      definition,
+      path: workflowPath
+    };
 
-  // Cache the result
-  workflowCache.set(cacheKey, loaded);
+    // Cache the result
+    workflowCache.set(cacheKey, loaded);
 
-  return loaded;
+    return loaded;
+  } catch (err) {
+    if (errors) {
+      errors.push({
+        code: 'WORKFLOW_PARSE_ERROR',
+        message: `Failed to parse workflow '${name}': ${formatYamlError(err, workflowPath)}`,
+        path: workflowPath
+      });
+    }
+    return null;
+  }
 }
 
 /**
@@ -100,13 +114,17 @@ export function resolveWorkflowRefs(
       }
 
       // Load the referenced workflow
-      const loaded = loadWorkflow(phase.workflow, workflowsDir);
+      const loaded = loadWorkflow(phase.workflow, workflowsDir, errors);
       if (!loaded) {
-        errors.push({
-          code: 'WORKFLOW_NOT_FOUND',
-          message: `Referenced workflow not found: ${phase.workflow}`,
-          path: `phases[${phase.id}].workflow`
-        });
+        // Only add "not found" error if no parse error was added
+        const hasParseError = errors.some(e => e.code === 'WORKFLOW_PARSE_ERROR' && e.path?.includes(phase.workflow!));
+        if (!hasParseError) {
+          errors.push({
+            code: 'WORKFLOW_NOT_FOUND',
+            message: `Referenced workflow not found: ${phase.workflow}`,
+            path: `phases[${phase.id}].workflow`
+          });
+        }
         continue;
       }
 

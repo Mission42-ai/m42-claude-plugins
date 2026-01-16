@@ -38,14 +38,44 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.formatYamlError = formatYamlError;
 exports.compile = compile;
 exports.compileFromPaths = compileFromPaths;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const yaml = __importStar(require("js-yaml"));
+const js_yaml_1 = require("js-yaml");
 const resolve_workflows_js_1 = require("./resolve-workflows.js");
 const expand_foreach_js_1 = require("./expand-foreach.js");
 const validate_js_1 = require("./validate.js");
+/**
+ * Format a YAML parsing error with line numbers and context
+ *
+ * @param err - The error from yaml.load()
+ * @param filePath - Path to the file that failed to parse
+ * @returns Formatted error message with context
+ */
+function formatYamlError(err, filePath) {
+    if (err instanceof js_yaml_1.YAMLException) {
+        const parts = [];
+        // Add the reason
+        parts.push(err.reason || 'YAML parsing error');
+        // Add location if available
+        if (err.mark) {
+            // js-yaml uses 0-indexed line/column, display as 1-indexed
+            const line = err.mark.line + 1;
+            const column = err.mark.column + 1;
+            parts.push(`at line ${line}, column ${column}`);
+            // Add snippet if available (js-yaml provides context around the error)
+            if (err.mark.snippet) {
+                parts.push('\n' + err.mark.snippet);
+            }
+        }
+        return parts.join(' ');
+    }
+    // For non-YAML errors, return the message as-is
+    return err instanceof Error ? err.message : String(err);
+}
 /**
  * Main compilation function
  *
@@ -65,7 +95,7 @@ async function compile(config) {
     catch (err) {
         errors.push({
             code: 'SPRINT_LOAD_ERROR',
-            message: `Failed to load SPRINT.yaml: ${err instanceof Error ? err.message : err}`,
+            message: `Failed to load SPRINT.yaml: ${formatYamlError(err, sprintYamlPath)}`,
             path: sprintYamlPath
         });
         return { success: false, errors, warnings };
@@ -80,17 +110,21 @@ async function compile(config) {
         console.log(`Loaded SPRINT.yaml: ${sprintDef.steps.length} steps`);
     }
     // Load the main workflow
-    const mainWorkflow = (0, resolve_workflows_js_1.loadWorkflow)(sprintDef.workflow, config.workflowsDir);
+    const mainWorkflow = (0, resolve_workflows_js_1.loadWorkflow)(sprintDef.workflow, config.workflowsDir, errors);
     if (!mainWorkflow) {
-        errors.push({
-            code: 'MAIN_WORKFLOW_NOT_FOUND',
-            message: `Main workflow not found: ${sprintDef.workflow}`,
-            path: 'workflow',
-            details: {
-                searchPath: config.workflowsDir,
-                workflowName: sprintDef.workflow
-            }
-        });
+        // Only add "not found" error if no parse error was added
+        const hasParseError = errors.some(e => e.code === 'WORKFLOW_PARSE_ERROR');
+        if (!hasParseError) {
+            errors.push({
+                code: 'MAIN_WORKFLOW_NOT_FOUND',
+                message: `Main workflow not found: ${sprintDef.workflow}`,
+                path: 'workflow',
+                details: {
+                    searchPath: config.workflowsDir,
+                    workflowName: sprintDef.workflow
+                }
+            });
+        }
         return { success: false, errors, warnings };
     }
     // Validate main workflow
@@ -130,7 +164,7 @@ async function compile(config) {
     let defaultStepWorkflow = null;
     for (const phase of mainWorkflow.definition.phases) {
         if (phase['for-each'] === 'step' && phase.workflow) {
-            defaultStepWorkflow = (0, resolve_workflows_js_1.loadWorkflow)(phase.workflow, config.workflowsDir);
+            defaultStepWorkflow = (0, resolve_workflows_js_1.loadWorkflow)(phase.workflow, config.workflowsDir, errors);
             break;
         }
     }

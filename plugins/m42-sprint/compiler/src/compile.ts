@@ -7,6 +7,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
+import { YAMLException } from 'js-yaml';
 import type {
   SprintDefinition,
   WorkflowDefinition,
@@ -30,6 +31,40 @@ import {
 } from './validate.js';
 
 /**
+ * Format a YAML parsing error with line numbers and context
+ *
+ * @param err - The error from yaml.load()
+ * @param filePath - Path to the file that failed to parse
+ * @returns Formatted error message with context
+ */
+export function formatYamlError(err: unknown, filePath: string): string {
+  if (err instanceof YAMLException) {
+    const parts: string[] = [];
+
+    // Add the reason
+    parts.push(err.reason || 'YAML parsing error');
+
+    // Add location if available
+    if (err.mark) {
+      // js-yaml uses 0-indexed line/column, display as 1-indexed
+      const line = err.mark.line + 1;
+      const column = err.mark.column + 1;
+      parts.push(`at line ${line}, column ${column}`);
+
+      // Add snippet if available (js-yaml provides context around the error)
+      if (err.mark.snippet) {
+        parts.push('\n' + err.mark.snippet);
+      }
+    }
+
+    return parts.join(' ');
+  }
+
+  // For non-YAML errors, return the message as-is
+  return err instanceof Error ? err.message : String(err);
+}
+
+/**
  * Main compilation function
  *
  * @param config - Compiler configuration
@@ -49,7 +84,7 @@ export async function compile(config: CompilerConfig): Promise<CompilerResult> {
   } catch (err) {
     errors.push({
       code: 'SPRINT_LOAD_ERROR',
-      message: `Failed to load SPRINT.yaml: ${err instanceof Error ? err.message : err}`,
+      message: `Failed to load SPRINT.yaml: ${formatYamlError(err, sprintYamlPath)}`,
       path: sprintYamlPath
     });
     return { success: false, errors, warnings };
@@ -67,17 +102,21 @@ export async function compile(config: CompilerConfig): Promise<CompilerResult> {
   }
 
   // Load the main workflow
-  const mainWorkflow = loadWorkflow(sprintDef.workflow, config.workflowsDir);
+  const mainWorkflow = loadWorkflow(sprintDef.workflow, config.workflowsDir, errors);
   if (!mainWorkflow) {
-    errors.push({
-      code: 'MAIN_WORKFLOW_NOT_FOUND',
-      message: `Main workflow not found: ${sprintDef.workflow}`,
-      path: 'workflow',
-      details: {
-        searchPath: config.workflowsDir,
-        workflowName: sprintDef.workflow
-      }
-    });
+    // Only add "not found" error if no parse error was added
+    const hasParseError = errors.some(e => e.code === 'WORKFLOW_PARSE_ERROR');
+    if (!hasParseError) {
+      errors.push({
+        code: 'MAIN_WORKFLOW_NOT_FOUND',
+        message: `Main workflow not found: ${sprintDef.workflow}`,
+        path: 'workflow',
+        details: {
+          searchPath: config.workflowsDir,
+          workflowName: sprintDef.workflow
+        }
+      });
+    }
     return { success: false, errors, warnings };
   }
 
@@ -132,7 +171,7 @@ export async function compile(config: CompilerConfig): Promise<CompilerResult> {
   let defaultStepWorkflow: LoadedWorkflow | null = null;
   for (const phase of mainWorkflow.definition.phases) {
     if (phase['for-each'] === 'step' && phase.workflow) {
-      defaultStepWorkflow = loadWorkflow(phase.workflow, config.workflowsDir);
+      defaultStepWorkflow = loadWorkflow(phase.workflow, config.workflowsDir, errors);
       break;
     }
   }

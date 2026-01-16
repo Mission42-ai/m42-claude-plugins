@@ -5,6 +5,14 @@
  */
 import type { CompilerConfig, CompilerResult } from './types.js';
 /**
+ * Format a YAML parsing error with line numbers and context
+ *
+ * @param err - The error from yaml.load()
+ * @param filePath - Path to the file that failed to parse
+ * @returns Formatted error message with context
+ */
+export declare function formatYamlError(err: unknown, filePath: string): string;
+/**
  * Main compilation function
  *
  * @param config - Compiler configuration

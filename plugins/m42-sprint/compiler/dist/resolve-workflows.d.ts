@@ -9,9 +9,10 @@ import type { WorkflowDefinition, LoadedWorkflow, CompilerError } from './types.
  *
  * @param name - Workflow name (without .yaml extension)
  * @param workflowsDir - Directory containing workflow files
- * @returns Loaded workflow or null if not found
+ * @param errors - Optional array to collect errors (for YAML parsing errors)
+ * @returns Loaded workflow or null if not found or failed to parse
  */
-export declare function loadWorkflow(name: string, workflowsDir: string): LoadedWorkflow | null;
+export declare function loadWorkflow(name: string, workflowsDir: string, errors?: CompilerError[]): LoadedWorkflow | null;
 /**
  * Resolve all workflow references recursively
  *
