@@ -661,6 +661,7 @@ phases:
 
 
 
+
                 ↓
               step-3
       ```
@@ -697,6 +698,7 @@ phases:
       - context/sprint-plan.md with step analysis
 
       - Commit preflight artifacts:
+
 
 
 
@@ -2937,11 +2939,13 @@ phases:
 
 
 
+
                 - workflow-schema.md (Full YAML schema reference)
                 - template-variables.md (All available template variables)
                 - phase-types.md (Simple vs for-each phase explanations)
                 - workflow-patterns.md (Common workflow patterns)
               - Create assets/ subdirectory with:
+
 
 
 
@@ -3988,6 +3992,7 @@ phases:
 
 
 
+
                 Given [precondition or context]
                 When [action taken]
                 Then [expected outcome]
@@ -4009,6 +4014,7 @@ phases:
               ```gherkin
 
               Scenario: Source file exists
+
 
 
 
@@ -5025,6 +5031,7 @@ phases:
 
 
 
+
                 Given the file src/auth/service.ts exists
                 When I run the TypeScript compiler
                 Then no compilation errors occur
@@ -5043,6 +5050,7 @@ phases:
               ```gherkin
 
               Scenario: Login function is exported
+
 
 
 
@@ -6059,6 +6067,7 @@ phases:
 
 
 
+
                 Given tests exist in src/auth/service.test.ts
                 When I run the test suite
                 Then all tests pass
@@ -6077,6 +6086,7 @@ phases:
               ```gherkin
 
               Scenario: Code passes linting
+
 
 
 
@@ -7113,11 +7123,13 @@ phases:
 
 
 
+
                 - workflow-schema.md (Full YAML schema reference)
                 - template-variables.md (All available template variables)
                 - phase-types.md (Simple vs for-each phase explanations)
                 - workflow-patterns.md (Common workflow patterns)
               - Create assets/ subdirectory with:
+
 
 
 
@@ -8200,11 +8212,13 @@ phases:
 
 
 
+
                 - workflow-schema.md (Full YAML schema reference)
                 - template-variables.md (All available template variables)
                 - phase-types.md (Simple vs for-each phase explanations)
                 - workflow-patterns.md (Common workflow patterns)
               - Create assets/ subdirectory with:
+
 
 
 
@@ -9236,11 +9250,13 @@ phases:
 
 
 
+
                  - Find similar implementations to follow as patterns
                  - Identify modules this step will import from
                  - Note any interfaces/types to implement or extend
 
               2. **Dependencies**
+
 
 
 
@@ -10244,11 +10260,13 @@ phases:
 
 
 
+
                  - How will this code be called/used?
                  - What modules will import from this step's output?
                  - Are there existing tests to extend?
 
               4. **Specific Patterns**
+
 
 
 
@@ -11276,11 +11294,13 @@ phases:
 
 
 
+
                 - workflow-schema.md (Full YAML schema reference)
                 - template-variables.md (All available template variables)
                 - phase-types.md (Simple vs for-each phase explanations)
                 - workflow-patterns.md (Common workflow patterns)
               - Create assets/ subdirectory with:
+
 
 
 
@@ -12337,6 +12357,7 @@ phases:
 
 
 
+
                 [relevant fields]
               }
 
@@ -12894,11 +12915,13 @@ phases:
 
 
 
+
                 - workflow-schema.md (Full YAML schema reference)
                 - template-variables.md (All available template variables)
                 - phase-types.md (Simple vs for-each phase explanations)
                 - workflow-patterns.md (Common workflow patterns)
               - Create assets/ subdirectory with:
+
 
 
 
@@ -14151,11 +14174,13 @@ phases:
 
 
 
+
                 - workflow-schema.md (Full YAML schema reference)
                 - template-variables.md (All available template variables)
                 - phase-types.md (Simple vs for-each phase explanations)
                 - workflow-patterns.md (Common workflow patterns)
               - Create assets/ subdirectory with:
+
 
 
 
@@ -17396,6 +17421,7 @@ phases:
 
 
 
+
                 Given [precondition or context]
                 When [action taken]
                 Then [expected outcome]
@@ -17417,6 +17443,7 @@ phases:
               ```gherkin
 
               Scenario: Source file exists
+
 
 
 
@@ -18433,6 +18460,7 @@ phases:
 
 
 
+
                 Given the file src/auth/service.ts exists
                 When I run the TypeScript compiler
                 Then no compilation errors occur
@@ -18451,6 +18479,7 @@ phases:
               ```gherkin
 
               Scenario: Login function is exported
+
 
 
 
@@ -19467,6 +19496,7 @@ phases:
 
 
 
+
                 Given tests exist in src/auth/service.test.ts
                 When I run the test suite
                 Then all tests pass
@@ -19485,6 +19515,7 @@ phases:
               ```gherkin
 
               Scenario: Code passes linting
+
 
 
 
@@ -20652,11 +20683,13 @@ phases:
 
 
 
+
                  - Find similar implementations to follow as patterns
                  - Identify modules this step will import from
                  - Note any interfaces/types to implement or extend
 
               2. **Dependencies**
+
 
 
 
@@ -21660,11 +21693,13 @@ phases:
 
 
 
+
                  - How will this code be called/used?
                  - What modules will import from this step's output?
                  - Are there existing tests to extend?
 
               4. **Specific Patterns**
+
 
 
 
@@ -22258,6 +22293,7 @@ phases:
               // From [source]
 
               interface [Name] {
+
 
 
 
@@ -25591,6 +25627,7 @@ phases:
 
 
 
+
             - "Estimated time remaining" in sprint header
             - Per-phase ETA based on similar past phases
             - Visual timeline showing projected completion
@@ -25644,6 +25681,7 @@ phases:
               - Calculate rolling averages per workflow/phase type
 
               - Display in status page:
+
 
 
 
@@ -26696,6 +26734,7 @@ phases:
 
 
 
+
                 Given [precondition or context]
                 When [action taken]
                 Then [expected outcome]
@@ -26717,6 +26756,7 @@ phases:
               ```gherkin
 
               Scenario: Source file exists
+
 
 
 
@@ -27733,6 +27773,7 @@ phases:
 
 
 
+
                 Given the file src/auth/service.ts exists
                 When I run the TypeScript compiler
                 Then no compilation errors occur
@@ -27751,6 +27792,7 @@ phases:
               ```gherkin
 
               Scenario: Login function is exported
+
 
 
 
@@ -28767,6 +28809,7 @@ phases:
 
 
 
+
                 Given tests exist in src/auth/service.test.ts
                 When I run the test suite
                 Then all tests pass
@@ -28785,6 +28828,7 @@ phases:
               ```gherkin
 
               Scenario: Code passes linting
+
 
 
 
@@ -29328,6 +29372,7 @@ phases:
               - Calculate rolling averages per workflow/phase type
 
               - Display in status page:
+
 
 
 
@@ -30422,6 +30467,7 @@ phases:
 
 
 
+
                 - "Estimated time remaining" in sprint header
                 - Per-phase ETA based on similar past phases
                 - Visual timeline showing projected completion
@@ -30461,6 +30507,7 @@ phases:
 
 
               1. **Related Existing Code**
+
 
 
 
@@ -31464,11 +31511,13 @@ phases:
 
 
 
+
                  - List imports needed from internal modules
                  - List any new external packages needed
                  - Check for peer dependencies or version constraints
 
               3. **Integration Points**
+
 
 
 
@@ -32472,6 +32521,7 @@ phases:
 
 
 
+
                  - Error handling patterns used in similar code
                  - Naming conventions for this area
                  - File organization patterns
@@ -32507,6 +32557,7 @@ phases:
               - Calculate rolling averages per workflow/phase type
 
               - Display in status page:
+
 
 
 
@@ -33569,6 +33620,7 @@ phases:
 
 
 
+
                 [relevant fields]
               }
 
@@ -33633,6 +33685,7 @@ phases:
               - Calculate rolling averages per workflow/phase type
 
               - Display in status page:
+
 
 
 
@@ -34398,6 +34451,7 @@ phases:
               - Calculate rolling averages per workflow/phase type
 
               - Display in status page:
+
 
 
 
@@ -35894,6 +35948,7 @@ phases:
     prompt: "Push the sprint branch and create a pull request.\n\n## Context\nRead: artifacts/sprint-summary.md for PR body content\nRead: artifacts/sprint-qa-report.md for verification checklist\n\n## Step 1: Ensure All Changes Committed\n```bash\ngit status\n```\nIf there are uncommitted changes, commit them appropriately.\n\n## Step 2: Push Branch\n```bash\ngit push -u origin sprint/2026-01-16_plugin-enhancements\n```\n\n## Step 3: Create Pull Request\nUse the sprint summary to create a well-structured PR:\n\n```bash\ngh pr create \\\n  --title \"Sprint: 2026-01-16_plugin-enhancements\" \\\n  --body \"$(cat <<'EOF'\n## Summary\n[Extract key points from sprint-summary.md]\n\n## Changes\n[List of major changes from summary]\n\n## Verification Checklist\n- [x] Build passes\n- [x] TypeCheck passes\n- [x] Lint passes\n- [x] Tests pass\n- [x] Integration verified\n- [x] No regressions\n\n## Test Results\n[Extract from sprint-qa-report.md]\n\n## Files Changed\n[File list from summary]\n\n---\nFull details in `artifacts/sprint-summary.md`\n\n\U0001F916 Generated with Sprint Workflow\nEOF\n)\"\n```\n\n## Step 4: Output PR URL\nCapture and display the PR URL:\n```bash\ngh pr view --json url -q '.url'\n```\n\n## Output\n- Branch pushed to remote\n- Pull request created\n- PR URL displayed for user\n"
     started-at: "2026-01-16T15:35:47Z"
     completed-at: "2026-01-16T15:36:37Z"
+    elapsed: 00:00:50
 current:
   phase: 5
   step: 0

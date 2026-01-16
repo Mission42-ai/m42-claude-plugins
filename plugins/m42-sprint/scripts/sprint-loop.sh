@@ -598,12 +598,9 @@ for ((i=1; i<=MAX_ITERATIONS; i++)); do
   echo "Logging to: $LOG_FILE"
   echo ""
 
-  # Build claude command with optional hook config, tee output to .log file
-  if [[ -n "$HOOK_CONFIG" ]] && [[ -f "$HOOK_CONFIG" ]]; then
-    CLI_OUTPUT=$(claude -p "$PROMPT" --dangerously-skip-permissions --hook-config "$HOOK_CONFIG" 2>&1 | tee "$LOG_FILE") || CLI_EXIT_CODE=${PIPESTATUS[0]}
-  else
-    CLI_OUTPUT=$(claude -p "$PROMPT" --dangerously-skip-permissions 2>&1 | tee "$LOG_FILE") || CLI_EXIT_CODE=${PIPESTATUS[0]}
-  fi
+  # Build claude command, tee output to .log file
+  # Note: HOOK_CONFIG is accepted but not used - Claude Code hooks are configured via settings files
+  CLI_OUTPUT=$(claude -p "$PROMPT" --dangerously-skip-permissions 2>&1 | tee "$LOG_FILE") || CLI_EXIT_CODE=${PIPESTATUS[0]}
 
   if [[ "$CLI_EXIT_CODE" -ne 0 ]]; then
     echo ""
