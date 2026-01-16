@@ -1259,7 +1259,7 @@ phases:
           - Schema vollständig dokumentiert
           - Beispiele lauffähig
           - Validation Rules klar
-        status: in-progress
+        status: completed
         phases:
           - id: implement
             status: completed
@@ -1303,8 +1303,9 @@ phases:
               ## Complete this task fully before marking as done.
             started-at: "2026-01-16T16:48:10Z"
             completed-at: "2026-01-16T16:48:10Z"
+            elapsed: 00:00:00
           - id: qa
-            status: pending
+            status: completed
             prompt: |
               Quality Assurance verification for the m42-sprint plugin.
 
@@ -1436,6 +1437,8 @@ phases:
               - Focus on compilation and integration (no unit test suite yet)
               - Reference context/sprint-plan.md for acceptance criteria
               - QA failures MUST result in injected fix tasks, not just reports
+            started-at: "2026-01-16T16:49:55Z"
+            completed-at: "2026-01-16T16:50:00Z"
         started-at: "2026-01-16T16:48:10Z"
       - id: step-7
         prompt: |
@@ -2785,8 +2788,8 @@ phases:
     started-at: "2026-01-16T16:18:41Z"
 current:
   phase: 1
-  step: 6
-  sub-phase: 1
+  step: 7
+  sub-phase: 0
 stats:
   started-at: "2026-01-16T16:16:12Z"
   total-phases: 30
@@ -2794,6 +2797,6 @@ stats:
   total-steps: 14
   completed-steps: 0
   max-iterations: 30
-  current-iteration: 13
+  current-iteration: 14
   completed-at: "2026-01-16T16:24:41Z"
   elapsed: 00:08:29
