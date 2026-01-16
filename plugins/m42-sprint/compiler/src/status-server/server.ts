@@ -15,7 +15,9 @@ import type {
   AnySSEEvent,
   CompiledProgress,
 } from './status-types.js';
+import type { ActivityEvent } from './activity-types.js';
 import { ProgressWatcher } from './watcher.js';
+import { ActivityWatcher } from './activity-watcher.js';
 import { toStatusUpdate, generateDiffLogEntries, createLogEntry } from './transforms.js';
 import { getPageHtml } from './page.js';
 
@@ -43,11 +45,13 @@ export class StatusServer {
   private readonly config: Required<ServerConfig>;
   private server: http.Server | null = null;
   private watcher: ProgressWatcher | null = null;
+  private activityWatcher: ActivityWatcher | null = null;
   private clients: Map<string, SSEClient> = new Map();
   private keepAliveTimer: ReturnType<typeof setInterval> | null = null;
   private lastProgress: CompiledProgress | null = null;
   private clientIdCounter = 0;
   private progressFilePath: string;
+  private activityFilePath: string;
 
   constructor(config: ServerConfig) {
     this.config = {
@@ -58,6 +62,7 @@ export class StatusServer {
       debounceDelay: config.debounceDelay ?? 100,
     };
     this.progressFilePath = path.join(this.config.sprintDir, 'PROGRESS.yaml');
+    this.activityFilePath = path.join(this.config.sprintDir, '.sprint-activity.jsonl');
   }
 
   /**
@@ -86,6 +91,21 @@ export class StatusServer {
     });
 
     this.watcher.start();
+
+    // Set up activity watcher (does not require file to exist)
+    this.activityWatcher = new ActivityWatcher(this.activityFilePath, {
+      debounceDelay: this.config.debounceDelay,
+    });
+
+    this.activityWatcher.on('activity', (event: ActivityEvent) => {
+      this.broadcast('activity-event', event);
+    });
+
+    this.activityWatcher.on('error', (error) => {
+      console.error('[StatusServer] Activity watcher error:', error.message);
+    });
+
+    this.activityWatcher.start();
 
     // Start keep-alive timer
     this.keepAliveTimer = setInterval(() => {
@@ -124,6 +144,12 @@ export class StatusServer {
     if (this.watcher) {
       this.watcher.close();
       this.watcher = null;
+    }
+
+    // Stop activity watcher
+    if (this.activityWatcher) {
+      this.activityWatcher.close();
+      this.activityWatcher = null;
     }
 
     // Close HTTP server

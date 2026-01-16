@@ -44,6 +44,7 @@ const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const yaml = __importStar(require("js-yaml"));
 const watcher_js_1 = require("./watcher.js");
+const activity_watcher_js_1 = require("./activity-watcher.js");
 const transforms_js_1 = require("./transforms.js");
 const page_js_1 = require("./page.js");
 /**
@@ -60,11 +61,13 @@ class StatusServer {
     config;
     server = null;
     watcher = null;
+    activityWatcher = null;
     clients = new Map();
     keepAliveTimer = null;
     lastProgress = null;
     clientIdCounter = 0;
     progressFilePath;
+    activityFilePath;
     constructor(config) {
         this.config = {
             port: config.port ?? DEFAULT_PORT,
@@ -74,6 +77,7 @@ class StatusServer {
             debounceDelay: config.debounceDelay ?? 100,
         };
         this.progressFilePath = path.join(this.config.sprintDir, 'PROGRESS.yaml');
+        this.activityFilePath = path.join(this.config.sprintDir, '.sprint-activity.jsonl');
     }
     /**
      * Start the HTTP server and file watcher
@@ -96,6 +100,17 @@ class StatusServer {
             console.error('[StatusServer] Watcher error:', error.message);
         });
         this.watcher.start();
+        // Set up activity watcher (does not require file to exist)
+        this.activityWatcher = new activity_watcher_js_1.ActivityWatcher(this.activityFilePath, {
+            debounceDelay: this.config.debounceDelay,
+        });
+        this.activityWatcher.on('activity', (event) => {
+            this.broadcast('activity-event', event);
+        });
+        this.activityWatcher.on('error', (error) => {
+            console.error('[StatusServer] Activity watcher error:', error.message);
+        });
+        this.activityWatcher.start();
         // Start keep-alive timer
         this.keepAliveTimer = setInterval(() => {
             this.broadcastKeepAlive();
@@ -128,6 +143,11 @@ class StatusServer {
         if (this.watcher) {
             this.watcher.close();
             this.watcher = null;
+        }
+        // Stop activity watcher
+        if (this.activityWatcher) {
+            this.activityWatcher.close();
+            this.activityWatcher = null;
         }
         // Close HTTP server
         if (this.server) {

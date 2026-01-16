@@ -11,11 +11,13 @@ export declare class StatusServer {
     private readonly config;
     private server;
     private watcher;
+    private activityWatcher;
     private clients;
     private keepAliveTimer;
     private lastProgress;
     private clientIdCounter;
     private progressFilePath;
+    private activityFilePath;
     constructor(config: ServerConfig);
     /**
      * Start the HTTP server and file watcher
