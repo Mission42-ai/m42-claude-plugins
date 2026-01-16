@@ -50,6 +50,12 @@ MAX_RETRIES=0
 DELAY=2
 HOOK_CONFIG=""
 
+# Default exponential backoff delays in milliseconds: 1s, 5s, 30s
+BACKOFF_MS=(1000 5000 30000)
+
+# Retryable error types (auto-retry with backoff)
+RETRY_ON=("network" "rate-limit" "timeout")
+
 # Export PLUGIN_DIR for hook script to use
 export PLUGIN_DIR="${SCRIPT_DIR%/scripts}"
 
@@ -264,29 +270,212 @@ get_current_phase_path() {
   echo "$base_path"
 }
 
+# Classify error into categories: network, rate-limit, timeout, validation, logic
+# Returns error type via ERROR_TYPE variable
+classify_error() {
+  local exit_code="$1"
+  local error_output="$2"
+
+  # Check for specific exit codes first
+  if [[ "$exit_code" == "124" ]] || [[ "$exit_code" == "137" ]]; then
+    ERROR_TYPE="timeout"
+    return
+  fi
+
+  # Check for network errors
+  if echo "$error_output" | grep -qiE "ECONNREFUSED|ENOTFOUND|ETIMEDOUT|ECONNRESET|connection.*refused|connection.*reset|DNS.*failed|network.*error|socket.*hang.*up|unable.*to.*connect"; then
+    ERROR_TYPE="network"
+    return
+  fi
+
+  # Check for rate limiting
+  if echo "$error_output" | grep -qiE "429|rate.*limit|too.*many.*requests|throttl|quota.*exceeded|overloaded"; then
+    ERROR_TYPE="rate-limit"
+    return
+  fi
+
+  # Check for timeout errors
+  if echo "$error_output" | grep -qiE "timeout|timed.*out|exceeded.*time|deadline.*exceeded"; then
+    ERROR_TYPE="timeout"
+    return
+  fi
+
+  # Check for validation errors
+  if echo "$error_output" | grep -qiE "invalid.*input|schema.*error|validation.*failed|required.*field|malformed|parse.*error|syntax.*error"; then
+    ERROR_TYPE="validation"
+    return
+  fi
+
+  # Default to logic error
+  ERROR_TYPE="logic"
+}
+
+# Check if error type should be retried
+is_retryable() {
+  local error_type="$1"
+  for retryable_type in "${RETRY_ON[@]}"; do
+    if [[ "$error_type" == "$retryable_type" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+# Get backoff delay for current retry attempt
+get_backoff_delay() {
+  local retry_count=$1
+  local index=$((retry_count - 1))
+
+  # Clamp to last backoff value if exceeding array
+  if [[ $index -ge ${#BACKOFF_MS[@]} ]]; then
+    index=$((${#BACKOFF_MS[@]} - 1))
+  fi
+
+  if [[ $index -lt 0 ]]; then
+    index=0
+  fi
+
+  echo "${BACKOFF_MS[$index]}"
+}
+
+# Apply backoff delay before retry
+apply_backoff() {
+  local delay_ms=$1
+  local delay_s=$((delay_ms / 1000))
+  local phase_path=$(get_current_phase_path)
+
+  # Calculate next retry timestamp
+  local next_retry_at
+  if [[ "$(uname)" == "Darwin" ]]; then
+    next_retry_at=$(date -u -v+${delay_s}S +%Y-%m-%dT%H:%M:%SZ)
+  else
+    next_retry_at=$(date -u -d "+${delay_s} seconds" +%Y-%m-%dT%H:%M:%SZ)
+  fi
+
+  # Store next-retry-at in PROGRESS.yaml for UI display
+  yq -i "$phase_path.\"next-retry-at\" = \"$next_retry_at\"" "$PROGRESS_FILE"
+
+  echo "Waiting ${delay_s}s before retry (next retry at $next_retry_at)..."
+  sleep "$delay_s"
+
+  # Clear next-retry-at after backoff completes
+  yq -i "del($phase_path.\"next-retry-at\")" "$PROGRESS_FILE"
+}
+
+# Add entry to intervention queue for non-retryable errors
+add_to_intervention_queue() {
+  local phase_id="$1"
+  local error_msg="$2"
+  local error_category="$3"
+
+  local INTERVENTION_FILE="$SPRINT_DIR/intervention-queue.jsonl"
+  local timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+  # Truncate error message to 1000 chars and escape quotes
+  local truncated_error=$(echo "$error_msg" | head -c 1000 | sed 's/"/\\"/g' | tr '\n' ' ')
+
+  # Append to intervention queue
+  echo "{\"phaseId\":\"$phase_id\",\"error\":\"$truncated_error\",\"category\":\"$error_category\",\"timestamp\":\"$timestamp\"}" >> "$INTERVENTION_FILE"
+
+  echo "Added to intervention queue: $phase_id (category: $error_category)"
+}
+
+# Check for force-retry signal file
+check_force_retry() {
+  local FORCE_RETRY_FILE="$SPRINT_DIR/.force-retry-requested"
+  if [[ -f "$FORCE_RETRY_FILE" ]]; then
+    # Read and remove the signal file
+    local force_data=$(cat "$FORCE_RETRY_FILE")
+    rm -f "$FORCE_RETRY_FILE"
+    echo "Force retry requested: $force_data"
+    return 0
+  fi
+  return 1
+}
+
 # Helper function to handle phase failure with retry logic
 handle_phase_failure() {
   local exit_code="$1"
   local error_output="$2"
   local phase_path=$(get_current_phase_path)
 
+  # Classify the error
+  classify_error "$exit_code" "$error_output"
+  echo "Error classified as: $ERROR_TYPE"
+
+  # Store error category in PROGRESS.yaml
+  yq -i "$phase_path.\"error-category\" = \"$ERROR_TYPE\"" "$PROGRESS_FILE"
+
+  # Get phase ID for intervention queue
+  local phase_idx=$(yq -r '.current.phase // 0' "$PROGRESS_FILE")
+  local step_idx=$(yq -r '.current.step // "null"' "$PROGRESS_FILE")
+  local sub_phase_idx=$(yq -r '.current."sub-phase" // "null"' "$PROGRESS_FILE")
+  local phase_id=""
+
+  if [[ "$sub_phase_idx" != "null" ]] && [[ -n "$sub_phase_idx" ]]; then
+    phase_id=$(yq -r ".phases[$phase_idx].steps[$step_idx].phases[$sub_phase_idx].id // \"unknown\"" "$PROGRESS_FILE")
+  elif [[ "$step_idx" != "null" ]] && [[ -n "$step_idx" ]]; then
+    phase_id=$(yq -r ".phases[$phase_idx].steps[$step_idx].id // \"unknown\"" "$PROGRESS_FILE")
+  else
+    phase_id=$(yq -r ".phases[$phase_idx].id // \"unknown\"" "$PROGRESS_FILE")
+  fi
+
   # Get current retry count
   local retry_count=$(yq -r "$phase_path.\"retry-count\" // 0" "$PROGRESS_FILE")
 
-  if [[ "$retry_count" -lt "$MAX_RETRIES" ]]; then
-    # Increment retry count and keep status as in-progress for retry
-    local new_retry_count=$((retry_count + 1))
-    echo "Phase failed (attempt $new_retry_count/$((MAX_RETRIES + 1))). Retrying..."
-    yq -i "$phase_path.\"retry-count\" = $new_retry_count" "$PROGRESS_FILE"
-    yq -i "$phase_path.error = \"Exit code: $exit_code - $error_output\"" "$PROGRESS_FILE"
-    return 0  # Continue loop for retry
+  # Check if this error type is retryable
+  if is_retryable "$ERROR_TYPE"; then
+    if [[ "$retry_count" -lt "$MAX_RETRIES" ]]; then
+      # Increment retry count
+      local new_retry_count=$((retry_count + 1))
+      echo "Phase failed (attempt $new_retry_count/$((MAX_RETRIES + 1))). Error type: $ERROR_TYPE (retryable)"
+
+      yq -i "$phase_path.\"retry-count\" = $new_retry_count" "$PROGRESS_FILE"
+      yq -i "$phase_path.error = \"Exit code: $exit_code - $error_output\"" "$PROGRESS_FILE"
+
+      # Apply exponential backoff
+      local backoff_delay=$(get_backoff_delay "$new_retry_count")
+      apply_backoff "$backoff_delay"
+
+      return 0  # Continue loop for retry
+    else
+      # Max retries exhausted for retryable error, mark as blocked
+      echo "Phase failed after $((retry_count + 1)) attempt(s). Error type: $ERROR_TYPE (retries exhausted)"
+      yq -i "$phase_path.status = \"blocked\"" "$PROGRESS_FILE"
+      yq -i "$phase_path.error = \"Exit code: $exit_code - $error_output (retries exhausted)\"" "$PROGRESS_FILE"
+      yq -i '.status = "blocked"' "$PROGRESS_FILE"
+
+      # Add to intervention queue for human review
+      add_to_intervention_queue "$phase_id" "$error_output" "$ERROR_TYPE"
+
+      return 1  # Signal to exit loop
+    fi
   else
-    # Max retries exhausted, mark as blocked
-    echo "Phase failed after $((retry_count + 1)) attempt(s). Marking as blocked."
-    yq -i "$phase_path.status = \"blocked\"" "$PROGRESS_FILE"
-    yq -i "$phase_path.error = \"Exit code: $exit_code - $error_output (retries exhausted)\"" "$PROGRESS_FILE"
-    yq -i '.status = "blocked"' "$PROGRESS_FILE"
-    return 1  # Signal to exit loop
+    # Non-retryable error (validation, logic)
+    echo "Phase failed with non-retryable error type: $ERROR_TYPE"
+
+    if [[ "$ERROR_TYPE" == "validation" ]]; then
+      # Validation errors: mark as skipped (or blocked for human review)
+      echo "Validation error - marking phase as skipped"
+      yq -i "$phase_path.status = \"skipped\"" "$PROGRESS_FILE"
+      yq -i "$phase_path.error = \"Validation error (skipped): $exit_code - $error_output\"" "$PROGRESS_FILE"
+
+      # Add to intervention queue for review
+      add_to_intervention_queue "$phase_id" "$error_output" "$ERROR_TYPE"
+
+      return 0  # Continue to next phase (skip this one)
+    else
+      # Logic errors: require human intervention
+      echo "Logic error - requires human intervention"
+      yq -i "$phase_path.status = \"blocked\"" "$PROGRESS_FILE"
+      yq -i "$phase_path.error = \"Exit code: $exit_code - $error_output\"" "$PROGRESS_FILE"
+      yq -i '.status = "needs-human"' "$PROGRESS_FILE"
+
+      # Add to intervention queue with full context
+      add_to_intervention_queue "$phase_id" "$error_output" "$ERROR_TYPE"
+
+      return 1  # Signal to exit loop
+    fi
   fi
 }
 
@@ -365,6 +554,14 @@ for ((i=1; i<=MAX_ITERATIONS; i++)); do
   echo ""
   echo "=== Iteration $i/$MAX_ITERATIONS ==="
 
+  # Check for force-retry signal (bypasses normal backoff wait)
+  if check_force_retry; then
+    echo "Force retry detected - bypassing normal backoff"
+    # Clear any next-retry-at that may be set
+    phase_path=$(get_current_phase_path)
+    yq -i "del($phase_path.\"next-retry-at\")" "$PROGRESS_FILE" 2>/dev/null || true
+  fi
+
   # Write current iteration to PROGRESS.yaml for status display
   yq -i ".stats.\"current-iteration\" = $i" "$PROGRESS_FILE"
 
@@ -412,17 +609,18 @@ for ((i=1; i<=MAX_ITERATIONS; i++)); do
     echo ""
     echo "Warning: Claude CLI returned non-zero exit code: $CLI_EXIT_CODE"
 
-    # Handle the failure with retry logic
+    # Handle the failure with retry logic (includes error classification and backoff)
     ERROR_MSG=$(echo "$CLI_OUTPUT" | tail -c 500 | tr '\n' ' ')
     if ! handle_phase_failure "$CLI_EXIT_CODE" "$ERROR_MSG"; then
       echo ""
       echo "============================================================"
-      echo "SPRINT BLOCKED - Phase failed after exhausting retries"
+      echo "SPRINT BLOCKED - Phase failed (error type: $ERROR_TYPE)"
+      echo "Check intervention queue: $SPRINT_DIR/intervention-queue.jsonl"
       echo "============================================================"
       exit 1
     fi
 
-    # Retry will happen on next iteration, apply delay and continue
+    # Backoff already applied in handle_phase_failure, add normal delay
     if [[ $DELAY -gt 0 ]]; then
       sleep "$DELAY"
     fi
