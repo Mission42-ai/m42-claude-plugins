@@ -144,6 +144,18 @@ ${getStyles()}
             <div class="feed-empty">Waiting for updates...</div>
           </div>
         </section>
+
+        <section class="performance-metrics" id="performance-metrics-section">
+          <div class="section-header-row">
+            <h2 class="section-title">Performance Metrics</h2>
+            <div class="metrics-controls">
+              <button class="collapse-btn" id="collapse-metrics-btn" title="Collapse/Expand">▼</button>
+            </div>
+          </div>
+          <div class="performance-metrics-content" id="performance-metrics-content">
+            <div class="metrics-loading">Loading timing data...</div>
+          </div>
+        </section>
       </main>
     </div>
 
@@ -2079,6 +2091,163 @@ function getStyles() {
     }
 
     /* =====================================================
+       PERFORMANCE METRICS SECTION
+       ===================================================== */
+
+    .performance-metrics {
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      margin-top: 16px;
+    }
+
+    .performance-metrics.collapsed {
+      max-height: 36px;
+      overflow: hidden;
+    }
+
+    .metrics-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .performance-metrics-content {
+      padding: 16px;
+      background-color: var(--bg-primary);
+    }
+
+    .metrics-loading {
+      color: var(--text-muted);
+      font-style: italic;
+      text-align: center;
+      padding: 24px;
+    }
+
+    .metrics-empty {
+      color: var(--text-muted);
+      font-style: italic;
+      text-align: center;
+      padding: 24px;
+    }
+
+    /* Phase Timing Table */
+    .phase-timing-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 16px;
+    }
+
+    .phase-timing-table th,
+    .phase-timing-table td {
+      padding: 8px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .phase-timing-table th {
+      color: var(--text-secondary);
+      font-weight: 500;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .phase-timing-table td {
+      font-size: 13px;
+    }
+
+    .phase-timing-name {
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    .phase-timing-time {
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-family: var(--font-mono);
+    }
+
+    .phase-timing-duration {
+      color: var(--accent-blue);
+      font-weight: 500;
+      font-family: var(--font-mono);
+    }
+
+    /* Bar Chart Visualization */
+    .timing-bar-container {
+      width: 100%;
+      min-width: 100px;
+    }
+
+    .timing-bar {
+      height: 16px;
+      background-color: var(--accent-blue);
+      border-radius: 3px;
+      min-width: 4px;
+      transition: width 0.3s ease;
+    }
+
+    .timing-bar.fast {
+      background-color: var(--accent-green);
+    }
+
+    .timing-bar.medium {
+      background-color: var(--accent-yellow);
+    }
+
+    .timing-bar.slow {
+      background-color: var(--accent-red);
+    }
+
+    /* Sprint Totals Summary */
+    .metrics-totals {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .metrics-total-item {
+      padding: 12px;
+      background-color: var(--bg-secondary);
+      border-radius: 6px;
+      text-align: center;
+    }
+
+    .metrics-total-label {
+      display: block;
+      color: var(--text-secondary);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .metrics-total-value {
+      display: block;
+      color: var(--text-primary);
+      font-size: 18px;
+      font-weight: 600;
+      font-family: var(--font-mono);
+    }
+
+    .metrics-total-value.highlight {
+      color: var(--accent-blue);
+    }
+
+    .metrics-total-subtitle {
+      display: block;
+      color: var(--text-muted);
+      font-size: 11px;
+      margin-top: 2px;
+    }
+
+    /* =====================================================
        RESPONSIVE STYLES - Tablet and Mobile
        ===================================================== */
 
@@ -2546,7 +2715,10 @@ function getScript() {
         estimateTime: document.getElementById('estimate-time'),
         estimateConfidence: document.getElementById('estimate-confidence'),
         shortcutsHelpModal: document.getElementById('shortcuts-help-modal'),
-        shortcutsCloseBtn: document.getElementById('shortcuts-close-btn')
+        shortcutsCloseBtn: document.getElementById('shortcuts-close-btn'),
+        performanceMetricsSection: document.getElementById('performance-metrics-section'),
+        performanceMetricsContent: document.getElementById('performance-metrics-content'),
+        collapseMetricsBtn: document.getElementById('collapse-metrics-btn')
       };
 
       // State
@@ -2569,6 +2741,10 @@ function getScript() {
       let verbosityLevel = localStorage.getItem('verbosity') || 'detailed';
       let activityAutoScroll = true;
       let activityCollapsed = false;
+
+      // Performance Metrics State
+      let metricsCollapsed = false;
+      let currentTimingData = null;
 
       // Verbosity level ordering for filtering
       const VERBOSITY_ORDER = { minimal: 0, basic: 1, detailed: 2, verbose: 3 };
@@ -2753,6 +2929,7 @@ function getScript() {
         setupLogViewer();
         setupNotifications();
         setupKeyboardShortcuts();
+        setupPerformanceMetrics();
         // Update elapsed time every second
         setInterval(updateElapsedTimes, 1000);
         // Update relative times in activity panel
@@ -3749,6 +3926,9 @@ function getScript() {
         updateHeader(update.header);
         updatePhaseTree(update.phaseTree);
         updateCurrentTask(update.currentTask);
+
+        // Refresh performance metrics on status updates
+        fetchTimingData();
       }
 
       function updateHeader(header) {
@@ -4233,6 +4413,124 @@ function getScript() {
             el.title = absTime;
           }
         });
+      }
+
+      // Performance Metrics Functions
+      function setupPerformanceMetrics() {
+        // Toggle collapse button for metrics section
+        if (elements.collapseMetricsBtn) {
+          elements.collapseMetricsBtn.addEventListener('click', function() {
+            metricsCollapsed = !metricsCollapsed;
+            if (metricsCollapsed) {
+              elements.performanceMetricsSection.classList.add('collapsed');
+              this.textContent = '▶';
+            } else {
+              elements.performanceMetricsSection.classList.remove('collapsed');
+              this.textContent = '▼';
+            }
+          });
+        }
+
+        // Initial fetch
+        fetchTimingData();
+      }
+
+      async function fetchTimingData() {
+        try {
+          const response = await fetch('/api/timing');
+          if (!response.ok) {
+            throw new Error('Failed to fetch timing data');
+          }
+          const data = await response.json();
+          currentTimingData = data;
+          renderPerformanceMetrics(data);
+        } catch (err) {
+          console.error('[PerformanceMetrics] Error fetching timing data:', err);
+          if (elements.performanceMetricsContent) {
+            elements.performanceMetricsContent.innerHTML = '<div class="metrics-empty">Unable to load timing data</div>';
+          }
+        }
+      }
+
+      function formatMetricsDuration(ms) {
+        if (ms <= 0) return '0s';
+        const seconds = Math.floor(ms / 1000) % 60;
+        const minutes = Math.floor(ms / (1000 * 60)) % 60;
+        const hours = Math.floor(ms / (1000 * 60 * 60));
+
+        if (hours > 0) return hours + 'h ' + minutes + 'm';
+        if (minutes > 0) return minutes + 'm ' + seconds + 's';
+        return seconds + 's';
+      }
+
+      function getTimingBarClass(durationMs, maxDurationMs) {
+        const ratio = durationMs / maxDurationMs;
+        if (ratio <= 0.33) return 'fast';
+        if (ratio <= 0.66) return 'medium';
+        return 'slow';
+      }
+
+      function renderPerformanceMetrics(data) {
+        if (!elements.performanceMetricsContent) return;
+
+        const stats = data.historicalStats || [];
+
+        if (stats.length === 0) {
+          elements.performanceMetricsContent.innerHTML = '<div class="metrics-empty">No timing data available yet</div>';
+          return;
+        }
+
+        // Calculate totals
+        const maxDuration = Math.max(...stats.map(function(s) { return s.avgDurationMs; }));
+        const totalDurationMs = stats.reduce(function(sum, s) { return sum + s.avgDurationMs; }, 0);
+        const avgPhaseDuration = totalDurationMs / stats.length;
+        const longestPhase = stats.reduce(function(max, s) { return s.avgDurationMs > max.avgDurationMs ? s : max; });
+        const shortestPhase = stats.reduce(function(min, s) { return s.avgDurationMs < min.avgDurationMs ? s : min; });
+
+        // Build phase timing table HTML
+        let tableHtml = '<table class="phase-timing-table">' +
+          '<thead><tr>' +
+          '<th>Phase</th>' +
+          '<th>Duration</th>' +
+          '<th>Bar</th>' +
+          '</tr></thead><tbody>';
+
+        stats.forEach(function(stat) {
+          const widthPercent = maxDuration > 0 ? (stat.avgDurationMs / maxDuration) * 100 : 0;
+          const barClass = getTimingBarClass(stat.avgDurationMs, maxDuration);
+
+          tableHtml += '<tr>' +
+            '<td><span class="phase-timing-name">' + escapeHtml(stat.phaseId) + '</span></td>' +
+            '<td><span class="phase-timing-duration">' + formatMetricsDuration(stat.avgDurationMs) + '</span></td>' +
+            '<td><div class="timing-bar-container"><div class="timing-bar ' + barClass + '" style="width: ' + widthPercent + '%"></div></div></td>' +
+            '</tr>';
+        });
+
+        tableHtml += '</tbody></table>';
+
+        // Build totals HTML
+        let totalsHtml = '<div class="metrics-totals">' +
+          '<div class="metrics-total-item">' +
+            '<span class="metrics-total-label">Total Execution Time</span>' +
+            '<span class="metrics-total-value highlight">' + formatMetricsDuration(totalDurationMs) + '</span>' +
+          '</div>' +
+          '<div class="metrics-total-item">' +
+            '<span class="metrics-total-label">Average Phase Duration</span>' +
+            '<span class="metrics-total-value">' + formatMetricsDuration(avgPhaseDuration) + '</span>' +
+          '</div>' +
+          '<div class="metrics-total-item">' +
+            '<span class="metrics-total-label">Longest Phase</span>' +
+            '<span class="metrics-total-value">' + formatMetricsDuration(longestPhase.avgDurationMs) + '</span>' +
+            '<span class="metrics-total-subtitle">' + escapeHtml(longestPhase.phaseId) + '</span>' +
+          '</div>' +
+          '<div class="metrics-total-item">' +
+            '<span class="metrics-total-label">Shortest Phase</span>' +
+            '<span class="metrics-total-value">' + formatMetricsDuration(shortestPhase.avgDurationMs) + '</span>' +
+            '<span class="metrics-total-subtitle">' + escapeHtml(shortestPhase.phaseId) + '</span>' +
+          '</div>' +
+          '</div>';
+
+        elements.performanceMetricsContent.innerHTML = tableHtml + totalsHtml;
       }
 
       // Utilities
