@@ -149,7 +149,7 @@ Compile and start autonomous phase processing.
 
 **Arguments:**
 - `<directory>` - Path to sprint directory (required)
-- `--max-iterations N` - Safety limit (default: 60)
+- `--max-iterations N` - Override iteration limit (default: unlimited)
 - `--dry-run` - Preview compiled workflow without executing
 - `--recompile` - Force recompilation even if PROGRESS.yaml exists
 
@@ -853,7 +853,7 @@ You can also run sprints without automatic activity logging by using the `--no-s
 3. **Use appropriate workflows**: Match workflow to work type
 4. **Preview before running**: Use `--dry-run` to verify compilation
 5. **Monitor progress**: Check `/sprint-status` periodically
-6. **Set iteration limits**: Always use `--max-iterations` as safety
+6. **Trust the loop**: Default unlimited iterations - loop exits on completion or error status
 7. **Use workflow overrides**: Mix workflows within a sprint when needed
 8. **Recompile after changes**: Use `--recompile` after adding steps
 

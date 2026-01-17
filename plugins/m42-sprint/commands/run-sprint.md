@@ -22,7 +22,7 @@ The first argument MUST be the sprint directory path. Parse $ARGUMENTS to extrac
    - Must contain SPRINT.yaml
 
 2. **Options** (OPTIONAL):
-   - `--max-iterations N` - Maximum loop iterations (default: 60)
+   - `--max-iterations N` - Maximum loop iterations (default: unlimited, use 0 for unlimited)
    - `--dry-run` - Preview tasks without executing (read-only mode)
    - `--recompile` - Force recompilation even if PROGRESS.yaml exists
    - `--no-status` - Skip launching the live status server

@@ -91,7 +91,7 @@ Compile SPRINT.yaml through workflows and start the execution loop with fresh co
 **Options:**
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--max-iterations N` | 60 | Maximum loop iterations (safety limit) |
+| `--max-iterations N` | unlimited | Maximum loop iterations (0 = unlimited) |
 | `--dry-run` | - | Preview workflow without executing |
 | `--recompile` | - | Force recompilation even if PROGRESS.yaml exists |
 | `--no-status` | - | Skip launching the live status server |
