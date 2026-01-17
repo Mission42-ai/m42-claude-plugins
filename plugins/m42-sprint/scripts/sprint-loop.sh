@@ -19,7 +19,7 @@ ARGUMENTS:
   sprint-dir    Path to sprint directory (required)
 
 OPTIONS:
-  --max-iterations <n>    Maximum iterations (default: 100)
+  --max-iterations <n>    Maximum iterations (default: unlimited, 0 = unlimited)
   --max-retries <n>       Maximum retries per phase on failure (default: 0)
   --delay <seconds>       Delay between iterations (default: 2)
   -h, --help              Show this help message
@@ -39,13 +39,13 @@ EXIT CODES:
   2 - Human intervention required
 
 EXAMPLE:
-  sprint-loop.sh .claude/sprints/2026-01-15_my-sprint --max-iterations 100
+  sprint-loop.sh .claude/sprints/2026-01-15_my-sprint --max-iterations 0
 EOF
 }
 
 # Parse arguments
 SPRINT_DIR=""
-MAX_ITERATIONS=100
+MAX_ITERATIONS=0
 MAX_RETRIES=0
 DELAY=2
 HOOK_CONFIG=""
@@ -117,7 +117,34 @@ if ! command -v yq &> /dev/null; then
 fi
 
 SPRINT_NAME=$(basename "$SPRINT_DIR")
+SPRINT_YAML="$SPRINT_DIR/SPRINT.yaml"
 
+# Read max-iterations from SPRINT.yaml config if present and no CLI override was provided
+# CLI flag takes precedence over config file
+if [[ "$MAX_ITERATIONS" -eq 0 ]] && [[ "$CLI_MAX_ITER_SET" != "true" ]] && [[ -f "$SPRINT_YAML" ]]; then
+  CONFIG_MAX_ITER=$(yq -r '.config."max-iterations" // "null"' "$SPRINT_YAML" 2>/dev/null || echo "null")
+  if [[ "$CONFIG_MAX_ITER" != "null" ]]; then
+    if [[ "$CONFIG_MAX_ITER" == "unlimited" ]] || [[ "$CONFIG_MAX_ITER" == "0" ]]; then
+      MAX_ITERATIONS=0
+      echo "Config: max-iterations set to unlimited (from SPRINT.yaml)"
+    else
+      MAX_ITERATIONS="$CONFIG_MAX_ITER"
+      echo "Config: max-iterations set to $MAX_ITERATIONS (from SPRINT.yaml)"
+    fi
+  fi
+fi
+
+# Handle unlimited iterations (0 = unlimited, use very large number for bash for-loop)
+UNLIMITED_MODE=false
+if [[ "$MAX_ITERATIONS" -eq 0 ]]; then
+  UNLIMITED_MODE=true
+  # Use a very large number that effectively means unlimited
+  # 2147483647 is max signed 32-bit int, but we use 1000000 for sanity
+  MAX_ITERATIONS=000
+  echo "Running in unlimited iteration mode (will only stop on status conditions)"
+fi
+
+# Cleanup function to remove sprint hook from settings on exit
 # Cleanup function to remove sprint hook from settings on exit
 cleanup_hook_config() {
   # Remove sprint hook from .claude/settings.json
@@ -551,7 +578,11 @@ echo "============================================================"
 echo ""
 echo "Sprint: $SPRINT_NAME"
 echo "Directory: $SPRINT_DIR"
-echo "Max iterations: $MAX_ITERATIONS"
+if [[ "$UNLIMITED_MODE" == "true" ]]; then
+  echo "Max iterations: unlimited (loop until completion)"
+else
+  echo "Max iterations: $MAX_ITERATIONS"
+fi
 echo "Max retries per phase: $MAX_RETRIES"
 echo ""
 
@@ -618,7 +649,11 @@ yq -i ".stats.\"max-iterations\" = $MAX_ITERATIONS" "$PROGRESS_FILE"
 # Main loop
 for ((i=1; i<=MAX_ITERATIONS; i++)); do
   echo ""
-  echo "=== Iteration $i/$MAX_ITERATIONS ==="
+  if [[ "$UNLIMITED_MODE" == "true" ]]; then
+    echo "=== Iteration $i (unlimited mode) ==="
+  else
+    echo "=== Iteration $i/$MAX_ITERATIONS ==="
+  fi
 
   # Check for force-retry signal (bypasses normal backoff wait)
   if check_force_retry; then
@@ -786,8 +821,20 @@ for ((i=1; i<=MAX_ITERATIONS; i++)); do
   fi
 done
 
+
 echo ""
 echo "============================================================"
-echo "MAX ITERATIONS REACHED"
+echo "ITERATION LIMIT REACHED ($MAX_ITERATIONS iterations)"
 echo "============================================================"
+echo ""
+echo "The sprint loop has reached its iteration limit but the sprint"
+echo "is not yet complete. This is a safety limit, not a failure."
+echo ""
+echo "Options:"
+echo "  1. Resume with: /run-sprint $SPRINT_DIR"
+echo "  2. Increase limit: --max-iterations <N> or set in SPRINT.yaml:"
+echo "     config:"
+echo "       max-iterations: unlimited"
+echo ""
+echo "Current status: $(yq -r '.status' "$PROGRESS_FILE")"
 exit 1

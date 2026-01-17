@@ -113,6 +113,7 @@ Steps can be either strings or objects. String steps are normalized to objects d
 | `max-tasks` | number | - | Maximum tasks before automatic pause |
 | `time-box` | string | - | Time limit (e.g., "2h", "30m", "1h30m") |
 | `auto-commit` | boolean | false | Automatically commit after each step |
+| `max-iterations` | number | "unlimited" | 10000 | Maximum loop iterations (0 or "unlimited" for no limit) |
 
 ## Step Format Variants
 

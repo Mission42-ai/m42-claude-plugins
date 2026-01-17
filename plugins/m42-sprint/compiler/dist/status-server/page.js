@@ -1228,8 +1228,33 @@ function getStyles() {
       animation: pulse 1s infinite;
     }
 
+    .status-dot.connection-lost {
+      background-color: var(--accent-red);
+      animation: pulse 1.5s infinite;
+    }
+
+    .status-dot.reconnecting {
+      background-color: var(--accent-yellow);
+      animation: pulse 1s infinite;
+    }
+
     .status-text {
       color: var(--text-secondary);
+    }
+
+    .connection-retry-btn {
+      background-color: var(--accent-blue);
+      color: white;
+      border: none;
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-size: 10px;
+      cursor: pointer;
+      margin-left: 6px;
+    }
+
+    .connection-retry-btn:hover {
+      background-color: #4090e0;
     }
 
     .elapsed {
@@ -2125,6 +2150,10 @@ function getScript() {
       let eventSource = null;
       let reconnectAttempts = 0;
       const maxReconnectDelay = 30000;
+      const maxReconnectAttempts = 10;
+      let reconnectCountdown = 0;
+      let countdownTimer = null;
+      let wasReconnecting = false;
       const activityLog = [];
       const maxLogEntries = 100;
       let expandedNodes = new Set();
@@ -3172,6 +3201,11 @@ function getScript() {
         eventSource = new EventSource('/events');
 
         eventSource.onopen = function() {
+          clearCountdownTimer();
+          // Show toast if we were reconnecting
+          if (reconnectAttempts > 0) {
+            showToast('success', 'Connection restored');
+          }
           reconnectAttempts = 0;
           updateConnectionStatus('connected');
         };
@@ -3214,15 +3248,63 @@ function getScript() {
         });
       }
 
+      function clearCountdownTimer() {
+        if (countdownTimer) {
+          clearInterval(countdownTimer);
+          countdownTimer = null;
+        }
+        reconnectCountdown = 0;
+      }
+
+      function startCountdownTimer(delaySec) {
+        clearCountdownTimer();
+        reconnectCountdown = delaySec;
+        updateConnectionStatus('reconnecting');
+
+        countdownTimer = setInterval(function() {
+          reconnectCountdown--;
+          if (reconnectCountdown > 0) {
+            updateConnectionStatus('reconnecting');
+          } else {
+            clearCountdownTimer();
+          }
+        }, 1000);
+      }
+
       function scheduleReconnect() {
         reconnectAttempts++;
+
+        // Check if max attempts reached
+        if (reconnectAttempts > maxReconnectAttempts) {
+          clearCountdownTimer();
+          updateConnectionStatus('connection-lost');
+          return;
+        }
+
         const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), maxReconnectDelay);
+        const delaySec = Math.ceil(delay / 1000);
+
+        // Start countdown timer
+        startCountdownTimer(delaySec);
+
         setTimeout(connect, delay);
+      }
+
+      function manualReconnect() {
+        reconnectAttempts = 0;
+        clearCountdownTimer();
+        connect();
       }
 
       function updateConnectionStatus(status) {
         const dot = elements.connectionStatus.querySelector('.status-dot');
         const text = elements.connectionStatus.querySelector('.status-text');
+
+        // Remove existing retry button if present
+        const existingBtn = elements.connectionStatus.querySelector('.connection-retry-btn');
+        if (existingBtn) {
+          existingBtn.remove();
+        }
 
         dot.className = 'status-dot ' + status;
 
@@ -3235,6 +3317,18 @@ function getScript() {
             break;
           case 'disconnected':
             text.textContent = 'Disconnected - Reconnecting...';
+            break;
+          case 'reconnecting':
+            text.textContent = 'Reconnecting in ' + reconnectCountdown + 's... (attempt ' + reconnectAttempts + '/' + maxReconnectAttempts + ')';
+            break;
+          case 'connection-lost':
+            text.textContent = 'Connection lost';
+            // Add retry button
+            const retryBtn = document.createElement('button');
+            retryBtn.className = 'connection-retry-btn';
+            retryBtn.textContent = 'Retry';
+            retryBtn.onclick = manualReconnect;
+            elements.connectionStatus.appendChild(retryBtn);
             break;
         }
       }
