@@ -2987,6 +2987,13 @@ function getScript(): string {
       }
 
       function updateElapsedTimes() {
+        // Skip updates for terminal/paused statuses
+        // Timer stops for: 'completed', 'failed', 'blocked', 'needs-human'
+        // Timer freezes for: 'paused' (resumes when status changes back to 'in-progress')
+        if (currentSprintStatus && ['completed', 'failed', 'blocked', 'needs-human', 'paused'].includes(currentSprintStatus)) {
+          return;
+        }
+
         // Update footer elapsed time
         const startedAt = elements.elapsed.dataset.startedAt;
         if (startedAt) {
