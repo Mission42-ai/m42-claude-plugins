@@ -4,22 +4,36 @@
  */
 
 /**
+ * Navigation context for sprint detail pages
+ */
+export interface SprintNavigation {
+  /** Current sprint ID */
+  currentSprintId: string;
+  /** List of available sprints for switcher (max 10, newest first) */
+  availableSprints: Array<{ sprintId: string; status: string }>;
+}
+
+/**
  * Generate the complete HTML page for the status dashboard
+ * @param navigation Optional navigation context for sprint switching
  * @returns Complete HTML document as a string
  */
-export function getPageHtml(): string {
+export function getPageHtml(navigation?: SprintNavigation): string {
+  const navBar = navigation ? generateNavigationBar(navigation) : '';
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sprint Status</title>
+  <title>Sprint Status${navigation ? ` - ${navigation.currentSprintId}` : ''}</title>
   <style>
 ${getStyles()}
   </style>
 </head>
 <body>
   <div class="container">
+    ${navBar}
     <header class="header">
       <div class="header-left">
         <h1 class="sprint-name" id="sprint-name">Loading...</h1>
@@ -235,6 +249,52 @@ ${getScript()}
 }
 
 /**
+ * Generate the navigation bar HTML for sprint detail pages
+ */
+function generateNavigationBar(navigation: SprintNavigation): string {
+  const sprintOptions = navigation.availableSprints
+    .slice(0, 10)
+    .map(sprint => {
+      const selected = sprint.sprintId === navigation.currentSprintId ? ' selected' : '';
+      const statusIndicator = sprint.status === 'in-progress' ? ' ●' : '';
+      return `<option value="${escapeHtml(sprint.sprintId)}"${selected}>${escapeHtml(sprint.sprintId)}${statusIndicator}</option>`;
+    })
+    .join('');
+
+  return `
+    <nav class="nav-bar">
+      <div class="nav-left">
+        <a href="/dashboard" class="nav-link nav-back">← Back to Dashboard</a>
+        <span class="breadcrumb">
+          <a href="/dashboard" class="breadcrumb-link">Dashboard</a>
+          <span class="breadcrumb-separator">›</span>
+          <span class="breadcrumb-current">Sprint: ${escapeHtml(navigation.currentSprintId)}</span>
+        </span>
+      </div>
+      <div class="nav-right">
+        <label class="sprint-switcher">
+          <span class="sprint-switcher-label">Sprint:</span>
+          <select id="sprint-select" class="sprint-select" onchange="window.location.href='/sprint/' + this.value">
+            ${sprintOptions}
+          </select>
+        </label>
+      </div>
+    </nav>`;
+}
+
+/**
+ * Escape HTML special characters
+ */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+/**
  * Generate the CSS styles for the status page
  */
 function getStyles(): string {
@@ -276,6 +336,103 @@ function getStyles(): string {
       flex-direction: column;
       height: 100vh;
       max-width: 100%;
+    }
+
+    /* Navigation Bar */
+    .nav-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 20px;
+      background-color: var(--bg-primary);
+      border-bottom: 1px solid var(--border-color);
+      flex-shrink: 0;
+    }
+
+    .nav-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .nav-link {
+      color: var(--accent-blue);
+      text-decoration: none;
+      font-size: 13px;
+      padding: 6px 12px;
+      border-radius: 6px;
+      transition: background-color 0.15s;
+    }
+
+    .nav-link:hover {
+      background-color: var(--bg-tertiary);
+    }
+
+    .nav-back {
+      font-weight: 500;
+    }
+
+    .breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .breadcrumb-link {
+      color: var(--accent-blue);
+      text-decoration: none;
+    }
+
+    .breadcrumb-link:hover {
+      text-decoration: underline;
+    }
+
+    .breadcrumb-separator {
+      color: var(--text-muted);
+    }
+
+    .breadcrumb-current {
+      color: var(--text-primary);
+    }
+
+    .sprint-switcher {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sprint-switcher-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .sprint-select {
+      background-color: var(--bg-tertiary);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      cursor: pointer;
+      min-width: 180px;
+    }
+
+    .sprint-select:hover {
+      border-color: var(--text-muted);
+    }
+
+    .sprint-select:focus {
+      outline: none;
+      border-color: var(--accent-blue);
     }
 
     /* Header */

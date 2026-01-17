@@ -25,7 +25,7 @@ import type { ActivityEvent } from './activity-types.js';
 import { ProgressWatcher } from './watcher.js';
 import { ActivityWatcher } from './activity-watcher.js';
 import { toStatusUpdate, generateDiffLogEntries, createLogEntry, type TimingInfo } from './transforms.js';
-import { getPageHtml } from './page.js';
+import { getPageHtml, type SprintNavigation } from './page.js';
 import { TimingTracker, type SprintTimingInfo, type PhaseTimingStats } from './timing-tracker.js';
 import { SprintScanner, type SprintSummary } from './sprint-scanner.js';
 import { MetricsAggregator, type AggregateMetrics } from './metrics-aggregator.js';
@@ -459,6 +459,16 @@ export class StatusServer extends EventEmitter {
         return;
       }
 
+      // Get all sprints for the navigation switcher (last 10)
+      const allSprints = scanner.scan();
+      const navigation: SprintNavigation = {
+        currentSprintId: sprintId,
+        availableSprints: allSprints.slice(0, 10).map(s => ({
+          sprintId: s.sprintId,
+          status: s.status,
+        })),
+      };
+
       // Check if this is the currently monitored sprint
       const currentSprintId = this.getCurrentSprintId();
       if (sprintId === currentSprintId) {
@@ -467,7 +477,7 @@ export class StatusServer extends EventEmitter {
           'Content-Type': 'text/html; charset=utf-8',
           'Cache-Control': 'no-cache',
         });
-        res.end(getPageHtml());
+        res.end(getPageHtml(navigation));
       } else {
         // For other sprints, show a static view (currently serve same page with note)
         // Future: could show read-only historical view
@@ -475,7 +485,7 @@ export class StatusServer extends EventEmitter {
           'Content-Type': 'text/html; charset=utf-8',
           'Cache-Control': 'no-cache',
         });
-        res.end(getPageHtml());
+        res.end(getPageHtml(navigation));
       }
     } catch (error) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
