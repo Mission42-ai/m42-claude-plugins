@@ -3,6 +3,7 @@
  * Serves the HTML page and streams real-time progress updates
  */
 
+import { EventEmitter } from 'events';
 import * as http from 'http';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -67,10 +68,24 @@ const DEFAULT_PORT = 3100;
 const DEFAULT_HOST = 'localhost';
 
 /**
+ * Default timeout for server ready signal in milliseconds
+ */
+const DEFAULT_READY_TIMEOUT = 10_000; // 10 seconds
+
+/**
+ * Events emitted by StatusServer
+ */
+export interface StatusServerEvents {
+  ready: [];
+  error: [error: Error];
+  close: [];
+}
+
+/**
  * Status Server class
  * Manages HTTP server, SSE connections, and file watching
  */
-export class StatusServer {
+export class StatusServer extends EventEmitter {
   private readonly config: Required<ServerConfig>;
   private server: http.Server | null = null;
   private watcher: ProgressWatcher | null = null;
@@ -82,8 +97,10 @@ export class StatusServer {
   private clientIdCounter = 0;
   private progressFilePath: string;
   private activityFilePath: string;
+  private isReady = false;
 
   constructor(config: ServerConfig) {
+    super();
     this.config = {
       port: config.port ?? DEFAULT_PORT,
       host: config.host ?? DEFAULT_HOST,
@@ -153,6 +170,8 @@ export class StatusServer {
       });
 
       this.server!.listen(this.config.port, this.config.host, () => {
+        this.isReady = true;
+        this.emit('ready');
         resolve();
       });
     });
@@ -195,6 +214,31 @@ export class StatusServer {
         });
       });
     }
+  }
+
+  /**
+   * Wait for the server to be ready to accept connections
+   * Resolves immediately if already ready, otherwise waits for 'ready' event
+   * @throws Error if server doesn't become ready within timeout (10 seconds)
+   */
+  waitForReady(): Promise<void> {
+    const timeout = DEFAULT_READY_TIMEOUT;
+    // If already ready, resolve immediately
+    if (this.isReady) {
+      return Promise.resolve();
+    }
+
+    // Wait for ready event with timeout
+    return Promise.race([
+      new Promise<void>((resolve) => {
+        this.once('ready', resolve);
+      }),
+      new Promise<void>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error(`Server failed to start within ${timeout}ms timeout`));
+        }, timeout);
+      }),
+    ]);
   }
 
   /**
