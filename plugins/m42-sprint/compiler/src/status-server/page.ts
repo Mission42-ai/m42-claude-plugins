@@ -2090,6 +2090,409 @@ function getStyles(): string {
       text-decoration: underline;
       text-underline-offset: 2px;
     }
+
+    /* =====================================================
+       RESPONSIVE STYLES - Tablet and Mobile
+       ===================================================== */
+
+    /* Tablet Breakpoint: 1024px and below */
+    @media (max-width: 1024px) {
+      .sidebar {
+        width: 280px;
+      }
+
+      .nav-bar {
+        padding: 8px 16px;
+      }
+
+      .header {
+        padding: 10px 16px;
+      }
+
+      .content {
+        padding: 16px;
+      }
+
+      .nav-left {
+        gap: 12px;
+      }
+
+      .nav-right {
+        gap: 8px;
+      }
+
+      .sprint-switcher {
+        max-width: 180px;
+      }
+    }
+
+    /* Mobile Breakpoint: 768px and below */
+    @media (max-width: 768px) {
+      /* Main layout: stack vertically */
+      .main {
+        flex-direction: column;
+        overflow: auto;
+      }
+
+      .sidebar {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+        max-height: 40vh;
+        flex-shrink: 0;
+      }
+
+      .content {
+        flex: 1;
+        overflow: auto;
+        padding: 12px;
+      }
+
+      /* Navigation adjustments */
+      .nav-bar {
+        padding: 8px 12px;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .nav-left {
+        gap: 8px;
+      }
+
+      .nav-right {
+        gap: 6px;
+      }
+
+      .breadcrumb {
+        font-size: 12px;
+        gap: 4px;
+      }
+
+      .nav-link {
+        padding: 8px 10px;
+        font-size: 12px;
+      }
+
+      /* Header adjustments */
+      .header {
+        padding: 10px 12px;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .sprint-info h1 {
+        font-size: 16px;
+      }
+
+      .sprint-info-row {
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .progress-section {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+      }
+
+      .elapsed {
+        font-size: 12px;
+      }
+
+      /* Touch-friendly control buttons - 44px minimum height */
+      .control-btn {
+        padding: 12px 16px;
+        min-height: 44px;
+        font-size: 13px;
+      }
+
+      .controls {
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      /* Hide keyboard shortcut hints on mobile */
+      .kbd-hint {
+        display: none;
+      }
+
+      /* Sidebar title and phase tree */
+      .sidebar-title {
+        padding: 10px 12px 6px;
+        font-size: 10px;
+      }
+
+      .tree-node {
+        padding: 6px 10px 6px 0;
+      }
+
+      .tree-node-content {
+        padding: 6px 10px;
+      }
+
+      /* Activity panel on mobile */
+      .live-activity {
+        max-height: 250px;
+      }
+
+      .live-activity.collapsed {
+        max-height: 44px;
+      }
+
+      .activity-header {
+        padding: 10px 12px;
+        min-height: 44px;
+      }
+
+      .activity-header-left {
+        gap: 8px;
+      }
+
+      .collapse-btn {
+        min-width: 44px;
+        min-height: 44px;
+        padding: 10px;
+      }
+
+      .activity-controls select,
+      .activity-controls button {
+        min-height: 36px;
+        padding: 6px 10px;
+      }
+
+      /* Log viewer on mobile */
+      .log-viewer-body {
+        overflow-x: auto;
+        padding: 10px;
+      }
+
+      .log-viewer-body pre {
+        white-space: pre;
+        min-width: max-content;
+      }
+
+      .log-viewer-header {
+        padding: 12px;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .log-search-container {
+        width: 100%;
+        order: 1;
+      }
+
+      .log-search-input {
+        min-height: 40px;
+      }
+
+      .log-search-nav button {
+        min-width: 40px;
+        min-height: 40px;
+      }
+
+      .log-actions {
+        width: 100%;
+        justify-content: space-between;
+        order: 2;
+      }
+
+      .log-actions button {
+        min-height: 44px;
+        padding: 10px 14px;
+      }
+
+      /* Modal adjustments */
+      .modal-content {
+        margin: 10px;
+        max-height: calc(100vh - 20px);
+      }
+
+      .modal-header,
+      .modal-body,
+      .modal-footer {
+        padding: 12px;
+      }
+
+      .modal-btn {
+        min-height: 44px;
+        padding: 10px 16px;
+      }
+
+      /* Current task section */
+      .current-task {
+        padding: 12px;
+      }
+
+      .task-header h3 {
+        font-size: 11px;
+      }
+
+      .task-body {
+        padding: 10px;
+      }
+
+      /* Notification settings panel */
+      .notification-settings-panel {
+        width: calc(100vw - 20px);
+        max-width: 320px;
+        right: 10px;
+        top: auto;
+        bottom: 60px;
+      }
+
+      .notification-toggle,
+      .test-notification-btn {
+        min-height: 44px;
+      }
+
+      /* Toast notifications */
+      .toast-container {
+        bottom: 12px;
+        right: 12px;
+        left: 12px;
+        max-width: none;
+      }
+
+      .toast {
+        padding: 12px;
+      }
+
+      /* Estimate display */
+      .estimate-display {
+        font-size: 11px;
+        padding: 4px 8px;
+      }
+
+      /* Sprint switcher */
+      .sprint-switcher {
+        max-width: 140px;
+      }
+
+      .sprint-switcher select {
+        padding: 6px 8px;
+        font-size: 11px;
+      }
+
+      /* Connection status */
+      .connection-status {
+        font-size: 11px;
+        padding: 4px 8px;
+      }
+
+      /* Shortcuts modal */
+      .shortcuts-content {
+        width: calc(100vw - 20px);
+        max-width: 320px;
+      }
+
+      .shortcut-row {
+        padding: 10px 0;
+      }
+
+      .shortcut-row kbd {
+        min-width: 28px;
+        padding: 6px 10px;
+      }
+
+      /* Phase action buttons touch-friendly */
+      .phase-action-btn {
+        min-width: 44px;
+        min-height: 44px;
+        padding: 10px;
+      }
+
+      /* Skip/Retry buttons */
+      .skip-btn,
+      .retry-btn,
+      .view-log-btn {
+        min-height: 44px;
+        padding: 10px 14px;
+      }
+
+      /* Error details section */
+      .error-details {
+        padding: 10px;
+      }
+
+      .error-recovery {
+        padding: 8px;
+      }
+
+      /* Reduced padding throughout */
+      .section {
+        padding: 10px;
+      }
+
+      .card {
+        padding: 10px;
+      }
+    }
+
+    /* Very small mobile: 480px and below */
+    @media (max-width: 480px) {
+      body {
+        font-size: 12px;
+      }
+
+      .nav-bar {
+        padding: 6px 10px;
+      }
+
+      .header {
+        padding: 8px 10px;
+      }
+
+      .sprint-info h1 {
+        font-size: 14px;
+      }
+
+      .sidebar {
+        max-height: 35vh;
+      }
+
+      .content {
+        padding: 10px;
+      }
+
+      .control-btn {
+        padding: 10px 12px;
+        font-size: 12px;
+      }
+
+      .controls {
+        flex-direction: column;
+        width: 100%;
+      }
+
+      .controls .control-btn {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .modal-content {
+        margin: 5px;
+      }
+
+      .log-viewer-header {
+        padding: 10px;
+      }
+
+      .log-actions button {
+        padding: 8px 10px;
+        font-size: 11px;
+      }
+
+      /* Activity panel full collapse */
+      .activity-header {
+        padding: 8px 10px;
+      }
+
+      .activity-controls {
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+    }
   `;
 }
 
