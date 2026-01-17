@@ -1,0 +1,8 @@
+Context sub-phase complete for step-5. I've gathered implementation context including:
+
+- **Related patterns**: CLI option definition, server startup sequence, `waitForReady()` method, browser opener utility
+- **Required imports**: `openBrowser` from `./browser.js`
+- **Integration points**: How status server is launched by sprint-loop and run-sprint command
+- **Implementation notes**: Commander `--no-browser` option conversion, startup sequence with `waitForReady()`, URL logging
+
+The context document is saved at `context/step-5-context.md` and PROGRESS.yaml has been updated to advance to the next sub-phase (implement).

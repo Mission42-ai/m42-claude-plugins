@@ -44,6 +44,7 @@ const commander_1 = require("commander");
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const server_js_1 = require("./server.js");
+const browser_js_1 = require("./browser.js");
 const program = new commander_1.Command();
 program
     .name('sprint-status-server')
@@ -53,6 +54,7 @@ program
     .argument('<sprint-dir>', 'Path to the sprint directory containing PROGRESS.yaml')
     .option('-p, --port <number>', 'Port to listen on', '3100')
     .option('-H, --host <host>', 'Host to bind to', 'localhost')
+    .option('--no-browser', 'Disable automatic browser opening')
     .action(async (sprintDir, options) => {
     try {
         // Resolve paths
@@ -102,6 +104,7 @@ program
         process.on('SIGTERM', () => shutdown('SIGTERM'));
         // Start server
         await server.start();
+        await server.waitForReady();
         // Write port to discovery file
         fs.writeFileSync(portFilePath, port.toString(), 'utf-8');
         // Display server URL
@@ -110,6 +113,10 @@ program
         console.log(`  URL: ${url}`);
         console.log(`  Watching: ${progressYamlPath}`);
         console.log(`  Port file: ${portFilePath}`);
+        // Open browser if not disabled
+        if (options.browser) {
+            (0, browser_js_1.openBrowser)(url);
+        }
         console.log('');
         console.log('Press Ctrl+C to stop');
     }
