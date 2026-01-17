@@ -1,0 +1,5 @@
+{"phaseId":"preflight","workflow":"unknown","startTime":"2026-01-17T00:35:52Z","endTime":"2026-01-17T00:35:52Z","durationMs":0,"sprintId":"2026-01-17_plugin-enhancements"}
+{"phaseId":"plan","workflow":"unknown","startTime":"2026-01-17T00:38:43Z","endTime":"2026-01-17T00:38:43Z","durationMs":0,"sprintId":"2026-01-17_plugin-enhancements"}
+{"phaseId":"context","workflow":"unknown","startTime":"2026-01-17T00:40:42Z","endTime":"2026-01-17T00:40:42Z","durationMs":0,"sprintId":"2026-01-17_plugin-enhancements"}
+{"phaseId":"execute","workflow":"unknown","startTime":"2026-01-17T00:42:05Z","endTime":"2026-01-17T00:42:06Z","durationMs":1000,"sprintId":"2026-01-17_plugin-enhancements"}
+{"phaseId":"qa","workflow":"unknown","startTime":"2026-01-17T00:43:34Z","endTime":"2026-01-17T00:45:07Z","durationMs":93000,"sprintId":"2026-01-17_plugin-enhancements"}
