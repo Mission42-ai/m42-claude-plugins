@@ -10,6 +10,7 @@ import { Command } from 'commander';
 import * as fs from 'fs';
 import * as path from 'path';
 import { StatusServer } from './server.js';
+import { openBrowser } from './browser.js';
 
 const program = new Command();
 
@@ -22,7 +23,8 @@ program
   .argument('<sprint-dir>', 'Path to the sprint directory containing PROGRESS.yaml')
   .option('-p, --port <number>', 'Port to listen on', '3100')
   .option('-H, --host <host>', 'Host to bind to', 'localhost')
-  .action(async (sprintDir: string, options: { port: string; host: string }) => {
+  .option('--no-browser', 'Disable automatic browser opening')
+  .action(async (sprintDir: string, options: { port: string; host: string; browser: boolean }) => {
     try {
       // Resolve paths
       const absoluteSprintDir = path.resolve(sprintDir);
@@ -80,6 +82,7 @@ program
 
       // Start server
       await server.start();
+      await server.waitForReady();
 
       // Write port to discovery file
       fs.writeFileSync(portFilePath, port.toString(), 'utf-8');
@@ -90,6 +93,12 @@ program
       console.log(`  URL: ${url}`);
       console.log(`  Watching: ${progressYamlPath}`);
       console.log(`  Port file: ${portFilePath}`);
+
+      // Open browser if not disabled
+      if (options.browser) {
+        openBrowser(url);
+      }
+
       console.log('');
       console.log('Press Ctrl+C to stop');
     } catch (error) {

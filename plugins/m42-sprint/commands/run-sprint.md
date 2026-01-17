@@ -1,6 +1,6 @@
 ---
 allowed-tools: Bash(ls:*), Bash(test:*), Bash(grep:*), Bash(cat:*), Bash(sleep:*), Bash(rm:*), Bash(node:*), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/sprint-loop.sh:*), Read(*), Edit(*)
-argument-hint: <sprint-directory> [--max-iterations N] [--dry-run] [--recompile] [--no-status]
+argument-hint: <sprint-directory> [--max-iterations N] [--dry-run] [--recompile] [--no-status] [--no-browser]
 description: Start sprint execution loop (fresh context per task)
 model: sonnet
 ---
@@ -26,17 +26,19 @@ The first argument MUST be the sprint directory path. Parse $ARGUMENTS to extrac
    - `--dry-run` - Preview tasks without executing (read-only mode)
    - `--recompile` - Force recompilation even if PROGRESS.yaml exists
    - `--no-status` - Skip launching the live status server
+   - `--no-browser` - Disable automatic browser opening when status server starts
 
 If no sprint directory is provided, output this error and stop:
 ```
 Error: Sprint directory path is required.
 
-Usage: /run-sprint <sprint-directory> [--max-iterations N] [--dry-run] [--recompile] [--no-status]
+Usage: /run-sprint <sprint-directory> [--max-iterations N] [--dry-run] [--recompile] [--no-status] [--no-browser]
 
 Example: /run-sprint .claude/sprints/2026-01-15_my-sprint --max-iterations 50
 Example: /run-sprint .claude/sprints/2026-01-15_my-sprint --dry-run
 Example: /run-sprint .claude/sprints/2026-01-15_my-sprint --recompile
 Example: /run-sprint .claude/sprints/2026-01-15_my-sprint --no-status
+Example: /run-sprint .claude/sprints/2026-01-15_my-sprint --no-browser
 ```
 
 ## Preflight Checks
