@@ -77,6 +77,9 @@ ${getStyles()}
             <option value="bell">Bell</option>
           </select>
         </div>
+        <div class="notification-settings-section">
+          <button class="test-notification-btn" id="test-notification-btn">Test Notification</button>
+        </div>
       </div>
     </div>
 
@@ -1559,6 +1562,24 @@ function getStyles(): string {
       background-color: #4a9eff;
     }
 
+    .test-notification-btn {
+      padding: 6px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background-color: var(--bg-tertiary);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      width: 100%;
+    }
+
+    .test-notification-btn:hover {
+      background-color: var(--bg-secondary);
+      border-color: var(--accent-blue);
+    }
+
     .notification-settings-toggle {
       display: flex;
       align-items: center;
@@ -1684,6 +1705,7 @@ function getScript(): string {
         notifyHumanCheckbox: document.getElementById('notify-human'),
         soundEnabledCheckbox: document.getElementById('sound-enabled'),
         soundSelect: document.getElementById('sound-select'),
+        testNotificationBtn: document.getElementById('test-notification-btn'),
         estimateDisplay: document.getElementById('estimate-display'),
         estimateTime: document.getElementById('estimate-time'),
         estimateConfidence: document.getElementById('estimate-confidence')
@@ -1720,6 +1742,29 @@ function getScript(): string {
       // Notification state
       let previousSprintStatus = null;
       let notificationPreferences = loadNotificationPreferences();
+
+      // Shared AudioContext for notification sounds (pre-initialized on user interaction)
+      let sharedAudioContext = null;
+      let audioContextInitialized = false;
+
+      // Pre-initialize AudioContext on first user click (required by browser autoplay policy)
+      function initAudioContextOnUserInteraction() {
+        if (audioContextInitialized) return;
+        try {
+          sharedAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+          // Resume if suspended (required by some browsers)
+          if (sharedAudioContext.state === 'suspended') {
+            sharedAudioContext.resume();
+          }
+          audioContextInitialized = true;
+          console.log('[Notifications] AudioContext pre-initialized on user interaction');
+        } catch (e) {
+          console.warn('[Notifications] Failed to pre-initialize AudioContext:', e);
+        }
+      }
+
+      // Set up one-time click listener for AudioContext initialization
+      document.addEventListener('click', initAudioContextOnUserInteraction, { once: true });
 
       function getDefaultNotificationPreferences() {
         return {
@@ -2024,6 +2069,11 @@ function getScript(): string {
             playNotificationSound(this.value);
           }
         });
+
+        // Test notification button click handler
+        elements.testNotificationBtn.addEventListener('click', function() {
+          showNotification('Test', 'Notification test successful!');
+        });
       }
 
       function updateNotificationPermissionUI() {
@@ -2105,29 +2155,55 @@ function getScript(): string {
       }
 
       function showNotification(title, body) {
-        var notification = new Notification(title, {
-          body: body,
-          icon: '/favicon.ico',
-          tag: 'sprint-status'
-        });
-
-        notification.onclick = function() { window.focus(); notification.close(); };
-
-        // Play sound if enabled
-        if (notificationPreferences.sound.enabled) {
-          playNotificationSound(notificationPreferences.sound.soundId);
+        // Check if Notification API is available
+        if (!('Notification' in window)) {
+          console.warn('[Notifications] Notification API not available');
+          showToast('info', title + ': ' + body);
+          return;
         }
 
-        // Auto-close after 10 seconds
-        setTimeout(function() {
-          notification.close();
-        }, 10000);
+        // Check permission
+        if (Notification.permission !== 'granted') {
+          console.warn('[Notifications] Permission not granted, current:', Notification.permission);
+          showToast('info', title + ': ' + body);
+          return;
+        }
+
+        try {
+          var notification = new Notification(title, {
+            body: body,
+            icon: '/favicon.ico',
+            tag: 'sprint-status'
+          });
+
+          notification.onclick = function() { window.focus(); notification.close(); };
+
+          // Play sound if enabled
+          if (notificationPreferences.sound.enabled) {
+            playNotificationSound(notificationPreferences.sound.soundId);
+          }
+
+          // Auto-close after 10 seconds
+          setTimeout(function() {
+            notification.close();
+          }, 10000);
+        } catch (e) {
+          console.error('[Notifications] Failed to show notification:', e);
+          showToast('info', title + ': ' + body);
+        }
       }
 
       function playNotificationSound(soundId) {
         // Use Web Audio API to generate notification sounds
         try {
-          var audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          // Use shared AudioContext if available (pre-initialized on user interaction)
+          var audioContext = sharedAudioContext || new (window.AudioContext || window.webkitAudioContext)();
+
+          // Resume if suspended
+          if (audioContext.state === 'suspended') {
+            audioContext.resume();
+          }
+
           var oscillator = audioContext.createOscillator();
           var gainNode = audioContext.createGain();
 
@@ -2164,7 +2240,7 @@ function getScript(): string {
               oscillator.stop(audioContext.currentTime + 0.3);
           }
         } catch (e) {
-          console.error('Failed to play notification sound:', e);
+          console.error('[Notifications] Failed to play notification sound:', e);
         }
       }
 
