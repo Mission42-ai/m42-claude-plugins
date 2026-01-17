@@ -2,12 +2,21 @@
  * HTTP Server with SSE endpoint for Sprint Status updates
  * Serves the HTML page and streams real-time progress updates
  */
+import { EventEmitter } from 'events';
 import type { ServerConfig } from './status-types.js';
+/**
+ * Events emitted by StatusServer
+ */
+export interface StatusServerEvents {
+    ready: [];
+    error: [error: Error];
+    close: [];
+}
 /**
  * Status Server class
  * Manages HTTP server, SSE connections, and file watching
  */
-export declare class StatusServer {
+export declare class StatusServer extends EventEmitter {
     private readonly config;
     private server;
     private watcher;
@@ -19,6 +28,7 @@ export declare class StatusServer {
     private clientIdCounter;
     private progressFilePath;
     private activityFilePath;
+    private isReady;
     constructor(config: ServerConfig);
     /**
      * Start the HTTP server and file watcher
@@ -28,6 +38,12 @@ export declare class StatusServer {
      * Stop the server and clean up resources
      */
     stop(): Promise<void>;
+    /**
+     * Wait for the server to be ready to accept connections
+     * Resolves immediately if already ready, otherwise waits for 'ready' event
+     * @throws Error if server doesn't become ready within timeout (10 seconds)
+     */
+    waitForReady(): Promise<void>;
     /**
      * Get the server URL
      */

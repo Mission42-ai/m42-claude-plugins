@@ -1,0 +1,15 @@
+Done. I've completed the **plan** sub-phase for step-4:
+
+**Created:** `artifacts/step-4-gherkin.md` with 7 binary-verifiable scenarios:
+
+1. **EventEmitter import** - Verifies `EventEmitter` is imported from `events` module
+2. **EventEmitter integration** - Checks StatusServer extends or contains EventEmitter
+3. **Ready event emission** - Confirms 'ready' event is emitted in listen callback
+4. **waitForReady method** - Verifies the method exists with Promise<void> return
+5. **Timeout handling** - Checks for 10-second timeout implementation
+6. **TypeScript compilation** - Ensures no compilation errors
+7. **Export compatibility** - Verifies class exports remain intact
+
+**Updated:** PROGRESS.yaml - Marked plan sub-phase complete, advanced pointer to sub-phase 1 (execute)
+
+**Committed:** `c7567b7` - plan(step-4): define gherkin scenarios
