@@ -631,6 +631,126 @@ get_transcript_filename() {
   echo "$SPRINT_DIR/transcripts/${base_name}.jsonl"
 }
 
+# Helper function to build log filename from explicit indices (internal use)
+_build_log_filename_for_position() {
+  local phase_idx="$1"
+  local step_idx="$2"
+  local sub_phase_idx="$3"
+
+  # Get phase name
+  local phase_name=$(yq -r ".phases[$phase_idx].id // \"phase-$phase_idx\"" "$PROGRESS_FILE")
+  local log_name="$phase_name"
+
+  # Check if phase has steps
+  local has_steps=$(yq -r ".phases[$phase_idx].steps // \"null\"" "$PROGRESS_FILE")
+  if [[ "$has_steps" != "null" ]] && [[ "$step_idx" != "null" ]] && [[ "$step_idx" != "-1" ]]; then
+    local step_name=$(yq -r ".phases[$phase_idx].steps[$step_idx].id // \"step-$step_idx\"" "$PROGRESS_FILE")
+    log_name="${log_name}-${step_name}"
+
+    if [[ "$sub_phase_idx" != "null" ]] && [[ "$sub_phase_idx" != "-1" ]]; then
+      local sub_name=$(yq -r ".phases[$phase_idx].steps[$step_idx].phases[$sub_phase_idx].id // \"subphase-$sub_phase_idx\"" "$PROGRESS_FILE")
+      log_name="${log_name}-${sub_name}"
+    fi
+  fi
+
+  # Sanitize filename
+  log_name=$(echo "$log_name" | tr ' ' '-' | tr -cd 'a-zA-Z0-9_-')
+  echo "$SPRINT_DIR/logs/${log_name}.log"
+}
+
+# Helper function to get previous step's log filename (deterministic from current position)
+get_previous_log_filename() {
+  local phase_idx=$(yq -r '.current.phase // 0' "$PROGRESS_FILE")
+  local step_idx=$(yq -r '.current.step // "null"' "$PROGRESS_FILE")
+  local sub_phase_idx=$(yq -r '.current."sub-phase" // "null"' "$PROGRESS_FILE")
+
+  # Calculate previous position
+  local prev_phase_idx=""
+  local prev_step_idx=""
+  local prev_sub_idx=""
+
+  # Check if current phase has steps
+  local has_steps=$(yq -r ".phases[$phase_idx].steps // \"null\"" "$PROGRESS_FILE")
+
+  if [[ "$has_steps" != "null" ]] && [[ "$step_idx" != "null" ]]; then
+    # Phase with steps - check sub-phase position
+    if [[ "$sub_phase_idx" != "null" ]] && [[ "$sub_phase_idx" -gt 0 ]]; then
+      # Previous is same phase, same step, previous sub-phase
+      prev_phase_idx="$phase_idx"
+      prev_step_idx="$step_idx"
+      prev_sub_idx=$((sub_phase_idx - 1))
+    elif [[ "$step_idx" -gt 0 ]]; then
+      # Previous is same phase, previous step, last sub-phase of that step
+      prev_phase_idx="$phase_idx"
+      prev_step_idx=$((step_idx - 1))
+      local total_subs=$(yq -r ".phases[$phase_idx].steps[$prev_step_idx].phases | length // 0" "$PROGRESS_FILE")
+      if [[ "$total_subs" -gt 0 ]]; then
+        prev_sub_idx=$((total_subs - 1))
+      else
+        prev_sub_idx="null"
+      fi
+    elif [[ "$phase_idx" -gt 0 ]]; then
+      # Previous is previous phase, last step, last sub-phase
+      prev_phase_idx=$((phase_idx - 1))
+      local prev_has_steps=$(yq -r ".phases[$prev_phase_idx].steps // \"null\"" "$PROGRESS_FILE")
+      if [[ "$prev_has_steps" != "null" ]]; then
+        local total_steps=$(yq -r ".phases[$prev_phase_idx].steps | length // 0" "$PROGRESS_FILE")
+        prev_step_idx=$((total_steps - 1))
+        local total_subs=$(yq -r ".phases[$prev_phase_idx].steps[$prev_step_idx].phases | length // 0" "$PROGRESS_FILE")
+        if [[ "$total_subs" -gt 0 ]]; then
+          prev_sub_idx=$((total_subs - 1))
+        else
+          prev_sub_idx="null"
+        fi
+      else
+        # Previous phase is simple (no steps)
+        prev_step_idx="null"
+        prev_sub_idx="null"
+      fi
+    else
+      # First position - no previous
+      echo ""
+      return
+    fi
+  else
+    # Simple phase (no steps)
+    if [[ "$phase_idx" -gt 0 ]]; then
+      prev_phase_idx=$((phase_idx - 1))
+      local prev_has_steps=$(yq -r ".phases[$prev_phase_idx].steps // \"null\"" "$PROGRESS_FILE")
+      if [[ "$prev_has_steps" != "null" ]]; then
+        local total_steps=$(yq -r ".phases[$prev_phase_idx].steps | length // 0" "$PROGRESS_FILE")
+        prev_step_idx=$((total_steps - 1))
+        local total_subs=$(yq -r ".phases[$prev_phase_idx].steps[$prev_step_idx].phases | length // 0" "$PROGRESS_FILE")
+        if [[ "$total_subs" -gt 0 ]]; then
+          prev_sub_idx=$((total_subs - 1))
+        else
+          prev_sub_idx="null"
+        fi
+      else
+        prev_step_idx="null"
+        prev_sub_idx="null"
+      fi
+    else
+      # First phase - no previous
+      echo ""
+      return
+    fi
+  fi
+
+  _build_log_filename_for_position "$prev_phase_idx" "$prev_step_idx" "$prev_sub_idx"
+}
+
+# Helper function to get previous step's transcript filename
+get_previous_transcript_filename() {
+  local prev_log=$(get_previous_log_filename)
+  if [[ -z "$prev_log" ]]; then
+    echo ""
+    return
+  fi
+  local base_name=$(basename "$prev_log" .log)
+  echo "$SPRINT_DIR/transcripts/${base_name}.jsonl"
+}
+
 # Run preflight checks before starting the loop
 PREFLIGHT_SCRIPT="$SCRIPT_DIR/preflight-check.sh"
 if [[ -f "$PREFLIGHT_SCRIPT" ]]; then
@@ -677,6 +797,10 @@ for ((i=1; i<=MAX_ITERATIONS; i++)); do
   yq -i ".stats.\"current-iteration\" = $i" "$PROGRESS_FILE"
 
   # Build prompt for current position
+  # Pass previous step paths as environment variables for context
+  PREV_LOG_FILE=$(get_previous_log_filename)
+  PREV_TRANSCRIPT_FILE=$(get_previous_transcript_filename)
+  export PREV_LOG_FILE PREV_TRANSCRIPT_FILE
   PROMPT=$("$SCRIPT_DIR/build-sprint-prompt.sh" "$SPRINT_DIR" "$i")
 
   if [[ -z "$PROMPT" ]]; then
