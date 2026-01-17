@@ -45,7 +45,30 @@ Read `<sprint-dir>/PROGRESS.yaml` to get current status.
    c. The sprint-loop.sh background process will detect status change
       on next iteration and exit gracefully.
 
-   d. If you need immediate termination (process still running),
+   d. Remove sprint hook from settings:
+      ```bash
+      # Remove sprint hook from .claude/settings.json
+      if [ -f ".claude/settings.json" ]; then
+        node -e "
+          const fs = require('fs');
+          const settings = JSON.parse(fs.readFileSync('.claude/settings.json', 'utf8'));
+          if (settings.hooks && settings.hooks.PostToolUse) {
+            settings.hooks.PostToolUse = settings.hooks.PostToolUse.filter(h =>
+              !(h.hooks && h.hooks.some(hh => hh.command && hh.command.includes('sprint-activity-hook')))
+            );
+            if (settings.hooks.PostToolUse.length === 0) {
+              delete settings.hooks.PostToolUse;
+            }
+            if (Object.keys(settings.hooks).length === 0) {
+              delete settings.hooks;
+            }
+          }
+          fs.writeFileSync('.claude/settings.json', JSON.stringify(settings, null, 2) + '\n');
+        "
+      fi
+      ```
+
+   e. If you need immediate termination (process still running),
       the background task can be killed via `/tasks` command.
 
 3. **Output confirmation:**

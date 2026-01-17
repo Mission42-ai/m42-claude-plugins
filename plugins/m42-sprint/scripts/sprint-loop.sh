@@ -118,11 +118,37 @@ fi
 
 SPRINT_NAME=$(basename "$SPRINT_DIR")
 
-# Cleanup function for hook config file on exit
+# Cleanup function to remove sprint hook from settings on exit
 cleanup_hook_config() {
+  # Remove sprint hook from .claude/settings.json
+  local settings_file=".claude/settings.json"
+  if [[ -f "$settings_file" ]]; then
+    node -e "
+      const fs = require('fs');
+      try {
+        const settings = JSON.parse(fs.readFileSync('$settings_file', 'utf8'));
+        if (settings.hooks && settings.hooks.PostToolUse) {
+          settings.hooks.PostToolUse = settings.hooks.PostToolUse.filter(h =>
+            !(h.hooks && h.hooks.some(hh => hh.command && hh.command.includes('sprint-activity-hook')))
+          );
+          if (settings.hooks.PostToolUse.length === 0) {
+            delete settings.hooks.PostToolUse;
+          }
+          if (Object.keys(settings.hooks).length === 0) {
+            delete settings.hooks;
+          }
+          fs.writeFileSync('$settings_file', JSON.stringify(settings, null, 2) + '\n');
+          console.log('Cleaned up sprint hook from settings');
+        }
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+    " 2>/dev/null || true
+  fi
+
+  # Also remove old hook config file if present
   if [[ -n "$HOOK_CONFIG" ]] && [[ -f "$HOOK_CONFIG" ]]; then
     rm -f "$HOOK_CONFIG"
-    echo "Cleaned up hook config: $HOOK_CONFIG"
   fi
 }
 
