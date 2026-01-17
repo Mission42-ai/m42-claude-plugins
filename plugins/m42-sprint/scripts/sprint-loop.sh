@@ -623,6 +623,14 @@ get_log_filename() {
   echo "$SPRINT_DIR/logs/${log_name}.log"
 }
 
+# Helper function to generate transcript filename (mirrors get_log_filename)
+get_transcript_filename() {
+  local log_file=$(get_log_filename)
+  local base_name=$(basename "$log_file" .log)
+  mkdir -p "$SPRINT_DIR/transcripts"
+  echo "$SPRINT_DIR/transcripts/${base_name}.jsonl"
+}
+
 # Run preflight checks before starting the loop
 PREFLIGHT_SCRIPT="$SCRIPT_DIR/preflight-check.sh"
 if [[ -f "$PREFLIGHT_SCRIPT" ]]; then
@@ -698,7 +706,9 @@ for ((i=1; i<=MAX_ITERATIONS; i++)); do
 
   # Get log file path for this phase
   LOG_FILE=$(get_log_filename)
+  TRANSCRIPT_FILE=$(get_transcript_filename)
   echo "Logging to: $LOG_FILE"
+  echo "Transcript: $TRANSCRIPT_FILE"
   echo ""
 
   # Capture current position BEFORE Claude runs (it advances the pointer after completion)
@@ -710,9 +720,20 @@ for ((i=1; i<=MAX_ITERATIONS; i++)); do
   PHASE_START_EPOCH=$(date +%s)
   PHASE_START_ISO=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-  # Build claude command, tee output to .log file
+  # Invoke Claude with JSON streaming to capture full transcript
   # Note: HOOK_CONFIG is accepted but not used - Claude Code hooks are configured via settings files
-  CLI_OUTPUT=$(claude -p "$PROMPT" --dangerously-skip-permissions 2>&1 | tee "$LOG_FILE") || CLI_EXIT_CODE=${PIPESTATUS[0]}
+  claude -p "$PROMPT" \
+    --dangerously-skip-permissions \
+    --output-format stream-json \
+    --verbose \
+    > "$TRANSCRIPT_FILE" 2>&1
+  CLI_EXIT_CODE=$?
+
+  # Extract final result text for legacy log file
+  jq -r 'select(.type=="result") | .result // empty' "$TRANSCRIPT_FILE" > "$LOG_FILE" 2>/dev/null || true
+
+  # Also extract CLI_OUTPUT for error handling
+  CLI_OUTPUT=$(jq -r 'select(.type=="result") | .result // empty' "$TRANSCRIPT_FILE" 2>/dev/null || cat "$TRANSCRIPT_FILE")
 
   # AFTER Claude exits - capture end time for deterministic timing
   PHASE_END_EPOCH=$(date +%s)
