@@ -49,6 +49,7 @@ MAX_ITERATIONS=0
 MAX_RETRIES=0
 DELAY=2
 HOOK_CONFIG=""
+CLI_MAX_ITER_SET=false
 
 # Default exponential backoff delays in milliseconds: 1s, 5s, 30s
 BACKOFF_MS=(1000 5000 30000)
@@ -72,6 +73,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --max-iterations)
       MAX_ITERATIONS="$2"
+      CLI_MAX_ITER_SET=true
       shift 2
       ;;
     --max-retries)
@@ -140,7 +142,7 @@ if [[ "$MAX_ITERATIONS" -eq 0 ]]; then
   UNLIMITED_MODE=true
   # Use a very large number that effectively means unlimited
   # 2147483647 is max signed 32-bit int, but we use 1000000 for sanity
-  MAX_ITERATIONS=000
+  MAX_ITERATIONS=1000000
   echo "Running in unlimited iteration mode (will only stop on status conditions)"
 fi
 
