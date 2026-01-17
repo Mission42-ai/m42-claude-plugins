@@ -1,5 +1,5 @@
 sprint-id: 2026-01-16_activity-feed-bug-fix
-status: in-progress
+status: completed
 phases:
   - id: diagnose
     status: completed
@@ -19,8 +19,9 @@ phases:
       Kurze Zusammenfassung der Ursache in context/{{step.id}}-diagnosis.md
     started-at: "2026-01-16T23:58:58Z"
     completed-at: "2026-01-17T00:01:18Z"
+    elapsed: 00:02:20
   - id: fix
-    status: pending
+    status: completed
     prompt: |
       Implementiere den Fix für den Bug.
 
@@ -36,8 +37,11 @@ phases:
       ## Wichtig
       - Kleinster möglicher Change
       - Keine Refactorings im Bug-Fix
+    started-at: "2026-01-17T00:01:32Z"
+    completed-at: "2026-01-17T00:01:32Z"
+    elapsed: 00:00:00
   - id: verify
-    status: pending
+    status: completed
     prompt: |
       Verifiziere dass der Bug behoben ist.
 
@@ -49,8 +53,10 @@ phases:
       2. Führe relevante Tests aus
       3. Prüfe auf Regressionen
       4. Füge einen Regression-Test hinzu falls sinnvoll
+    started-at: "2026-01-17T00:04:08Z"
+    completed-at: "2026-01-17T00:04:08Z"
 current:
-  phase: 1
+  phase: 3
   step: 0
   sub-phase: 0
 stats:
@@ -58,4 +64,4 @@ stats:
   total-phases: 3
   completed-phases: 1
   max-iterations: 30
-  current-iteration: 1
+  current-iteration: 3
