@@ -57,9 +57,35 @@ export declare class StatusServer extends EventEmitter {
      */
     private handleRequest;
     /**
-     * Serve the HTML page
+     * Serve the HTML page (legacy - now redirects to dashboard or sprint detail)
      */
     private handlePageRequest;
+    /**
+     * Get the sprints directory path (parent of current sprint)
+     */
+    private getSprintsDir;
+    /**
+     * Get the current sprint ID from the sprint directory path
+     */
+    private getCurrentSprintId;
+    /**
+     * Serve the dashboard page with sprint list and metrics
+     */
+    private handleDashboardPageRequest;
+    /**
+     * Serve the sprint detail page for a specific sprint
+     */
+    private handleSprintDetailPageRequest;
+    /**
+     * Handle GET /api/sprints request
+     * Returns list of sprints with optional pagination
+     */
+    private handleSprintsApiRequest;
+    /**
+     * Handle GET /api/metrics request
+     * Returns aggregate metrics across all sprints
+     */
+    private handleMetricsApiRequest;
     /**
      * Handle SSE connection
      */
