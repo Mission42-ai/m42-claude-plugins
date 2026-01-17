@@ -36,6 +36,27 @@ ${getDashboardScript()}
 </html>`;
 }
 /**
+ * Generate the navigation bar for the dashboard
+ */
+function generateNavigationBar() {
+    return `
+    <nav class="nav-bar">
+      <div class="nav-left">
+        <span class="breadcrumb">
+          <span class="breadcrumb-current">Dashboard</span>
+        </span>
+      </div>
+      <div class="nav-right">
+        <a href="https://github.com/anthropics/claude-code/tree/main/plugins/m42-sprint/docs"
+           class="nav-link docs-link"
+           target="_blank"
+           rel="noopener noreferrer">
+          Documentation
+        </a>
+      </div>
+    </nav>`;
+}
+/**
  * Generate the dashboard header with title and navigation
  */
 function generateHeader(activeSprint) {
@@ -46,18 +67,13 @@ function generateHeader(activeSprint) {
       </a>`
         : '';
     return `
+    ${generateNavigationBar()}
     <header class="header">
       <div class="header-left">
         <h1 class="dashboard-title">Sprint Dashboard</h1>
       </div>
       <div class="header-right">
         ${activeSprintLink}
-        <a href="https://github.com/anthropics/claude-code/tree/main/plugins/m42-sprint/docs"
-           class="nav-link docs-link"
-           target="_blank"
-           rel="noopener noreferrer">
-          Documentation
-        </a>
       </div>
     </header>`;
 }
@@ -262,6 +278,53 @@ function getDashboardStyles() {
       max-width: 1200px;
       margin: 0 auto;
       padding: 0 20px;
+    }
+
+    /* Navigation Bar */
+    .nav-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border-color);
+      margin-bottom: 8px;
+    }
+
+    .nav-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .breadcrumb-link {
+      color: var(--accent-blue);
+      text-decoration: none;
+    }
+
+    .breadcrumb-link:hover {
+      text-decoration: underline;
+    }
+
+    .breadcrumb-separator {
+      color: var(--text-muted);
+    }
+
+    .breadcrumb-current {
+      color: var(--text-primary);
     }
 
     /* Header */

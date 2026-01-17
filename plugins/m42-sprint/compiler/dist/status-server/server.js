@@ -390,6 +390,15 @@ class StatusServer extends events_1.EventEmitter {
                 res.end(JSON.stringify({ error: 'Sprint not found', sprintId }));
                 return;
             }
+            // Get all sprints for the navigation switcher (last 10)
+            const allSprints = scanner.scan();
+            const navigation = {
+                currentSprintId: sprintId,
+                availableSprints: allSprints.slice(0, 10).map(s => ({
+                    sprintId: s.sprintId,
+                    status: s.status,
+                })),
+            };
             // Check if this is the currently monitored sprint
             const currentSprintId = this.getCurrentSprintId();
             if (sprintId === currentSprintId) {
@@ -398,7 +407,7 @@ class StatusServer extends events_1.EventEmitter {
                     'Content-Type': 'text/html; charset=utf-8',
                     'Cache-Control': 'no-cache',
                 });
-                res.end((0, page_js_1.getPageHtml)());
+                res.end((0, page_js_1.getPageHtml)(navigation));
             }
             else {
                 // For other sprints, show a static view (currently serve same page with note)
@@ -407,7 +416,7 @@ class StatusServer extends events_1.EventEmitter {
                     'Content-Type': 'text/html; charset=utf-8',
                     'Cache-Control': 'no-cache',
                 });
-                res.end((0, page_js_1.getPageHtml)());
+                res.end((0, page_js_1.getPageHtml)(navigation));
             }
         }
         catch (error) {
