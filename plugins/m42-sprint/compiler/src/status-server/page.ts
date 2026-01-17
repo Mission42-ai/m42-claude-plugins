@@ -675,6 +675,93 @@ function getStyles(): string {
       color: var(--text-secondary);
     }
 
+    /* Error Details Section */
+    .error-details {
+      margin-top: 8px;
+      margin-left: 32px;
+      background-color: rgba(218, 54, 51, 0.08);
+      border: 1px solid rgba(218, 54, 51, 0.3);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .error-details-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      width: 100%;
+      padding: 6px 10px;
+      background: none;
+      border: none;
+      color: var(--accent-red);
+      font-size: 11px;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .error-details-toggle:hover {
+      background-color: rgba(218, 54, 51, 0.12);
+    }
+
+    .error-details-toggle::before {
+      content: '▶';
+      font-size: 8px;
+      transition: transform 0.15s ease;
+    }
+
+    .error-details-toggle.expanded::before {
+      transform: rotate(90deg);
+    }
+
+    .error-details-content {
+      display: none;
+      padding: 10px;
+      border-top: 1px solid rgba(218, 54, 51, 0.2);
+    }
+
+    .error-details-content.expanded {
+      display: block;
+    }
+
+    .recovery-suggestion {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 8px 10px;
+      background-color: rgba(35, 134, 54, 0.1);
+      border: 1px solid rgba(35, 134, 54, 0.3);
+      border-radius: 4px;
+      margin-bottom: 10px;
+      font-size: 12px;
+      color: var(--accent-green);
+    }
+
+    .recovery-suggestion::before {
+      content: '💡';
+      flex-shrink: 0;
+    }
+
+    .error-message {
+      padding: 8px 10px;
+      background-color: var(--bg-secondary);
+      border-radius: 4px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-secondary);
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+
+    .error-message-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
     /* Content Area */
     .content {
       flex: 1;
@@ -1805,6 +1892,22 @@ function getScript(): string {
       // Verbosity level ordering for filtering
       const VERBOSITY_ORDER = { minimal: 0, basic: 1, detailed: 2, verbose: 3 };
 
+      // Recovery suggestions for error categories
+      const RECOVERY_SUGGESTIONS = {
+        'network': 'Check internet connection and retry',
+        'rate-limit': 'Wait a few minutes before retrying',
+        'timeout': 'Phase took too long - try breaking into smaller steps',
+        'validation': 'Review input/output requirements',
+        'logic': "Review Claude's reasoning in the log"
+      };
+
+      // Track which error details sections are expanded
+      let expandedErrorDetails = new Set();
+
+      function getRecoverySuggestion(category) {
+        return RECOVERY_SUGGESTIONS[category] || 'An error occurred. Check the log for details.';
+      }
+
       // Phase action state
       let pendingSkipPhaseId = null;
       let phaseActionLoading = {};
@@ -2916,6 +3019,28 @@ function getScript(): string {
         elements.phaseTree.querySelectorAll('.log-viewer-toggle').forEach(btn => {
           btn.addEventListener('click', handleViewLogClick);
         });
+
+        // Add click handlers for error details toggle buttons
+        elements.phaseTree.querySelectorAll('.error-details-toggle').forEach(btn => {
+          btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const errorId = this.dataset.errorId;
+            const contentId = 'error-details-' + errorId.replace(/[^a-zA-Z0-9]/g, '-');
+            const content = document.getElementById(contentId);
+
+            if (content) {
+              if (expandedErrorDetails.has(errorId)) {
+                expandedErrorDetails.delete(errorId);
+                content.classList.remove('expanded');
+                this.classList.remove('expanded');
+              } else {
+                expandedErrorDetails.add(errorId);
+                content.classList.add('expanded');
+                this.classList.add('expanded');
+              }
+            }
+          });
+        });
       }
 
       function renderTreeNode(node, parentPath = '') {
@@ -2997,6 +3122,31 @@ function getScript(): string {
         html += '</span>';
 
         html += '</div>';
+
+        // Add error details expandable section for failed phases with errors
+        if (node.status === 'failed' && (node.error || errorCategory)) {
+          var errorDetailsId = 'error-details-' + nodePath.replace(/[^a-zA-Z0-9]/g, '-');
+          var isErrorExpanded = expandedErrorDetails.has(nodePath);
+
+          html += '<div class="error-details">';
+          html += '<button class="error-details-toggle' + (isErrorExpanded ? ' expanded' : '') + '" data-error-id="' + escapeHtml(nodePath) + '">';
+          html += 'View Error Details';
+          html += '</button>';
+          html += '<div class="error-details-content' + (isErrorExpanded ? ' expanded' : '') + '" id="' + escapeHtml(errorDetailsId) + '">';
+
+          // Recovery suggestion based on error category
+          var suggestion = getRecoverySuggestion(errorCategory);
+          html += '<div class="recovery-suggestion">' + escapeHtml(suggestion) + '</div>';
+
+          // Error message
+          if (node.error) {
+            html += '<div class="error-message-label">Error Details</div>';
+            html += '<div class="error-message">' + escapeHtml(node.error) + '</div>';
+          }
+
+          html += '</div>';
+          html += '</div>';
+        }
 
         if (hasChildren) {
           html += '<div class="tree-children' + (isExpanded ? '' : ' collapsed') + '">';
