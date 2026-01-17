@@ -195,7 +195,13 @@ ${getStyles()}
       <div class="log-viewer-header">
         <span class="log-viewer-title" id="log-viewer-title">Phase Log</span>
         <div class="log-viewer-controls">
-          <input type="text" class="log-search-input" id="log-search-input" placeholder="Search logs..." />
+          <button class="log-nav-btn log-jump-error-btn" id="log-jump-error-btn" title="Jump to first error">Jump to Error</button>
+          <div class="log-search-nav">
+            <input type="text" class="log-search-input" id="log-search-input" placeholder="Search logs..." />
+            <button class="log-nav-btn log-search-prev-btn" id="log-search-prev-btn" title="Previous match">◀</button>
+            <span class="log-match-count" id="log-match-count"></span>
+            <button class="log-nav-btn log-search-next-btn" id="log-search-next-btn" title="Next match">▶</button>
+          </div>
           <button class="log-download-btn" id="log-download-btn">Download Log</button>
           <button class="log-viewer-close" id="log-viewer-close">Close</button>
         </div>
@@ -1491,6 +1497,102 @@ function getStyles() {
       padding: 0 2px;
     }
 
+    .log-content-pre .highlight.current {
+      background-color: rgba(210, 153, 34, 0.6);
+      outline: 1px solid var(--accent-yellow);
+    }
+
+    /* Log line with line-numbers column */
+    .log-line {
+      display: flex;
+      min-height: 1.5em;
+    }
+
+    /* .log-line-number { width: 5ch; text-align: right; position: sticky; } */
+    .log-line-number {
+      width: 5ch;
+      min-width: 5ch;
+      text-align: right;
+      padding-right: 1ch;
+      color: var(--text-muted);
+      user-select: none;
+      position: sticky;
+      left: 0;
+      background-color: var(--bg-primary);
+      border-right: 1px solid var(--border-color);
+      margin-right: 1ch;
+      flex-shrink: 0;
+    }
+
+    .log-line-content {
+      flex: 1;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* .log-line.error { background-color: rgba(248, 81, 73, 0.15); } - red highlight for errors */
+    .log-line.error {
+      background-color: rgba(248, 81, 73, 0.15);
+    }
+
+    .log-line.error .log-line-number {
+      background-color: rgba(248, 81, 73, 0.15);
+      color: var(--accent-red);
+    }
+
+    /* Search navigation controls */
+    .log-search-nav {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .log-nav-btn {
+      padding: 6px 10px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background-color: var(--bg-tertiary);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .log-nav-btn:hover:not(:disabled) {
+      background-color: var(--bg-highlight);
+      border-color: var(--text-muted);
+    }
+
+    .log-nav-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .log-search-prev-btn,
+    .log-search-next-btn {
+      padding: 6px 8px;
+      min-width: 28px;
+    }
+
+    .log-jump-error-btn {
+      background-color: rgba(248, 81, 73, 0.1);
+      border-color: rgba(248, 81, 73, 0.3);
+      color: var(--accent-red);
+    }
+
+    .log-jump-error-btn:hover:not(:disabled) {
+      background-color: rgba(248, 81, 73, 0.2);
+      border-color: var(--accent-red);
+    }
+
+    .log-match-count {
+      font-size: 11px;
+      color: var(--text-secondary);
+      min-width: 80px;
+      text-align: center;
+    }
+
     .log-loading {
       color: var(--text-muted);
       text-align: center;
@@ -1850,6 +1952,10 @@ function getScript() {
         logViewerBody: document.getElementById('log-viewer-body'),
         logViewerClose: document.getElementById('log-viewer-close'),
         logSearchInput: document.getElementById('log-search-input'),
+        logSearchPrevBtn: document.getElementById('log-search-prev-btn'),
+        logSearchNextBtn: document.getElementById('log-search-next-btn'),
+        logMatchCount: document.getElementById('log-match-count'),
+        logJumpErrorBtn: document.getElementById('log-jump-error-btn'),
         logDownloadBtn: document.getElementById('log-download-btn'),
         downloadAllLogsBtn: document.getElementById('download-all-logs-btn'),
         notificationSettingsBtn: document.getElementById('notification-settings-btn'),
@@ -1915,6 +2021,9 @@ function getScript() {
       // Log viewer state
       let currentLogPhaseId = null;
       let currentLogContent = '';
+      let currentMatchIndex = 0;
+      let totalMatches = 0;
+      let matchElements = [];
 
       // Notification state
       let previousSprintStatus = null;
@@ -2082,6 +2191,15 @@ function getScript() {
         elements.downloadAllLogsBtn.addEventListener('click', downloadAllLogs);
         elements.logSearchInput.addEventListener('input', handleLogSearch);
 
+        // Search navigation buttons
+        elements.logSearchPrevBtn.addEventListener('click', navigateToPrevMatch);
+        elements.logSearchNextBtn.addEventListener('click', navigateToNextMatch);
+        elements.logJumpErrorBtn.addEventListener('click', jumpToFirstError);
+
+        // Initialize navigation buttons as disabled
+        elements.logSearchPrevBtn.disabled = true;
+        elements.logSearchNextBtn.disabled = true;
+
         // Close on backdrop click
         elements.logViewerModal.addEventListener('click', function(e) {
           if (e.target === elements.logViewerModal) {
@@ -2095,6 +2213,12 @@ function getScript() {
         elements.logViewerTitle.textContent = 'Log: ' + phaseId;
         elements.logViewerBody.innerHTML = '<div class="log-loading">Loading log...</div>';
         elements.logSearchInput.value = '';
+        elements.logMatchCount.textContent = '';
+        currentMatchIndex = 0;
+        totalMatches = 0;
+        matchElements = [];
+        elements.logSearchPrevBtn.disabled = true;
+        elements.logSearchNextBtn.disabled = true;
         elements.logViewerModal.classList.add('visible');
 
         fetchLogContent(phaseId);
@@ -2122,24 +2246,129 @@ function getScript() {
         }
       }
 
-      function renderLogContent(content, searchTerm) {
-        let html = ansiToHtml(content);
+      // Error detection patterns for log lines
+      var errorPatterns = [
+        /\\berror\\b/i,
+        /\\bfailed\\b/i,
+        /\\bfailure\\b/i,
+        /\\bexception\\b/i,
+        /^Error:/,
+        /^Uncaught/,
+        /\\[ERROR\\]/,
+        /\\[FATAL\\]/
+      ];
 
-        // Apply search highlighting if search term is provided
-        if (searchTerm && searchTerm.length > 0) {
-          // Escape regex special characters in the search term
-          var escapedTerm = escapeHtml(searchTerm).replace(/[.*+?^$\\{\\}()|\\[\\]\\\\]/g, '\\\\$&');
-          var regex = new RegExp('(' + escapedTerm + ')', 'gi');
-          html = html.replace(regex, '<span class="highlight">$1</span>');
+      function isErrorLine(line) {
+        for (var i = 0; i < errorPatterns.length; i++) {
+          if (errorPatterns[i].test(line)) {
+            return true;
+          }
+        }
+        return false;
+      }
+
+      function renderLogContent(content, searchTerm) {
+        // Split content into lines
+        var lines = content.split('\\n');
+        var linesHtml = [];
+
+        for (var i = 0; i < lines.length; i++) {
+          var lineNum = i + 1;
+          var lineContent = ansiToHtml(lines[i]);
+          var isError = isErrorLine(lines[i]);
+
+          // Apply search highlighting if search term is provided
+          if (searchTerm && searchTerm.length > 0) {
+            var escapedTerm = escapeHtml(searchTerm).replace(/[.*+?^$\\{\\}()|\\[\\]\\\\]/g, '\\\\$&');
+            var regex = new RegExp('(' + escapedTerm + ')', 'gi');
+            lineContent = lineContent.replace(regex, '<span class="highlight">$1</span>');
+          }
+
+          var lineClass = 'log-line' + (isError ? ' error' : '');
+          linesHtml.push(
+            '<div class="' + lineClass + '">' +
+            '<span class="log-line-number">' + lineNum + '</span>' +
+            '<span class="log-line-content">' + (lineContent || ' ') + '</span>' +
+            '</div>'
+          );
         }
 
-        elements.logViewerBody.innerHTML = '<pre class="log-content-pre">' + html + '</pre>';
+        elements.logViewerBody.innerHTML = '<pre class="log-content-pre">' + linesHtml.join('') + '</pre>';
+
+        // Reset search state and update match count after rendering
+        currentMatchIndex = 0;
+        matchElements = Array.from(elements.logViewerBody.querySelectorAll('.highlight'));
+        totalMatches = matchElements.length;
+        updateMatchCountDisplay();
+        updateCurrentMatchHighlight();
       }
 
       function handleLogSearch() {
         const searchTerm = elements.logSearchInput.value;
         if (currentLogContent) {
           renderLogContent(currentLogContent, searchTerm);
+        }
+      }
+
+      function updateMatchCountDisplay() {
+        if (totalMatches > 0) {
+          elements.logMatchCount.textContent = (currentMatchIndex + 1) + ' of ' + totalMatches + ' matches';
+          elements.logSearchPrevBtn.disabled = false;
+          elements.logSearchNextBtn.disabled = false;
+        } else if (elements.logSearchInput.value.length > 0) {
+          elements.logMatchCount.textContent = '0 matches';
+          elements.logSearchPrevBtn.disabled = true;
+          elements.logSearchNextBtn.disabled = true;
+        } else {
+          elements.logMatchCount.textContent = '';
+          elements.logSearchPrevBtn.disabled = true;
+          elements.logSearchNextBtn.disabled = true;
+        }
+      }
+
+      function updateCurrentMatchHighlight() {
+        // Remove current highlight from all matches
+        for (var i = 0; i < matchElements.length; i++) {
+          matchElements[i].classList.remove('current');
+        }
+        // Add current highlight to the active match
+        if (matchElements.length > 0 && currentMatchIndex < matchElements.length) {
+          matchElements[currentMatchIndex].classList.add('current');
+        }
+      }
+
+      function navigateToNextMatch() {
+        if (totalMatches === 0) return;
+        currentMatchIndex = (currentMatchIndex + 1) % totalMatches;
+        updateMatchCountDisplay();
+        updateCurrentMatchHighlight();
+        scrollToCurrentMatch();
+      }
+
+      function navigateToPrevMatch() {
+        if (totalMatches === 0) return;
+        currentMatchIndex = (currentMatchIndex - 1 + totalMatches) % totalMatches;
+        updateMatchCountDisplay();
+        updateCurrentMatchHighlight();
+        scrollToCurrentMatch();
+      }
+
+      function scrollToCurrentMatch() {
+        if (matchElements.length > 0 && currentMatchIndex < matchElements.length) {
+          matchElements[currentMatchIndex].scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
+          });
+        }
+      }
+
+      function jumpToFirstError() {
+        var errorLine = elements.logViewerBody.querySelector('.log-line.error');
+        if (errorLine) {
+          errorLine.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
+          });
         }
       }
 
