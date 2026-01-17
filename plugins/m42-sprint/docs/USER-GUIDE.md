@@ -149,7 +149,7 @@ Compile and start autonomous phase processing.
 
 **Arguments:**
 - `<directory>` - Path to sprint directory (required)
-- `--max-iterations N` - Safety limit (default: 30)
+- `--max-iterations N` - Safety limit (default: 60)
 - `--dry-run` - Preview compiled workflow without executing
 - `--recompile` - Force recompilation even if PROGRESS.yaml exists
 
