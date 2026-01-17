@@ -8,7 +8,7 @@ const validate_js_1 = require("./validate.js");
 function test(name, fn) {
     try {
         fn();
-        console.log(`✓ ${name}`);
+        console.log(`✓ ${name}`); // intentional
     }
     catch (error) {
         console.error(`✗ ${name}`);
@@ -53,5 +53,5 @@ test('MISSING_PHASES: should fail when phases array is missing', () => {
     const missingPhasesErrors = errors.filter(e => e.code === 'MISSING_PHASES');
     assert(missingPhasesErrors.length === 1, `Expected 1 MISSING_PHASES error, got ${missingPhasesErrors.length}`);
 });
-console.log('\nValidation tests completed.');
+console.log('\nValidation tests completed.'); // intentional
 //# sourceMappingURL=validate.test.js.map

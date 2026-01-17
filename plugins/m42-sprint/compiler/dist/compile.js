@@ -107,7 +107,7 @@ async function compile(config) {
         return { success: false, errors, warnings };
     }
     if (config.verbose) {
-        console.log(`Loaded SPRINT.yaml: ${sprintDef.steps.length} steps`);
+        console.log(`Loaded SPRINT.yaml: ${sprintDef.steps.length} steps`); // intentional
     }
     // Load the main workflow
     const mainWorkflow = (0, resolve_workflows_js_1.loadWorkflow)(sprintDef.workflow, config.workflowsDir, errors);
@@ -134,7 +134,7 @@ async function compile(config) {
         return { success: false, errors, warnings };
     }
     if (config.verbose) {
-        console.log(`Loaded workflow: ${mainWorkflow.definition.name} (${mainWorkflow.definition.phases.length} phases)`);
+        console.log(`Loaded workflow: ${mainWorkflow.definition.name} (${mainWorkflow.definition.phases.length} phases)`); // intentional
     }
     // Resolve all workflow references (for cycle detection and validation)
     const referencedWorkflows = (0, resolve_workflows_js_1.resolveWorkflowRefs)(mainWorkflow.definition, config.workflowsDir, new Set([sprintDef.workflow]), errors);

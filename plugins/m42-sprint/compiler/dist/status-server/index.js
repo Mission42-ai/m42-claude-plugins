@@ -87,7 +87,7 @@ program
         });
         // Handle graceful shutdown
         const shutdown = async (signal) => {
-            console.log(`\n${signal} received, shutting down...`);
+            console.log(`\n${signal} received, shutting down...`); // intentional
             // Delete port file
             try {
                 if (fs.existsSync(portFilePath)) {
@@ -109,16 +109,16 @@ program
         fs.writeFileSync(portFilePath, port.toString(), 'utf-8');
         // Display server URL
         const url = server.getUrl();
-        console.log(`Sprint Status Server started`);
-        console.log(`  URL: ${url}`);
-        console.log(`  Watching: ${progressYamlPath}`);
-        console.log(`  Port file: ${portFilePath}`);
+        console.log(`Sprint Status Server started`); // intentional
+        console.log(`  URL: ${url}`); // intentional
+        console.log(`  Watching: ${progressYamlPath}`); // intentional
+        console.log(`  Port file: ${portFilePath}`); // intentional
         // Open browser if not disabled
         if (options.browser) {
             (0, browser_js_1.openBrowser)(url);
         }
-        console.log('');
-        console.log('Press Ctrl+C to stop');
+        console.log(''); // intentional
+        console.log('Press Ctrl+C to stop'); // intentional
     }
     catch (error) {
         console.error('Failed to start server:', error instanceof Error ? error.message : error);
