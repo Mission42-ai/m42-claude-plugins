@@ -93,3 +93,6 @@
 {"phaseId":"context","workflow":"unknown","startTime":"2026-01-17T22:32:35Z","endTime":"2026-01-17T22:35:00Z","durationMs":145000,"sprintId":"2026-01-17_plugin-enhancements"}
 {"phaseId":"execute","workflow":"unknown","startTime":"2026-01-17T22:34:05Z","endTime":"2026-01-17T22:35:35Z","durationMs":90000,"sprintId":"2026-01-17_plugin-enhancements"}
 {"phaseId":"qa","workflow":"unknown","startTime":"2026-01-17T22:36:05Z","endTime":"2026-01-17T22:36:05Z","durationMs":0,"sprintId":"2026-01-17_plugin-enhancements"}
+{"phaseId":"verify","workflow":"unknown","startTime":"2026-01-17T22:40:02Z","endTime":"2026-01-17T22:40:03Z","durationMs":1000,"sprintId":"2026-01-17_plugin-enhancements"}
+{"phaseId":"final-qa","workflow":"unknown","startTime":"2026-01-17T22:41:27Z","endTime":"2026-01-17T22:43:00Z","durationMs":93000,"sprintId":"2026-01-17_plugin-enhancements"}
+{"phaseId":"summary","workflow":"unknown","startTime":"2026-01-17T22:44:58Z","endTime":"2026-01-17T22:44:58Z","durationMs":0,"sprintId":"2026-01-17_plugin-enhancements"}
