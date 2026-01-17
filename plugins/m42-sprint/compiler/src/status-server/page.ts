@@ -86,11 +86,11 @@ ${getStyles()}
     <div class="control-bar" id="control-bar">
       <button class="control-btn" id="pause-btn" style="display: none;">
         <span class="control-btn-icon">⏸</span>
-        <span>Pause</span>
+        <span><u>P</u>ause</span>
       </button>
       <button class="control-btn" id="resume-btn" style="display: none;">
         <span class="control-btn-icon">▶</span>
-        <span>Resume</span>
+        <span>Resume (<u>P</u>)</span>
       </button>
       <button class="control-btn danger" id="stop-btn" style="display: none;">
         <span class="control-btn-icon">⏹</span>
@@ -200,6 +200,23 @@ ${getStyles()}
       </div>
       <div class="log-viewer-body" id="log-viewer-body">
         <div class="log-loading">Loading log...</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="shortcuts-help-modal">
+    <div class="modal-content shortcuts-help-content">
+      <div class="modal-title">Keyboard Shortcuts</div>
+      <div class="shortcuts-list">
+        <div class="shortcut-row"><kbd>P</kbd><span>Pause/Resume sprint</span></div>
+        <div class="shortcut-row"><kbd>L</kbd><span>Toggle live activity panel</span></div>
+        <div class="shortcut-row"><kbd>N</kbd><span>Open notification settings</span></div>
+        <div class="shortcut-row"><kbd>D</kbd><span>Download all logs</span></div>
+        <div class="shortcut-row"><kbd>Esc</kbd><span>Close modals</span></div>
+        <div class="shortcut-row"><kbd>?</kbd><span>Show this help</span></div>
+      </div>
+      <div class="modal-actions">
+        <button class="modal-btn modal-btn-primary" id="shortcuts-close-btn">Close</button>
       </div>
     </div>
   </div>
@@ -1647,6 +1664,61 @@ function getStyles(): string {
       outline: none;
       border-color: var(--accent-blue);
     }
+
+    /* Keyboard Shortcuts Help Modal */
+    .shortcuts-help-content {
+      max-width: 360px;
+    }
+
+    .shortcuts-list {
+      margin-bottom: 16px;
+    }
+
+    .shortcut-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .shortcut-row:last-child {
+      border-bottom: none;
+    }
+
+    .shortcut-row kbd {
+      display: inline-block;
+      min-width: 32px;
+      padding: 4px 8px;
+      background-color: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      text-align: center;
+      color: var(--text-primary);
+    }
+
+    .shortcut-row span {
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    .modal-btn-primary {
+      background-color: var(--accent-blue);
+      border: 1px solid var(--accent-blue);
+      color: white;
+    }
+
+    .modal-btn-primary:hover {
+      background-color: #4a9eff;
+    }
+
+    /* Keyboard shortcut hints on buttons */
+    .kbd-hint {
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
   `;
 }
 
@@ -1708,7 +1780,9 @@ function getScript(): string {
         testNotificationBtn: document.getElementById('test-notification-btn'),
         estimateDisplay: document.getElementById('estimate-display'),
         estimateTime: document.getElementById('estimate-time'),
-        estimateConfidence: document.getElementById('estimate-confidence')
+        estimateConfidence: document.getElementById('estimate-confidence'),
+        shortcutsHelpModal: document.getElementById('shortcuts-help-modal'),
+        shortcutsCloseBtn: document.getElementById('shortcuts-close-btn')
       };
 
       // State
@@ -1891,6 +1965,7 @@ function getScript(): string {
         setupSkipModal();
         setupLogViewer();
         setupNotifications();
+        setupKeyboardShortcuts();
         // Update elapsed time every second
         setInterval(updateElapsedTimes, 1000);
         // Update relative times in activity panel
@@ -1903,13 +1978,6 @@ function getScript(): string {
         elements.logDownloadBtn.addEventListener('click', downloadCurrentLog);
         elements.downloadAllLogsBtn.addEventListener('click', downloadAllLogs);
         elements.logSearchInput.addEventListener('input', handleLogSearch);
-
-        // Close on Escape key
-        document.addEventListener('keydown', function(e) {
-          if (e.key === 'Escape' && elements.logViewerModal.classList.contains('visible')) {
-            hideLogViewer();
-          }
-        });
 
         // Close on backdrop click
         elements.logViewerModal.addEventListener('click', function(e) {
@@ -2241,6 +2309,125 @@ function getScript(): string {
           }
         } catch (e) {
           console.error('[Notifications] Failed to play notification sound:', e);
+        }
+      }
+
+      // Keyboard Shortcuts Setup
+      function setupKeyboardShortcuts() {
+        // Close button for shortcuts help modal
+        elements.shortcutsCloseBtn.addEventListener('click', hideShortcutsHelpModal);
+
+        // Close shortcuts modal on backdrop click
+        elements.shortcutsHelpModal.addEventListener('click', function(e) {
+          if (e.target === elements.shortcutsHelpModal) {
+            hideShortcutsHelpModal();
+          }
+        });
+
+        // Global keydown handler
+        document.addEventListener('keydown', handleGlobalKeydown);
+      }
+
+      function handleGlobalKeydown(e) {
+        // Ignore shortcuts when typing in input fields
+        const target = e.target;
+        const tagName = target.tagName.toLowerCase();
+        if (tagName === 'input' || tagName === 'textarea' || target.isContentEditable) {
+          // Only handle Escape in input fields to close modals
+          if (e.key === 'Escape') {
+            closeAllModals();
+          }
+          return;
+        }
+
+        const key = e.key.toLowerCase();
+
+        // Handle Escape key to close all modals
+        if (e.key === 'Escape') {
+          closeAllModals();
+          return;
+        }
+
+        // Handle ? key for shortcuts help (requires shift, so check e.key directly)
+        if (e.key === '?') {
+          e.preventDefault();
+          toggleShortcutsHelpModal();
+          return;
+        }
+
+        // Handle P key for Pause/Resume
+        if (key === 'p') {
+          if (currentSprintStatus === 'in-progress') {
+            handlePauseClick();
+          } else if (currentSprintStatus === 'paused') {
+            handleResumeClick();
+          }
+          return;
+        }
+
+        // Handle L key for Live Activity toggle
+        if (key === 'l') {
+          toggleLiveActivity();
+          return;
+        }
+
+        // Handle N key for Notification settings
+        if (key === 'n') {
+          elements.notificationSettingsPanel.classList.toggle('visible');
+          return;
+        }
+
+        // Handle D key for Download all logs
+        if (key === 'd') {
+          downloadAllLogs();
+          return;
+        }
+      }
+
+      function closeAllModals() {
+        // Close all modal overlays
+        if (elements.stopConfirmModal.classList.contains('visible')) {
+          hideStopModal();
+        }
+        if (elements.skipConfirmModal.classList.contains('visible')) {
+          hideSkipModal();
+        }
+        if (elements.logViewerModal.classList.contains('visible')) {
+          hideLogViewer();
+        }
+        if (elements.shortcutsHelpModal.classList.contains('visible')) {
+          hideShortcutsHelpModal();
+        }
+        // Close notification settings panel
+        if (elements.notificationSettingsPanel.classList.contains('visible')) {
+          elements.notificationSettingsPanel.classList.remove('visible');
+        }
+      }
+
+      function showShortcutsHelpModal() {
+        elements.shortcutsHelpModal.classList.add('visible');
+      }
+
+      function hideShortcutsHelpModal() {
+        elements.shortcutsHelpModal.classList.remove('visible');
+      }
+
+      function toggleShortcutsHelpModal() {
+        if (elements.shortcutsHelpModal.classList.contains('visible')) {
+          hideShortcutsHelpModal();
+        } else {
+          showShortcutsHelpModal();
+        }
+      }
+
+      function toggleLiveActivity() {
+        activityCollapsed = !activityCollapsed;
+        if (activityCollapsed) {
+          elements.liveActivitySection.classList.add('collapsed');
+          elements.collapseActivityBtn.textContent = '▶';
+        } else {
+          elements.liveActivitySection.classList.remove('collapsed');
+          elements.collapseActivityBtn.textContent = '▼';
         }
       }
 
