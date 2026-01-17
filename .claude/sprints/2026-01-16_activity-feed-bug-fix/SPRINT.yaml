@@ -1,0 +1,66 @@
+# SPRINT.yaml - Bug-Hunting Sprint: Activity Feed Status Page Issue
+# This file is compiled into PROGRESS.yaml by /run-sprint
+
+workflow: bugfix-workflow    # Using bugfix workflow (diagnose/fix/verify)
+
+steps:
+  - prompt: |
+      Diagnose Activity Feed Bug on Status Page
+
+      Issue: The Activity Feed on the Status Page is not functioning. The hook appears not to be running.
+
+      Investigation tasks:
+      - Locate the Activity Feed component in the Status Page code
+      - Identify which hook should be triggering the Activity Feed updates
+      - Check if the hook is properly registered and configured
+      - Verify the hook's execution path and any error logs
+      - Document the root cause of the failure
+
+      Expected outputs:
+      - Detailed diagnosis report in context/diagnosis.md
+      - List of affected files and components
+      - Root cause analysis
+
+  - prompt: |
+      Fix Activity Feed Hook Implementation
+
+      Based on the diagnosis from the previous step, implement the fix for the Activity Feed hook.
+
+      Fix tasks:
+      - Apply the necessary code changes to fix the hook
+      - Ensure hook is properly registered in settings or configuration
+      - Add error handling if missing
+      - Update any related documentation
+      - Test the hook manually to confirm it executes
+
+      Expected outputs:
+      - Fixed hook implementation
+      - Updated configuration if needed
+      - Code comments explaining the fix
+
+  - prompt: |
+      Verify Activity Feed Functionality
+
+      Comprehensive verification that the Activity Feed works correctly after the fix.
+
+      Verification tasks:
+      - Start the status page server
+      - Verify the Activity Feed displays correctly
+      - Trigger various events that should update the feed
+      - Monitor hook execution logs for any errors
+      - Test edge cases (empty feed, many updates, etc.)
+      - Document the verification results
+
+      Expected outputs:
+      - Verification report in artifacts/verification-report.md
+      - Screenshots or logs showing working Activity Feed
+      - List of tested scenarios with pass/fail status
+
+# Sprint metadata
+sprint-id: 2026-01-16_activity-feed-bug-fix
+name: activity-feed-bug-fix
+description: "Bug-hunting sprint to fix the non-functioning Activity Feed on the Status Page"
+created: 2026-01-16T17:37:51+01:00
+workflow-type: bugfix-workflow
+estimated-phases: 3
+priority: high

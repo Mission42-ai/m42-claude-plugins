@@ -1,0 +1,21 @@
+Completed Phase 4.1 step-11 implement sub-phase. Created `docs/troubleshooting/common-issues.md` with:
+
+**Categories covered:**
+- **Compilation Issues**: Workflow not found, YAML syntax errors, Node.js not available, empty steps array
+- **Execution Issues**: Sprint loop not progressing, phase blocked, needs-human, background loop died, new steps not appearing
+- **Environment Issues**: Sprint directory not found, workflows directory missing, permission prompts
+- **Status Issues**: Can't determine position, status server not starting, stale status information
+
+**Structure per issue:**
+- Symptom (what you see)
+- Cause (why it happens)
+- Solution (how to fix)
+- Prevention (how to avoid)
+
+**Additional sections:**
+- Quick diagnostics commands at the top
+- Recovery procedures (full reset, manual pointer adjustment, skip phase)
+- Debug commands reference table
+- Getting more help guidance
+
+The PROGRESS.yaml has been updated to mark the implement sub-phase as completed and advance to sub-phase 1 (QA). Changes committed.

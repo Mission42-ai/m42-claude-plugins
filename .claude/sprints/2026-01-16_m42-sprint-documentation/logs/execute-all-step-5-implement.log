@@ -1,0 +1,24 @@
+Phase 2.1 implementation complete. I've created `plugins/m42-sprint/docs/reference/commands.md` with:
+
+**Structure:**
+- Quick reference table at top (all 10 commands at a glance)
+- **Lifecycle Commands**: `/start-sprint`, `/run-sprint`
+- **Control Commands**: `/pause-sprint`, `/resume-sprint`, `/stop-sprint`
+- **Monitoring Commands**: `/sprint-status`, `/sprint-watch`
+- **Step Management Commands**: `/add-step`, `/import-steps`
+- **Help Commands**: `/sprint-help`
+
+**Per command documentation includes:**
+- Usage syntax
+- Arguments table with required/optional indicators
+- Options table with defaults
+- Multiple examples with expected output
+- Behavioral notes
+
+**Additional sections:**
+- Common Workflows (practical usage patterns)
+- Status Values Reference table
+- Environment Requirements
+- Cross-references to related docs
+
+The file is 634 lines and provides a comprehensive, scannable reference with copy-paste ready examples.

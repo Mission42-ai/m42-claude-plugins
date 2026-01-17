@@ -1,0 +1,20 @@
+## Sprint Completed
+
+The **Activity Feed Bug Fix** sprint is now complete.
+
+### Summary
+
+**Bug:** The Activity Feed on the Status Page was not functioning because the hook configuration was generated as `.sprint-hooks.json` but never applied to Claude Code.
+
+**Root Cause:** Claude Code only reads hooks from `.claude/settings.json`, not from arbitrary files. The CLI has no `--hook-config` flag.
+
+**Fix Applied (commit 4dca6c8):**
+1. `run-sprint.md` - Now merges hook config into `.claude/settings.json` before launching
+2. `sprint-loop.sh` - Added trap to cleanup hooks from settings on exit
+3. `stop-sprint.md` - Removes hooks from settings when stopping
+
+**Verification:**
+- All code changes reviewed and confirmed correct
+- Hook registration/cleanup logic validated
+- Verification report created at `artifacts/verification-report.md`
+- No regressions identified
