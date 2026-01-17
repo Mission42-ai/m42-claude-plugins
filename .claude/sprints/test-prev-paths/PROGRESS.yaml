@@ -1,15 +1,18 @@
 sprint-id: test-prev-paths
-status: in-progress
+status: completed
 current:
-  phase: 1
+  phase: 2
   step: 0
   sub-phase: 0
 phases:
   - id: phase-one
     status: completed
+    started-at: "2026-01-17T23:42:52Z"
+    completed-at: "2026-01-17T23:43:21Z"
+    elapsed: 00:00:29
   - id: phase-two
-    status: pending
+    status: completed
 stats:
   started-at: "2026-01-17T23:42:52Z"
   max-iterations: 2
-  current-iteration: 1
+  current-iteration: 2
