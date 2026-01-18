@@ -96,3 +96,4 @@
 {"phaseId":"verify","workflow":"unknown","startTime":"2026-01-17T22:40:02Z","endTime":"2026-01-17T22:40:03Z","durationMs":1000,"sprintId":"2026-01-17_plugin-enhancements"}
 {"phaseId":"final-qa","workflow":"unknown","startTime":"2026-01-17T22:41:27Z","endTime":"2026-01-17T22:43:00Z","durationMs":93000,"sprintId":"2026-01-17_plugin-enhancements"}
 {"phaseId":"summary","workflow":"unknown","startTime":"2026-01-17T22:44:58Z","endTime":"2026-01-17T22:44:58Z","durationMs":0,"sprintId":"2026-01-17_plugin-enhancements"}
+{"phaseId":"pr-create","workflow":"unknown","startTime":"2026-01-17T22:46:56Z","endTime":"2026-01-17T22:47:30Z","durationMs":34000,"sprintId":"2026-01-17_plugin-enhancements"}

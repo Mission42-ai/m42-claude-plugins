@@ -93,7 +93,8 @@ function expandStep(step, stepIndex, workflow, context) {
         return {
             id: phase.id,
             status: 'pending',
-            prompt
+            prompt,
+            parallel: phase.parallel
         };
     });
     return {
