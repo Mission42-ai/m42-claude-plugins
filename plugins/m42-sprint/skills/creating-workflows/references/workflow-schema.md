@@ -243,6 +243,119 @@ phases:
 | `<type>-<variant>.yaml` | `sprint-default.yaml` | Type with variant |
 | `<action>-workflow.yaml` | `bugfix-workflow.yaml` | Action-focused |
 
+---
+
+## Ralph Mode Workflow
+
+When creating a Ralph mode workflow, use `mode: ralph` instead of defining `phases`. Ralph mode enables autonomous goal-driven execution.
+
+### Ralph Mode Top-Level Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `mode` | `'standard' \| 'ralph'` | No | Workflow mode (default: `standard`) |
+| `goal-prompt` | string | Conditional | Prompt template for initial goal analysis (Ralph mode only) |
+| `reflection-prompt` | string | Conditional | Prompt template for reflection when no pending steps (Ralph mode only) |
+| `per-iteration-hooks` | list[PerIterationHook] | No | Hooks to run each iteration |
+
+### Per-Iteration Hook Schema
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `id` | string | Yes | Unique hook identifier |
+| `workflow` | string | Conditional | Workflow reference (e.g., `"m42-signs:learning-extraction"`) |
+| `prompt` | string | Conditional | Inline prompt (alternative to `workflow`) |
+| `parallel` | boolean | Yes | If `true`, runs non-blocking in background |
+| `enabled` | boolean | Yes | Default enabled state (can be overridden in SPRINT.yaml) |
+
+**Note:** Either `workflow` or `prompt` is required, but not both.
+
+### TypeScript Interface (Ralph Mode Extensions)
+
+```typescript
+interface WorkflowDefinition {
+  name: string;
+  description?: string;
+  phases?: WorkflowPhase[];           // Optional for Ralph mode
+  mode?: 'standard' | 'ralph';
+  'goal-prompt'?: string;
+  'reflection-prompt'?: string;
+  'per-iteration-hooks'?: PerIterationHook[];
+}
+
+interface PerIterationHook {
+  id: string;
+  workflow?: string;
+  prompt?: string;
+  parallel: boolean;
+  enabled: boolean;
+}
+```
+
+### Ralph Mode Workflow Example
+
+```yaml
+name: Ralph Mode Workflow
+description: Autonomous goal-driven execution with configurable per-iteration hooks
+mode: ralph
+
+goal-prompt: |
+  Analyze the goal and create initial implementation steps.
+  Break down complex goals into concrete, actionable tasks.
+
+reflection-prompt: |
+  No pending steps remain. Evaluate:
+  1. Is the goal fully achieved?
+  2. Are there edge cases or tests missing?
+  3. Is documentation complete?
+
+  If complete: RALPH_COMPLETE: [summary]
+  If not: add more steps
+
+per-iteration-hooks:
+  - id: learning
+    workflow: "m42-signs:learning-extraction"
+    parallel: true
+    enabled: false
+
+  - id: documentation
+    prompt: |
+      Review changes from this iteration and update relevant documentation.
+    parallel: true
+    enabled: false
+
+  - id: tests
+    prompt: |
+      Analyze code changes and suggest additional test cases.
+    parallel: true
+    enabled: false
+```
+
+### SPRINT.yaml for Ralph Mode
+
+```yaml
+workflow: ralph
+goal: |
+  Build authentication system with JWT tokens
+
+# Override hook defaults
+per-iteration-hooks:
+  learning:
+    enabled: true
+  documentation:
+    enabled: true
+```
+
+### Validation Rules (Ralph Mode)
+
+1. If `mode: ralph`, `phases` should be absent or empty
+2. If `mode: ralph`, `goal-prompt` and `reflection-prompt` are recommended
+3. Per-iteration hooks must have unique `id` values
+4. Each hook must have either `workflow` or `prompt`, not both
+5. Hook `parallel` and `enabled` fields are required
+
+---
+
 ## Schema Evolution
 
 Current schema version supports:
@@ -250,6 +363,8 @@ Current schema version supports:
 - For-each phases iterating over steps
 - Template variable substitution
 - Parallel execution with `parallel` and `wait-for-parallel`
+- Ralph mode with autonomous goal-driven execution
+- Per-iteration hooks for deterministic parallel tasks
 
 Future versions may add:
 - Conditional phases
