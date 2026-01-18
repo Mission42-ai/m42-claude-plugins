@@ -82,7 +82,7 @@ function calculateElapsed(startIso, endIso) {
 function countPhases(progress) {
     let total = 0;
     let completed = 0;
-    for (const topPhase of progress.phases) {
+    for (const topPhase of progress.phases ?? []) {
         if (topPhase.steps) {
             // For-each phase: count sub-phases within each step
             for (const step of topPhase.steps) {
@@ -193,7 +193,7 @@ function buildTopPhaseNode(topPhase, depth) {
  * Build the complete phase tree from CompiledProgress
  */
 function buildPhaseTree(progress) {
-    return progress.phases.map((p) => buildTopPhaseNode(p, 0));
+    return (progress.phases ?? []).map((p) => buildTopPhaseNode(p, 0));
 }
 // ============================================================================
 // Current Task Extraction
@@ -203,7 +203,7 @@ function buildPhaseTree(progress) {
  */
 function buildCurrentPath(progress, phaseIdx, stepIdx, subPhaseIdx) {
     const parts = [];
-    if (phaseIdx >= 0 && phaseIdx < progress.phases.length) {
+    if (phaseIdx >= 0 && phaseIdx < (progress.phases?.length ?? 0)) {
         const phase = progress.phases[phaseIdx];
         parts.push(phase.id);
         if (stepIdx !== null && phase.steps && stepIdx >= 0 && stepIdx < phase.steps.length) {
@@ -222,7 +222,7 @@ function buildCurrentPath(progress, phaseIdx, stepIdx, subPhaseIdx) {
  */
 function extractCurrentTask(progress) {
     const { phase: phaseIdx, step: stepIdx, 'sub-phase': subPhaseIdx } = progress.current;
-    if (phaseIdx < 0 || phaseIdx >= progress.phases.length) {
+    if (phaseIdx < 0 || phaseIdx >= (progress.phases?.length ?? 0)) {
         return null;
     }
     const phase = progress.phases[phaseIdx];
@@ -334,7 +334,7 @@ function generateDiffLogEntries(oldProgress, newProgress) {
     // Helper to track phase paths and statuses
     function collectPhaseStatuses(progress) {
         const result = new Map();
-        for (const phase of progress.phases) {
+        for (const phase of progress.phases ?? []) {
             const phasePath = phase.id;
             result.set(phasePath, {
                 status: phase.status,
