@@ -287,3 +287,91 @@ fi
 |------|---------|
 | `plugins/m42-sprint/scripts/build-sprint-prompt.sh` | Pattern for prompt generation |
 | `plugins/m42-sprint/scripts/build-parallel-prompt.sh` | Pattern for parallel prompts |
+| `plugins/m42-sprint/compiler/src/types.ts` | TypeScript interfaces for Ralph mode |
+
+## Types from Compiler (for reference)
+
+```typescript
+// From types.ts - Ralph mode structures
+interface PerIterationHook {
+  id: string;
+  workflow?: string;
+  prompt?: string;
+  parallel: boolean;
+  enabled: boolean;
+}
+
+interface DynamicStep {
+  id: string;
+  prompt: string;
+  status: PhaseStatus;
+  'added-at': string;
+  'added-in-iteration': number;
+}
+
+interface HookTask {
+  iteration: number;
+  'hook-id': string;
+  status: ParallelTaskStatus;
+  pid?: number;
+  transcript?: string;
+}
+
+interface RalphConfig {
+  'idle-threshold'?: number;
+}
+
+interface RalphExitInfo {
+  'detected-at'?: string;
+  iteration?: number;
+  'final-summary'?: string;
+}
+```
+
+## Gherkin Scenarios Summary (from artifacts/step-1-gherkin.md)
+
+All 8 scenarios must pass:
+
+| # | Scenario | Verification |
+|---|----------|--------------|
+| 1 | Script syntax valid | `bash -n sprint-loop.sh` |
+| 2 | run_standard_loop exists | grep function definition |
+| 3 | run_ralph_loop exists | grep function definition |
+| 4 | Mode detection logic | grep mode read + conditional |
+| 5 | spawn_per_iteration_hooks exists | grep function definition |
+| 6 | record_ralph_completion exists | grep function definition |
+| 7 | RALPH_COMPLETE detection | grep RALPH_COMPLETE patterns |
+| 8 | build-ralph-prompt.sh integration | grep script invocation |
+
+## Verification Commands
+
+```bash
+# Scenario 1: Syntax check
+bash -n plugins/m42-sprint/scripts/sprint-loop.sh
+
+# Scenario 2: run_standard_loop function exists
+grep -qE '^run_standard_loop\s*\(\)|^function run_standard_loop' plugins/m42-sprint/scripts/sprint-loop.sh
+
+# Scenario 3: run_ralph_loop function exists
+grep -qE '^run_ralph_loop\s*\(\)|^function run_ralph_loop' plugins/m42-sprint/scripts/sprint-loop.sh
+
+# Scenario 4: Mode detection reads from PROGRESS.yaml
+grep -q '.mode // "standard"' plugins/m42-sprint/scripts/sprint-loop.sh && \
+grep -qE 'if.*ralph.*run_ralph_loop|"ralph".*\).*run_ralph_loop' plugins/m42-sprint/scripts/sprint-loop.sh
+
+# Scenario 5: spawn_per_iteration_hooks function exists
+grep -qE '^spawn_per_iteration_hooks\s*\(\)|^function spawn_per_iteration_hooks' plugins/m42-sprint/scripts/sprint-loop.sh
+
+# Scenario 6: record_ralph_completion function exists
+grep -qE '^record_ralph_completion\s*\(\)|^function record_ralph_completion' plugins/m42-sprint/scripts/sprint-loop.sh
+
+# Scenario 7: RALPH_COMPLETE detection logic
+grep -qE 'RALPH_COMPLETE' plugins/m42-sprint/scripts/sprint-loop.sh && \
+grep -qE 'grep.*RALPH_COMPLETE|record_ralph_completion' plugins/m42-sprint/scripts/sprint-loop.sh
+
+# Scenario 8: build-ralph-prompt.sh integration
+grep -qE 'build-ralph-prompt\.sh' plugins/m42-sprint/scripts/sprint-loop.sh
+
+# Informational: shellcheck
+shellcheck plugins/m42-sprint/scripts/sprint-loop.sh || true
+```
