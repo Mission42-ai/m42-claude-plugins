@@ -1447,8 +1447,7 @@ exit 1
 # Detect mode from PROGRESS.yaml and dispatch to appropriate loop
 SPRINT_MODE=$(yq -r '.mode // "standard"' "$PROGRESS_FILE")
 
-if [[ "$SPRINT_MODE" == "ralph" ]]; then
-  run_ralph_loop
-else
-  run_standard_loop
-fi
+case "$SPRINT_MODE" in
+  "ralph") run_ralph_loop ;;
+  *) run_standard_loop ;;
+esac
