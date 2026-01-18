@@ -217,7 +217,8 @@ export function expandForEach(
   return {
     id: phase.id,
     status: 'pending' as const,
-    steps: compiledSteps
+    steps: compiledSteps,
+    'wait-for-parallel': phase['wait-for-parallel']
   };
 }
 
@@ -247,6 +248,7 @@ export function compileSimplePhase(
   return {
     id: phase.id,
     status: 'pending' as const,
-    prompt
+    prompt,
+    'wait-for-parallel': phase['wait-for-parallel']
   };
 }

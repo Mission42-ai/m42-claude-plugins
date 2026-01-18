@@ -211,7 +211,8 @@ export async function compile(config: CompilerConfig): Promise<CompilerResult> {
     status: 'not-started',
     phases: compiledPhases,
     current,
-    stats
+    stats,
+    'parallel-tasks': []
   };
 
   // Validate compiled progress
