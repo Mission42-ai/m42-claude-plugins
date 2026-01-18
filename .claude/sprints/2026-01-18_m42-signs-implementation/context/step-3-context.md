@@ -1,187 +1,150 @@
 # Step Context: step-3
 
 ## Task
-Phase 2.1: Transcript Parsing Logic - Implement session transcript parsing:
-
-1. Create `scripts/parse-transcript.sh` - Parse JSONL session files, extract errors, correlate tool calls
-2. Create `skills/managing-signs/references/transcript-format.md` - Document transcript format with examples
-3. Test parsing with real session files
+Implement session transcript parsing logic:
+1. Create `scripts/parse-transcript.sh`
+2. Create `skills/managing-signs/references/transcript-format.md`
+3. Test with real session files
 
 ## Related Code Patterns
 
-### Similar Implementation: sprint-loop.sh (JSON streaming)
+### Similar Implementation: scripts/validate-backlog.sh
 ```bash
-# From plugins/m42-sprint/scripts/sprint-loop.sh:847-860
-# Invoke Claude with JSON streaming to capture full transcript
-claude -p "$PROMPT" \
-  --dangerously-skip-permissions \
-  --output-format stream-json \
-  --verbose \
-  > "$TRANSCRIPT_FILE" 2>&1
-CLI_EXIT_CODE=$?
-
-# Extract final result text for legacy log file
-jq -r 'select(.type=="result") | .result // empty' "$TRANSCRIPT_FILE" > "$LOG_FILE" 2>/dev/null || true
-
-# Also extract CLI_OUTPUT for error handling
-CLI_OUTPUT=$(jq -r 'select(.type=="result") | .result // empty' "$TRANSCRIPT_FILE" 2>/dev/null || cat "$TRANSCRIPT_FILE")
-```
-
-### Similar Implementation: preflight-check.sh (script structure)
-```bash
-# From plugins/m42-sprint/scripts/preflight-check.sh:1-18
 #!/bin/bash
-# Preflight Check - Validate sprint environment before execution
 set -euo pipefail
 
-SPRINT_DIR="$1"
+FILE="${1:-}"
 
-if [[ -z "$SPRINT_DIR" ]] || [[ ! -d "$SPRINT_DIR" ]]; then
-  echo "Error: Valid sprint directory required" >&2
+if [[ -z "$FILE" ]]; then
+  echo "Error: Backlog file path required" >&2
+  echo "Usage: validate-backlog.sh <backlog-file>" >&2
   exit 1
 fi
 
-# Check 1: Required tools are available
-if ! command -v jq &> /dev/null; then
-  ERRORS+=("Required tool 'jq' is not installed")
+if [[ ! -f "$FILE" ]]; then
+  echo "Error: File not found: $FILE" >&2
+  exit 1
+fi
+
+# Check required tool
+if ! command -v yq &> /dev/null; then
+  echo "Error: Required tool 'yq' is not installed" >&2
+  exit 1
 fi
 ```
 
-### Reference File Pattern (frontmatter)
+### Reference File Pattern: references/backlog-schema.md
 ```yaml
-# From plugins/m42-meta-toolkit/skills/creating-skills/references/reference-frontmatter-guide.md
 ---
-title: Reference File Frontmatter Guide
-description: Specification for YAML frontmatter in skill reference files, including required fields, validation rules, and examples for programmatic discovery
-keywords: frontmatter, metadata, discovery, reference files, yaml, validation
-file-type: reference
-skill: creating-skills
+title: Backlog Schema Reference
+description: Complete YAML schema for learning backlog files...
+keywords: backlog, schema, yaml, learnings, signs, validation
+skill: managing-signs
 ---
 ```
 
-## JSONL Session File Structure
+## Session File Format
 
-Session files are stored in `~/.claude/projects/<project-path>/` as JSONL.
+### Location
+```
+~/.claude/projects/{encoded-project-path}/{session-id}.jsonl
+~/.claude/projects/{encoded-project-path}/{session-id}/subagents/agent-{id}.jsonl
+```
 
-### Message Types (from real session analysis)
-| Type | Description | Key Fields |
-|------|-------------|------------|
-| `queue-operation` | Session queue events | `operation`, `sessionId` |
-| `user` | User messages or tool results | `message.role`, `message.content` |
-| `assistant` | Assistant responses or tool calls | `message.role`, `message.content` |
+### Message Types
 
-### User Message with Tool Result Structure
+| Type | Subtype | Key Fields |
+|------|---------|------------|
+| `system` | `init` | `session_id`, `tools`, `model`, `cwd` |
+| `assistant` | - | `message.content[].type` (tool_use/text) |
+| `user` | - | `content[].type` (tool_result), `is_error` |
+| `result` | success/error | `total_cost_usd`, `num_turns` |
+
+### Tool Use Structure (in assistant message)
 ```json
 {
-  "type": "user",
-  "uuid": "string",
-  "parentUuid": "string",
-  "sessionId": "string",
-  "timestamp": "ISO-8601",
-  "sourceToolAssistantUUID": "string",
-  "toolUseResult": {
-    "stdout": "string",
-    "stderr": "string",
-    "interrupted": false,
-    "isImage": false
-  },
-  "message": {
-    "role": "user",
-    "content": [{
-      "type": "tool_result",
-      "tool_use_id": "toolu_xxx",
-      "content": "result text",
-      "is_error": false
-    }]
+  "type": "tool_use",
+  "id": "toolu_019Zib79YJcMPVu5AQ4Ug3hs",
+  "name": "Bash",
+  "input": {
+    "command": "ls -la",
+    "description": "List files"
   }
 }
 ```
 
-### Assistant Message with Tool Use Structure
+### Tool Result Structure (in user message)
 ```json
 {
-  "type": "assistant",
-  "uuid": "string",
-  "message": {
-    "role": "assistant",
-    "content": [{
-      "type": "tool_use",
-      "id": "toolu_xxx",
-      "name": "Bash",
-      "input": { "command": "..." }
-    }]
-  }
+  "type": "tool_result",
+  "tool_use_id": "toolu_019Zib79YJcMPVu5AQ4Ug3hs",
+  "content": "EISDIR: illegal operation on a directory, read",
+  "is_error": true
 }
 ```
 
-### Error Correlation Pattern
-1. Assistant sends `tool_use` with `id: "toolu_xxx"` and `name: "ToolName"`
-2. User responds with `tool_result` containing `tool_use_id: "toolu_xxx"`
-3. When `is_error: true`, the error message is in the `content` field
-4. `sourceToolAssistantUUID` in user message points to the assistant message UUID
-
-### jq Query Examples for Parsing
-
-```bash
-# Extract all tool results with errors
-jq -c 'select(.message.content[]?.is_error == true)' session.jsonl
-
-# Extract tool_use_id from error results
-jq -r '.message.content[] | select(.is_error == true) | .tool_use_id' session.jsonl
-
-# Find assistant message by UUID (for correlation)
-jq -c 'select(.uuid == "TARGET_UUID")' session.jsonl
-
-# Extract tool name and input from assistant message
-jq -r '.message.content[] | select(.type == "tool_use") | "\(.name): \(.input | tostring)"' session.jsonl
+### Real Error Example
+```json
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","content":"EISDIR: illegal operation on a directory, read","is_error":true,"tool_use_id":"toolu_016EYjsz7p6LmzX3NNGzemRm"}]}}
 ```
 
 ## Required Imports
-### Internal
-- None (standalone bash script)
 
-### External
-- `jq`: JSON parsing (must be validated in preflight)
+### External Tools
+- `jq`: JSON processing (required for JSONL parsing)
+- `bash`: Shell execution
 
-## Types/Interfaces to Use
-N/A - bash script output format is structured text or JSON
+## jq Correlation Logic
 
-### Suggested Output Format (TSV or JSON)
+### Find All Errors
 ```bash
-# TSV format: tool_name<TAB>tool_use_id<TAB>error_message
-Bash	toolu_01xxx	Exit code 1: Command not found
-
-# JSON format
-{"tool_name":"Bash","tool_use_id":"toolu_01xxx","error":"Exit code 1: Command not found"}
+jq 'select(.type=="user") | .content[]? | select(.is_error==true)' session.jsonl
 ```
+
+### Correlate Tool Use with Tool Result
+```bash
+jq -s '
+  [.[] | select(.type=="assistant" or .type=="user")] |
+  group_by(.message.content[0].id // .content[0].tool_use_id) |
+  .[] | select(length == 2) |
+  {
+    tool: .[0].message.content[0].name,
+    input: .[0].message.content[0].input,
+    is_error: .[1].content[0].is_error,
+    result: .[1].content[0].content
+  } | select(.is_error == true)
+' session.jsonl
+```
+
+**Important**: The correlation uses `.message.content[0].id` for tool_use and `.content[0].tool_use_id` for tool_result.
 
 ## Integration Points
-- **Called by**: Future `analyze-session` command, sign detection workflows
-- **Calls**: jq for JSON parsing
-- **Tests**: Will test with real session files from `~/.claude/projects/`
 
-## Directory Structure for Outputs
+### Called by
+- `/signs extract <session-id>` command (not yet implemented)
+- Future sprint workflow integration
 
+### Output Format
+Script should output valid JSON array with:
+```json
+[
+  {
+    "tool": "Bash",
+    "input": {"command": "...", "description": "..."},
+    "error": "error message",
+    "tool_use_id": "toolu_..."
+  }
+]
 ```
-plugins/m42-signs/
-├── scripts/
-│   └── parse-transcript.sh       # NEW: Parse JSONL transcripts
-└── skills/
-    └── managing-signs/
-        └── references/
-            └── transcript-format.md  # NEW: Document format
-```
+
+### Tests
+- Manual verification using real session files from `~/.claude/projects/`
 
 ## Implementation Notes
-- Script must handle both single-item and array content in messages
-- Use `select()` with null-safe access (`?.`) to handle missing fields
-- Error messages may be wrapped in `<tool_use_error>` tags
-- The `sourceToolAssistantUUID` field links tool_result to its tool_use
-- Prefer `--slurp` with careful memory for large files, or stream processing for efficiency
-- Test with real session file: `~/.claude/projects/-home-konstantin-projects-m42-claude-plugins/*.jsonl`
 
-## Reference File Requirements
-- Must have YAML frontmatter with: `title`, `description`, `skill: managing-signs`
-- Should include jq query examples for common operations
-- Document the correlation logic between tool_use and tool_result
-- Keep content LLM-dense (tables, code examples, minimal prose)
+1. **Handle both message formats**: Regular sessions use `message.content`, subagent sessions may vary slightly
+2. **Multiple content blocks**: A single message can have multiple tool_use blocks - iterate over `.content[]`
+3. **Empty arrays OK**: If no errors found, output empty JSON array `[]`
+4. **Tool use ID is key**: The `tool_use_id` links requests to responses
+5. **Input varies by tool**: Bash has `command`/`description`, Read has `file_path`, Edit has `old_string`/`new_string` etc.
+6. **Use `-s` flag**: Need `jq -s` (slurp) to correlate across lines

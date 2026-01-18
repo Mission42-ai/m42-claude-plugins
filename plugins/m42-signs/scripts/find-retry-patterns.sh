@@ -1,364 +1,236 @@
 #!/bin/bash
-# Find retry patterns in JSONL session transcripts
-# Detects: error -> retry -> success sequences
-# Usage: find-retry-patterns.sh <session.jsonl> [--json|--summary]
 set -euo pipefail
 
-SESSION_FILE="${1:-}"
-OUTPUT_FORMAT="${2:---json}"
+# Find retry patterns in Claude Code session transcripts
+# Detects error -> retry -> success sequences and extracts what changed
+#
+# Usage: find-retry-patterns.sh <session-file.jsonl>
+# Output: JSON with patterns array including confidence scores
 
-if [[ -z "$SESSION_FILE" ]] || [[ ! -f "$SESSION_FILE" ]]; then
-  echo "Error: Valid JSONL session file required" >&2
-  echo "Usage: find-retry-patterns.sh <session.jsonl> [--json|--summary]" >&2
+FILE="${1:-}"
+
+if [[ -z "$FILE" ]]; then
+  echo "Error: Session file path required" >&2
+  echo "Usage: find-retry-patterns.sh <session-file.jsonl>" >&2
   exit 1
 fi
 
+if [[ ! -f "$FILE" ]]; then
+  echo "Error: File not found: $FILE" >&2
+  exit 1
+fi
+
+# Check required tool
 if ! command -v jq &> /dev/null; then
-  echo "Error: jq is required but not installed" >&2
+  echo "Error: Required tool 'jq' is not installed" >&2
   exit 1
 fi
 
-# ============================================================================
-# HEURISTIC PATTERNS
-# Categories for classifying retry fixes
-# ============================================================================
+# Extract session ID from filename (without extension)
+SESSION_ID=$(basename "$FILE" .jsonl)
 
-# Heuristic 1: Command syntax fixes - quoting and escaping
-classify_syntax_fix() {
-  local before="$1"
-  local after="$2"
+# Current timestamp in ISO format
+ANALYZED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-  # Check for added quotes
-  if [[ "$after" =~ \"[^\"]+\" ]] && ! [[ "$before" =~ \"[^\"]+\" ]]; then
-    echo "quoting_fix"
-    return 0
-  fi
-
-  # Check for added escaping
-  if [[ "$after" =~ \\ ]] && ! [[ "$before" =~ \\ ]]; then
-    echo "escaping_fix"
-    return 0
-  fi
-
-  return 1
-}
-
-# Heuristic 2: File path corrections
-classify_path_fix() {
-  local before="$1"
-  local after="$2"
-
-  # Extract paths and compare
-  local before_path after_path
-  before_path=$(echo "$before" | grep -oE '/[a-zA-Z0-9_./-]+' | head -1 || true)
-  after_path=$(echo "$after" | grep -oE '/[a-zA-Z0-9_./-]+' | head -1 || true)
-
-  if [[ -n "$before_path" && -n "$after_path" && "$before_path" != "$after_path" ]]; then
-    echo "path_correction"
-    return 0
-  fi
-
-  return 1
-}
-
-# Heuristic 3: Permission/access fixes
-classify_permission_fix() {
-  local before="$1"
-  local after="$2"
-  local error_msg="$3"
-
-  # Check if error mentions permission
-  if [[ "$error_msg" =~ [Pp]ermission|denied|EACCES ]]; then
-    if [[ "$after" =~ sudo|chmod|chown ]] && ! [[ "$before" =~ sudo|chmod|chown ]]; then
-      echo "permission_fix"
-      return 0
-    fi
-  fi
-
-  return 1
-}
-
-# Heuristic 4: API rate limiting
-classify_rate_limit_fix() {
-  local before="$1"
-  local after="$2"
-  local error_msg="$3"
-
-  # Check if error mentions rate limit
-  if [[ "$error_msg" =~ rate|limit|429|throttle|[Tt]oo.many ]]; then
-    # If inputs are identical, it's likely a rate limit retry
-    if [[ "$before" == "$after" ]]; then
-      echo "rate_limit_retry"
-      return 0
-    fi
-  fi
-
-  return 1
-}
-
-# ============================================================================
-# CONFIDENCE SCORING
-# High: Clear fix, obvious pattern, immediate retry
-# Medium: Plausible fix, some changes, moderate gap
-# Low: Unclear causation, many changes, large gap
-# ============================================================================
-
-calculate_confidence() {
-  local heuristic="$1"
-  local input_similarity="$2"  # 0-100
-  local sequence_gap="$3"      # number of messages between error and success
-
-  local confidence="low"
-
-  # High confidence patterns
-  if [[ -n "$heuristic" ]]; then
-    case "$heuristic" in
-      quoting_fix|escaping_fix|path_correction|rate_limit_retry)
-        confidence="high"
-        ;;
-      permission_fix|syntax_fix)
-        confidence="medium"
-        ;;
-    esac
-  fi
-
-  # Adjust based on sequence gap
-  if [[ "$sequence_gap" -gt 10 ]]; then
-    # Large gap reduces confidence
-    if [[ "$confidence" == "high" ]]; then
-      confidence="medium"
-    elif [[ "$confidence" == "medium" ]]; then
-      confidence="low"
-    fi
-  elif [[ "$sequence_gap" -le 2 ]]; then
-    # Immediate retry increases confidence
-    if [[ "$confidence" == "low" && "$input_similarity" -gt 70 ]]; then
-      confidence="medium"
-    fi
-  fi
-
-  echo "$confidence"
-}
-
-# ============================================================================
-# MAIN PROCESSING
-# ============================================================================
-
-# Create temp files for lookups
-TOOL_USE_FILE=$(mktemp)
-TOOL_RESULT_FILE=$(mktemp)
-PATTERNS_FILE=$(mktemp)
-trap "rm -f $TOOL_USE_FILE $TOOL_RESULT_FILE $PATTERNS_FILE" EXIT
-
-# Extract all tool_use entries with sequence numbers
-jq -c '
-  select(.type == "assistant") |
-  select(.message.content | type == "array") |
-  .uuid as $uuid |
-  .message.content[] |
-  select(.type == "tool_use") |
-  {
-    uuid: $uuid,
-    tool_use_id: .id,
-    tool_name: .name,
-    input: .input
-  }
-' "$SESSION_FILE" 2>/dev/null | nl -ba > "$TOOL_USE_FILE"
-
-# Extract all tool_result entries
-jq -c '
-  select(.type == "user") |
-  select(.message.content | type == "array") |
-  .sourceToolAssistantUUID as $srcUuid |
-  .uuid as $resultUuid |
-  .message.content[] |
-  select(.type == "tool_result") |
-  {
-    result_uuid: $resultUuid,
-    source_uuid: $srcUuid,
-    tool_use_id: .tool_use_id,
-    is_error: (.is_error // false),
-    content: .content
-  }
-' "$SESSION_FILE" 2>/dev/null | nl -ba > "$TOOL_RESULT_FILE"
-
-# Statistics
-total_errors=0
-patterns_found=0
-declare -A by_tool
-declare -A by_confidence
-
-# Find retry patterns: error followed by success for same tool type
-while IFS=$'\t' read -r error_seq error_json; do
-  error_tool_use_id=$(echo "$error_json" | jq -r '.tool_use_id')
-  error_source_uuid=$(echo "$error_json" | jq -r '.source_uuid')
-  error_is_error=$(echo "$error_json" | jq -r '.is_error')
-  error_content=$(echo "$error_json" | jq -r '.content // ""')
-
-  [[ "$error_is_error" != "true" ]] && continue
-  ((total_errors++)) || true
-
-  # Find the tool_use that caused this error
-  error_tool_info=$(grep "\"tool_use_id\":\"$error_tool_use_id\"" "$TOOL_USE_FILE" 2>/dev/null | head -1 || true)
-  [[ -z "$error_tool_info" ]] && continue
-
-  error_tool_seq=$(echo "$error_tool_info" | awk '{print $1}')
-  error_tool_json=$(echo "$error_tool_info" | cut -f2-)
-  error_tool_name=$(echo "$error_tool_json" | jq -r '.tool_name')
-  error_input=$(echo "$error_tool_json" | jq -c '.input')
-
-  # Look for subsequent tool_use of same type that succeeded
-  while IFS=$'\t' read -r success_seq success_json; do
-    [[ "$success_seq" -le "$error_tool_seq" ]] && continue
-
-    success_tool_name=$(echo "$success_json" | jq -r '.tool_name')
-    [[ "$success_tool_name" != "$error_tool_name" ]] && continue
-
-    success_tool_use_id=$(echo "$success_json" | jq -r '.tool_use_id')
-    success_input=$(echo "$success_json" | jq -c '.input')
-
-    # Check if this tool_use succeeded
-    success_result=$(grep "\"tool_use_id\":\"$success_tool_use_id\"" "$TOOL_RESULT_FILE" 2>/dev/null | head -1 || true)
-    [[ -z "$success_result" ]] && continue
-
-    success_is_error=$(echo "$success_result" | cut -f2- | jq -r '.is_error')
-    [[ "$success_is_error" == "true" ]] && continue
-
-    # Found a retry pattern!
-    sequence_gap=$((success_seq - error_tool_seq))
-
-    # Calculate input diff/change
-    error_input_str=$(echo "$error_input" | jq -r 'if type == "object" then (.command // .file_path // .old_string // (. | tostring)) else . end' 2>/dev/null || echo "$error_input")
-    success_input_str=$(echo "$success_input" | jq -r 'if type == "object" then (.command // .file_path // .old_string // (. | tostring)) else . end' 2>/dev/null || echo "$success_input")
-
-    # Apply heuristics to classify the pattern
-    heuristic=""
-    if classify_permission_fix "$error_input_str" "$success_input_str" "$error_content" >/dev/null 2>&1; then
-      heuristic=$(classify_permission_fix "$error_input_str" "$success_input_str" "$error_content")
-    elif classify_rate_limit_fix "$error_input_str" "$success_input_str" "$error_content" >/dev/null 2>&1; then
-      heuristic=$(classify_rate_limit_fix "$error_input_str" "$success_input_str" "$error_content")
-    elif classify_path_fix "$error_input_str" "$success_input_str" >/dev/null 2>&1; then
-      heuristic=$(classify_path_fix "$error_input_str" "$success_input_str")
-    elif classify_syntax_fix "$error_input_str" "$success_input_str" >/dev/null 2>&1; then
-      heuristic=$(classify_syntax_fix "$error_input_str" "$success_input_str")
+# Process the transcript to find retry patterns
+# Algorithm:
+# 1. Build ordered list of all tool_use and tool_result events
+# 2. For each error, look for same tool success within next N messages
+# 3. Compare inputs to detect what changed
+# 4. Classify pattern type and score confidence
+jq -s --arg session_id "$SESSION_ID" --arg analyzed_at "$ANALYZED_AT" '
+# Build ordered list of events with indices for tracking
+def build_events:
+  to_entries | map(
+    .key as $idx |
+    .value |
+    if .type == "assistant" then
+      [.message.content[]? // empty | select(.type == "tool_use") | {
+        idx: $idx,
+        event_type: "tool_use",
+        tool_use_id: .id,
+        tool: .name,
+        input: .input
+      }]
+    elif .type == "user" then
+      # Handle both .content and .message.content formats
+      (
+        if .content then .content
+        elif (.message.content | type) == "array" then .message.content
+        else []
+        end
+      ) | map(select(.type == "tool_result") | {
+        idx: $idx,
+        event_type: "tool_result",
+        tool_use_id: .tool_use_id,
+        is_error: (.is_error // false),
+        content: .content
+      })
     else
-      heuristic="unknown_pattern"
-    fi
+      []
+    end
+  ) | flatten;
 
-    # Calculate input similarity (simple approach)
-    if [[ "$error_input" == "$success_input" ]]; then
-      input_similarity=100
-    elif [[ "$error_tool_name" == "$success_tool_name" ]]; then
-      input_similarity=50
+# Classify pattern type based on input differences
+def classify_pattern(failed; success; tool):
+  if tool == "Bash" then
+    # Check for command syntax fixes
+    if (failed.command // "" | test("\\$[A-Za-z_]")) and
+       (success.command // "" | test("\"\\$")) then
+      "command_syntax"
+    elif (failed.command // "") != (success.command // "") and
+         ((failed.command // "" | length) - (success.command // "" | length) | fabs) < 10 then
+      "command_syntax"
     else
-      input_similarity=0
-    fi
+      "command_fix"
+    end
+  elif tool == "Read" or tool == "Write" or tool == "Edit" then
+    if (failed.file_path // failed.path // "") != (success.file_path // success.path // "") then
+      "file_path"
+    else
+      "file_operation"
+    end
+  elif tool == "Glob" or tool == "Grep" then
+    if (failed.pattern // "") != (success.pattern // "") then
+      "pattern_fix"
+    else
+      "search_fix"
+    end
+  else
+    "unknown"
+  end;
 
-    # Calculate confidence score
-    confidence=$(calculate_confidence "$heuristic" "$input_similarity" "$sequence_gap")
+# Score confidence based on pattern characteristics
+def score_confidence(pattern_type; failed; success; tool):
+  # High: Clear, obvious pattern with minimal change
+  # Medium: Plausible fix but moderate evidence
+  # Low: Unclear if fix was causal
 
-    # Build the diff/change object
-    diff_json=$(jq -n \
-      --arg type "$heuristic" \
-      --arg before "$error_input_str" \
-      --arg after "$success_input_str" \
-      '{type: $type, before: $before, after: $after}')
+  if pattern_type == "command_syntax" then
+    # Same command base, just syntax fix = high confidence
+    "high"
+  elif pattern_type == "file_path" then
+    # Path correction = high confidence
+    "high"
+  elif pattern_type == "command_fix" then
+    # General command fix = medium
+    "medium"
+  elif pattern_type == "file_operation" then
+    # Same path but different operation = medium
+    "medium"
+  elif pattern_type == "pattern_fix" then
+    "medium"
+  elif pattern_type == "search_fix" then
+    "medium"
+  else
+    "low"
+  end;
 
-    # Record the pattern
-    pattern_json=$(jq -n \
-      --arg tool_name "$error_tool_name" \
-      --arg error_tool_use_id "$error_tool_use_id" \
-      --arg success_tool_use_id "$success_tool_use_id" \
-      --argjson error_input "$error_input" \
-      --argjson success_input "$success_input" \
-      --arg error_message "${error_content:0:200}" \
-      --argjson diff "$diff_json" \
-      --arg confidence "$confidence" \
-      --arg heuristic_match "$heuristic" \
-      '{
-        tool_name: $tool_name,
-        error_tool_use_id: $error_tool_use_id,
-        success_tool_use_id: $success_tool_use_id,
-        error_input: $error_input,
-        success_input: $success_input,
-        error_message: $error_message,
-        diff: $diff,
-        confidence: $confidence,
-        heuristic_match: $heuristic_match
-      }')
+# Extract meaningful diff between inputs
+def extract_diff(failed; success; tool):
+  if tool == "Bash" then
+    {
+      field: "command",
+      from: (failed.command // null),
+      to: (success.command // null)
+    }
+  elif tool == "Read" or tool == "Write" then
+    {
+      field: "file_path",
+      from: (failed.file_path // failed.path // null),
+      to: (success.file_path // success.path // null)
+    }
+  elif tool == "Edit" then
+    {
+      field: "file_path",
+      from: (failed.file_path // null),
+      to: (success.file_path // null)
+    }
+  elif tool == "Glob" or tool == "Grep" then
+    {
+      field: "pattern",
+      from: (failed.pattern // null),
+      to: (success.pattern // null)
+    }
+  else
+    {
+      field: "input",
+      from: (failed | tostring | .[0:100]),
+      to: (success | tostring | .[0:100])
+    }
+  end;
 
-    echo "$pattern_json" >> "$PATTERNS_FILE"
-    ((patterns_found++)) || true
+# Main processing
+build_events as $events |
 
-    # Track statistics
-    by_tool[$error_tool_name]=$((${by_tool[$error_tool_name]:-0} + 1))
-    by_confidence[$confidence]=$((${by_confidence[$confidence]:-0} + 1))
+# Build lookup table: tool_use_id -> tool info
+($events | map(select(.event_type == "tool_use") | {(.tool_use_id): .}) | add // {}) as $tool_use_lookup |
 
-    # Only match first successful retry
-    break
-  done < "$TOOL_USE_FILE"
+# Find all errors
+[$events | .[] | select(.event_type == "tool_result" and .is_error == true)] as $errors |
 
-done < <(grep '"is_error":true' "$TOOL_RESULT_FILE" || true)
+# For each error, find retry patterns
+[
+  $errors | .[] |
+  . as $error |
+  ($tool_use_lookup[$error.tool_use_id] // {tool: "unknown", input: null}) as $error_tool_info |
 
-# Build by_tool JSON object
-by_tool_json="{"
-first=true
-for tool in "${!by_tool[@]}"; do
-  [[ "$first" != "true" ]] && by_tool_json+=","
-  by_tool_json+="\"$tool\":${by_tool[$tool]}"
-  first=false
-done
-by_tool_json+="}"
-[[ "$by_tool_json" == "{}" ]] && by_tool_json="{}"
+  # Find successful uses of same tool after this error
+  [
+    $events | .[] |
+    select(
+      .event_type == "tool_result" and
+      .is_error != true and
+      .idx > $error.idx and
+      .idx < ($error.idx + 20)  # Look within next 20 message blocks
+    ) |
+    . as $result |
+    ($tool_use_lookup[$result.tool_use_id] // null) as $success_tool_info |
+    select(
+      $success_tool_info != null and
+      $success_tool_info.tool == $error_tool_info.tool
+    ) |
+    {
+      result: $result,
+      tool_info: $success_tool_info
+    }
+  ] | first // null |
 
-# Build by_confidence JSON object
-by_conf_json="{"
-first=true
-for conf in "${!by_confidence[@]}"; do
-  [[ "$first" != "true" ]] && by_conf_json+=","
-  by_conf_json+="\"$conf\":${by_confidence[$conf]}"
-  first=false
-done
-by_conf_json+="}"
-[[ "$by_conf_json" == "{}" ]] && by_conf_json="{}"
+  # If we found a retry, build the pattern
+  if . != null then
+    .tool_info.input as $success_input |
+    $error_tool_info.input as $failed_input |
+    $error_tool_info.tool as $tool |
 
-# Output results
-if [[ "$OUTPUT_FORMAT" == "--summary" ]]; then
-  echo "Retry Pattern Summary"
-  echo "===================="
-  echo "Total errors: $total_errors"
-  echo "Retry patterns found: $patterns_found"
-  echo ""
-  echo "By tool type:"
-  for tool in "${!by_tool[@]}"; do
-    echo "  $tool: ${by_tool[$tool]}"
-  done
-  echo ""
-  echo "By confidence level:"
-  for conf in "${!by_confidence[@]}"; do
-    echo "  $conf: ${by_confidence[$conf]}"
-  done
-else
-  # JSON output
-  patterns_array="["
-  if [[ -s "$PATTERNS_FILE" ]]; then
-    patterns_array+=$(cat "$PATTERNS_FILE" | paste -sd, -)
-  fi
-  patterns_array+="]"
+    classify_pattern($failed_input; $success_input; $tool) as $pattern_type |
+    score_confidence($pattern_type; $failed_input; $success_input; $tool) as $confidence |
+    extract_diff($failed_input; $success_input; $tool) as $diff |
 
-  jq -n \
-    --argjson patterns "$patterns_array" \
-    --argjson total_errors "$total_errors" \
-    --argjson patterns_found "$patterns_found" \
-    --argjson by_tool "$by_tool_json" \
-    --argjson by_confidence "$by_conf_json" \
-    '{
-      patterns: $patterns,
-      summary: {
-        total_errors: $total_errors,
-        retry_patterns_found: $patterns_found,
-        by_tool: $by_tool,
-        by_confidence: $by_confidence
-      }
-    }'
-fi
+    {
+      tool: $tool,
+      pattern_type: $pattern_type,
+      confidence: $confidence,
+      failed_input: $failed_input,
+      success_input: $success_input,
+      error_message: ($error.content | if type == "string" then .[0:500] else tostring | .[0:500] end),
+      diff: $diff
+    }
+  else
+    empty
+  end
+] as $patterns |
+
+# Build summary
+{
+  session_id: $session_id,
+  analyzed_at: $analyzed_at,
+  patterns: $patterns,
+  summary: {
+    total_errors: ($errors | length),
+    retry_patterns_found: ($patterns | length),
+    by_tool: ($patterns | group_by(.tool) | map({(.[0].tool): length}) | add // {}),
+    by_pattern_type: ($patterns | group_by(.pattern_type) | map({(.[0].pattern_type): length}) | add // {}),
+    by_confidence: ($patterns | group_by(.confidence) | map({(.[0].confidence): length}) | add // {})
+  }
+}
+' "$FILE"

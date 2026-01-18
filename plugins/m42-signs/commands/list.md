@@ -1,85 +1,106 @@
 ---
-allowed-tools: Bash(find:*), Read(*), Glob(*), Grep(*)
-argument-hint: [--format json]
+allowed-tools: Bash(ls:*, test:*), Read(*), Glob(**/CLAUDE.md), Grep(*)
+argument-hint: "[--format json]"
 description: List all signs across CLAUDE.md files in the project
 model: haiku
 ---
 
 # List Signs
 
-Find and display all signs (accumulated learnings) stored in CLAUDE.md files throughout the project.
+Find and display all learning signs across CLAUDE.md files in the project.
 
 ## Preflight Checks
 
-1. Find all CLAUDE.md files in the project:
+1. Find CLAUDE.md files in project:
    !`find . -name "CLAUDE.md" -type f 2>/dev/null | head -20 || echo "NO_FILES"`
 
 ## Context
 
-Use Glob to find all CLAUDE.md files:
-- Pattern: `**/CLAUDE.md`
+Parse `$ARGUMENTS` to check for:
+- `--format json`: Output as JSON array instead of table
 
-For each file found, use Read to check for `## Signs` sections.
+Use Glob tool to find all `**/CLAUDE.md` files in the project.
 
 ## Task Instructions
 
-Parse `$ARGUMENTS` for:
-- `--format json`: Output as JSON array instead of table
+### 1. Find All CLAUDE.md Files
 
-### Discovery
+Use Glob with pattern `**/CLAUDE.md` to locate all CLAUDE.md files in the project.
+Filter out files in:
+- `node_modules/`
+- `.git/`
+- Other typical ignored directories
 
-1. Use Glob with pattern `**/CLAUDE.md` to find all CLAUDE.md files
-2. For each file, read its contents
-3. Look for the `## Signs (Accumulated Learnings)` or `## Signs` section
+### 2. Parse Signs from Each File
 
-### Parsing
+For each CLAUDE.md file found:
 
-For each CLAUDE.md with a Signs section:
-1. Extract sign entries (look for `### <Title>` patterns under ## Signs)
-2. For each sign, extract:
-   - **Title**: From `### Title` heading
-   - **Origin**: From `**Origin**: <value>` line (if present, otherwise "Unknown")
-   - **Location**: Relative path to the CLAUDE.md file
+1. Read the file content
+2. Look for `## Signs` section (or `## Signs (Accumulated Learnings)`)
+3. Within that section, find all `### <Title>` subsections
+4. For each sign, extract:
+   - **Title**: The `###` heading text
+   - **Origin**: Parse `**Origin**:` line if present
+   - If no Origin found, use "Unknown"
 
-### Output Format
+### 3. Build Results Table
 
-**Default (table)**:
+Default output format (table):
+
 ```
-Signs Found: 5
+## Signs Found
 
 | Location | Title | Origin |
 |----------|-------|--------|
-| ./CLAUDE.md | Quote Variables in yq | Sprint 2024-01-15 |
-| ./plugins/m42-sprint/CLAUDE.md | Use haiku for status | Manual entry |
-| ./src/CLAUDE.md | Validate inputs early | Session abc123 |
+| CLAUDE.md | Fix yq quoting | session-abc123 |
+| scripts/CLAUDE.md | Always use -e flag | Manual |
+| src/CLAUDE.md | Check file exists first | sprint-2026-01-10 |
+
+Total: 3 signs across 2 files
 ```
 
-**JSON format (--format json)**:
+If no signs found:
+```
+No signs found in any CLAUDE.md files.
+
+To add a sign manually, use: /m42-signs:add
+To extract signs from a session, use: /m42-signs:extract
+```
+
+### 4. Handle --format json
+
+If `--format json` is in `$ARGUMENTS`, output JSON instead:
+
 ```json
-[
-  {
-    "location": "./CLAUDE.md",
-    "title": "Quote Variables in yq",
-    "origin": "Sprint 2024-01-15"
-  },
-  {
-    "location": "./plugins/m42-sprint/CLAUDE.md",
-    "title": "Use haiku for status",
-    "origin": "Manual entry"
-  }
-]
+{
+  "signs": [
+    {
+      "location": "CLAUDE.md",
+      "title": "Fix yq quoting",
+      "origin": "session-abc123"
+    },
+    {
+      "location": "scripts/CLAUDE.md",
+      "title": "Always use -e flag",
+      "origin": "Manual"
+    }
+  ],
+  "total": 2,
+  "files_scanned": 5
+}
 ```
 
-### Edge Cases
+### 5. Handle Edge Cases
 
-- No CLAUDE.md files found: "No CLAUDE.md files found in project."
-- CLAUDE.md files exist but no Signs sections: "No signs found. Add your first with /m42-signs:add"
-- Signs section exists but is empty: Skip that file
-- Malformed sign entries: Best-effort parsing, skip unparseable entries
+- **No CLAUDE.md files**: Report "No CLAUDE.md files found in project"
+- **CLAUDE.md without Signs section**: Skip silently, don't report as having 0 signs
+- **Malformed Signs section**: Extract what's possible, note any parse issues
+- **Very large projects**: Limit scan to first 100 CLAUDE.md files, note if truncated
 
 ## Success Criteria
 
-- All CLAUDE.md files in project are scanned
-- Signs are extracted and displayed with correct Location, Title, Origin
-- JSON format works when --format json is specified
-- Graceful handling of projects with no signs
+- All CLAUDE.md files in project scanned (excluding node_modules, .git)
+- Signs section parsed and signs extracted with title and origin
+- Output formatted as table (default) or JSON (with --format json)
+- Clear summary with total count
+- Handles missing Signs sections gracefully

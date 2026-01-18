@@ -1,79 +1,111 @@
 ---
-allowed-tools: Bash(test:*, mkdir:*), Read(*), Edit(*), Write(*), Glob(*)
-argument-hint: [--direct] [<title>]
-description: Add a new learning sign to backlog or directly to CLAUDE.md
+allowed-tools: Bash(test:*, mkdir:*, ls:*), Read(*), Edit(*), Write(*), Glob(**/CLAUDE.md)
+argument-hint: "[--direct] [title]"
+description: Add a new learning sign manually to the backlog or directly to CLAUDE.md
 model: sonnet
 ---
 
 # Add Learning Sign
 
-Add a new learning entry either to the backlog for review, or directly to a CLAUDE.md file.
+Add a new learning sign manually. By default, adds to the backlog for review. Use `--direct` to write directly to CLAUDE.md.
 
 ## Preflight Checks
 
-1. Check if learnings directory exists:
+1. Check if backlog directory exists:
    !`test -d .claude/learnings && echo "EXISTS" || echo "NOT_EXISTS"`
 
-2. If directory doesn't exist, it will be created when needed.
+2. Check if backlog file exists:
+   !`test -f .claude/learnings/backlog.yaml && echo "EXISTS" || echo "NOT_EXISTS"`
 
 ## Context
 
-Read the backlog template for reference:
-- `plugins/m42-signs/skills/managing-signs/assets/backlog-template.yaml`
+Parse the argument `$ARGUMENTS` to determine:
+- If `--direct` flag is present: write directly to target CLAUDE.md
+- If title is provided: use as sign title
+- Otherwise: prompt interactively for all fields
 
-If backlog exists, read it:
-- `.claude/learnings/backlog.yaml`
+If backlog directory doesn't exist (NOT_EXISTS from preflight), you'll need to create it.
 
 ## Task Instructions
 
-Parse `$ARGUMENTS` for:
-- `--direct` flag: If present, add sign directly to target CLAUDE.md (skip backlog)
-- Optional `<title>`: Pre-provided title for the learning
+### 1. Parse Arguments
 
-### Interactive Input
+Check `$ARGUMENTS` for:
+- `--direct` flag: If present, skip backlog and write to CLAUDE.md directly
+- Any remaining text: Use as initial title (user can confirm/modify)
 
-If information is missing, prompt the user for:
+### 2. Gather Learning Details
 
-1. **Title**: Short description of the learning (if not in arguments)
+Interactively collect:
+
+1. **Title**: Short description (1 line, used as section header)
+   - Ask: "What is a short title for this learning?"
+   - Validate: Non-empty, reasonable length
+
 2. **Problem**: What went wrong or what issue was encountered
-3. **Solution**: How to fix or avoid this issue
-4. **Target**: Path to CLAUDE.md where this sign should live (default: `./CLAUDE.md`)
-5. **Confidence**: How confident are you this is a valid pattern? (low/medium/high, default: medium)
+   - Ask: "Describe the problem you encountered:"
+   - Accept: Multi-line input
 
-### Validation
+3. **Solution**: How to fix or avoid the issue
+   - Ask: "Describe the solution or how to avoid this:"
+   - Accept: Multi-line input
 
-- Title must be non-empty and descriptive
-- Problem must explain what went wrong
-- Solution must explain how to fix/avoid
-- Target must be a valid path ending in `CLAUDE.md`
-- If target doesn't exist, warn user but allow (file will be created on apply)
+4. **Target**: Which CLAUDE.md should receive this sign
+   - Ask: "Which CLAUDE.md should this sign be added to?"
+   - Suggest: Use Glob to find existing CLAUDE.md files in project
+   - Default: `CLAUDE.md` (project root)
+   - Validate: Path ends in CLAUDE.md
 
-### Generate ID
+5. **Confidence** (backlog only): How confident is this learning
+   - Ask: "Confidence level? (low/medium/high)"
+   - Default: `medium`
 
-Convert title to kebab-case ID:
+### 3. Generate ID
+
+Create kebab-case ID from title:
 - Lowercase
 - Replace spaces with hyphens
 - Remove special characters
-- Truncate to 50 chars max
+- Truncate to ~50 chars
+- Example: "Quote Variables in yq" → "quote-variables-in-yq"
 
-### Add to Backlog (default)
+### 4. Handle --direct Mode
 
-If `--direct` is NOT specified:
+If `--direct` flag was provided:
 
-1. Create `.claude/learnings/` directory if it doesn't exist:
+1. Read the target CLAUDE.md file (or note it doesn't exist)
+2. Look for existing `## Signs` section
+3. If section exists: Append new sign after existing signs
+4. If section doesn't exist: Create it at end of file
+5. Format sign as:
+   ```markdown
+   ### <Title>
+   **Problem**: <problem description>
+   **Solution**: <solution description>
+   **Origin**: Manual addition via /m42-signs:add
+   ```
+
+### 5. Handle Backlog Mode (default)
+
+If `--direct` flag was NOT provided:
+
+1. Ensure directory exists:
    ```bash
    mkdir -p .claude/learnings
    ```
 
-2. If `.claude/learnings/backlog.yaml` doesn't exist, create it from template:
+2. If backlog.yaml doesn't exist, create it:
    ```yaml
    version: 1
-   extracted-from: manual
-   extracted-at: <current ISO timestamp>
+   extracted-from: null
+   extracted-at: null
+
    learnings: []
    ```
 
-3. Append new learning entry:
+3. Read current backlog.yaml
+
+4. Append new learning entry:
    ```yaml
    - id: <generated-id>
      status: pending
@@ -83,35 +115,21 @@ If `--direct` is NOT specified:
      solution: |
        <solution>
      target: <target-path>
-     confidence: <confidence>
+     confidence: <low|medium|high>
      source:
        tool: manual
-       command: "/m42-signs:add"
+       command: /m42-signs:add
        error: null
    ```
 
-4. Report success with learning ID and remind user to run `/m42-signs:review`
-
-### Add Directly (--direct flag)
-
-If `--direct` IS specified:
-
-1. Read the target CLAUDE.md file (or prepare to create it)
-2. Find or create the `## Signs (Accumulated Learnings)` section
-3. Add the new sign in format:
-   ```markdown
-   ### <Title>
-   **Problem**: <problem>
-   **Solution**: <solution>
-   **Origin**: Manual entry via /m42-signs:add
-   ```
-4. Report success with file path
+5. Write updated backlog.yaml
 
 ## Success Criteria
 
-- Learning added to backlog.yaml OR target CLAUDE.md
+- Learning details collected with validation
+- For `--direct`: Sign written to target CLAUDE.md with proper formatting
+- For backlog mode: Learning added to .claude/learnings/backlog.yaml with status `pending`
 - User sees confirmation with:
-  - Generated learning ID
-  - Target file path
-  - Next steps (/m42-signs:review for backlog, or "Sign applied" for --direct)
-- Backlog.yaml passes validation if updated
+  - ID assigned
+  - Target location
+  - Next steps (run `/m42-signs:review` for backlog items)

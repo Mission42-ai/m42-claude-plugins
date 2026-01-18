@@ -9,16 +9,21 @@ Please explain the following to the user:
 
 ## What is Signs?
 
-The M42 Signs plugin implements the **Learning Loop** pattern for Claude Code agents.
-It captures learnings from errors, retries, and corrections, then stores them as
-"signs" in CLAUDE.md files where they're automatically injected into future sessions.
+The M42 Signs plugin implements a **learning loop** for Claude Code. It captures learnings from errors and successful recoveries, storing them as "signs" in CLAUDE.md files throughout your codebase.
 
-**Core concept:**
-- When Claude makes mistakes and self-corrects, those learnings are captured
-- Learnings go through a human review process (backlog → approve/reject)
-- Approved learnings become "signs" stored in CLAUDE.md files
-- Signs are automatically injected into context by Claude Code's native mechanism
-- Future sessions benefit from accumulated project knowledge
+**Core concept - The Ralph Loop:**
+```
+  ┌─────────────────────────────────────────────────────────────┐
+  │                                                             │
+  │   CAPTURE → EXTRACT → BACKLOG → REVIEW → APPLY             │
+  │      ↑                                       │              │
+  │      │         Errors become signs           │              │
+  │      └───────────────────────────────────────┘              │
+  │                                                             │
+  └─────────────────────────────────────────────────────────────┘
+```
+
+Signs are contextually injected into Claude's context when working in relevant directories, helping prevent repeat mistakes and encoding team knowledge permanently.
 
 ## Available Commands
 
@@ -26,125 +31,110 @@ It captures learnings from errors, retries, and corrections, then stores them as
 
 | Command | Description |
 |---------|-------------|
-| `/m42-signs:add [--direct]` | Add a learning manually to backlog or directly to CLAUDE.md |
-| `/m42-signs:list [--format json]` | List all signs across CLAUDE.md files in project |
-| `/m42-signs:status` | Show backlog status with counts by state |
+| `/m42-signs:add [--direct]` | Add a learning sign manually |
+| `/m42-signs:list [--format json]` | List all signs across CLAUDE.md files |
+| `/m42-signs:status` | Show backlog status and pending items |
+| `/m42-signs:help` | Show this help message |
 
-### Automated Extraction
+### Extraction & Processing
 
 | Command | Description |
 |---------|-------------|
 | `/m42-signs:extract <session-id>` | Extract learnings from session transcript |
-
-### Review & Apply
-
-| Command | Description |
-|---------|-------------|
 | `/m42-signs:review` | Interactive review of pending learnings |
 | `/m42-signs:apply [--commit]` | Apply approved learnings to CLAUDE.md files |
 
-## Quick Start Example
+## Quick Start
+
+### Add a Learning Manually
 
 ```
-# 1. Add a learning manually
+# Add to backlog for review
 /m42-signs:add
-# (follow prompts for problem, solution, target)
 
-# 2. Check backlog status
+# Add directly to CLAUDE.md (skip backlog)
+/m42-signs:add --direct
+```
+
+### Extract from Session
+
+```
+# Extract learnings from a session
+/m42-signs:extract abc123def
+
+# Check what was extracted
 /m42-signs:status
 
-# 3. Review pending learnings
+# Review and approve/reject
 /m42-signs:review
 
-# 4. Apply approved learnings
+# Apply approved learnings
 /m42-signs:apply --commit
+```
 
-# 5. See all signs in project
+### View Current Signs
+
+```
+# List all signs in project
 /m42-signs:list
+
+# Get JSON output for tooling
+/m42-signs:list --format json
 ```
 
-## Workflow Diagram
+## Workflow
 
+### 1. Capture (Automatic or Manual)
+
+Learnings come from two sources:
+- **Automatic**: `/extract` parses session transcripts for error→retry→success patterns
+- **Manual**: `/add` lets you record learnings as you work
+
+### 2. Backlog (Staging Area)
+
+Extracted learnings go to `.claude/learnings/backlog.yaml`:
+- Each learning has `pending` status initially
+- Includes problem, solution, target CLAUDE.md, confidence
+
+### 3. Review (Human Decision)
+
+Use `/review` to approve, reject, or edit learnings:
+- Approve: Mark for application
+- Reject: Remove from backlog
+- Edit: Modify before approving
+
+### 4. Apply (Write to CLAUDE.md)
+
+Use `/apply` to write approved learnings as signs:
+- Signs added to `## Signs` section in target CLAUDE.md
+- Optional `--commit` creates git commit
+- Status changes to `applied`
+
+## Sign Format
+
+Signs are stored in CLAUDE.md files under a `## Signs` section:
+
+```markdown
+## Signs (Accumulated Learnings)
+
+### Quote Variables in yq Expressions
+**Problem**: yq fails silently when variables aren't quoted
+**Solution**: Wrap expressions in single quotes with explicit expansion
+**Origin**: session-abc123
 ```
-                    ┌──────────────────────┐
-                    │   Session / Sprint   │
-                    │  (errors, retries)   │
-                    └──────────┬───────────┘
-                               │
-                    ┌──────────▼───────────┐
-                    │      /extract        │
-                    │  Parse transcript    │
-                    └──────────┬───────────┘
-                               │
-         ┌─────────────────────┼─────────────────────┐
-         │                     │                     │
-         ▼                     ▼                     ▼
-    ┌─────────┐         ┌─────────────┐        ┌─────────┐
-    │  /add   │         │  backlog    │        │ /status │
-    │ manual  │────────▶│  .yaml      │◀───────│ summary │
-    └─────────┘         └──────┬──────┘        └─────────┘
-                               │
-                    ┌──────────▼───────────┐
-                    │      /review         │
-                    │  approve / reject    │
-                    └──────────┬───────────┘
-                               │
-                    ┌──────────▼───────────┐
-                    │      /apply          │
-                    │  Write to CLAUDE.md  │
-                    └──────────┬───────────┘
-                               │
-                    ┌──────────▼───────────┐
-                    │     ## Signs         │
-                    │   in CLAUDE.md       │
-                    │  (context injection) │
-                    └──────────────────────┘
-```
 
-## Key Concepts
+## File Locations
 
-### Signs vs Learnings
-
-- **Learning**: A captured pattern (problem + solution) in the backlog
-- **Sign**: An approved learning written to a CLAUDE.md file
-
-### Backlog
-
-- Located at `.claude/learnings/backlog.yaml`
-- Staging area for learnings before human review
-- Each learning has: id, status, title, problem, solution, target, confidence
-
-### Targets
-
-- Each learning specifies a target CLAUDE.md file
-- Target is inferred from file paths in the error context
-- Can be overridden during review
-- Signs go to the most contextually relevant location
-
-### Confidence Levels
-
-- **high**: Clear pattern, repeated occurrence, specific fix
-- **medium**: Good pattern, but limited context
-- **low**: Possible pattern, needs human validation
-
-## Files
-
-```
-.claude/learnings/
-  backlog.yaml        # Learning staging area
-
-**/CLAUDE.md          # Sign storage locations
-  ## Signs (Accumulated Learnings)
-    ### Sign Title
-    **Problem**: What went wrong
-    **Solution**: How to fix/avoid
-    **Origin**: Source reference
-```
+| File | Purpose |
+|------|---------|
+| `.claude/learnings/backlog.yaml` | Pending learnings for review |
+| `**/CLAUDE.md` | Sign storage (contextually injected) |
+| `~/.claude/projects/*/` | Session transcripts for extraction |
 
 ## Tips
 
-- Start with `/m42-signs:add` to manually capture learnings
-- Use `/m42-signs:status` to track backlog state
-- Review learnings carefully - they persist in your codebase
-- Signs in subdirectory CLAUDE.md files are more targeted
-- Project root CLAUDE.md is the fallback for general learnings
+- Start with `/add --direct` for one-off learnings
+- Use `/extract` after sessions with many errors
+- Signs in nested CLAUDE.md files are contextual (only loaded in that subtree)
+- Keep signs focused: one problem, one solution
+- Review confidence levels: `high` means verified pattern

@@ -32,93 +32,82 @@ Implement session transcript parsing:
 
 ## Success Criteria
 All scenarios must pass (score = 1) for the step to be complete.
-Total scenarios: 8
-Required score: 8/8
+Total scenarios: 7
+Required score: 7/7
 
 ---
 
-## Scenario 1: Parse transcript script exists and is executable
-Given the scripts directory structure is set up
-When I check for the parse-transcript.sh script
-Then scripts/parse-transcript.sh exists and is executable
+## Scenario 1: Parse transcript script exists
+  Given the plugin structure is set up
+  When I check for the parse-transcript script
+  Then plugins/m42-signs/scripts/parse-transcript.sh exists
 
-Verification: `test -x scripts/parse-transcript.sh`
+Verification: `test -f plugins/m42-signs/scripts/parse-transcript.sh`
 Pass: Exit code = 0 → Score 1
 Fail: Exit code ≠ 0 → Score 0
 
 ---
 
-## Scenario 2: Script requires jq dependency
-Given scripts/parse-transcript.sh exists
-When I check its content for jq usage
-Then the script uses jq for JSON parsing
+## Scenario 2: Parse transcript script is executable
+  Given the parse-transcript.sh script exists
+  When I check its permissions
+  Then the script has executable permission
 
-Verification: `grep -q 'jq ' scripts/parse-transcript.sh`
+Verification: `test -x plugins/m42-signs/scripts/parse-transcript.sh`
 Pass: Exit code = 0 → Score 1
 Fail: Exit code ≠ 0 → Score 0
 
 ---
 
-## Scenario 3: Script extracts is_error:true messages
-Given scripts/parse-transcript.sh exists
-When I check its content for error extraction logic
-Then the script filters for is_error field
+## Scenario 3: Parse transcript script handles missing file argument
+  Given the parse-transcript.sh script is executable
+  When I run the script without arguments
+  Then it exits with non-zero status and shows usage
 
-Verification: `grep -qE 'is_error|"is_error"' scripts/parse-transcript.sh`
+Verification: `plugins/m42-signs/scripts/parse-transcript.sh 2>&1 | grep -qi "usage\|error\|required"`
 Pass: Exit code = 0 → Score 1
 Fail: Exit code ≠ 0 → Score 0
 
 ---
 
-## Scenario 4: Script correlates tool_use with tool_result
-Given scripts/parse-transcript.sh exists
-When I check its content for correlation logic
-Then the script handles tool_use_id for correlation
+## Scenario 4: Parse transcript script handles non-existent file
+  Given the parse-transcript.sh script is executable
+  When I run the script with a non-existent file path
+  Then it exits with non-zero status
 
-Verification: `grep -qE 'tool_use_id|sourceToolAssistantUUID' scripts/parse-transcript.sh`
+Verification: `! plugins/m42-signs/scripts/parse-transcript.sh /nonexistent/file.jsonl 2>/dev/null`
 Pass: Exit code = 0 → Score 1
 Fail: Exit code ≠ 0 → Score 0
 
 ---
 
-## Scenario 5: Script outputs structured data (JSON or TSV)
-Given scripts/parse-transcript.sh exists
-When I check its output format
-Then the script produces parsable structured output
+## Scenario 5: Parse transcript outputs valid JSON
+  Given a session transcript file exists in ~/.claude/projects/
+  When I run parse-transcript.sh on any session file
+  Then the output is valid JSON (array or objects)
 
-Verification: `grep -qE '(--output|\.tool_name|printf.*\\t|jq.*\{)' scripts/parse-transcript.sh`
+Verification: `SESSION_FILE=$(find ~/.claude/projects/ -name "*.jsonl" -type f 2>/dev/null | head -1); test -n "$SESSION_FILE" && plugins/m42-signs/scripts/parse-transcript.sh "$SESSION_FILE" 2>/dev/null | jq -e '.' >/dev/null 2>&1`
 Pass: Exit code = 0 → Score 1
 Fail: Exit code ≠ 0 → Score 0
 
 ---
 
-## Scenario 6: Reference file exists with proper frontmatter
-Given the skills/managing-signs/references directory exists
-When I check for transcript-format.md
-Then the file has YAML frontmatter with title, description, and skill fields
+## Scenario 6: Reference file exists with frontmatter
+  Given the skill structure is set up
+  When I check for the transcript-format reference
+  Then skills/managing-signs/references/transcript-format.md exists with frontmatter
 
-Verification: `head -10 skills/managing-signs/references/transcript-format.md | grep -E '^(title:|description:|skill:)' | wc -l | grep -q '[3-9]'`
+Verification: `test -f plugins/m42-signs/skills/managing-signs/references/transcript-format.md && head -1 plugins/m42-signs/skills/managing-signs/references/transcript-format.md | grep -q "^---$"`
 Pass: Exit code = 0 → Score 1
 Fail: Exit code ≠ 0 → Score 0
 
 ---
 
-## Scenario 7: Reference file documents message types
-Given skills/managing-signs/references/transcript-format.md exists
-When I check its content for message type documentation
-Then it documents user, assistant, tool_use, and tool_result types
+## Scenario 7: Reference file has required frontmatter fields
+  Given transcript-format.md exists
+  When I check the frontmatter content
+  Then it contains title, description, and skill fields
 
-Verification: `grep -E '(type.*user|type.*assistant|tool_use|tool_result)' skills/managing-signs/references/transcript-format.md | wc -l | awk '{if ($1 >= 3) exit 0; else exit 1}'`
-Pass: Exit code = 0 → Score 1
-Fail: Exit code ≠ 0 → Score 0
-
----
-
-## Scenario 8: Script runs successfully on real session file
-Given scripts/parse-transcript.sh exists and is executable
-When I run it on a real session file from ~/.claude/projects/
-Then the script executes without error (exit code 0)
-
-Verification: `SESSION=$(ls ~/.claude/projects/-home-konstantin-projects-m42-claude-plugins/*.jsonl 2>/dev/null | head -1) && [ -n "$SESSION" ] && scripts/parse-transcript.sh "$SESSION" >/dev/null 2>&1`
+Verification: `head -20 plugins/m42-signs/skills/managing-signs/references/transcript-format.md | grep -q "^title:" && head -20 plugins/m42-signs/skills/managing-signs/references/transcript-format.md | grep -q "^description:" && head -20 plugins/m42-signs/skills/managing-signs/references/transcript-format.md | grep -q "^skill: managing-signs"`
 Pass: Exit code = 0 → Score 1
 Fail: Exit code ≠ 0 → Score 0

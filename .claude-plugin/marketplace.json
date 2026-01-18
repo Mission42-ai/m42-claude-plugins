@@ -46,6 +46,14 @@
       "source": "./plugins/m42-meta-toolkit",
       "category": "development",
       "keywords": ["meta-tooling", "skills", "commands", "subagents", "hooks", "prompt-engineering", "quality-assurance"]
+    },
+    {
+      "name": "m42-signs",
+      "description": "Learning loop for agent evolution - extracts wisdom from session failures and applies them as signs in CLAUDE.md files",
+      "version": "0.1.0",
+      "source": "./plugins/m42-signs",
+      "category": "automation",
+      "keywords": ["learning-loop", "signs", "claude-md", "error-extraction", "wisdom", "agent-evolution", "transcript-analysis"]
     }
   ]
 }

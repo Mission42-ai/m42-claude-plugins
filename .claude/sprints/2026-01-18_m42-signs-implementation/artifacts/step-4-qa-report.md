@@ -10,105 +10,125 @@
 
 | # | Scenario | Result | Details |
 |---|----------|--------|---------|
-| 1 | Find retry patterns script exists and is executable | PASS | Script exists at plugins/m42-signs/scripts/find-retry-patterns.sh with executable permission |
-| 2 | Script accepts parsed transcript input | PASS | SESSION_FILE variable and input validation present |
-| 3 | Script detects error-retry-success sequences | PASS | Core retry detection logic implemented |
-| 4 | Script extracts diff between attempts | PASS | Compares before/after inputs with diff extraction |
-| 5 | Script groups patterns by tool type | PASS | by_tool tracking with tool_name grouping |
-| 6 | Script implements common pattern heuristics | PASS | classify_* functions for quoting, paths, permissions, rate limiting |
-| 7 | Script includes confidence scoring | PASS | calculate_confidence function with high/medium/low levels |
-| 8 | Script produces structured output | PASS | JSON output with jq-formatted patterns and summary |
+| 1 | Find retry patterns script exists | PASS | File exists at plugins/m42-signs/scripts/find-retry-patterns.sh |
+| 2 | Find retry patterns script is executable | PASS | Has -rwxr-xr-x permissions |
+| 3 | Script handles missing transcript argument | PASS | Shows "Error: Session file path required" and usage |
+| 4 | Script handles non-existent file gracefully | PASS | Exits with non-zero status |
+| 5 | Script outputs valid JSON structure | PASS | Output contains .patterns array |
+| 6 | Output includes confidence scoring | PASS | patterns[0].confidence = "high" |
+| 7 | Output includes tool type grouping | PASS | patterns[0].tool = "Read" |
+| 8 | Output includes pattern type classification | PASS | patterns[0].pattern_type = "file_path" |
 
 ## Detailed Results
 
-### Scenario 1: Find retry patterns script exists and is executable
+### Scenario 1: Find retry patterns script exists
+**Verification**: `test -f plugins/m42-signs/scripts/find-retry-patterns.sh`
+**Exit Code**: 0
+**Output**:
+```
+-rwxr-xr-x 1 konstantin konstantin 6886 Jan 18 18:59 plugins/m42-signs/scripts/find-retry-patterns.sh
+```
+**Result**: PASS
+
+### Scenario 2: Find retry patterns script is executable
 **Verification**: `test -x plugins/m42-signs/scripts/find-retry-patterns.sh`
 **Exit Code**: 0
 **Output**:
 ```
-(no output - test passed)
+Script has executable permissions (-rwxr-xr-x)
 ```
 **Result**: PASS
 
-### Scenario 2: Script accepts parsed transcript input
-**Verification**: `grep -qE '(SESSION_FILE|session.*jsonl|\$1.*jsonl)' plugins/m42-signs/scripts/find-retry-patterns.sh`
+### Scenario 3: Script handles missing transcript argument
+**Verification**: `plugins/m42-signs/scripts/find-retry-patterns.sh 2>&1 | grep -qi "usage\|error\|required"`
 **Exit Code**: 0
 **Output**:
 ```
-# Usage: find-retry-patterns.sh <session.jsonl> [--json|--summary]
-SESSION_FILE="${1:-}"
-if [[ -z "$SESSION_FILE" ]] || [[ ! -f "$SESSION_FILE" ]]; then
+Error: Session file path required
+Usage: find-retry-patterns.sh <session-file.jsonl>
 ```
 **Result**: PASS
 
-### Scenario 3: Script detects error-retry-success sequences
-**Verification**: `grep -qE '(retry|sequence|error.*success|is_error.*false)' plugins/m42-signs/scripts/find-retry-patterns.sh`
+### Scenario 4: Script handles non-existent file gracefully
+**Verification**: `! plugins/m42-signs/scripts/find-retry-patterns.sh /nonexistent/file.jsonl 2>/dev/null`
 **Exit Code**: 0
 **Output**:
 ```
-# Find retry patterns in JSONL session transcripts
-# Detects: error -> retry -> success sequences
-# Usage: find-retry-patterns.sh <session.jsonl> [--json|--summary]
+Script exits with non-zero status for non-existent file
 ```
 **Result**: PASS
 
-### Scenario 4: Script extracts diff between attempts
-**Verification**: `grep -qE '(diff|change|delta|compare|input.*input|before.*after)' plugins/m42-signs/scripts/find-retry-patterns.sh`
+### Scenario 5: Script outputs valid JSON structure
+**Verification**: `SESSION_FILE=$(find ~/.claude/projects/ -name "*.jsonl" -type f 2>/dev/null | head -1); test -n "$SESSION_FILE" && plugins/m42-signs/scripts/find-retry-patterns.sh "$SESSION_FILE" 2>/dev/null | jq -e '.patterns | type == "array"' >/dev/null 2>&1`
 **Exit Code**: 0
 **Output**:
-```
-  # Extract paths and compare
-  local before_path after_path
-  if [[ -n "$before_path" && -n "$after_path" && "$before_path" != "$after_path" ]]; then
+```json
+{
+  "session_id": "agent-aa1beb2",
+  "analyzed_at": "2026-01-18T18:03:35Z",
+  "patterns": [...],
+  "summary": {...}
+}
 ```
 **Result**: PASS
 
-### Scenario 5: Script groups patterns by tool type
-**Verification**: `grep -qE '(tool_name|tool_type|group.*tool|Bash|Edit|Read|Write)' plugins/m42-signs/scripts/find-retry-patterns.sh`
+### Scenario 6: Output includes confidence scoring
+**Verification**: `jq -e 'if .patterns | length > 0 then .patterns[0].confidence | . == "low" or . == "medium" or . == "high" else true end'`
 **Exit Code**: 0
 **Output**:
-```
-(matches found for tool_name grouping and by_tool tracking)
+```json
+{
+  "confidence": "high"
+}
 ```
 **Result**: PASS
 
-### Scenario 6: Script implements common pattern heuristics
-**Verification**: `grep -qE '(quot|escap|path|permission|syntax|heuristic|pattern)' plugins/m42-signs/scripts/find-retry-patterns.sh`
+### Scenario 7: Output includes tool type grouping
+**Verification**: `jq -e 'if .patterns | length > 0 then .patterns[0] | has("tool") else true end'`
 **Exit Code**: 0
 **Output**:
-```
-# HEURISTIC PATTERNS
-# Heuristic 1: Command syntax fixes - quoting and escaping
-classify_syntax_fix() - quoting_fix, escaping_fix
-classify_path_fix() - path_correction
-classify_permission_fix() - permission_fix
+```json
+{
+  "tool": "Read"
+}
 ```
 **Result**: PASS
 
-### Scenario 7: Script includes confidence scoring
-**Verification**: `grep -qE '(confidence|high|medium|low|score)' plugins/m42-signs/scripts/find-retry-patterns.sh`
+### Scenario 8: Output includes pattern type classification
+**Verification**: `jq -e 'if .patterns | length > 0 then .patterns[0] | has("pattern_type") else true end'`
 **Exit Code**: 0
 **Output**:
-```
-# CONFIDENCE SCORING
-# High: Clear fix, obvious pattern, immediate retry
-# Medium: Plausible fix, some changes, moderate gap
-# Low: Unclear causation, many changes, large gap
-calculate_confidence() function with high/medium/low outputs
-```
-**Result**: PASS
-
-### Scenario 8: Script produces structured output
-**Verification**: `grep -qE '(--json|jq.*\{|"tool_name"|"confidence"|printf.*json)' plugins/m42-signs/scripts/find-retry-patterns.sh`
-**Exit Code**: 0
-**Output**:
-```
-OUTPUT_FORMAT="${2:---json}"
-jq -n with tool_name, confidence, patterns array output
+```json
+{
+  "pattern_type": "file_path"
+}
 ```
 **Result**: PASS
 
 ## Issues Found
 None - all scenarios passed.
+
+## Sample Pattern Detection Output
+The script successfully detected a retry pattern from a real session:
+```json
+{
+  "tool": "Read",
+  "pattern_type": "file_path",
+  "confidence": "high",
+  "failed_input": {
+    "file_path": "/home/konstantin/projects/m42-core/specs/features/paas-transformation"
+  },
+  "success_input": {
+    "file_path": "/home/konstantin/projects/m42-core/README.md",
+    "limit": 100
+  },
+  "error_message": "EISDIR: illegal operation on a directory, read",
+  "diff": {
+    "field": "file_path",
+    "from": "/home/konstantin/projects/m42-core/specs/features/paas-transformation",
+    "to": "/home/konstantin/projects/m42-core/README.md"
+  }
+}
+```
 
 ## Status: PASS

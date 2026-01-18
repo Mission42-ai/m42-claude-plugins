@@ -74,7 +74,7 @@ export interface WorkflowPhase {
   'for-each'?: 'step';
   /** Reference to another workflow to use for each iteration */
   workflow?: string;
-  /** If true, this phase runs in background as a parallel task */
+  /** If true, this phase runs as a background parallel task */
   parallel?: boolean;
   /** If true, wait for all parallel tasks to complete before continuing */
   'wait-for-parallel'?: boolean;
@@ -147,7 +147,7 @@ export interface CompiledPhase {
   'next-retry-at'?: string;
   /** Classified error category */
   'error-category'?: ErrorCategory;
-  /** If true, this phase runs in background as a parallel task */
+  /** If true, this phase runs as a background parallel task */
   parallel?: boolean;
   /** ID of the parallel task if this phase was spawned */
   'parallel-task-id'?: string;

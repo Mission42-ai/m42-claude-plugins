@@ -1,81 +1,101 @@
 # QA Report: step-3
 
 ## Summary
-- Total Scenarios: 8
-- Passed: 8
+- Total Scenarios: 7
+- Passed: 7
 - Failed: 0
-- Score: 8/8 = 100%
+- Score: 7/7 = 100%
 
 ## Verification Results
 
 | # | Scenario | Result | Details |
 |---|----------|--------|---------|
-| 1 | Parse transcript script exists and is executable | PASS | `plugins/m42-signs/scripts/parse-transcript.sh` exists with +x |
-| 2 | Script requires jq dependency | PASS | Script uses `jq` for JSON parsing |
-| 3 | Script extracts is_error:true messages | PASS | Script filters for `is_error` field |
-| 4 | Script correlates tool_use with tool_result | PASS | Script handles `tool_use_id` correlation |
-| 5 | Script outputs structured data | PASS | Script produces JSON output via jq |
-| 6 | Reference file exists with proper frontmatter | PASS | Has title, description, skill fields |
-| 7 | Reference file documents message types | PASS | Documents user, assistant, tool_use, tool_result |
-| 8 | Script runs successfully on real session file | PASS | Executes without error on real JSONL |
+| 1 | Parse transcript script exists | PASS | File exists at plugins/m42-signs/scripts/parse-transcript.sh |
+| 2 | Parse transcript script is executable | PASS | -rwxr-xr-x permissions |
+| 3 | Parse transcript handles missing file argument | PASS | Shows "Error: Session file path required" |
+| 4 | Parse transcript handles non-existent file | PASS | Exits with non-zero status |
+| 5 | Parse transcript outputs valid JSON | PASS | Outputs valid JSON array |
+| 6 | Reference file exists with frontmatter | PASS | File exists with --- delimiter |
+| 7 | Reference file has required frontmatter fields | PASS | Contains title, description, skill: managing-signs |
 
 ## Detailed Results
 
-### Scenario 1: Parse transcript script exists and is executable
+### Scenario 1: Parse transcript script exists
+**Verification**: `test -f plugins/m42-signs/scripts/parse-transcript.sh`
+**Exit Code**: 0
+**Output**:
+```
+File exists at plugins/m42-signs/scripts/parse-transcript.sh
+```
+**Result**: PASS
+
+### Scenario 2: Parse transcript script is executable
 **Verification**: `test -x plugins/m42-signs/scripts/parse-transcript.sh`
 **Exit Code**: 0
-**Output**: File exists and is executable
+**Output**:
+```
+-rwxr-xr-x 1 konstantin konstantin 1989 Jan 18 18:50 plugins/m42-signs/scripts/parse-transcript.sh
+```
 **Result**: PASS
 
-### Scenario 2: Script requires jq dependency
-**Verification**: `grep -q 'jq ' plugins/m42-signs/scripts/parse-transcript.sh`
+### Scenario 3: Parse transcript handles missing file argument
+**Verification**: `plugins/m42-signs/scripts/parse-transcript.sh 2>&1 | grep -qi "usage\|error\|required"`
 **Exit Code**: 0
-**Output**: jq usage found in script
+**Output**:
+```
+Error: Session file path required
+Usage: parse-transcript.sh <session-file.jsonl>
+```
 **Result**: PASS
 
-### Scenario 3: Script extracts is_error:true messages
-**Verification**: `grep -qE 'is_error|"is_error"' plugins/m42-signs/scripts/parse-transcript.sh`
+### Scenario 4: Parse transcript handles non-existent file
+**Verification**: `! plugins/m42-signs/scripts/parse-transcript.sh /nonexistent/file.jsonl 2>/dev/null`
 **Exit Code**: 0
-**Output**: is_error field reference found
+**Output**:
+```
+Script exits with non-zero status for non-existent files
+```
 **Result**: PASS
 
-### Scenario 4: Script correlates tool_use with tool_result
-**Verification**: `grep -qE 'tool_use_id|sourceToolAssistantUUID' plugins/m42-signs/scripts/parse-transcript.sh`
+### Scenario 5: Parse transcript outputs valid JSON
+**Verification**: `SESSION_FILE=$(find ~/.claude/projects/ -name "*.jsonl" -type f 2>/dev/null | head -1); test -n "$SESSION_FILE" && plugins/m42-signs/scripts/parse-transcript.sh "$SESSION_FILE" 2>/dev/null | jq -e '.' >/dev/null 2>&1`
 **Exit Code**: 0
-**Output**: tool_use_id correlation logic found
+**Output**:
+```json
+[
+  {
+    "tool": "Read",
+    "input": {
+      "file_path": "/home/konstantin/projects/m42-core/specs/features/paas-transformation"
+    },
+    "error": "EISDIR: illegal operation on a directory, read",
+    "tool_use_id": "toolu_016EYjsz7p6LmzX3NNGzemRm"
+  }
+]
+```
 **Result**: PASS
 
-### Scenario 5: Script outputs structured data (JSON or TSV)
-**Verification**: `grep -qE '(--output|\.tool_name|printf.*\\t|jq.*\{)' plugins/m42-signs/scripts/parse-transcript.sh`
+### Scenario 6: Reference file exists with frontmatter
+**Verification**: `test -f plugins/m42-signs/skills/managing-signs/references/transcript-format.md && head -1 plugins/m42-signs/skills/managing-signs/references/transcript-format.md | grep -q "^---$"`
 **Exit Code**: 0
-**Output**: Structured JSON output pattern found
+**Output**:
+```
+---
+title: Claude Code Transcript Format
+description: JSONL message types and jq patterns for parsing Claude Code session transcripts...
+```
 **Result**: PASS
 
-### Scenario 6: Reference file exists with proper frontmatter
-**Verification**: `head -10 plugins/m42-signs/skills/managing-signs/references/transcript-format.md | grep -E '^(title:|description:|skill:)' | wc -l | grep -q '[3-9]'`
+### Scenario 7: Reference file has required frontmatter fields
+**Verification**: `head -20 plugins/m42-signs/skills/managing-signs/references/transcript-format.md | grep -q "^title:" && head -20 plugins/m42-signs/skills/managing-signs/references/transcript-format.md | grep -q "^description:" && head -20 plugins/m42-signs/skills/managing-signs/references/transcript-format.md | grep -q "^skill: managing-signs"`
 **Exit Code**: 0
-**Output**: 3 frontmatter fields found (title, description, skill)
+**Output**:
+```yaml
+title: Claude Code Transcript Format
+description: JSONL message types and jq patterns for parsing Claude Code session transcripts. Used by parse-transcript.sh for error extraction.
+skill: managing-signs
+```
 **Result**: PASS
-
-### Scenario 7: Reference file documents message types
-**Verification**: `grep -E '(type.*user|type.*assistant|tool_use|tool_result)' plugins/m42-signs/skills/managing-signs/references/transcript-format.md | wc -l | awk '{if ($1 >= 3) exit 0; else exit 1}'`
-**Exit Code**: 0
-**Output**: Multiple message type references found
-**Result**: PASS
-
-### Scenario 8: Script runs successfully on real session file
-**Verification**: `SESSION=$(ls ~/.claude/projects/-home-konstantin-projects-m42-claude-plugins/*.jsonl 2>/dev/null | head -1) && [ -n "$SESSION" ] && plugins/m42-signs/scripts/parse-transcript.sh "$SESSION" >/dev/null 2>&1`
-**Exit Code**: 0
-**Output**: Script executed successfully on real session file
-**Result**: PASS
-
-## Path Note
-
-The gherkin scenarios referenced paths like `scripts/parse-transcript.sh` and `skills/managing-signs/references/transcript-format.md`. The actual implementation correctly placed these files within the plugin structure at:
-- `plugins/m42-signs/scripts/parse-transcript.sh`
-- `plugins/m42-signs/skills/managing-signs/references/transcript-format.md`
-
-This is the correct location for a Claude Code plugin. All verifications were run against the correct paths.
 
 ## Issues Found
 None - all scenarios passed.

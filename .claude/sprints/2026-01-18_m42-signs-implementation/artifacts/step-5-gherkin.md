@@ -25,7 +25,6 @@ Implement logic to infer where signs should be stored:
 - Edge cases have reasonable defaults
 - User can override if needed
 
-
 ## Success Criteria
 All scenarios must pass (score = 1) for the step to be complete.
 Total scenarios: 8
@@ -33,10 +32,21 @@ Required score: 8/8
 
 ---
 
-## Scenario 1: Infer target script exists and is executable
-Given the scripts directory structure is set up
-When I check for the infer-target.sh script
-Then plugins/m42-signs/scripts/infer-target.sh exists and is executable
+## Scenario 1: Infer target script exists
+  Given the plugin structure is set up
+  When I check for the infer-target script
+  Then plugins/m42-signs/scripts/infer-target.sh exists
+
+Verification: `test -f plugins/m42-signs/scripts/infer-target.sh`
+Pass: Exit code = 0 → Score 1
+Fail: Exit code ≠ 0 → Score 0
+
+---
+
+## Scenario 2: Infer target script is executable
+  Given the infer-target.sh script exists
+  When I check its permissions
+  Then the script has executable permission
 
 Verification: `test -x plugins/m42-signs/scripts/infer-target.sh`
 Pass: Exit code = 0 → Score 1
@@ -44,77 +54,67 @@ Fail: Exit code ≠ 0 → Score 0
 
 ---
 
-## Scenario 2: Script accepts file paths as input
-Given plugins/m42-signs/scripts/infer-target.sh exists
-When I check its content for input handling
-Then the script accepts file paths as arguments or from stdin
+## Scenario 3: Script handles missing file paths argument
+  Given the infer-target.sh script is executable
+  When I run the script without arguments
+  Then it exits with non-zero status and shows usage
 
-Verification: `grep -qE '(\$1|\$@|stdin|read.*path|FILE_PATH|PATHS)' plugins/m42-signs/scripts/infer-target.sh`
+Verification: `plugins/m42-signs/scripts/infer-target.sh 2>&1 | grep -qi "usage\|error\|required"`
 Pass: Exit code = 0 → Score 1
 Fail: Exit code ≠ 0 → Score 0
 
 ---
 
-## Scenario 3: Script extracts common directory prefix
-Given plugins/m42-signs/scripts/infer-target.sh exists
-When I check its content for common prefix logic
-Then the script identifies common directory from multiple paths
+## Scenario 4: Script infers root CLAUDE.md for cross-cutting paths
+  Given the infer-target.sh script is executable
+  When I provide paths from different top-level directories
+  Then it suggests the project root CLAUDE.md
 
-Verification: `grep -qE '(common|prefix|dirname|shared|parent|ancestor)' plugins/m42-signs/scripts/infer-target.sh`
+Verification: `plugins/m42-signs/scripts/infer-target.sh "src/foo.ts" "lib/bar.ts" "tests/test.ts" 2>/dev/null | grep -qE "^\.?/?CLAUDE\.md$|^CLAUDE\.md$"`
 Pass: Exit code = 0 → Score 1
 Fail: Exit code ≠ 0 → Score 0
 
 ---
 
-## Scenario 4: Script checks for existing CLAUDE.md in hierarchy
-Given plugins/m42-signs/scripts/infer-target.sh exists
-When I check its content for CLAUDE.md detection
-Then the script searches for existing CLAUDE.md files in parent directories
+## Scenario 5: Script infers subdirectory CLAUDE.md for common prefix
+  Given the infer-target.sh script is executable
+  When I provide paths all within the same subdirectory
+  Then it suggests a CLAUDE.md in that subdirectory
 
-Verification: `grep -qE '(CLAUDE\.md|claude\.md|find.*CLAUDE|while.*parent|test.*-f)' plugins/m42-signs/scripts/infer-target.sh`
+Verification: `plugins/m42-signs/scripts/infer-target.sh "scripts/validate.sh" "scripts/build.sh" "scripts/test.sh" 2>/dev/null | grep -qE "^scripts/CLAUDE\.md$"`
 Pass: Exit code = 0 → Score 1
 Fail: Exit code ≠ 0 → Score 0
 
 ---
 
-## Scenario 5: Script implements category-based routing rules
-Given plugins/m42-signs/scripts/infer-target.sh exists
-When I check its content for category rules
-Then the script routes scripts/ to scripts/CLAUDE.md and api/ to api/CLAUDE.md
+## Scenario 6: Script detects existing CLAUDE.md in hierarchy
+  Given the infer-target.sh script is executable
+  And a CLAUDE.md exists in plugins/m42-signs/
+  When I provide paths under plugins/m42-signs/scripts/
+  Then it suggests the existing plugins/m42-signs/CLAUDE.md
 
-Verification: `grep -qE '(scripts|api|src|lib|test)' plugins/m42-signs/scripts/infer-target.sh`
+Verification: `test -f plugins/m42-signs/CLAUDE.md 2>/dev/null || touch plugins/m42-signs/CLAUDE.md; plugins/m42-signs/scripts/infer-target.sh "plugins/m42-signs/scripts/parse.sh" "plugins/m42-signs/scripts/find.sh" 2>/dev/null | grep -qE "plugins/m42-signs/CLAUDE\.md"`
 Pass: Exit code = 0 → Score 1
 Fail: Exit code ≠ 0 → Score 0
 
 ---
 
-## Scenario 6: Script defaults to project root for cross-cutting cases
-Given plugins/m42-signs/scripts/infer-target.sh exists
-When I check its content for default fallback logic
-Then the script falls back to root CLAUDE.md for general cases
+## Scenario 7: Script outputs valid target path format
+  Given the infer-target.sh script is executable
+  When I provide any valid file paths
+  Then the output is a single path ending in CLAUDE.md
 
-Verification: `grep -qE '(root|default|fallback|PROJECT_ROOT|\./CLAUDE\.md)' plugins/m42-signs/scripts/infer-target.sh`
+Verification: `plugins/m42-signs/scripts/infer-target.sh "src/index.ts" 2>/dev/null | grep -qE "CLAUDE\.md$"`
 Pass: Exit code = 0 → Score 1
 Fail: Exit code ≠ 0 → Score 0
 
 ---
 
-## Scenario 7: Script supports manual override option
-Given plugins/m42-signs/scripts/infer-target.sh exists
-When I check its content for override support
-Then the script accepts a flag or argument to override inference
+## Scenario 8: Script supports JSON output mode for pipeline integration
+  Given the infer-target.sh script is executable
+  When I provide paths with --json flag
+  Then it outputs valid JSON with target and reasoning fields
 
-Verification: `grep -qE '(override|--target|--output|-o|manual|OVERRIDE)' plugins/m42-signs/scripts/infer-target.sh`
-Pass: Exit code = 0 → Score 1
-Fail: Exit code ≠ 0 → Score 0
-
----
-
-## Scenario 8: Script outputs suggested CLAUDE.md path
-Given plugins/m42-signs/scripts/infer-target.sh exists and is executable
-When I run it with a sample path
-Then the script outputs a valid CLAUDE.md path suggestion
-
-Verification: `echo "/home/user/project/scripts/deploy.sh" | plugins/m42-signs/scripts/infer-target.sh 2>/dev/null | grep -qE 'CLAUDE\.md$'`
+Verification: `plugins/m42-signs/scripts/infer-target.sh --json "src/foo.ts" "src/bar.ts" 2>/dev/null | jq -e '.target and .reasoning' >/dev/null 2>&1`
 Pass: Exit code = 0 → Score 1
 Fail: Exit code ≠ 0 → Score 0

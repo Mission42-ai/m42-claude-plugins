@@ -1,7 +1,9 @@
 # Step Context: step-4
 
 ## Task
-Phase 2.2: Error Pattern Detection - Implement retry pattern identification:
+## Phase 2.2: Error Pattern Detection
+
+Implement retry pattern identification:
 
 ### Tasks
 1. Create scripts/find-retry-patterns.sh:
@@ -21,210 +23,221 @@ Phase 2.2: Error Pattern Detection - Implement retry pattern identification:
    - Medium: Plausible fix, moderate evidence
    - Low: Unclear if fix was causal
 
+### Success Criteria
+- Script detects at least 80% of retry patterns
+- Confidence scores are reasonable
+- False positives are < 20%
 
 ## Related Code Patterns
 
-### Similar Implementation: parse-transcript.sh (input handling & jq patterns)
+### Similar Implementation: plugins/m42-signs/scripts/parse-transcript.sh
 ```bash
-# From plugins/m42-signs/scripts/parse-transcript.sh:1-18
 #!/bin/bash
-# Parse JSONL session transcript to extract tool errors with correlation
-# Usage: parse-transcript.sh <session.jsonl> [--json|--tsv]
 set -euo pipefail
 
-SESSION_FILE="${1:-}"
-OUTPUT_FORMAT="${2:---tsv}"
+# Parse Claude Code session transcript for tool errors
+# Correlates tool_use with tool_result to extract error context
+#
+# Usage: parse-transcript.sh <session-file.jsonl>
+# Output: JSON array of errors with tool info
 
-if [[ -z "$SESSION_FILE" ]] || [[ ! -f "$SESSION_FILE" ]]; then
-  echo "Error: Valid JSONL session file required" >&2
-  echo "Usage: parse-transcript.sh <session.jsonl> [--json|--tsv]" >&2
+FILE="${1:-}"
+
+if [[ -z "$FILE" ]]; then
+  echo "Error: Session file path required" >&2
+  echo "Usage: parse-transcript.sh <session-file.jsonl>" >&2
   exit 1
 fi
 
+if [[ ! -f "$FILE" ]]; then
+  echo "Error: File not found: $FILE" >&2
+  exit 1
+fi
+
+# Check required tool
 if ! command -v jq &> /dev/null; then
-  echo "Error: jq is required but not installed" >&2
+  echo "Error: Required tool 'jq' is not installed" >&2
   exit 1
 fi
 ```
+**Key patterns**:
+- `set -euo pipefail` for safe script execution
+- Argument validation with usage message
+- File existence check
+- Tool dependency check (jq)
+- jq -s for slurping JSONL into array
 
-### Similar Implementation: parse-transcript.sh (tool_use lookup table)
+### Similar Implementation: plugins/m42-signs/scripts/validate-backlog.sh
 ```bash
-# From plugins/m42-signs/scripts/parse-transcript.sh:28-45
-# Create temp file for tool_use lookup
-TOOL_USE_LOOKUP=$(mktemp)
-trap "rm -f $TOOL_USE_LOOKUP" EXIT
+ERRORS=()
+WARNINGS=()
 
-# Extract tool_use entries: uuid -> {tool_name, tool_use_id, input}
-jq -c '
-  select(.type == "assistant") |
-  select(.message.content | type == "array") |
-  .uuid as $uuid |
-  .message.content[] |
-  select(.type == "tool_use") |
-  {
-    uuid: $uuid,
-    tool_use_id: .id,
-    tool_name: .name,
-    input: .input
-  }
-' "$SESSION_FILE" > "$TOOL_USE_LOOKUP" 2>/dev/null || true
-```
+# Validation logic...
 
-### Similar Implementation: sprint-loop.sh (retry handling patterns)
-```bash
-# From plugins/m42-sprint/scripts/sprint-loop.sh:57-58
-# Retryable error types (auto-retry with backoff)
-RETRY_ON=("network" "rate-limit" "timeout")
-
-# From sprint-loop.sh:409-417 - Retry classification
-is_retryable() {
-  local error_type="$1"
-  for retryable_type in "${RETRY_ON[@]}"; do
-    if [[ "$error_type" == "$retryable_type" ]]; then
-      return 0
-    fi
+# Report results
+if [[ ${#WARNINGS[@]} -gt 0 ]]; then
+  echo "Warnings:"
+  for warn in "${WARNINGS[@]}"; do
+    echo "  - $warn"
   done
-  return 1
-}
+fi
+
+if [[ ${#ERRORS[@]} -eq 0 ]]; then
+  echo "Validation passed."
+  exit 0
+else
+  echo "Validation FAILED:"
+  for err in "${ERRORS[@]}"; do
+    echo "  - $err"
+  done
+  exit 1
+fi
 ```
+**Key patterns**:
+- Array collection for errors/warnings
+- Graceful reporting with structured output
+- Exit codes: 0 = success, 1 = failure
+
+### JSON Correlation Pattern: parse-transcript.sh
+```bash
+jq -s '
+  # Build tool_use index from assistant messages
+  (
+    [.[] | select(.type == "assistant") | .message.content[]? // empty | select(.type == "tool_use")] |
+    map({(.id): {tool: .name, input: .input}}) |
+    add // {}
+  ) as $tool_use_index |
+
+  # Find all error tool_results
+  [
+    .[] |
+    select(.type == "user") |
+    (.content // .message.content | if type == "array" then . else [] end)[] |
+    select(.type == "tool_result" and .is_error == true) |
+    {tool_use_id: .tool_use_id, error: .content}
+  ] |
+
+  # Join with tool_use index
+  map(. + ($tool_use_index[.tool_use_id] // {tool: "unknown", input: null}))
+' "$FILE"
+```
+**Key pattern**: Build index of tool_use by ID, then join with results by tool_use_id.
 
 ## Required Imports
 ### Internal
-- None (standalone bash script)
-- May optionally call `parse-transcript.sh` for initial error extraction
+- None - shell script, uses parse-transcript.sh output
 
 ### External
-- `jq`: JSON parsing and manipulation (required)
-- `diff`: For comparing tool inputs between attempts (standard unix)
-
-## JSONL Session Structure (for retry detection)
-
-### Key Fields for Retry Pattern Detection
-| Field | Location | Purpose |
-|-------|----------|---------|
-| `uuid` | Root of each message | Unique message identifier |
-| `parentUuid` | Root of user messages | Links to parent message (for sequence tracking) |
-| `type` | Root | "assistant" or "user" |
-| `sourceToolAssistantUUID` | User messages | Links tool_result to its tool_use |
-| `tool_use_id` | message.content[] | Matches tool_use.id to tool_result |
-| `is_error` | tool_result content | Boolean indicating error |
-| `name` | tool_use content | Tool name (Bash, Edit, Read, Write) |
-| `input` | tool_use content | Tool parameters (command, file_path, etc.) |
-
-### Retry Sequence Detection Logic
-1. Find all tool_results with `is_error: true`
-2. For each error, find the next tool_use of same type
-3. Compare inputs between error call and subsequent call
-4. If subsequent call succeeds (`is_error: false`), record as retry pattern
-
-```
-Timeline: [tool_use A] -> [error result] -> [tool_use B] -> [success result]
-                                              ^
-                                              |-- If same tool_name and similar context
-                                                  = potential retry pattern
-```
+- `jq`: JSON processing (critical for transcript parsing)
+- `diff`: Compare inputs between retry attempts
 
 ## Types/Interfaces to Use
 
-### Output JSON Structure
+### Input: Parsed Transcript (from parse-transcript.sh)
+```json
+[
+  {
+    "tool": "Bash",
+    "input": {"command": "ls /nonexistent", "description": "List directory"},
+    "error": "ls: cannot access '/nonexistent': No such file or directory",
+    "tool_use_id": "toolu_xxxxx"
+  }
+]
+```
+
+### Output: Retry Patterns JSON
 ```json
 {
+  "session_id": "abc123",
+  "analyzed_at": "2026-01-18T10:00:00Z",
   "patterns": [
     {
-      "tool_name": "Bash",
-      "error_tool_use_id": "toolu_error_xxx",
-      "success_tool_use_id": "toolu_success_xxx",
-      "error_input": {"command": "ls /nonexistent"},
-      "success_input": {"command": "ls /existing"},
-      "error_message": "No such file or directory",
-      "diff": {
-        "type": "path_correction",
-        "before": "/nonexistent",
-        "after": "/existing"
-      },
+      "tool": "Bash",
+      "pattern_type": "command_syntax",
       "confidence": "high",
-      "heuristic_match": "path_correction"
+      "failed_input": {"command": "yq '.phases[$IDX].status'"},
+      "success_input": {"command": "yq '.phases['\"$IDX\"'].status'"},
+      "error_message": "returned empty string",
+      "diff": {
+        "field": "command",
+        "change": "added shell quoting around variable"
+      }
     }
   ],
   "summary": {
-    "total_errors": 10,
-    "retry_patterns_found": 7,
-    "by_tool": {"Bash": 4, "Edit": 2, "Write": 1},
-    "by_confidence": {"high": 3, "medium": 3, "low": 1}
+    "total_errors": 5,
+    "retry_patterns_found": 3,
+    "by_tool": {"Bash": 2, "Edit": 1},
+    "by_pattern_type": {"command_syntax": 2, "file_path": 1}
   }
 }
 ```
 
-## Heuristic Categories
-
-### 1. Command Syntax Fixes (Bash)
-- **Pattern**: Quoting/escaping changes
-- **Detection**: Check for added quotes, escaped characters
-- **Examples**: `$VAR` → `"$VAR"`, `file name` → `"file name"`
-- **Confidence**: High (clear mechanical fix)
-
-### 2. File Path Corrections (Bash, Read, Write, Edit)
-- **Pattern**: Path components changed
-- **Detection**: Compare file_path or path in command
-- **Examples**: `/wrong/path` → `/correct/path`, typo fixes
-- **Confidence**: High if only path differs
-
-### 3. Permission/Access Fixes (Bash)
-- **Pattern**: sudo added, chmod before operation
-- **Detection**: Error contains "permission denied", retry has sudo/chmod
-- **Examples**: `rm file` → `sudo rm file`
-- **Confidence**: Medium (may be coincidental)
-
-### 4. Edit Content Fixes (Edit)
-- **Pattern**: old_string/new_string changed
-- **Detection**: Compare edit parameters
-- **Examples**: Wrong match string → correct match string
-- **Confidence**: High if old_string differs, same file
-
-### 5. API Rate Limiting (Bash with curl/API calls)
-- **Pattern**: Same command retried after delay
-- **Detection**: Identical inputs, error mentions rate/limit/429
-- **Confidence**: High (classic retry pattern)
+### Pattern Types
+| Type | Description | Confidence Basis |
+|------|-------------|------------------|
+| `command_syntax` | Quoting, escaping, flag fixes | High if same command base |
+| `file_path` | Path corrections | High if only path differs |
+| `permission` | Chmod, sudo, access fixes | Medium - may not be causal |
+| `api_retry` | Rate limit, timeout retry | Low - may be timing |
+| `unknown` | Unclear fix pattern | Low |
 
 ## Integration Points
-- **Called by**: Future `analyze-session` command, sign proposal workflow
-- **Calls**: jq for JSON parsing, optionally diff for input comparison
-- **Input from**: parse-transcript.sh output or raw session.jsonl
-- **Output to**: Sign proposal pipeline, statistics dashboard
+
+### Called by
+- `/signs extract` command (future) - will run this script
+- `parse-transcript.sh` output piped to this script
+- Sprint transcript analysis workflows
+
+### Calls
+- Takes raw JSONL transcript file as input
+- Outputs JSON to stdout
+- Uses jq for all JSON processing
+
+### Tests
+- Verification via gherkin scenarios in artifacts/step-4-gherkin.md
+- Manual testing with real transcript files in `~/.claude/projects/`
 
 ## Implementation Notes
-- Script should handle sessions with no retry patterns gracefully (empty output)
-- Use temporal ordering (uuid/parentUuid chain) to establish sequence
-- Limit comparison to tool calls within reasonable proximity (not across entire session)
-- The `sourceToolAssistantUUID` field provides the UUID link for correlation
-- Consider memory efficiency for large sessions (streaming vs slurp)
-- Confidence scoring based on:
-  - **High**: Single clear change, known pattern category, immediate retry
-  - **Medium**: Multiple small changes, plausible fix, some gap between calls
-  - **Low**: Many changes, unclear causation, large temporal gap
 
-## jq Query Examples
+1. **Transcript Structure Complexity**
+   - Main sessions: `.message.content[]` for assistant, `.content[]` for user
+   - Subagent sessions: `.message.content[]` for both (when array)
+   - Progress messages: Nested structure in `.data.normalizedMessages[]`
+   - Handle both `type: "user"` direct messages and `type: "progress"` subagent messages
 
-### Find consecutive tool calls of same type
-```bash
-# Extract all tool_use with their sequence
-jq -c '
-  select(.type == "assistant") |
-  select(.message.content[]?.type == "tool_use") |
-  {uuid, content: .message.content}
-' "$SESSION_FILE"
-```
+2. **Retry Pattern Detection Algorithm**
+   ```
+   For each error:
+   1. Get tool_use_id and tool name
+   2. Find all tool_use blocks with same tool name after the error
+   3. Find the first successful result (is_error != true)
+   4. If found within N messages, check if inputs are similar
+   5. If similar (same tool, similar structure), extract diff
+   6. Score confidence based on diff type
+   ```
 
-### Correlate error with subsequent success
-```bash
-# After getting error tool_use_id, find next tool_use of same name
-# and check if its result is success
-```
+3. **Common Error Patterns from Real Transcripts**
+   - "EISDIR: illegal operation on a directory" → Read tool on directory
+   - "File does not exist" → Wrong path, needs correction
+   - "Exit code 128" → Git push without upstream branch
+   - User rejection → Tool use blocked by permission
 
-## Directory Structure
-```
-plugins/m42-signs/
-├── scripts/
-│   ├── parse-transcript.sh       # EXISTING: Parse errors
-│   └── find-retry-patterns.sh    # NEW: Detect retry patterns
-```
+4. **Confidence Scoring Heuristics**
+   - **High**: Same tool, same file/command base, only parameter changed
+   - **Medium**: Same tool, different target, similar operation
+   - **Low**: Different tool, unclear relationship, timing-based
+
+5. **Edge Cases**
+   - Multiple parallel tool calls (same assistant message)
+   - User-rejected tool uses (not really an error to learn from)
+   - Errors in subagent vs main session
+   - No retry found for error (learning might still be useful)
+
+6. **Sample Session Files**
+   ```
+   ~/.claude/projects/-home-konstantin-projects-m42-claude-plugins/*.jsonl
+   ```
+   High-error sessions for testing:
+   - `4edb875a-a5f4-4ca9-8cfd-4419f57288f0.jsonl` (125 errors)
+   - `aa3194c6-4e92-4dda-b057-26e20b7a3f08.jsonl` (94 errors)
