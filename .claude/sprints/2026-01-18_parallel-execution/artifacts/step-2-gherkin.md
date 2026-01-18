@@ -16,83 +16,66 @@ Required score: 6/6
 
 ---
 
-## Scenario 1: TypeScript compiles without errors
-  Given the file compiler/src/compile.ts has been modified
-  When I run the TypeScript compiler
+## Scenario 1: Parallel-tasks array initialized in compile.ts
+  Given the compile.ts file exists
+  When I check for parallel-tasks initialization in CompiledProgress
+  Then the 'parallel-tasks': [] property is present in the progress object
+
+Verification: `grep -q "'parallel-tasks': \[\]" plugins/m42-sprint/compiler/src/compile.ts`
+Pass: Exit code = 0 → Score 1
+Fail: Exit code ≠ 0 → Score 0
+
+---
+
+## Scenario 2: expandForEach propagates wait-for-parallel
+  Given the expand-foreach.ts file exists
+  When I check the expandForEach function return object
+  Then wait-for-parallel is copied from the phase parameter
+
+Verification: `grep -q "'wait-for-parallel': phase\['wait-for-parallel'\]" plugins/m42-sprint/compiler/src/expand-foreach.ts`
+Pass: Exit code = 0 → Score 1
+Fail: Exit code ≠ 0 → Score 0
+
+---
+
+## Scenario 3: compileSimplePhase propagates wait-for-parallel
+  Given the expand-foreach.ts file exists
+  When I check the compileSimplePhase function return object
+  Then wait-for-parallel is copied from the phase parameter
+
+Verification: `grep -A20 "function compileSimplePhase" plugins/m42-sprint/compiler/src/expand-foreach.ts | grep -q "'wait-for-parallel'"`
+Pass: Exit code = 0 → Score 1
+Fail: Exit code ≠ 0 → Score 0
+
+---
+
+## Scenario 4: TypeScript compiles without errors
+  Given the implementation is complete
+  When I run the TypeScript compiler in the compiler directory
   Then no compilation errors occur
 
-Verification: `cd plugins/m42-sprint/compiler && npm run typecheck 2>&1; echo "EXIT:$?"`
-Pass: Last line contains "EXIT:0" → Score 1
-Fail: Last line contains non-zero exit code → Score 0
+Verification: `cd plugins/m42-sprint/compiler && npx tsc --noEmit 2>&1; echo $?`
+Pass: Last line = 0 → Score 1
+Fail: Last line ≠ 0 → Score 0
 
 ---
 
-## Scenario 2: CompiledProgress includes parallel-tasks initialization
-  Given the compile() function builds a CompiledProgress object
-  When I check the progress object construction around line 209
-  Then it initializes 'parallel-tasks' as an empty array
+## Scenario 5: CompiledProgress type includes parallel-tasks field
+  Given the types.ts source file exists
+  When I check the CompiledProgress interface definition
+  Then it includes the parallel-tasks property with ParallelTask[] type
 
-Verification: `grep -E "['\"']parallel-tasks['\"'].*:.*\[\]" plugins/m42-sprint/compiler/src/compile.ts`
+Verification: `grep -q "'parallel-tasks'.*ParallelTask\[\]" plugins/m42-sprint/compiler/src/types.ts`
 Pass: Exit code = 0 → Score 1
 Fail: Exit code ≠ 0 → Score 0
 
 ---
 
-## Scenario 3: expandForEach propagates wait-for-parallel
-  Given the expandForEach function returns a CompiledTopPhase
-  When I check the return object construction
-  Then it includes the wait-for-parallel property from the input phase
+## Scenario 6: Unit tests pass
+  Given the implementation is complete
+  When I run the test suite
+  Then all tests pass
 
-Verification: `grep -E "wait-for-parallel.*:.*phase\[" plugins/m42-sprint/compiler/src/expand-foreach.ts || grep -E "'wait-for-parallel'.*phase\." plugins/m42-sprint/compiler/src/expand-foreach.ts`
-Pass: Exit code = 0 → Score 1
-Fail: Exit code ≠ 0 → Score 0
-
----
-
-## Scenario 4: compileSimplePhase propagates wait-for-parallel
-  Given the compileSimplePhase function returns a CompiledTopPhase
-  When I check the return object construction
-  Then it includes the wait-for-parallel property from the input phase
-
-Verification: `grep -A 10 "function compileSimplePhase" plugins/m42-sprint/compiler/src/expand-foreach.ts | grep -E "wait-for-parallel"`
-Pass: Exit code = 0 → Score 1
-Fail: Exit code ≠ 0 → Score 0
-
----
-
-## Scenario 5: Compiled output includes parallel-tasks array
-  Given a valid SPRINT.yaml with a workflow
-  When I run the compiler
-  Then the output PROGRESS.yaml contains parallel-tasks key
-
-Verification: `cd plugins/m42-sprint/compiler && npm run build 2>/dev/null && node dist/cli.js ../../.claude/sprints/2026-01-18_parallel-execution 2>/dev/null && grep -q "parallel-tasks" ../../.claude/sprints/2026-01-18_parallel-execution/PROGRESS.yaml`
-Pass: Exit code = 0 → Score 1
-Fail: Exit code ≠ 0 → Score 0
-
----
-
-## Scenario 6: wait-for-parallel propagated to compiled phases with the property
-  Given a workflow with wait-for-parallel: true on a phase
-  When I compile the sprint
-  Then the compiled phase in PROGRESS.yaml includes wait-for-parallel: true
-
-Verification: `cd plugins/m42-sprint/compiler && npm run build 2>/dev/null && cat > /tmp/test-wait-workflow.yaml << 'EOF'
-name: Test Wait Workflow
-phases:
-  - id: development
-    for-each: step
-    workflow: feature-standard
-  - id: sync
-    prompt: "Wait for parallel tasks"
-    wait-for-parallel: true
-EOF
-mkdir -p /tmp/test-sprint && cat > /tmp/test-sprint/SPRINT.yaml << 'EOF'
-name: Test Sprint
-workflow: test-wait-workflow
-steps:
-  - id: step-0
-    prompt: Test step
-EOF
-node dist/cli.js /tmp/test-sprint --workflows-dir /tmp 2>/dev/null; grep -q "wait-for-parallel: true" /tmp/test-sprint/PROGRESS.yaml`
-Pass: Exit code = 0 → Score 1
-Fail: Exit code ≠ 0 → Score 0
+Verification: `cd plugins/m42-sprint/compiler && npm test 2>&1; echo $?`
+Pass: Last line = 0 → Score 1
+Fail: Last line ≠ 0 → Score 0

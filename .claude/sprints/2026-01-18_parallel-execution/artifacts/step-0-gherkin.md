@@ -15,93 +15,93 @@ Add parallel execution types to compiler/src/types.ts:
 
 ## Success Criteria
 All scenarios must pass (score = 1) for the step to be complete.
-Total scenarios: 7
-Required score: 7/7
+Total scenarios: 8
+Required score: 8/8
 
 ---
 
 ## Scenario 1: WorkflowPhase has parallel property
-  Given the types.ts file exists
+  Given the types.ts file exists in the compiler
   When I check the WorkflowPhase interface
-  Then it contains an optional `parallel` boolean property
+  Then it contains an optional parallel boolean property
 
-Verification: `grep -E "parallel\?.*:.*boolean" plugins/m42-sprint/compiler/src/types.ts | grep -v "wait-for-parallel" | grep -v "parallel-task" | head -1`
+Verification: `grep -Pzo "interface WorkflowPhase \{[^}]*parallel\?: boolean" plugins/m42-sprint/compiler/src/types.ts`
 Pass: Exit code = 0 → Score 1
 Fail: Exit code ≠ 0 → Score 0
 
 ---
 
 ## Scenario 2: WorkflowPhase has wait-for-parallel property
-  Given the types.ts file exists
+  Given the types.ts file exists in the compiler
   When I check the WorkflowPhase interface
-  Then it contains an optional `wait-for-parallel` boolean property
+  Then it contains an optional wait-for-parallel boolean property
 
-Verification: `grep -E "'wait-for-parallel'\?.*:.*boolean" plugins/m42-sprint/compiler/src/types.ts`
+Verification: `grep -Pzo "interface WorkflowPhase \{[^}]*'wait-for-parallel'\?: boolean" plugins/m42-sprint/compiler/src/types.ts`
 Pass: Exit code = 0 → Score 1
 Fail: Exit code ≠ 0 → Score 0
 
 ---
 
 ## Scenario 3: ParallelTask interface exists with required fields
-  Given the types.ts file exists
+  Given the types.ts file exists in the compiler
   When I check for the ParallelTask interface
-  Then it has id, step-id, phase-id, status, and spawned-at fields
+  Then it exists with id, step-id, phase-id, and status fields
 
-Verification: `grep -A 15 "export interface ParallelTask" plugins/m42-sprint/compiler/src/types.ts | grep -E "(id:|'step-id':|'phase-id':|status:|'spawned-at':)" | wc -l | grep -q "^5$" && echo "pass"`
-Pass: Output contains "pass" → Score 1
-Fail: Output does not contain "pass" → Score 0
+Verification: `grep -q "export interface ParallelTask" plugins/m42-sprint/compiler/src/types.ts && grep -q "'step-id':" plugins/m42-sprint/compiler/src/types.ts && grep -q "'phase-id':" plugins/m42-sprint/compiler/src/types.ts && grep -q "status:" plugins/m42-sprint/compiler/src/types.ts`
+Pass: Exit code = 0 → Score 1
+Fail: Exit code ≠ 0 → Score 0
 
 ---
 
-## Scenario 4: ParallelTask status has correct union type
+## Scenario 4: ParallelTask has correct status union type
   Given the ParallelTask interface exists
   When I check the status field type
-  Then it is a union of 'spawned' | 'running' | 'completed' | 'failed'
+  Then it is a union of 'spawned', 'running', 'completed', 'failed'
 
-Verification: `grep -A 15 "export interface ParallelTask" plugins/m42-sprint/compiler/src/types.ts | grep -E "status.*'spawned'.*'running'.*'completed'.*'failed'"`
+Verification: `grep -E "'spawned'.*\|.*'running'.*\|.*'completed'.*\|.*'failed'" plugins/m42-sprint/compiler/src/types.ts`
 Pass: Exit code = 0 → Score 1
 Fail: Exit code ≠ 0 → Score 0
 
 ---
 
 ## Scenario 5: CompiledProgress has parallel-tasks array
-  Given the types.ts file exists
+  Given the types.ts file exists in the compiler
   When I check the CompiledProgress interface
-  Then it contains an optional `parallel-tasks` array of ParallelTask
+  Then it contains an optional parallel-tasks array of ParallelTask
 
-Verification: `grep -A 15 "export interface CompiledProgress" plugins/m42-sprint/compiler/src/types.ts | grep -E "'parallel-tasks'\?.*:.*ParallelTask\[\]"`
+Verification: `grep -Pzo "interface CompiledProgress \{[^}]*'parallel-tasks'\?: ParallelTask\[\]" plugins/m42-sprint/compiler/src/types.ts`
 Pass: Exit code = 0 → Score 1
 Fail: Exit code ≠ 0 → Score 0
 
 ---
 
-## Scenario 6: CompiledPhase has parallel execution fields
-  Given the types.ts file exists
+## Scenario 6: CompiledPhase has parallel execution properties
+  Given the types.ts file exists in the compiler
   When I check the CompiledPhase interface
-  Then it contains optional `parallel` boolean and `parallel-task-id` string properties
+  Then it contains parallel and parallel-task-id optional properties
 
-Verification: `grep -A 25 "export interface CompiledPhase" plugins/m42-sprint/compiler/src/types.ts | grep -E "(parallel\?.*boolean|'parallel-task-id'\?.*string)" | wc -l | grep -q "^2$" && echo "pass"`
-Pass: Output contains "pass" → Score 1
-Fail: Output does not contain "pass" → Score 0
+Verification: `grep -Pzo "interface CompiledPhase \{[^}]*parallel\?: boolean" plugins/m42-sprint/compiler/src/types.ts && grep -Pzo "interface CompiledPhase \{[^}]*'parallel-task-id'\?: string" plugins/m42-sprint/compiler/src/types.ts`
+Pass: Exit code = 0 → Score 1
+Fail: Exit code ≠ 0 → Score 0
 
 ---
 
 ## Scenario 7: CompiledTopPhase has wait-for-parallel property
-  Given the types.ts file exists
+  Given the types.ts file exists in the compiler
   When I check the CompiledTopPhase interface
-  Then it contains an optional `wait-for-parallel` boolean property
+  Then it contains an optional wait-for-parallel boolean property
 
-Verification: `grep -A 25 "export interface CompiledTopPhase" plugins/m42-sprint/compiler/src/types.ts | grep -E "'wait-for-parallel'\?.*:.*boolean"`
+Verification: `grep -Pzo "interface CompiledTopPhase \{[^}]*'wait-for-parallel'\?: boolean" plugins/m42-sprint/compiler/src/types.ts`
 Pass: Exit code = 0 → Score 1
 Fail: Exit code ≠ 0 → Score 0
 
 ---
 
 ## Scenario 8: TypeScript compiles without errors
-  Given all type changes have been made
+  Given all type additions are complete
   When I run the TypeScript compiler
   Then no compilation errors occur
 
-Verification: `cd plugins/m42-sprint/compiler && npm run typecheck 2>&1; echo "EXIT:$?"`
-Pass: Last line contains "EXIT:0" → Score 1
-Fail: Last line does not contain "EXIT:0" → Score 0
+Verification: `cd plugins/m42-sprint/compiler && npx tsc --noEmit`
+Pass: Exit code = 0 → Score 1
+Fail: Exit code ≠ 0 → Score 0

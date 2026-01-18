@@ -10,84 +10,71 @@
 
 | # | Scenario | Result | Details |
 |---|----------|--------|---------|
-| 1 | TypeScript compiles without errors | PASS | Exit code 0 |
-| 2 | CompiledPhase includes parallel property assignment | PASS | Found `parallel: phase.parallel` |
-| 3 | Parallel property appears in lines 117-122 | PASS | Found in line 121 |
-| 4 | Compiler builds successfully | PASS | Build completed |
-| 5 | Return type compatible with CompiledPhase | PASS | Type check passed (with corrected command) |
-| 6 | WorkflowPhase.parallel accessed in expandStep | PASS | Found in workflow.phases.map block |
+| 1 | expand-foreach.ts file exists | PASS | File exists at expected path |
+| 2 | CompiledPhase object includes parallel property | PASS | Found `parallel: phase.parallel` |
+| 3 | TypeScript compiles without errors | PASS | `tsc --noEmit` succeeded |
+| 4 | expandStep returns phases with parallel flag | PASS | parallel: true propagated correctly |
+| 5 | Non-parallel phases have undefined parallel flag | PASS | parallel is undefined when not set |
+| 6 | Multiple phases preserve individual parallel flags | PASS | Mixed phases handle correctly |
 
 ## Detailed Results
 
-### Scenario 1: TypeScript compiles without errors
-**Verification**: `npx tsc --noEmit`
+### Scenario 1: expand-foreach.ts file exists
+**Verification**: `test -f plugins/m42-sprint/compiler/src/expand-foreach.ts`
 **Exit Code**: 0
 **Output**:
 ```
-(no output - clean compile)
+PASS
 ```
 **Result**: PASS
 
-### Scenario 2: CompiledPhase includes parallel property assignment
+### Scenario 2: CompiledPhase object includes parallel property
 **Verification**: `grep -E "parallel:\s*phase\.parallel" plugins/m42-sprint/compiler/src/expand-foreach.ts`
 **Exit Code**: 0
 **Output**:
 ```
       parallel: phase.parallel
+PASS
 ```
 **Result**: PASS
 
-### Scenario 3: Parallel property appears in lines 117-122
-**Verification**: `sed -n '117,125p' ... | grep "parallel"`
+### Scenario 3: TypeScript compiles without errors
+**Verification**: `cd plugins/m42-sprint/compiler && npx tsc --noEmit`
 **Exit Code**: 0
 **Output**:
 ```
-      parallel: phase.parallel
+PASS
 ```
 **Result**: PASS
 
-### Scenario 4: Compiler builds successfully
-**Verification**: `npm run build`
+### Scenario 4: expandStep function returns phases with parallel flag
+**Verification**: Node.js test with parallel: true workflow phase
 **Exit Code**: 0
 **Output**:
 ```
-> @m42/sprint-compiler@1.0.0 build
-> tsc
+OK
 ```
 **Result**: PASS
 
-### Scenario 5: Return type compatible with CompiledPhase
-**Original Verification**: `npx tsc --noEmit src/expand-foreach.ts`
-**Original Exit Code**: 2 (failed due to missing tsconfig context)
-**Corrected Verification**: `npx tsc --noEmit -p tsconfig.json`
-**Corrected Exit Code**: 0
-**Note**: The original command runs tsc without `-p`, which doesn't pick up tsconfig.json settings (ES2022 target). When using the project config, the type check passes completely.
-**Result**: PASS (implementation is correct; verification command in gherkin was suboptimal)
-
-### Scenario 6: WorkflowPhase.parallel accessed in expandStep
-**Verification**: `grep -A 20 "workflow.phases.map" ... | grep "phase\.parallel"`
+### Scenario 5: Non-parallel phases have undefined parallel flag
+**Verification**: Node.js test with workflow phase without parallel property
 **Exit Code**: 0
 **Output**:
 ```
-      parallel: phase.parallel
+OK
 ```
 **Result**: PASS
 
-## Implementation Verification
-
-The implementation at lines 117-122 in `expand-foreach.ts`:
-```typescript
-return {
-  id: phase.id,
-  status: 'pending' as const,
-  prompt,
-  parallel: phase.parallel
-};
+### Scenario 6: Multiple phases preserve their individual parallel flags
+**Verification**: Node.js test with mixed parallel and non-parallel phases
+**Exit Code**: 0
+**Output**:
 ```
-
-This correctly propagates the `parallel` property from `WorkflowPhase` to `CompiledPhase`.
+OK
+```
+**Result**: PASS
 
 ## Issues Found
-None. All scenarios pass.
+None - all scenarios passed.
 
 ## Status: PASS

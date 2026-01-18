@@ -61,12 +61,38 @@ Phases:
 6. Show current pointer position prominently:
    - Format: `Current: development > step-2 > implement`
 
-7. Display stats from PROGRESS.yaml:
+7. Display parallel tasks section (if `parallel-tasks` array exists and is non-empty):
+   - Read `parallel-tasks` array from PROGRESS.yaml
+   - Status indicators for parallel tasks:
+     - `[~]` - running/spawned (in progress, non-blocking)
+     - `[x]` - completed successfully
+     - `[!]` - failed (exit-code != 0)
+   - Display format:
+   ```text
+   Parallel Tasks:
+   [~] step-0-update-docs-1705123456 (running, 2m elapsed)
+       Step: step-0
+       Phase: update-docs
+       PID: 12345 | Log: logs/step-0-update-docs-1705123456.log
+   [x] step-1-update-docs-1705123789 (completed, 1m 23s)
+       Step: step-1
+       Phase: update-docs
+   [!] step-2-update-docs-1705124000 (failed, 45s)
+       Step: step-2
+       Phase: update-docs
+       Error: Process exited with code 1
+   ```
+   - Calculate elapsed time from `spawned-at` to now (for running) or `completed-at` (for completed/failed)
+   - Show PID and log-file location only for running/spawned tasks
+   - For failed tasks, show the error message if available
+   - Access pattern: `yq -r '."parallel-tasks" // []' "$PROGRESS_FILE"`
+
+8. Display stats from PROGRESS.yaml:
    - Phases completed / total
    - Steps completed / total
    - Elapsed time if available
 
-8. Handle edge cases:
+9. Handle edge cases:
    - No sprint found: "No active sprint. Use /start-sprint to create one."
    - No PROGRESS.yaml: Sprint not yet compiled, show "Run /run-sprint to compile and start"
    - Paused: Show "PAUSED" status prominently
@@ -77,4 +103,5 @@ Phases:
 - Hierarchical phase structure displayed with proper indentation
 - Current pointer position clearly indicated
 - Completion statistics shown from stats field
+- Parallel tasks displayed with step-id, phase-id, status, elapsed time, PID and log file location
 - Actionable next steps shown based on status

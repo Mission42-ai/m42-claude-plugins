@@ -13,134 +13,115 @@ Reference: context/implementation-plan.md section 4.B
 
 ## Related Code Patterns
 
-### Similar Implementation: types.ts (lines 68-81)
+### ALREADY IMPLEMENTED: expand-foreach.ts:117-122
+The parallel flag propagation is **already present** in the code:
 ```typescript
-// WorkflowPhase already has the parallel property defined
-export interface WorkflowPhase {
-  id: string;
-  prompt?: string;
-  'for-each'?: 'step';
-  workflow?: string;
-  parallel?: boolean;           // <-- Source of truth
-  'wait-for-parallel'?: boolean;
-}
+// plugins/m42-sprint/compiler/src/expand-foreach.ts lines 117-122
+return {
+  id: phase.id,
+  status: 'pending' as const,
+  prompt,
+  parallel: phase.parallel  // ✅ Line 121 - ALREADY IMPLEMENTED
+};
 ```
 
-### Target Interface: types.ts (lines 131-153)
+### Similar Implementation: wait-for-parallel propagation
 ```typescript
-// CompiledPhase already has the parallel property defined
-export interface CompiledPhase {
-  id: string;
-  status: PhaseStatus;
-  prompt: string;
-  // ... timing and error fields ...
-  parallel?: boolean;           // <-- Target field (needs to be set)
-  'parallel-task-id'?: string;
-}
-```
+// expand-foreach.ts line 217-222 - in expandForEach()
+return {
+  id: phase.id,
+  status: 'pending' as const,
+  steps: compiledSteps,
+  'wait-for-parallel': phase['wait-for-parallel']
+};
 
-### Current Implementation: expand-foreach.ts (lines 103-122)
-```typescript
-// Expand each phase in the step's workflow
-const compiledPhases: CompiledPhase[] = workflow.phases.map((phase, phaseIndex) => {
-  const phaseContext: TemplateContext = {
-    ...stepContext,
-    phase: {
-      id: phase.id,
-      index: phaseIndex
-    }
-  };
-
-  // Substitute variables in the prompt
-  const prompt = phase.prompt
-    ? substituteTemplateVars(phase.prompt, phaseContext)
-    : `Execute phase: ${phase.id}`;
-
-  return {
-    id: phase.id,
-    status: 'pending' as const,
-    prompt
-    // <-- Missing: parallel: phase.parallel
-  };
-});
+// expand-foreach.ts line 248-253 - in compileSimplePhase()
+return {
+  id: phase.id,
+  status: 'pending' as const,
+  prompt,
+  'wait-for-parallel': phase['wait-for-parallel']
+};
 ```
 
 ## Required Imports
 ### Internal
-- No new imports needed - `WorkflowPhase` is already imported (line 8)
-- `CompiledPhase` is already imported (line 13)
+- `types.js`: WorkflowPhase, CompiledPhase (already imported at lines 7-17)
 
 ### External
-- No new external packages needed
+- None - all needed imports already present
 
 ## Types/Interfaces to Use
 ```typescript
-// From types.ts - WorkflowPhase (source)
+// From types.ts lines 68-81
 interface WorkflowPhase {
   id: string;
   prompt?: string;
   'for-each'?: 'step';
   workflow?: string;
-  parallel?: boolean;  // <-- Access this
+  parallel?: boolean;           // Source field
   'wait-for-parallel'?: boolean;
 }
 
-// From types.ts - CompiledPhase (target)
+// From types.ts lines 132-154
 interface CompiledPhase {
   id: string;
   status: PhaseStatus;
   prompt: string;
-  parallel?: boolean;  // <-- Set this
+  parallel?: boolean;           // Target field - already defined
   'parallel-task-id'?: string;
-  // ... other fields
 }
 ```
 
 ## Integration Points
-- Called by: `expandForEach()` function in same file (line 212)
-- Calls: `substituteTemplateVars()` for prompt expansion
-- Tests: No formal test files - verification through gherkin scenarios in artifacts/step-1-gherkin.md
+- **Called by**: `compile.ts` via `expandForEach()` which calls `expandStep()`
+- **Calls**: `substituteTemplateVars()` for prompt processing
+- **Tests**: Scenarios defined in artifacts/step-1-gherkin.md
 
 ## Implementation Notes
-- The change is a single line addition to the return object literal
-- Property should be `parallel: phase.parallel` (undefined propagates correctly for optional props)
-- No conditional logic needed - TypeScript handles undefined optional properties
-- The `phase` variable in the map callback is typed as `WorkflowPhase` which already has `parallel?: boolean`
-- The return type is implicitly `CompiledPhase` which already accepts `parallel?: boolean`
 
-## Exact Edit Location
-File: `plugins/m42-sprint/compiler/src/expand-foreach.ts`
-Lines: 117-121
+### CRITICAL: Step is ALREADY COMPLETE
 
-Current:
-```typescript
-    return {
-      id: phase.id,
-      status: 'pending' as const,
-      prompt
-    };
-```
+According to `_shared-context.md`:
 
-Target:
-```typescript
-    return {
-      id: phase.id,
-      status: 'pending' as const,
-      prompt,
-      parallel: phase.parallel
-    };
-```
+> **Already Complete**
+> 1. **types.ts** - All parallel execution types are defined (lines 68-81, 101, 106-127, 132-154, 183-205, 239-250)
+> 2. **expand-foreach.ts** - `parallel` flag propagation (line 121: `parallel: phase.parallel`)
+> 3. **expand-foreach.ts** - `wait-for-parallel` propagation in expandForEach (line 221) and compileSimplePhase (line 252)
+> 4. **compile.ts** - `parallel-tasks: []` initialization (line 215)
 
-Note: Add comma after `prompt` and add the new `parallel` property.
+The implementation was completed in step-0.
+
+### Verification Required
+
+The gherkin scenarios (6 total) will verify:
+1. File exists
+2. `parallel: phase.parallel` code pattern exists
+3. TypeScript compiles without errors
+4. Runtime test: parallel: true propagates
+5. Runtime test: undefined when not set
+6. Runtime test: mixed phases preserve individual flags
+
+Since the implementation already exists, step-1 should pass all verification scenarios without code changes.
+
+## Action Plan
+
+1. **Build the compiler** to ensure dist/ is up to date
+2. **Run gherkin scenarios** to verify existing implementation passes
+3. If all pass → step is complete (no code changes needed)
+4. If any fail → investigate and fix
 
 ## Verification Commands
 ```bash
-# TypeScript compilation check
-cd plugins/m42-sprint/compiler && npm run typecheck
+# Check code was added correctly
+grep -E "parallel:\s*phase\.parallel" plugins/m42-sprint/compiler/src/expand-foreach.ts
 
-# Build the compiler
+# TypeScript compilation
+cd plugins/m42-sprint/compiler && npx tsc --noEmit
+
+# Build for runtime tests
 cd plugins/m42-sprint/compiler && npm run build
 
-# Verify the pattern exists
-grep -E "parallel:\s*phase\.parallel" plugins/m42-sprint/compiler/src/expand-foreach.ts
+# Run gherkin verification (from artifacts/step-1-gherkin.md)
+# Scenarios 4, 5, 6 verify runtime behavior
 ```

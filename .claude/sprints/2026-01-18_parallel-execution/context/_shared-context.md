@@ -2,173 +2,167 @@
 
 ## Project Architecture
 
-The m42-sprint plugin is a Claude Code extension that enables autonomous sprint execution through a "Ralph Loop" pattern - a dumb bash loop that invokes Claude with fresh context for each task, using YAML-based state tracking.
+The m42-sprint plugin is a Claude Code plugin for automated sprint workflow execution. It consists of:
 
-### Core Components
+1. **Compiler (TypeScript)**: Compiles SPRINT.yaml + workflow definitions into PROGRESS.yaml
+   - Location: `plugins/m42-sprint/compiler/src/`
+   - Entry point: `index.ts`
+   - Core modules: types.ts, compile.ts, expand-foreach.ts, validate.ts
 
-```
-plugins/m42-sprint/
-├── compiler/           # TypeScript compiler for SPRINT.yaml → PROGRESS.yaml
-│   └── src/
-│       ├── types.ts           # Type definitions (WorkflowPhase, CompiledProgress, etc.)
-│       ├── compile.ts         # Main compilation orchestration
-│       ├── expand-foreach.ts  # For-each phase expansion
-│       ├── validate.ts        # Schema validation
-│       └── resolve-workflows.ts  # Workflow resolution and loading
-├── scripts/            # Bash scripts for runtime execution
-│   ├── sprint-loop.sh         # Main execution loop
-│   ├── build-sprint-prompt.sh # Prompt generation for each iteration
-│   └── preflight-check.sh     # Pre-execution validation
-├── commands/           # Slash command definitions
-│   ├── run-sprint.md
-│   ├── sprint-status.md
-│   └── ...
-└── skills/             # Reference documentation and guides
-    ├── creating-workflows/
-    └── orchestrating-sprints/
-```
+2. **Scripts (Bash)**: Runtime execution of compiled workflows
+   - Location: `plugins/m42-sprint/scripts/`
+   - Main loop: `sprint-loop.sh`
+   - Prompt builder: `build-sprint-prompt.sh`
 
-### Data Flow
+3. **Workflows (YAML)**: Reusable workflow templates
+   - Location: `.claude/workflows/`
+   - Main workflow for this project: `gherkin-step-workflow.yaml`
 
-```
-SPRINT.yaml     →     Compiler     →     PROGRESS.yaml     →     Sprint Loop
-(user input)    (TypeScript)        (runtime state)          (bash)
-                      ↓
-             .claude/workflows/*.yaml
-             (workflow definitions)
-```
+4. **Sprint Data**: Per-sprint runtime data
+   - Location: `.claude/sprints/<sprint-id>/`
+   - Contains: PROGRESS.yaml, context/, artifacts/, logs/, transcripts/
 
 ## Key Patterns
 
-- **Pointer-based navigation**: `current.phase`, `current.step`, `current.sub-phase` tracks execution position
-- **Hierarchical phases**: TopPhase → Step → SubPhase (for for-each phases)
-- **Status state machine**: `pending` → `in-progress` → `completed|blocked|skipped|failed`
-- **Template substitution**: `{{step.prompt}}`, `{{step.id}}`, `{{sprint.id}}` in prompts
-- **Fresh context per task**: Each iteration spawns new Claude process with just the current task
+- **Type-first Design**: All data structures defined in `types.ts`, used throughout
+- **Phase Expansion**: WorkflowPhase -> CompiledTopPhase/CompiledStep/CompiledPhase hierarchy
+- **Template Variables**: `{{step.prompt}}`, `{{step.id}}`, `{{sprint.id}}` substituted during compilation
+- **yq for YAML manipulation**: Runtime uses `yq` CLI tool for PROGRESS.yaml updates
+- **Exit code semantics**: Scripts use specific exit codes (0=success/complete, 1=blocked, 2=needs-human)
 
 ## Conventions
 
-### Naming
+- **Naming**:
+  - TypeScript: PascalCase for types/interfaces, camelCase for functions
+  - Bash: SCREAMING_SNAKE_CASE for constants, snake_case for variables
+  - YAML keys: kebab-case (e.g., `sprint-id`, `for-each`, `sub-phase`)
 
-- **Type interfaces**: PascalCase (e.g., `CompiledPhase`, `WorkflowPhase`)
-- **YAML properties**: kebab-case (e.g., `sprint-id`, `for-each`, `parallel-tasks`)
-- **File names**: kebab-case for scripts/workflows
-- **Phase IDs**: kebab-case (e.g., `update-docs`, `wait-for-parallel`)
+- **File structure**:
+  - Compiler source in `compiler/src/`
+  - Compiled output in `compiler/dist/`
+  - Scripts in `scripts/`
+  - Tests co-located with source (`.test.ts`)
 
-### File Structure
+- **Testing**:
+  - TypeScript: Simple test file `validate.test.ts`, run via `npm test`
+  - Bash: Manual testing via sprint execution
 
-- TypeScript source in `compiler/src/`
-- Compiled JS output in `compiler/dist/`
-- Shell scripts in `scripts/`
-- YAML schemas use optional properties with `?` suffix in documentation
-
-### Testing
-
-- No formal test framework currently
-- Verification through manual sprint execution
-- Integration testing via test sprint definitions
-
-### Error Handling
-
-- Compiler errors collected in `CompilerError[]` array
-- Sprint loop uses exit codes (0=success/paused, 1=blocked, 2=needs-human)
-- Error classification: network, rate-limit, timeout, validation, logic
-- Retry logic with exponential backoff for transient errors
+- **Error handling**:
+  - TypeScript: Return `CompilerError[]` arrays, never throw
+  - Bash: `set -euo pipefail`, explicit exit codes
 
 ## Commands
 
-- Build compiler: `cd plugins/m42-sprint/compiler && npm run build`
-- Run compiler: `node plugins/m42-sprint/compiler/dist/cli.js <sprint-dir>`
-- TypeCheck: `cd plugins/m42-sprint/compiler && npm run typecheck`
-- No lint configured for this plugin
+- **Build**: `cd plugins/m42-sprint/compiler && npm run build`
+- **Test**: `cd plugins/m42-sprint/compiler && npm test`
+- **TypeCheck**: `cd plugins/m42-sprint/compiler && npx tsc --noEmit`
+- **Clean**: `cd plugins/m42-sprint/compiler && npm run clean`
 
 ## Dependencies
 
 ### Internal Modules
-
-- `types.ts`: Core type definitions used by all compiler modules
-- `expand-foreach.ts`: Step expansion and template substitution
-- `validate.ts`: Schema validation functions
-- `resolve-workflows.ts`: Workflow file loading and cycle detection
+- `types.ts`: All TypeScript interfaces (SprintDefinition, WorkflowPhase, CompiledProgress, etc.)
+- `expand-foreach.ts`: Template substitution and step expansion
+- `compile.ts`: Main compilation orchestration
+- `validate.ts`: Schema validation for YAML files
+- `resolve-workflows.ts`: Workflow file loading and reference resolution
 
 ### External Packages
-
-- `js-yaml`: YAML parsing (with `YAMLException` for error handling)
+- `js-yaml`: YAML parsing and serialization
 - `commander`: CLI argument parsing
-- `yq`: YAML manipulation in bash scripts (runtime dependency)
+- `yq` (CLI): YAML manipulation in bash scripts
 
 ## Types and Interfaces
 
-### Key Types for This Sprint
+### Core Types (from types.ts - ALREADY IMPLEMENTED)
+
+The following types are ALREADY DEFINED in the codebase:
 
 ```typescript
-// Workflow phase definition - will add parallel and wait-for-parallel
-export interface WorkflowPhase {
+// Workflow phase definition (input) - types.ts:68-81
+interface WorkflowPhase {
   id: string;
   prompt?: string;
   'for-each'?: 'step';
   workflow?: string;
-  // NEW: parallel?: boolean;
-  // NEW: 'wait-for-parallel'?: boolean;
+  parallel?: boolean;           // ✅ Already defined
+  'wait-for-parallel'?: boolean; // ✅ Already defined
 }
 
-// Compiled sub-phase - will add parallel and parallel-task-id
-export interface CompiledPhase {
+// Compiled phase (leaf node in hierarchy) - types.ts:132-154
+interface CompiledPhase {
   id: string;
   status: PhaseStatus;
   prompt: string;
-  'started-at'?: string;
-  'completed-at'?: string;
-  elapsed?: string;
-  // NEW: parallel?: boolean;
-  // NEW: 'parallel-task-id'?: string;
+  // timing, error, retry fields...
+  parallel?: boolean;           // ✅ Already defined
+  'parallel-task-id'?: string;  // ✅ Already defined
 }
 
-// Top-level compiled phase - will add wait-for-parallel
-export interface CompiledTopPhase {
+// Compiled top-level phase - types.ts:183-205
+interface CompiledTopPhase {
   id: string;
   status: PhaseStatus;
   prompt?: string;
   steps?: CompiledStep[];
-  // NEW: 'wait-for-parallel'?: boolean;
+  'wait-for-parallel'?: boolean; // ✅ Already defined
 }
 
-// Runtime progress - will add parallel-tasks array
-export interface CompiledProgress {
+// Compiled progress (runtime format) - types.ts:239-250
+interface CompiledProgress {
   'sprint-id': string;
   status: SprintStatus;
   phases: CompiledTopPhase[];
   current: CurrentPointer;
   stats: SprintStats;
-  // NEW: 'parallel-tasks'?: ParallelTask[];
+  'parallel-tasks'?: ParallelTask[]; // ✅ Already defined
 }
 
-// NEW: Track background parallel tasks
-export interface ParallelTask {
+// Parallel task tracking - types.ts:106-127
+interface ParallelTask {
   id: string;
   'step-id': string;
   'phase-id': string;
   status: 'spawned' | 'running' | 'completed' | 'failed';
   pid?: number;
   'log-file'?: string;
-  'spawned-at': string;
+  'spawned-at'?: string;
   'completed-at'?: string;
   'exit-code'?: number;
   error?: string;
 }
 ```
 
-## Key Line References
+### Status Types (types.ts:99-101)
+```typescript
+type PhaseStatus = 'pending' | 'in-progress' | 'completed' | 'blocked' | 'skipped' | 'failed';
+type SprintStatus = 'not-started' | 'in-progress' | 'completed' | 'blocked' | 'paused' | 'needs-human';
+type ParallelTaskStatus = 'spawned' | 'running' | 'completed' | 'failed';
+```
 
-For precise edits, reference these line numbers in the source files:
+## Current Implementation Status
 
-| File | Lines | Content |
-|------|-------|---------|
-| `types.ts` | 68-77 | `WorkflowPhase` interface |
-| `types.ts` | 101-119 | `CompiledPhase` interface |
-| `types.ts` | 148-168 | `CompiledTopPhase` interface |
-| `types.ts` | 202-211 | `CompiledProgress` interface |
-| `expand-foreach.ts` | 84-130 | `expandStep()` function |
-| `expand-foreach.ts` | 117-121 | CompiledPhase object creation |
-| `compile.ts` | 209 | CompiledProgress object creation |
-| `validate.ts` | 174-235 | `validateWorkflowPhase()` function |
+### Already Complete
+1. **types.ts** - All parallel execution types are defined (lines 68-81, 101, 106-127, 132-154, 183-205, 239-250)
+2. **expand-foreach.ts** - `parallel` flag propagation (line 121: `parallel: phase.parallel`)
+3. **expand-foreach.ts** - `wait-for-parallel` propagation in expandForEach (line 221) and compileSimplePhase (line 252)
+4. **compile.ts** - `parallel-tasks: []` initialization (line 215)
+
+### Still Needed
+1. **validate.ts** - Add validation rules for parallel/wait-for-parallel properties
+2. **scripts/build-parallel-prompt.sh** - Create new script for parallel task prompts
+3. **scripts/sprint-loop.sh** - Add parallel task management functions
+4. **scripts/build-sprint-prompt.sh** - Skip spawned parallel sub-phases
+5. **commands/sprint-status.md** - Display parallel task information
+6. **skills/creating-workflows/references/workflow-schema.md** - Document parallel properties
+
+## Sprint Files Reference
+
+- **PROGRESS.yaml**: Compiled runtime state with current pointer and phase statuses
+- **context/_shared-context.md**: This file - project-wide patterns
+- **context/sprint-plan.md**: Sprint goals, step breakdown, dependencies
+- **context/step-N-context.md**: Per-step implementation context
+- **artifacts/step-N-gherkin.md**: Per-step verification scenarios
+- **artifacts/step-N-qa-report.md**: Per-step QA results
+- **logs/**: Execution logs per phase
+- **transcripts/**: JSON conversation transcripts per phase

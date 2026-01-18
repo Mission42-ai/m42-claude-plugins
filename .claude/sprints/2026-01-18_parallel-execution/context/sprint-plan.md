@@ -2,142 +2,210 @@
 
 ## Goal
 
-Add parallel execution support to the m42-sprint plugin, enabling non-blocking background tasks at the step workflow level. This allows "learning loop" patterns where documentation updates or similar tasks can run in background while the main workflow proceeds to the next step, with optional synchronization points before critical phases like QA or deployment.
+Add parallel execution capability to the m42-sprint workflow system, enabling sub-phases to run in background while the main loop continues. This allows non-blocking tasks (like documentation updates, learning loops) to execute concurrently with main implementation work, with synchronization points where the main loop can wait for all parallel tasks to complete.
 
 ## Success Criteria
 
-- [ ] `parallel?: boolean` property added to WorkflowPhase and CompiledPhase types
-- [ ] `wait-for-parallel?: boolean` property added to WorkflowPhase and CompiledTopPhase
-- [ ] `ParallelTask` interface defined with full status tracking
-- [ ] Compiler propagates parallel flags through for-each expansion
-- [ ] `parallel-tasks: []` array initialized in compiled PROGRESS.yaml
-- [ ] Sprint loop spawns parallel tasks as background processes
-- [ ] Sprint loop waits at `wait-for-parallel` sync points
-- [ ] Sprint status command displays parallel task progress
+- [x] TypeScript types support parallel execution properties (DONE - types.ts)
+- [x] Compiler propagates parallel flags to compiled output (DONE - expand-foreach.ts:121)
+- [x] Compiler initializes parallel-tasks array in CompiledProgress (DONE - compile.ts:215)
+- [ ] Validation checks parallel/wait-for-parallel properties
+- [ ] New script builds prompts for parallel task execution
+- [ ] Sprint loop spawns parallel tasks in background
+- [ ] Sprint loop can wait for parallel tasks at sync points
+- [ ] Prompt builder skips spawned parallel phases
+- [ ] Status command shows parallel task information
 - [ ] Workflow schema documentation updated
-- [ ] Integration test validates end-to-end parallel execution
+- [ ] Integration test validates end-to-end flow
 
 ## Step Breakdown
 
-### Step 0 (step-1 in SPRINT.yaml): Type System Extensions
-**Scope**: Add new TypeScript interfaces and properties for parallel execution tracking
-**Files**:
-- `compiler/src/types.ts` - Add `parallel`, `wait-for-parallel`, `ParallelTask` interface
-**Dependencies**: None (foundational)
-**Risk**: Low - pure type additions, no runtime impact
+### Step 0: Add Parallel Execution Types ✅ ALREADY DONE
+**Scope**: Extend TypeScript interfaces in `compiler/src/types.ts`
+**Status**: COMPLETE - All types already exist in types.ts
 
-### Step 1 (step-2): Update Compiler - Expand ForEach
-**Scope**: Propagate `parallel` flag when expanding step workflows into CompiledPhase objects
-**Files**:
-- `compiler/src/expand-foreach.ts` - Modify `expandStep()` function
-**Dependencies**: Step 0 (types must exist)
-**Risk**: Low - single property addition to existing object creation
+Verified locations:
+- `parallel?: boolean` on WorkflowPhase (line 78)
+- `wait-for-parallel?: boolean` on WorkflowPhase (line 80)
+- `ParallelTask` interface (lines 106-127)
+- `parallel-tasks?: ParallelTask[]` on CompiledProgress (line 249)
+- `parallel?: boolean` on CompiledPhase (line 151)
+- `parallel-task-id?: string` on CompiledPhase (line 153)
+- `wait-for-parallel?: boolean` on CompiledTopPhase (line 204)
 
-### Step 2 (step-3): Update Compiler - Main Compile
-**Scope**: Initialize parallel-tasks array and propagate wait-for-parallel flag
-**Files**:
-- `compiler/src/compile.ts` - Modify compile() function
-**Dependencies**: Step 0 (types must exist)
-**Risk**: Low - initializing empty array, simple property propagation
+### Step 1: Propagate Parallel Flag in Expansion ✅ ALREADY DONE
+**Scope**: Update foreach expansion to propagate parallel flag
+**Status**: COMPLETE - Already implemented in expand-foreach.ts
 
-### Step 3 (step-4): Add Validation Rules
-**Scope**: Validate new properties and add warnings for unsupported usage patterns
-**Files**:
-- `compiler/src/validate.ts` - Modify `validateWorkflowPhase()` function
-**Dependencies**: Step 0 (types must exist)
-**Risk**: Low - adding validation rules doesn't break existing workflows
+Verified locations:
+- expandStep() adds `parallel: phase.parallel` at line 121
+- compileSimplePhase() adds `'wait-for-parallel': phase['wait-for-parallel']` at line 252
+- expandForEach() adds `'wait-for-parallel': phase['wait-for-parallel']` at line 221
 
-### Step 4 (step-5): Create Build Parallel Prompt Script
-**Scope**: New script to generate prompts for background parallel tasks
+### Step 2: Initialize Parallel Tasks Array ✅ ALREADY DONE
+**Scope**: Update compiler to initialize parallel-tasks and propagate wait-for-parallel
+**Status**: COMPLETE - Already implemented in compile.ts
+
+Verified locations:
+- `'parallel-tasks': []` initialization at line 215
+
+### Step 3: Add Parallel Validation
+**Scope**: Update validation to check parallel properties
 **Files**:
-- `scripts/build-parallel-prompt.sh` - **NEW FILE**
+- `plugins/m42-sprint/compiler/src/validate.ts`
+**Dependencies**: Step 0 (types)
+**Risk**: Low - validation additions
+
+Changes:
+1. Validate `parallel` property is boolean if present
+2. Validate `wait-for-parallel` property is boolean if present
+3. Add warning if parallel used on for-each phase (unsupported)
+
+### Step 4: Create Parallel Prompt Builder
+**Scope**: New script to build prompts for parallel background tasks
+**Files**:
+- `plugins/m42-sprint/scripts/build-parallel-prompt.sh` (new)
 **Dependencies**: None (standalone script)
-**Risk**: Low - new file, no modifications to existing code
+**Risk**: Medium - new file with specific format requirements
 
-### Step 5 (step-6): Update Sprint Loop - Core Logic
-**Scope**: Add parallel task management functions and modify main loop
-**Files**:
-- `scripts/sprint-loop.sh` - Add helper functions and modify main loop
-**Dependencies**: Step 4 (needs build-parallel-prompt.sh)
-**Risk**: Medium - core execution logic, must preserve existing sequential behavior
+Output format:
+```
+# Parallel Task Execution
+Task ID: $TASK_ID
 
-### Step 6 (step-7): Update Build Sprint Prompt Script
-**Scope**: Skip parallel sub-phases that are already spawned in background
-**Files**:
-- `scripts/build-sprint-prompt.sh` - Add status check for spawned phases
-**Dependencies**: Step 0 (type definitions for status values)
-**Risk**: Low - adding conditional skip logic
+## Context
+Step: [step prompt]
 
-### Step 7 (step-8): Update Sprint Status Command
-**Scope**: Display parallel task status in dashboard
-**Files**:
-- `commands/sprint-status.md` - Add parallel tasks section
-**Dependencies**: Step 0 (parallel task structure)
-**Risk**: Low - display-only changes
+## Your Task: [sub-phase-id]
+[sub-phase prompt]
 
-### Step 8 (step-9): Update Workflow Schema Documentation
-**Scope**: Document new `parallel` and `wait-for-parallel` properties
+## Instructions
+1. Execute independently
+2. Runs in background
+3. Commit when done
+```
+
+### Step 5: Update Sprint Loop for Parallel Management
+**Scope**: Add parallel task spawning and waiting to sprint-loop.sh
 **Files**:
-- `skills/creating-workflows/references/workflow-schema.md`
-**Dependencies**: All implementation steps complete
+- `plugins/m42-sprint/scripts/sprint-loop.sh`
+**Dependencies**: Steps 0-4 (all types, compilation, prompt builder)
+**Risk**: High - core loop modification, background process management
+
+Changes:
+1. `is_parallel_subphase()` - Check if current sub-phase has parallel flag
+2. `spawn_parallel_task()` - Spawn task in background, register in PROGRESS.yaml
+3. `is_wait_for_parallel_phase()` - Check for wait-for-parallel flag
+4. `wait_for_parallel_tasks()` - Block until all parallel tasks complete
+5. `update_parallel_task_statuses()` - Poll and update status of running tasks
+6. Update main loop to use these functions
+
+### Step 6: Update Prompt Builder to Skip Parallel
+**Scope**: Skip already-spawned parallel phases in main prompt building
+**Files**:
+- `plugins/m42-sprint/scripts/build-sprint-prompt.sh`
+**Dependencies**: Step 5 (parallel task registration)
+**Risk**: Low - conditional skip logic
+
+Changes:
+1. Skip sub-phases with status 'spawned'
+2. Skip sub-phases with parallel-task-id set
+
+### Step 7: Update Status Display
+**Scope**: Show parallel task information in sprint status
+**Files**:
+- `plugins/m42-sprint/commands/sprint-status.md`
+**Dependencies**: Steps 0, 5 (types, task tracking)
+**Risk**: Low - display additions
+
+Output format:
+```
+Parallel Tasks:
+[~] step-0-update-docs-1705123456 (running, 2m elapsed)
+    Step: Implement user authentication
+    Phase: update-docs
+    PID: 12345 | Log: logs/step-0-update-docs-1705123456.log
+```
+
+### Step 8: Document Workflow Schema
+**Scope**: Update workflow schema documentation
+**Files**:
+- `plugins/m42-sprint/skills/creating-workflows/references/workflow-schema.md`
+**Dependencies**: All implementation steps
 **Risk**: Low - documentation only
 
-### Step 9 (step-10): Integration Testing
-**Scope**: Create and execute test workflows to verify parallel execution
+Document:
+1. `parallel?: boolean` property and use cases
+2. `wait-for-parallel?: boolean` property and use cases
+3. Usage examples
+
+### Step 9: Integration Test
+**Scope**: End-to-end test of parallel execution
 **Files**:
-- Test workflow files (may be temporary)
+- Test workflow with parallel sub-phase
 - Test sprint definition
-**Dependencies**: All previous steps complete
-**Risk**: Medium - integration testing may reveal issues requiring backtracking
+- Manual or automated verification
+**Dependencies**: All previous steps
+**Risk**: Medium - integration verification
+
+Verify:
+1. parallel-tasks array initialized
+2. parallel flag propagates correctly
+3. wait-for-parallel flag appears on sync phases
+4. Parallel tasks spawn as background processes
+5. Main loop advances without waiting
+6. wait-for-parallel blocks until completion
+7. Parallel task logs created
+8. Failure handling works
 
 ## Step Dependency Graph
 
 ```
-step-0 (Types) ────┬────────────────────────────────────────────────┐
-                   │                                                 │
-                   ├──→ step-1 (Expand ForEach)                     │
-                   │                                                 │
-                   ├──→ step-2 (Compile) ──→ step-5 (Sprint Loop) ──┼──→ step-9 (Integration Test)
-                   │                              ↑                  │
-                   ├──→ step-3 (Validation)       │                  │
-                   │                              │                  │
-step-4 (Build Parallel Prompt) ───────────────────┘                  │
-                                                                     │
-step-6 (Build Sprint Prompt) ────────────────────────────────────────┤
-                                                                     │
-step-7 (Sprint Status) ──────────────────────────────────────────────┤
-                                                                     │
-step-8 (Docs) ←──────────────────────────────────────────────────────┘
+step-0 (types) ✅ DONE
+   ↓
+step-1 (expand-foreach) ✅ DONE
+   ↓
+step-2 (compile.ts) ✅ DONE
+   ↓
+step-3 (validate.ts) ← CURRENT
+
+step-4 (build-parallel-prompt)
+   ↓
+step-5 (sprint-loop.sh) ← HIGHEST RISK
+   ↓
+step-6 (build-sprint-prompt)
+   ↓
+step-7 (status display)
+   ↓
+step-8 (documentation)
+   ↓
+step-9 (integration test)
 ```
+
+Note: Steps 0-2 were already implemented before this sprint began. The sprint
+will focus on validation (step 3), bash scripts (steps 4-6), and documentation/testing.
 
 ## Risk Assessment
 
 | Risk | Impact | Mitigation |
 |------|--------|------------|
-| Sprint loop modifications break sequential execution | High | Test with non-parallel workflows after changes |
-| Background processes orphaned on sprint stop | Medium | Add cleanup logic in trap handler |
-| yq syntax errors in parallel task tracking | Medium | Test yq commands independently before integration |
-| Race conditions in PROGRESS.yaml updates | Medium | Use atomic file operations, consider file locking |
-| Parallel tasks interfere with each other | Low | Tasks should be independent (docs vs implementation) |
+| Background process management complexity | High | Use simple PID tracking, explicit log files |
+| Race conditions in PROGRESS.yaml updates | Medium | Use file locking or atomic yq operations |
+| Parallel task cleanup on sprint abort | Medium | Track PIDs, add cleanup on SIGTERM |
+| TypeScript build failures during development | Low | Run typecheck after each step |
+| Sprint loop regression | High | Test existing workflow before/after changes |
 
 ## Estimated Complexity
 
 | Step | Complexity | Reason |
 |------|------------|--------|
-| step-0 | Low | Pure type additions |
+| step-0 | Low | Additive type definitions only |
 | step-1 | Low | Single property propagation |
-| step-2 | Low | Array initialization, property copy |
-| step-3 | Low | Validation rule additions |
-| step-4 | Low | New standalone script |
-| step-5 | Medium | Core loop logic, background process management |
+| step-2 | Low | Initialization and simple propagation |
+| step-3 | Low | Validation additions |
+| step-4 | Medium | New script with specific output format |
+| step-5 | High | Core loop modification, process management |
 | step-6 | Low | Conditional skip logic |
-| step-7 | Low | Display formatting |
-| step-8 | Low | Documentation update |
-| step-9 | Medium | End-to-end testing, may reveal issues |
-
-## Notes
-
-- The implementation plan in `context/implementation-plan.md` contains detailed code snippets and line references
-- Backward compatibility is maintained - all new properties are optional
-- Existing workflows without `parallel` flags will continue to work sequentially
-- No limit on concurrent parallel tasks is enforced (user responsibility)
+| step-7 | Low | Display formatting only |
+| step-8 | Low | Documentation only |
+| step-9 | Medium | Integration verification |
