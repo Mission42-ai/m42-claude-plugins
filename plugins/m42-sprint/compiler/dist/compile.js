@@ -148,6 +148,12 @@ async function compile(config) {
         // Compile Ralph mode PROGRESS.yaml
         return compileRalphMode(sprintDef, mainWorkflow.definition, config, errors, warnings);
     }
+    // Validate standard mode sprint requirements (steps array required)
+    const standardModeErrors = (0, validate_js_1.validateStandardModeSprint)(sprintDef);
+    if (standardModeErrors.length > 0) {
+        errors.push(...standardModeErrors);
+        return { success: false, errors, warnings };
+    }
     if (config.verbose) {
         console.log(`Loaded workflow: ${mainWorkflow.definition.name} (${mainWorkflow.definition.phases?.length ?? 0} phases)`); // intentional
     }

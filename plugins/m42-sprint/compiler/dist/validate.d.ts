@@ -5,12 +5,25 @@
  */
 import type { SprintDefinition, WorkflowDefinition, CompiledProgress, CompilerError } from './types.js';
 /**
- * Validate a sprint definition (SPRINT.yaml)
+ * Validate a sprint definition (SPRINT.yaml) - basic validation
+ *
+ * This performs minimal validation before workflow is loaded.
+ * The `steps` array requirement is deferred to validateStandardModeSprint()
+ * because Ralph mode sprints don't use steps.
  *
  * @param sprint - The sprint definition to validate
  * @returns Array of validation errors
  */
 export declare function validateSprintDefinition(sprint: unknown): CompilerError[];
+/**
+ * Validate standard mode sprint requirements
+ *
+ * Called after workflow is loaded to validate sprint-specific standard mode requirements.
+ *
+ * @param sprint - The sprint definition
+ * @returns Array of validation errors
+ */
+export declare function validateStandardModeSprint(sprint: SprintDefinition): CompilerError[];
 /**
  * Validate a single sprint step
  *

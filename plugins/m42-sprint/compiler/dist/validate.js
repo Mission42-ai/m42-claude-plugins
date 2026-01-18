@@ -6,6 +6,7 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.validateSprintDefinition = validateSprintDefinition;
+exports.validateStandardModeSprint = validateStandardModeSprint;
 exports.validateSprintStep = validateSprintStep;
 exports.validateWorkflowDefinition = validateWorkflowDefinition;
 exports.validatePerIterationHook = validatePerIterationHook;
@@ -15,7 +16,11 @@ exports.checkUnresolvedVariables = checkUnresolvedVariables;
 exports.validateCompiledProgress = validateCompiledProgress;
 const expand_foreach_js_1 = require("./expand-foreach.js");
 /**
- * Validate a sprint definition (SPRINT.yaml)
+ * Validate a sprint definition (SPRINT.yaml) - basic validation
+ *
+ * This performs minimal validation before workflow is loaded.
+ * The `steps` array requirement is deferred to validateStandardModeSprint()
+ * because Ralph mode sprints don't use steps.
  *
  * @param sprint - The sprint definition to validate
  * @returns Array of validation errors
@@ -30,7 +35,7 @@ function validateSprintDefinition(sprint) {
         return errors;
     }
     const s = sprint;
-    // Check required fields
+    // Check required fields (workflow is always required)
     if (!s.workflow || typeof s.workflow !== 'string') {
         errors.push({
             code: 'MISSING_WORKFLOW',
@@ -38,18 +43,40 @@ function validateSprintDefinition(sprint) {
             path: 'workflow'
         });
     }
-    if (!s.steps || !Array.isArray(s.steps)) {
+    // Note: steps validation is deferred to validateStandardModeSprint()
+    // because Ralph mode sprints don't require steps
+    // Validate steps if present (even for Ralph mode, steps would be invalid)
+    if (s.steps !== undefined && Array.isArray(s.steps)) {
+        s.steps.forEach((step, index) => {
+            const stepErrors = validateSprintStep(step, index);
+            errors.push(...stepErrors);
+        });
+    }
+    return errors;
+}
+/**
+ * Validate standard mode sprint requirements
+ *
+ * Called after workflow is loaded to validate sprint-specific standard mode requirements.
+ *
+ * @param sprint - The sprint definition
+ * @returns Array of validation errors
+ */
+function validateStandardModeSprint(sprint) {
+    const errors = [];
+    // Standard mode requires steps array
+    if (!sprint.steps || !Array.isArray(sprint.steps)) {
         errors.push({
             code: 'MISSING_STEPS',
             message: 'SPRINT.yaml must have a steps array',
             path: 'steps'
         });
     }
-    else {
-        // Validate each step
-        s.steps.forEach((step, index) => {
-            const stepErrors = validateSprintStep(step, index);
-            errors.push(...stepErrors);
+    else if (sprint.steps.length === 0) {
+        errors.push({
+            code: 'EMPTY_STEPS',
+            message: 'SPRINT.yaml steps array cannot be empty',
+            path: 'steps'
         });
     }
     return errors;

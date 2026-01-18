@@ -27,6 +27,7 @@ import { loadWorkflow, resolveWorkflowRefs } from './resolve-workflows.js';
 import { expandForEach, compileSimplePhase } from './expand-foreach.js';
 import {
   validateSprintDefinition,
+  validateStandardModeSprint,
   validateWorkflowDefinition,
   validateCompiledProgress,
   checkUnresolvedVariables,
@@ -147,6 +148,13 @@ export async function compile(config: CompilerConfig): Promise<CompilerResult> {
 
     // Compile Ralph mode PROGRESS.yaml
     return compileRalphMode(sprintDef, mainWorkflow.definition, config, errors, warnings);
+  }
+
+  // Validate standard mode sprint requirements (steps array required)
+  const standardModeErrors = validateStandardModeSprint(sprintDef);
+  if (standardModeErrors.length > 0) {
+    errors.push(...standardModeErrors);
+    return { success: false, errors, warnings };
   }
 
   if (config.verbose) {
