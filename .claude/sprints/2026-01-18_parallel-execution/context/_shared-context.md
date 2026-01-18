@@ -74,53 +74,51 @@ The m42-sprint plugin is a Claude Code plugin for automated sprint workflow exec
 
 ## Types and Interfaces
 
-### Core Types (from types.ts)
+### Core Types (from types.ts - ALREADY IMPLEMENTED)
+
+The following types are ALREADY DEFINED in the codebase:
 
 ```typescript
-// Workflow phase definition (input)
+// Workflow phase definition (input) - types.ts:68-81
 interface WorkflowPhase {
   id: string;
   prompt?: string;
   'for-each'?: 'step';
   workflow?: string;
-  // NEW: parallel execution properties to add
-  parallel?: boolean;
-  'wait-for-parallel'?: boolean;
+  parallel?: boolean;           // ✅ Already defined
+  'wait-for-parallel'?: boolean; // ✅ Already defined
 }
 
-// Compiled phase (leaf node in hierarchy)
+// Compiled phase (leaf node in hierarchy) - types.ts:132-154
 interface CompiledPhase {
   id: string;
   status: PhaseStatus;
   prompt: string;
   // timing, error, retry fields...
-  // NEW: parallel execution properties to add
-  parallel?: boolean;
-  'parallel-task-id'?: string;
+  parallel?: boolean;           // ✅ Already defined
+  'parallel-task-id'?: string;  // ✅ Already defined
 }
 
-// Compiled top-level phase
+// Compiled top-level phase - types.ts:183-205
 interface CompiledTopPhase {
   id: string;
   status: PhaseStatus;
   prompt?: string;
   steps?: CompiledStep[];
-  // NEW: wait-for-parallel property to add
-  'wait-for-parallel'?: boolean;
+  'wait-for-parallel'?: boolean; // ✅ Already defined
 }
 
-// Compiled progress (runtime format)
+// Compiled progress (runtime format) - types.ts:239-250
 interface CompiledProgress {
   'sprint-id': string;
   status: SprintStatus;
   phases: CompiledTopPhase[];
   current: CurrentPointer;
   stats: SprintStats;
-  // NEW: parallel-tasks array to add
-  'parallel-tasks'?: ParallelTask[];
+  'parallel-tasks'?: ParallelTask[]; // ✅ Already defined
 }
 
-// NEW: Parallel task tracking
+// Parallel task tracking - types.ts:106-127
 interface ParallelTask {
   id: string;
   'step-id': string;
@@ -135,11 +133,28 @@ interface ParallelTask {
 }
 ```
 
-### Status Types
+### Status Types (types.ts:99-101)
 ```typescript
 type PhaseStatus = 'pending' | 'in-progress' | 'completed' | 'blocked' | 'skipped' | 'failed';
 type SprintStatus = 'not-started' | 'in-progress' | 'completed' | 'blocked' | 'paused' | 'needs-human';
+type ParallelTaskStatus = 'spawned' | 'running' | 'completed' | 'failed';
 ```
+
+## Current Implementation Status
+
+### Already Complete
+1. **types.ts** - All parallel execution types are defined (lines 68-81, 101, 106-127, 132-154, 183-205, 239-250)
+2. **expand-foreach.ts** - `parallel` flag propagation (line 121: `parallel: phase.parallel`)
+3. **expand-foreach.ts** - `wait-for-parallel` propagation in expandForEach (line 221) and compileSimplePhase (line 252)
+4. **compile.ts** - `parallel-tasks: []` initialization (line 215)
+
+### Still Needed
+1. **validate.ts** - Add validation rules for parallel/wait-for-parallel properties
+2. **scripts/build-parallel-prompt.sh** - Create new script for parallel task prompts
+3. **scripts/sprint-loop.sh** - Add parallel task management functions
+4. **scripts/build-sprint-prompt.sh** - Skip spawned parallel sub-phases
+5. **commands/sprint-status.md** - Display parallel task information
+6. **skills/creating-workflows/references/workflow-schema.md** - Document parallel properties
 
 ## Sprint Files Reference
 
