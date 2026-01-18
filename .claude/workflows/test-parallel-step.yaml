@@ -1,0 +1,29 @@
+# Test Parallel Step Workflow
+# Step workflow with a parallel sub-phase for integration testing
+#
+# This workflow tests that:
+# 1. parallel: true flag is set on a sub-phase
+# 2. The flag propagates correctly during compilation
+
+name: Test Parallel Step Workflow
+description: |
+  Test step workflow that includes a parallel sub-phase.
+  Used for integration testing of the parallel execution feature.
+
+phases:
+  # Main execution phase - runs normally
+  - id: execute
+    prompt: |
+      Execute main task for: {{step.prompt}}
+
+      ## Instructions
+      This is the main execution phase that runs synchronously.
+
+  # Parallel task - runs in background
+  - id: parallel-task
+    prompt: |
+      Run parallel task for: {{step.prompt}}
+
+      ## Instructions
+      This task runs in background while the main loop advances.
+    parallel: true
