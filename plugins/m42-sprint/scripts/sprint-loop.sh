@@ -489,6 +489,232 @@ check_force_retry() {
 }
 
 # =============================================================================
+# RALPH MODE FUNCTIONS
+# =============================================================================
+
+# Record Ralph mode completion
+record_ralph_completion() {
+  local iteration="$1"
+  local summary="$2"
+  local completed_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+  # Update ralph-exit section
+  yq -i ".ralph-exit.\"detected-at\" = \"$completed_at\"" "$PROGRESS_FILE"
+  yq -i ".ralph-exit.iteration = $iteration" "$PROGRESS_FILE"
+  yq -i ".ralph-exit.\"final-summary\" = \"$summary\"" "$PROGRESS_FILE"
+
+  # Set sprint status
+  yq -i '.status = "completed"' "$PROGRESS_FILE"
+  yq -i ".stats.\"completed-at\" = \"$completed_at\"" "$PROGRESS_FILE"
+
+  # Calculate elapsed time
+  local started_at=$(yq -r '.stats."started-at" // "null"' "$PROGRESS_FILE")
+  if [[ "$started_at" != "null" ]]; then
+    local elapsed=$(calculate_elapsed "$started_at" "$completed_at")
+    yq -i ".stats.elapsed = \"$elapsed\"" "$PROGRESS_FILE"
+  fi
+
+  echo ""
+  echo "============================================================"
+  echo "RALPH MODE COMPLETED"
+  echo "============================================================"
+  echo "Iteration: $iteration"
+  echo "Summary: $summary"
+}
+
+# Spawn per-iteration hooks for Ralph mode
+spawn_per_iteration_hooks() {
+  local iteration=$1
+
+  # Check if per-iteration-hooks section exists
+  local hooks_exist=$(yq -r '.per-iteration-hooks // "null"' "$PROGRESS_FILE")
+  if [[ "$hooks_exist" == "null" ]]; then
+    return
+  fi
+
+  # Read enabled hooks count
+  local hooks_count=$(yq -r '.per-iteration-hooks // [] | map(select(.enabled == true)) | length' "$PROGRESS_FILE")
+
+  if [[ "$hooks_count" -eq 0 ]]; then
+    return
+  fi
+
+  echo "Spawning $hooks_count per-iteration hook(s)..."
+
+  for ((h=0; h<hooks_count; h++)); do
+    local hook_id=$(yq -r ".per-iteration-hooks | map(select(.enabled == true))[$h].id" "$PROGRESS_FILE")
+    local workflow=$(yq -r ".per-iteration-hooks | map(select(.enabled == true))[$h].workflow // \"\"" "$PROGRESS_FILE")
+    local prompt=$(yq -r ".per-iteration-hooks | map(select(.enabled == true))[$h].prompt // \"\"" "$PROGRESS_FILE")
+    local parallel=$(yq -r ".per-iteration-hooks | map(select(.enabled == true))[$h].parallel // false" "$PROGRESS_FILE")
+
+    # Register task in hook-tasks array
+    local spawned_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    yq -i ".hook-tasks += [{\"iteration\": $iteration, \"hook-id\": \"$hook_id\", \"status\": \"in-progress\", \"spawned-at\": \"$spawned_at\"}]" "$PROGRESS_FILE"
+
+    # Build hook prompt
+    local HOOK_PROMPT=""
+    if [[ -n "$workflow" ]] && [[ "$workflow" != "null" ]] && [[ "$workflow" != "" ]]; then
+      # Workflow reference (e.g., "m42-signs:learning-extraction")
+      HOOK_PROMPT="/$workflow $SPRINT_DIR/transcripts/iteration-$iteration.jsonl"
+    elif [[ -n "$prompt" ]] && [[ "$prompt" != "null" ]] && [[ "$prompt" != "" ]]; then
+      # Inline prompt
+      HOOK_PROMPT="$prompt"
+    else
+      echo "Warning: Hook $hook_id has no workflow or prompt defined, skipping"
+      yq -i "(.hook-tasks[] | select(.iteration == $iteration and .\"hook-id\" == \"$hook_id\")).status = \"skipped\"" "$PROGRESS_FILE"
+      continue
+    fi
+
+    if [[ "$parallel" == "true" ]]; then
+      # Non-blocking: spawn in background
+      echo "  Spawning hook '$hook_id' in background (parallel)"
+      (
+        claude -p "$HOOK_PROMPT" --dangerously-skip-permissions > /dev/null 2>&1
+        yq -i "(.hook-tasks[] | select(.iteration == $iteration and .\"hook-id\" == \"$hook_id\")).status = \"completed\"" "$PROGRESS_FILE"
+      ) &
+    else
+      # Blocking: wait for completion
+      echo "  Running hook '$hook_id' (blocking)"
+      claude -p "$HOOK_PROMPT" --dangerously-skip-permissions > /dev/null 2>&1
+      yq -i "(.hook-tasks[] | select(.iteration == $iteration and .\"hook-id\" == \"$hook_id\")).status = \"completed\"" "$PROGRESS_FILE"
+    fi
+  done
+}
+
+# Ralph Loop - Autonomous goal-driven execution
+run_ralph_loop() {
+  local iteration=0
+  local idle_count=0
+  local IDLE_THRESHOLD=$(yq -r '.ralph."idle-threshold" // 3' "$PROGRESS_FILE")
+
+  echo ""
+  echo "============================================================"
+  echo "RALPH MODE - Autonomous Goal-Driven Execution"
+  echo "============================================================"
+  echo "Idle threshold: $IDLE_THRESHOLD iterations"
+  echo ""
+
+  # Ensure transcripts directory exists
+  mkdir -p "$SPRINT_DIR/transcripts"
+
+  while true; do
+    iteration=$((iteration + 1))
+
+    echo ""
+    echo "=== Ralph Iteration $iteration ==="
+
+    # Update iteration counter in PROGRESS.yaml
+    yq -i ".stats.\"current-iteration\" = $iteration" "$PROGRESS_FILE"
+
+    # 1. Determine mode based on pending dynamic steps
+    local PENDING_COUNT=$(yq -r '[.dynamic-steps // [] | .[] | select(.status == "pending")] | length' "$PROGRESS_FILE")
+    local LOOP_MODE=""
+
+    if [[ "$PENDING_COUNT" -eq 0 ]]; then
+      idle_count=$((idle_count + 1))
+      if [[ $idle_count -ge $IDLE_THRESHOLD ]]; then
+        LOOP_MODE="reflecting"
+      else
+        LOOP_MODE="planning"
+      fi
+    else
+      LOOP_MODE="executing"
+      idle_count=0
+    fi
+
+    echo "Mode: $LOOP_MODE (pending steps: $PENDING_COUNT, idle count: $idle_count)"
+
+    # 2. Build prompt via build-ralph-prompt.sh
+    local PROMPT=""
+    if [[ -x "$SCRIPT_DIR/build-ralph-prompt.sh" ]]; then
+      PROMPT=$("$SCRIPT_DIR/build-ralph-prompt.sh" "$SPRINT_DIR" "$LOOP_MODE" "$iteration")
+    else
+      echo "Error: build-ralph-prompt.sh not found or not executable" >&2
+      yq -i '.status = "blocked"' "$PROGRESS_FILE"
+      yq -i '.error = "build-ralph-prompt.sh not found"' "$PROGRESS_FILE"
+      exit 1
+    fi
+
+    if [[ -z "$PROMPT" ]]; then
+      echo "Error: Empty prompt from build-ralph-prompt.sh" >&2
+      yq -i '.status = "blocked"' "$PROGRESS_FILE"
+      yq -i '.error = "Empty prompt from build-ralph-prompt.sh"' "$PROGRESS_FILE"
+      exit 1
+    fi
+
+    # 3. Spawn per-iteration hooks (parallel tasks)
+    spawn_per_iteration_hooks "$iteration"
+
+    # 4. Execute Claude with transcript capture
+    local TRANSCRIPT_FILE="$SPRINT_DIR/transcripts/iteration-$iteration.jsonl"
+    echo "Transcript: $TRANSCRIPT_FILE"
+    echo ""
+    echo "Invoking Claude CLI..."
+
+    claude -p "$PROMPT" \
+      --dangerously-skip-permissions \
+      --output-format stream-json \
+      --verbose \
+      > "$TRANSCRIPT_FILE" 2>&1
+    local CLI_EXIT_CODE=$?
+
+    if [[ "$CLI_EXIT_CODE" -ne 0 ]]; then
+      echo "Warning: Claude CLI returned non-zero exit code: $CLI_EXIT_CODE"
+      # Continue to next iteration (don't exit on individual failures)
+    fi
+
+    # 5. Check for RALPH_COMPLETE marker in transcript
+    # Extract result text and check for completion marker
+    if jq -r 'select(.type=="result") | .result // empty' "$TRANSCRIPT_FILE" 2>/dev/null | grep -qE "RALPH_COMPLETE:"; then
+      local SUMMARY=$(jq -r 'select(.type=="result") | .result // empty' "$TRANSCRIPT_FILE" 2>/dev/null | grep -oP "RALPH_COMPLETE:\s*\K.*" | head -1)
+      record_ralph_completion "$iteration" "$SUMMARY"
+      wait  # Wait for all parallel hooks to complete
+      exit 0
+    fi
+
+    # Also check raw transcript in case result format differs
+    if grep -qE "RALPH_COMPLETE:" "$TRANSCRIPT_FILE"; then
+      local SUMMARY=$(grep -oP "RALPH_COMPLETE:\s*\K.*" "$TRANSCRIPT_FILE" | head -1)
+      record_ralph_completion "$iteration" "$SUMMARY"
+      wait  # Wait for all parallel hooks to complete
+      exit 0
+    fi
+
+    # 6. Check for needs-human or blocked status (Claude may have set these)
+    local STATUS=$(yq -r '.status' "$PROGRESS_FILE")
+    case "$STATUS" in
+      blocked)
+        echo ""
+        echo "============================================================"
+        echo "RALPH MODE BLOCKED"
+        echo "============================================================"
+        wait
+        exit 1
+        ;;
+      needs-human)
+        echo ""
+        echo "============================================================"
+        echo "RALPH MODE - HUMAN INTERVENTION REQUIRED"
+        echo "============================================================"
+        wait
+        exit 2
+        ;;
+      paused)
+        echo ""
+        echo "============================================================"
+        echo "RALPH MODE PAUSED"
+        echo "============================================================"
+        wait
+        exit 0
+        ;;
+    esac
+
+    # Small delay between iterations
+    sleep 2
+  done
+}
+
+# =============================================================================
 # PARALLEL TASK MANAGEMENT FUNCTIONS
 # =============================================================================
 
@@ -772,25 +998,6 @@ handle_phase_failure() {
   fi
 }
 
-echo "============================================================"
-echo "SPRINT LOOP STARTING (Hierarchical Workflow)"
-echo "============================================================"
-echo ""
-echo "Sprint: $SPRINT_NAME"
-echo "Directory: $SPRINT_DIR"
-if [[ "$UNLIMITED_MODE" == "true" ]]; then
-  echo "Max iterations: unlimited (loop until completion)"
-else
-  echo "Max iterations: $MAX_ITERATIONS"
-fi
-echo "Max retries per phase: $MAX_RETRIES"
-echo ""
-
-# Create logs directory for phase output
-mkdir -p "$SPRINT_DIR/logs"
-echo "Logs directory: $SPRINT_DIR/logs"
-echo ""
-
 # Helper function to generate log filename from current pointer
 get_log_filename() {
   local phase_idx=$(yq -r '.current.phase // 0' "$PROGRESS_FILE")
@@ -974,8 +1181,33 @@ fi
 # Write max iterations to PROGRESS.yaml for status display
 yq -i ".stats.\"max-iterations\" = $MAX_ITERATIONS" "$PROGRESS_FILE"
 
-# Main loop
-for ((i=1; i<=MAX_ITERATIONS; i++)); do
+# =============================================================================
+# STANDARD LOOP FUNCTION
+# =============================================================================
+
+# Standard Loop - Hierarchical phase-based workflow execution
+run_standard_loop() {
+  echo "============================================================"
+  echo "SPRINT LOOP STARTING (Hierarchical Workflow)"
+  echo "============================================================"
+  echo ""
+  echo "Sprint: $SPRINT_NAME"
+  echo "Directory: $SPRINT_DIR"
+  if [[ "$UNLIMITED_MODE" == "true" ]]; then
+    echo "Max iterations: unlimited (loop until completion)"
+  else
+    echo "Max iterations: $MAX_ITERATIONS"
+  fi
+  echo "Max retries per phase: $MAX_RETRIES"
+  echo ""
+
+  # Create logs directory for phase output
+  mkdir -p "$SPRINT_DIR/logs"
+  echo "Logs directory: $SPRINT_DIR/logs"
+  echo ""
+
+  # Main loop
+  for ((i=1; i<=MAX_ITERATIONS; i++)); do
   echo ""
   if [[ "$UNLIMITED_MODE" == "true" ]]; then
     echo "=== Iteration $i (unlimited mode) ==="
@@ -1206,3 +1438,17 @@ echo "       max-iterations: unlimited"
 echo ""
 echo "Current status: $(yq -r '.status' "$PROGRESS_FILE")"
 exit 1
+}
+
+# =============================================================================
+# MODE DETECTION AND DISPATCH
+# =============================================================================
+
+# Detect mode from PROGRESS.yaml and dispatch to appropriate loop
+SPRINT_MODE=$(yq -r '.mode // "standard"' "$PROGRESS_FILE")
+
+if [[ "$SPRINT_MODE" == "ralph" ]]; then
+  run_ralph_loop
+else
+  run_standard_loop
+fi
