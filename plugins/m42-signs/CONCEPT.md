@@ -1,6 +1,10 @@
 # m42-signs: Learning Loop for Agent Evolution
 
-> Status: **Planning** | Created: 2026-01-17 | Revised: 2026-01-18
+> Status: **Complete** | Created: 2026-01-17 | Revised: 2026-01-18
+
+## Quick Start
+
+See the [Getting Started Guide](docs/getting-started.md) for a 5-minute introduction to adding your first sign.
 
 ## Origin
 
@@ -353,28 +357,28 @@ plugins/m42-signs/
 ### Phase 1: Foundation
 - [x] CONCEPT.md (this document)
 - [x] SESSION-TRACKING.md (transcript format research)
-- [ ] Plugin structure (.claude-plugin/plugin.json)
-- [ ] Backlog schema and template
-- [ ] /signs add command (manual entry)
-- [ ] /signs list command
-- [ ] /signs status command
+- [x] Plugin structure (.claude-plugin/plugin.json)
+- [x] Backlog schema and template
+- [x] /signs add command (manual entry)
+- [x] /signs list command
+- [x] /signs status command
 
 ### Phase 2: Extraction
-- [ ] Transcript parsing logic
-- [ ] /signs extract command
-- [ ] Error pattern detection
-- [ ] Retry pattern identification
-- [ ] Target CLAUDE.md inference
+- [x] Transcript parsing logic
+- [x] /signs extract command
+- [x] Error pattern detection
+- [x] Retry pattern identification
+- [x] Target CLAUDE.md inference
 
 ### Phase 3: Review & Apply
-- [ ] /signs review command (interactive)
-- [ ] /signs apply command
-- [ ] Git integration (optional commit)
+- [x] /signs review command (interactive)
+- [x] /signs apply command
+- [x] Git integration (optional commit)
 
 ### Phase 4: Sprint Integration
-- [ ] Workflow step template for learning extraction
-- [ ] Session transcript passing from sprint loop
-- [ ] End-of-sprint learning summary
+- [x] Workflow step template for learning extraction
+- [x] Session transcript passing from sprint loop
+- [x] End-of-sprint learning summary
 
 ---
 
@@ -451,3 +455,34 @@ Run: git add -A && git commit -m "signs: apply 2 learnings"
 ---
 
 *This plugin transforms failures into permanent improvements - each error teaches the system to be better.*
+
+---
+
+## Known Limitations
+
+1. **Transcript location dependency**: Requires Claude Code session transcripts at `~/.claude/projects/`. Custom transcript locations are not yet supported.
+
+2. **Single-session extraction**: Each `/extract` invocation processes one transcript. Batch extraction across multiple sessions requires multiple invocations.
+
+3. **Target inference heuristics**: The automatic target CLAUDE.md inference is based on file paths in tool calls. Edge cases may require manual target specification during review.
+
+4. **No cross-project signs**: Currently signs are per-project only. Sharing learnings across projects via `~/.claude/signs/` is planned but not implemented.
+
+5. **Linear review flow**: The `/review` command processes learnings one-at-a-time. Bulk approve/reject operations are not yet supported.
+
+---
+
+## Changelog
+
+### v1.0.0 (2026-01-18)
+
+**Initial Release**
+
+- Complete learning loop implementation (CAPTURE → REVIEW → APPLY)
+- Commands: `/add`, `/list`, `/status`, `/extract`, `/review`, `/apply`, `/help`
+- Session transcript parsing with error and retry pattern detection
+- Interactive review workflow with approve/reject/edit
+- Automatic target CLAUDE.md inference
+- Git commit integration for applied signs
+- Sprint workflow integration templates
+- Comprehensive documentation
