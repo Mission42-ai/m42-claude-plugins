@@ -1,0 +1,22 @@
+{
+  "name": "m42-signs",
+  "version": "0.1.0",
+  "description": "Learning loop for agent evolution - extracts wisdom from session failures and applies them as signs in CLAUDE.md files",
+  "author": {
+    "name": "Mission42",
+    "email": "dev@mission42.ai"
+  },
+  "homepage": "https://github.com/mission42-ai/m42-claude-plugins",
+  "repository": "https://github.com/mission42-ai/m42-claude-plugins",
+  "license": "MIT",
+  "keywords": [
+    "learning-loop",
+    "signs",
+    "claude-md",
+    "error-extraction",
+    "wisdom",
+    "agent-evolution",
+    "backlog",
+    "transcript-analysis"
+  ]
+}
