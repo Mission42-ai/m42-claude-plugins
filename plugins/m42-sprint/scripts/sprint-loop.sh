@@ -488,6 +488,204 @@ check_force_retry() {
   return 1
 }
 
+# =============================================================================
+# PARALLEL TASK MANAGEMENT FUNCTIONS
+# =============================================================================
+
+# Check if current sub-phase has parallel flag
+# Returns: "true" or "false" (string for bash comparison)
+is_parallel_subphase() {
+  local phase_idx="$1"
+  local step_idx="$2"
+  local sub_idx="$3"
+
+  # Check if indices are valid
+  if [[ -z "$phase_idx" ]] || [[ -z "$step_idx" ]] || [[ -z "$sub_idx" ]]; then
+    echo "false"
+    return
+  fi
+  if [[ "$step_idx" == "null" ]] || [[ "$sub_idx" == "null" ]]; then
+    echo "false"
+    return
+  fi
+
+  local parallel_flag
+  parallel_flag=$(yq -r ".phases[$phase_idx].steps[$step_idx].phases[$sub_idx].parallel // false" "$PROGRESS_FILE" 2>/dev/null)
+  echo "$parallel_flag"
+}
+
+# Spawn a parallel task in background and register in PROGRESS.yaml
+spawn_parallel_task() {
+  local phase_idx="$1"
+  local step_idx="$2"
+  local sub_idx="$3"
+
+  # Get step and phase identifiers
+  local step_id
+  local phase_id
+  step_id=$(yq -r ".phases[$phase_idx].steps[$step_idx].id // \"step-$step_idx\"" "$PROGRESS_FILE")
+  phase_id=$(yq -r ".phases[$phase_idx].steps[$step_idx].phases[$sub_idx].id // \"phase-$sub_idx\"" "$PROGRESS_FILE")
+
+  # Generate unique task ID
+  local timestamp
+  timestamp=$(date +%s)
+  local task_id="${step_id}-${phase_id}-${timestamp}"
+  local log_file="$SPRINT_DIR/logs/${task_id}.log"
+  local transcript_file="$SPRINT_DIR/transcripts/${task_id}.jsonl"
+
+  # Ensure directories exist
+  mkdir -p "$SPRINT_DIR/logs"
+  mkdir -p "$SPRINT_DIR/transcripts"
+
+  # Build prompt for parallel task using dedicated script
+  local prompt
+  prompt=$("$SCRIPT_DIR/build-parallel-prompt.sh" "$SPRINT_DIR" "$phase_idx" "$step_idx" "$sub_idx" "$task_id")
+
+  # Get current ISO timestamp
+  local spawned_at
+  spawned_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+  # Spawn Claude in background with JSON streaming
+  (claude -p "$prompt" \
+    --dangerously-skip-permissions \
+    --output-format stream-json \
+    --verbose \
+    > "$transcript_file" 2>&1) &
+  local pid=$!
+
+  # Register task in PROGRESS.yaml parallel-tasks array
+  yq -i ".[\"parallel-tasks\"] += [{
+    \"id\": \"$task_id\",
+    \"step-id\": \"$step_id\",
+    \"phase-id\": \"$phase_id\",
+    \"status\": \"spawned\",
+    \"pid\": $pid,
+    \"log-file\": \"$log_file\",
+    \"spawned-at\": \"$spawned_at\"
+  }]" "$PROGRESS_FILE"
+
+  # Mark sub-phase as spawned and link to parallel task
+  yq -i ".phases[$phase_idx].steps[$step_idx].phases[$sub_idx].status = \"spawned\"" "$PROGRESS_FILE"
+  yq -i ".phases[$phase_idx].steps[$step_idx].phases[$sub_idx].\"parallel-task-id\" = \"$task_id\"" "$PROGRESS_FILE"
+  yq -i ".phases[$phase_idx].steps[$step_idx].phases[$sub_idx].\"started-at\" = \"$spawned_at\"" "$PROGRESS_FILE"
+
+  echo "Spawned parallel task: $task_id (PID: $pid)"
+  echo "  Log file: $log_file"
+}
+
+# Check if phase has wait-for-parallel flag
+# Returns: "true" or "false" (string for bash comparison)
+is_wait_for_parallel_phase() {
+  local phase_idx="$1"
+
+  if [[ -z "$phase_idx" ]]; then
+    echo "false"
+    return
+  fi
+
+  local wait_flag
+  wait_flag=$(yq -r ".phases[$phase_idx].\"wait-for-parallel\" // false" "$PROGRESS_FILE" 2>/dev/null)
+  echo "$wait_flag"
+}
+
+# Wait for all parallel tasks to complete
+# Blocks until no tasks have 'spawned' or 'running' status
+wait_for_parallel_tasks() {
+  echo "Checking for parallel tasks to wait for..."
+
+  local running
+  local check_interval=5
+
+  while true; do
+    # Update statuses of running tasks
+    update_parallel_task_statuses
+
+    # Count tasks still in progress
+    running=$(yq -r '."parallel-tasks" // [] | map(select(.status == "spawned" or .status == "running")) | length' "$PROGRESS_FILE" 2>/dev/null)
+
+    if [[ -z "$running" ]] || [[ "$running" -eq 0 ]]; then
+      echo "All parallel tasks completed."
+
+      # Check for any failures
+      local failed
+      failed=$(yq -r '."parallel-tasks" // [] | map(select(.status == "failed")) | length' "$PROGRESS_FILE" 2>/dev/null)
+      if [[ -n "$failed" ]] && [[ "$failed" -gt 0 ]]; then
+        echo "Warning: $failed parallel task(s) failed. Check logs for details."
+      fi
+      break
+    fi
+
+    echo "Waiting for $running parallel task(s)..."
+    sleep "$check_interval"
+  done
+}
+
+# Poll and update status of running parallel tasks
+# Checks each task's PID and updates PROGRESS.yaml when processes complete
+update_parallel_task_statuses() {
+  # Get list of active tasks (spawned or running)
+  local tasks
+  tasks=$(yq -r '."parallel-tasks" // [] | .[] | select(.status == "spawned" or .status == "running") | .id + ":" + (.pid | tostring)' "$PROGRESS_FILE" 2>/dev/null)
+
+  if [[ -z "$tasks" ]]; then
+    return
+  fi
+
+  local completed_at
+  completed_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+  # Process each active task
+  while IFS= read -r entry; do
+    [[ -z "$entry" ]] && continue
+
+    local task_id="${entry%%:*}"
+    local pid="${entry##*:}"
+
+    # Check if process is still running using kill -0
+    if ! kill -0 "$pid" 2>/dev/null; then
+      # Process has exited - get exit code
+      wait "$pid" 2>/dev/null
+      local exit_code=$?
+
+      local status="completed"
+      if [[ "$exit_code" -ne 0 ]]; then
+        status="failed"
+      fi
+
+      # Update task status in PROGRESS.yaml
+      yq -i "(.[\"parallel-tasks\"][] | select(.id == \"$task_id\")) |= . + {
+        \"status\": \"$status\",
+        \"completed-at\": \"$completed_at\",
+        \"exit-code\": $exit_code
+      }" "$PROGRESS_FILE"
+
+      # Also update the linked sub-phase status
+      local step_id
+      local phase_id
+      step_id=$(yq -r ".[\"parallel-tasks\"][] | select(.id == \"$task_id\") | .[\"step-id\"]" "$PROGRESS_FILE")
+      phase_id=$(yq -r ".[\"parallel-tasks\"][] | select(.id == \"$task_id\") | .[\"phase-id\"]" "$PROGRESS_FILE")
+
+      echo "Parallel task $task_id completed with status: $status (exit code: $exit_code)"
+
+      # Extract result text from transcript to log file if transcript exists
+      local log_file
+      log_file=$(yq -r ".[\"parallel-tasks\"][] | select(.id == \"$task_id\") | .[\"log-file\"]" "$PROGRESS_FILE")
+      local transcript_file="${log_file%.log}.jsonl"
+      transcript_file="${transcript_file/logs/transcripts}"
+      if [[ -f "$transcript_file" ]]; then
+        jq -r 'select(.type=="result") | .result // empty' "$transcript_file" > "$log_file" 2>/dev/null || true
+      fi
+    else
+      # Process still running - update status to 'running' if it was 'spawned'
+      local current_status
+      current_status=$(yq -r ".[\"parallel-tasks\"][] | select(.id == \"$task_id\") | .status" "$PROGRESS_FILE")
+      if [[ "$current_status" == "spawned" ]]; then
+        yq -i "(.[\"parallel-tasks\"][] | select(.id == \"$task_id\")).status = \"running\"" "$PROGRESS_FILE"
+      fi
+    fi
+  done <<< "$tasks"
+}
+
 # Helper function to handle phase failure with retry logic
 handle_phase_failure() {
   local exit_code="$1"
@@ -839,6 +1037,29 @@ for ((i=1; i<=MAX_ITERATIONS; i++)); do
   PREV_PHASE_IDX=$(yq -r '.current.phase // 0' "$PROGRESS_FILE")
   PREV_STEP_IDX=$(yq -r '.current.step // "null"' "$PROGRESS_FILE")
   PREV_SUB_IDX=$(yq -r '.current."sub-phase" // "null"' "$PROGRESS_FILE")
+
+  # Check if current top-level phase has wait-for-parallel flag
+  if [[ "$(is_wait_for_parallel_phase "$PREV_PHASE_IDX")" == "true" ]]; then
+    wait_for_parallel_tasks
+  fi
+
+  # Check if current sub-phase is marked as parallel
+  if [[ "$(is_parallel_subphase "$PREV_PHASE_IDX" "$PREV_STEP_IDX" "$PREV_SUB_IDX")" == "true" ]]; then
+    spawn_parallel_task "$PREV_PHASE_IDX" "$PREV_STEP_IDX" "$PREV_SUB_IDX"
+
+    # Advance pointer to next sub-phase/step (skip normal Claude invocation)
+    # The prompt builder will handle advancing the pointer on next iteration
+    # by detecting spawned status
+
+    # Delay between iterations
+    if [[ $DELAY -gt 0 ]]; then
+      sleep "$DELAY"
+    fi
+    continue
+  fi
+
+  # Update parallel task statuses periodically
+  update_parallel_task_statuses
 
   # BEFORE Claude invocation - capture start time for deterministic timing
   PHASE_START_EPOCH=$(date +%s)
