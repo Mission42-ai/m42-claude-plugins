@@ -19,7 +19,9 @@ import type {
   CompilerResult,
   CompilerError,
   TemplateContext,
-  LoadedWorkflow
+  LoadedWorkflow,
+  PerIterationHook,
+  RalphConfig
 } from './types.js';
 import { loadWorkflow, resolveWorkflowRefs } from './resolve-workflows.js';
 import { expandForEach, compileSimplePhase } from './expand-foreach.js';
@@ -27,7 +29,8 @@ import {
   validateSprintDefinition,
   validateWorkflowDefinition,
   validateCompiledProgress,
-  checkUnresolvedVariables
+  checkUnresolvedVariables,
+  validateRalphModeSprint
 } from './validate.js';
 
 /**
@@ -98,7 +101,7 @@ export async function compile(config: CompilerConfig): Promise<CompilerResult> {
   }
 
   if (config.verbose) {
-    console.log(`Loaded SPRINT.yaml: ${sprintDef.steps.length} steps`); // intentional
+    console.log(`Loaded SPRINT.yaml: ${sprintDef.steps?.length ?? 0} steps`); // intentional
   }
 
   // Load the main workflow
@@ -127,8 +130,27 @@ export async function compile(config: CompilerConfig): Promise<CompilerResult> {
     return { success: false, errors, warnings };
   }
 
+  // Check for Ralph mode and use separate compilation path
+  const isRalphMode = mainWorkflow.definition.mode === 'ralph';
+
+  if (isRalphMode) {
+    // Validate Ralph mode specific requirements
+    const ralphErrors = validateRalphModeSprint(sprintDef, mainWorkflow.definition);
+    if (ralphErrors.length > 0) {
+      errors.push(...ralphErrors);
+      return { success: false, errors, warnings };
+    }
+
+    if (config.verbose) {
+      console.log(`Loaded Ralph mode workflow: ${mainWorkflow.definition.name}`); // intentional
+    }
+
+    // Compile Ralph mode PROGRESS.yaml
+    return compileRalphMode(sprintDef, mainWorkflow.definition, config, errors, warnings);
+  }
+
   if (config.verbose) {
-    console.log(`Loaded workflow: ${mainWorkflow.definition.name} (${mainWorkflow.definition.phases.length} phases)`); // intentional
+    console.log(`Loaded workflow: ${mainWorkflow.definition.name} (${mainWorkflow.definition.phases?.length ?? 0} phases)`); // intentional
   }
 
   // Resolve all workflow references (for cycle detection and validation)
@@ -164,24 +186,25 @@ export async function compile(config: CompilerConfig): Promise<CompilerResult> {
     }
   };
 
-  // Compile phases
+  // Compile phases (standard mode - phases are required and validated by this point)
   const compiledPhases: CompiledTopPhase[] = [];
+  const workflowPhases = mainWorkflow.definition.phases ?? [];
 
   // Find the default step workflow (first for-each phase's workflow, or feature-standard)
   let defaultStepWorkflow: LoadedWorkflow | null = null;
-  for (const phase of mainWorkflow.definition.phases) {
+  for (const phase of workflowPhases) {
     if (phase['for-each'] === 'step' && phase.workflow) {
       defaultStepWorkflow = loadWorkflow(phase.workflow, config.workflowsDir, errors);
       break;
     }
   }
 
-  for (const phase of mainWorkflow.definition.phases) {
+  for (const phase of workflowPhases) {
     if (phase['for-each'] === 'step') {
       // Expand for-each phase into steps
       const expandedPhase = expandForEach(
         phase,
-        sprintDef.steps,
+        sprintDef.steps ?? [],
         config.workflowsDir,
         defaultStepWorkflow,
         context,
@@ -312,6 +335,100 @@ function initializeCurrentPointer(phases: CompiledTopPhase[]): CurrentPointer {
       'sub-phase': null
     };
   }
+}
+
+/**
+ * Merge per-iteration hooks from workflow definition with sprint overrides
+ *
+ * @param workflowHooks - Hooks defined in the workflow
+ * @param sprintOverrides - Override settings from SPRINT.yaml
+ * @returns Merged hooks with overrides applied
+ */
+function mergePerIterationHooks(
+  workflowHooks: PerIterationHook[] | undefined,
+  sprintOverrides: Record<string, { enabled: boolean }> | undefined
+): PerIterationHook[] {
+  if (!workflowHooks || workflowHooks.length === 0) {
+    return [];
+  }
+
+  return workflowHooks.map(hook => {
+    const override = sprintOverrides?.[hook.id];
+    if (override) {
+      return { ...hook, enabled: override.enabled };
+    }
+    return hook;
+  });
+}
+
+/**
+ * Compile Ralph mode PROGRESS.yaml
+ *
+ * Ralph mode uses goal-driven execution rather than predefined phases.
+ * Claude analyzes the goal, creates dynamic steps, and decides when complete.
+ *
+ * @param sprintDef - The sprint definition
+ * @param workflow - The Ralph mode workflow definition
+ * @param config - Compiler configuration
+ * @param errors - Error accumulator
+ * @param warnings - Warning accumulator
+ * @returns Compilation result with Ralph mode progress structure
+ */
+function compileRalphMode(
+  sprintDef: SprintDefinition,
+  workflow: WorkflowDefinition,
+  config: CompilerConfig,
+  errors: CompilerError[],
+  warnings: string[]
+): CompilerResult {
+  // Generate sprint ID
+  const sprintId = sprintDef['sprint-id'] || generateSprintId(config.sprintDir);
+
+  // Merge per-iteration hooks (workflow defaults + sprint overrides)
+  const mergedHooks = mergePerIterationHooks(
+    workflow['per-iteration-hooks'],
+    sprintDef['per-iteration-hooks']
+  );
+
+  // Build Ralph mode configuration
+  const ralphConfig: RalphConfig = {
+    'idle-threshold': 3  // Default: reflect after 3 iterations without progress
+  };
+
+  // Build Ralph mode PROGRESS.yaml structure
+  const progress: CompiledProgress = {
+    'sprint-id': sprintId,
+    status: 'not-started',
+    mode: 'ralph',
+    goal: sprintDef.goal,
+    'dynamic-steps': [],
+    'hook-tasks': [],
+    'per-iteration-hooks': mergedHooks,
+    ralph: ralphConfig,
+    'ralph-exit': {
+      'detected-at': undefined,
+      iteration: undefined,
+      'final-summary': undefined
+    },
+    current: {
+      phase: 0,
+      step: null,
+      'sub-phase': null
+    },
+    stats: {
+      'started-at': null,
+      'total-phases': 0,
+      'completed-phases': 0,
+      'current-iteration': 0
+    }
+  };
+
+  return {
+    success: true,
+    progress,
+    errors,
+    warnings
+  };
 }
 
 /**

@@ -856,7 +856,8 @@ export class StatusServer extends EventEmitter {
 
     if (parts.length === 0) return null;
 
-    // Find top-level phase
+    // Find top-level phase (Ralph mode has no phases)
+    if (!progress.phases) return null;
     const phaseIndex = progress.phases.findIndex(p => p.id === parts[0]);
     if (phaseIndex === -1) return null;
 
@@ -1304,7 +1305,7 @@ export class StatusServer extends EventEmitter {
         } else {
           // No more steps, move to next phase
           current.step = 0;
-          if (location.phaseIndex < progress.phases.length - 1) {
+          if (location.phaseIndex < (progress.phases?.length ?? 0) - 1) {
             current.phase = location.phaseIndex + 1;
           }
         }
@@ -1317,7 +1318,7 @@ export class StatusServer extends EventEmitter {
       } else {
         // No more steps, move to next phase
         current.step = 0;
-        if (location.phaseIndex < progress.phases.length - 1) {
+        if (location.phaseIndex < (progress.phases?.length ?? 0) - 1) {
           current.phase = location.phaseIndex + 1;
         }
       }
@@ -1325,7 +1326,7 @@ export class StatusServer extends EventEmitter {
       // Skipped a top-level phase, move to next phase
       current.step = 0;
       current['sub-phase'] = 0;
-      if (location.phaseIndex < progress.phases.length - 1) {
+      if (location.phaseIndex < (progress.phases?.length ?? 0) - 1) {
         current.phase = location.phaseIndex + 1;
       }
     }
@@ -1360,7 +1361,7 @@ export class StatusServer extends EventEmitter {
     let completedPhases = 0;
     let totalPhases = 0;
 
-    for (const phase of progress.phases) {
+    for (const phase of progress.phases ?? []) {
       if (phase.steps) {
         for (const step of phase.steps) {
           if (step.phases) {

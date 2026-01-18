@@ -100,7 +100,7 @@ export function resolveWorkflowRefs(
 ): Map<string, LoadedWorkflow> {
   const resolved = new Map<string, LoadedWorkflow>();
 
-  for (const phase of workflow.phases) {
+  for (const phase of workflow.phases ?? []) {
     if (phase.workflow) {
       // Check for cycles
       if (visited.has(phase.workflow)) {

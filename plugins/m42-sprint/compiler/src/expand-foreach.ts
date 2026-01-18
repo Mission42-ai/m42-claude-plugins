@@ -100,7 +100,7 @@ export function expandStep(
   };
 
   // Expand each phase in the step's workflow
-  const compiledPhases: CompiledPhase[] = workflow.phases.map((phase, phaseIndex) => {
+  const compiledPhases: CompiledPhase[] = (workflow.phases ?? []).map((phase, phaseIndex) => {
     const phaseContext: TemplateContext = {
       ...stepContext,
       phase: {
