@@ -13,8 +13,8 @@ Integriere Ralph Mode und erstelle Dokumentation.
 
 ## Success Criteria
 All scenarios must pass (score = 1) for the step to be complete.
-Total scenarios: 8
-Required score: 8/8
+Total scenarios: 10
+Required score: 10/10
 
 ---
 
@@ -102,7 +102,35 @@ Fail: Exit code ≠ 0 → Score 0
 
 ---
 
-## Scenario 7: Compiler Builds Successfully
+## Scenario 7: Orchestrating Sprints SKILL.md References Ralph Mode
+```gherkin
+Scenario: orchestrating-sprints SKILL.md mentions Ralph Mode
+  Given plugins/m42-sprint/skills/orchestrating-sprints/SKILL.md exists
+  When I check for Ralph Mode references
+  Then the file mentions Ralph Mode as a workflow option
+
+Verification: `grep -qi 'ralph mode\|ralph-mode' plugins/m42-sprint/skills/orchestrating-sprints/SKILL.md`
+Pass: Exit code = 0 → Score 1
+Fail: Exit code ≠ 0 → Score 0
+```
+
+---
+
+## Scenario 8: Creating Workflows SKILL.md Documents Ralph Mode
+```gherkin
+Scenario: creating-workflows SKILL.md documents Ralph Mode
+  Given plugins/m42-sprint/skills/creating-workflows/SKILL.md exists
+  When I check for Ralph Mode workflow documentation
+  Then the file explains Ralph Mode workflow configuration
+
+Verification: `grep -qi 'ralph mode\|ralph-mode\|mode: ralph' plugins/m42-sprint/skills/creating-workflows/SKILL.md`
+Pass: Exit code = 0 → Score 1
+Fail: Exit code ≠ 0 → Score 0
+```
+
+---
+
+## Scenario 9: Compiler Builds Successfully
 ```gherkin
 Scenario: Compiler builds without errors
   Given the compiler source code is complete
@@ -116,7 +144,7 @@ Fail: Exit code ≠ 0 → Score 0
 
 ---
 
-## Scenario 8: Compiler Passes TypeScript Type Checking
+## Scenario 10: Compiler Passes TypeScript Type Checking
 ```gherkin
 Scenario: Compiler passes typecheck
   Given the compiler source code is complete
@@ -140,5 +168,7 @@ Fail: Exit code ≠ 0 → Score 0
 | 4 | Docs contains SPRINT.yaml example | `grep -qE 'workflow:\s*ralph' ...` |
 | 5 | Progress schema has Ralph fields | `grep dynamic-steps && grep hook-tasks && grep ralph-exit` |
 | 6 | Workflow schema has Ralph fields | `grep mode.*ralph && grep goal-prompt && grep per-iteration-hooks` |
-| 7 | Compiler builds | `cd plugins/m42-sprint/compiler && npm run build` |
-| 8 | Compiler typecheck passes | `cd plugins/m42-sprint/compiler && npm run typecheck` |
+| 7 | orchestrating-sprints SKILL.md references Ralph Mode | `grep -qi 'ralph mode\|ralph-mode' SKILL.md` |
+| 8 | creating-workflows SKILL.md documents Ralph Mode | `grep -qi 'ralph mode\|ralph-mode' SKILL.md` |
+| 9 | Compiler builds | `cd plugins/m42-sprint/compiler && npm run build` |
+| 10 | Compiler typecheck passes | `cd plugins/m42-sprint/compiler && npm run typecheck` |
