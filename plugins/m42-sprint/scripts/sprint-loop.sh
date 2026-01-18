@@ -489,6 +489,316 @@ check_force_retry() {
 }
 
 # =============================================================================
+# JSON RESULT PARSING FUNCTIONS
+# =============================================================================
+
+# Extract JSON result from Claude transcript
+# Looks for JSON block in the result text (between ```json and ```)
+# Returns the JSON string or empty if not found
+extract_json_result() {
+  local transcript_file="$1"
+
+  # First, try to extract from result field in stream-json output
+  local result_text
+  result_text=$(jq -r 'select(.type=="result") | .result // empty' "$transcript_file" 2>/dev/null | tail -1)
+
+  if [[ -z "$result_text" ]]; then
+    # Fallback: try to read raw file content
+    result_text=$(cat "$transcript_file" 2>/dev/null)
+  fi
+
+  # Extract JSON from markdown code block
+  # Look for ```json ... ``` pattern
+  local json_block
+  json_block=$(echo "$result_text" | sed -n '/```json/,/```/p' | sed '1d;$d' | tr '\n' ' ')
+
+  if [[ -n "$json_block" ]]; then
+    # Validate it's valid JSON
+    if echo "$json_block" | jq empty 2>/dev/null; then
+      echo "$json_block"
+      return 0
+    fi
+  fi
+
+  # Try to find raw JSON object in text (fallback)
+  local raw_json
+  raw_json=$(echo "$result_text" | grep -oE '\{[^}]*"status"[^}]*\}' | head -1)
+
+  if [[ -n "$raw_json" ]] && echo "$raw_json" | jq empty 2>/dev/null; then
+    echo "$raw_json"
+    return 0
+  fi
+
+  # No valid JSON found
+  return 1
+}
+
+# Process standard step result and update PROGRESS.yaml
+# Args: transcript_file, phase_idx, step_idx, sub_phase_idx, start_iso, end_iso
+process_standard_result() {
+  local transcript_file="$1"
+  local phase_idx="$2"
+  local step_idx="$3"
+  local sub_phase_idx="$4"
+  local start_iso="$5"
+  local end_iso="$6"
+
+  # Try to extract JSON result
+  local json_result
+  json_result=$(extract_json_result "$transcript_file")
+
+  if [[ -z "$json_result" ]]; then
+    echo "Warning: No JSON result found in transcript. Assuming success based on exit code."
+    # Default to completed if no JSON but CLI succeeded
+    json_result='{"status": "completed", "summary": "Task completed (no JSON result provided)"}'
+  fi
+
+  # Parse JSON fields
+  local status summary error human_reason human_details
+  status=$(echo "$json_result" | jq -r '.status // "completed"')
+  summary=$(echo "$json_result" | jq -r '.summary // "No summary provided"')
+  error=$(echo "$json_result" | jq -r '.error // ""')
+  human_reason=$(echo "$json_result" | jq -r '.humanNeeded.reason // ""')
+  human_details=$(echo "$json_result" | jq -r '.humanNeeded.details // ""')
+
+  # Build path to current phase/step/sub-phase
+  local base_path=".phases[$phase_idx]"
+  local has_steps=$(yq -r ".phases[$phase_idx].steps // \"null\"" "$PROGRESS_FILE")
+
+  if [[ "$has_steps" != "null" ]] && [[ "$step_idx" != "null" ]] && [[ -n "$step_idx" ]]; then
+    base_path="$base_path.steps[$step_idx]"
+    if [[ "$sub_phase_idx" != "null" ]] && [[ -n "$sub_phase_idx" ]]; then
+      base_path="$base_path.phases[$sub_phase_idx]"
+    fi
+  fi
+
+  # Update PROGRESS.yaml based on status
+  case "$status" in
+    completed)
+      echo "Step completed: $summary"
+
+      # Mark current item as completed
+      yq -i "$base_path.status = \"completed\"" "$PROGRESS_FILE"
+      yq -i "$base_path.\"started-at\" = \"$start_iso\"" "$PROGRESS_FILE"
+      yq -i "$base_path.\"completed-at\" = \"$end_iso\"" "$PROGRESS_FILE"
+
+      # Advance the pointer
+      advance_pointer "$phase_idx" "$step_idx" "$sub_phase_idx"
+      ;;
+
+    failed)
+      echo "Step failed: $summary"
+      echo "Error: $error"
+
+      # Store error, keep status as in-progress for retry
+      yq -i "$base_path.error = \"$error\"" "$PROGRESS_FILE"
+
+      # Return non-zero to trigger retry handling
+      return 1
+      ;;
+
+    needs-human)
+      echo "Human intervention needed: $human_reason"
+
+      yq -i "$base_path.status = \"needs-human\"" "$PROGRESS_FILE"
+      yq -i ".status = \"needs-human\"" "$PROGRESS_FILE"
+      yq -i ".human-needed.reason = \"$human_reason\"" "$PROGRESS_FILE"
+      yq -i ".human-needed.details = \"$human_details\"" "$PROGRESS_FILE"
+
+      # Return special code for human intervention
+      return 2
+      ;;
+
+    *)
+      echo "Warning: Unknown status '$status', treating as completed"
+      yq -i "$base_path.status = \"completed\"" "$PROGRESS_FILE"
+      yq -i "$base_path.\"completed-at\" = \"$end_iso\"" "$PROGRESS_FILE"
+      advance_pointer "$phase_idx" "$step_idx" "$sub_phase_idx"
+      ;;
+  esac
+
+  return 0
+}
+
+# Advance the current pointer to next phase/step/sub-phase
+advance_pointer() {
+  local phase_idx="$1"
+  local step_idx="$2"
+  local sub_phase_idx="$3"
+
+  local has_steps=$(yq -r ".phases[$phase_idx].steps // \"null\"" "$PROGRESS_FILE")
+
+  if [[ "$has_steps" != "null" ]] && [[ "$step_idx" != "null" ]]; then
+    # Phase with steps
+    local total_sub_phases=$(yq -r ".phases[$phase_idx].steps[$step_idx].phases | length" "$PROGRESS_FILE")
+    local total_steps=$(yq -r ".phases[$phase_idx].steps | length" "$PROGRESS_FILE")
+    local total_phases=$(yq -r '.phases | length' "$PROGRESS_FILE")
+
+    local next_sub=$((sub_phase_idx + 1))
+
+    if [[ "$next_sub" -ge "$total_sub_phases" ]]; then
+      # All sub-phases done, move to next step
+      yq -i ".phases[$phase_idx].steps[$step_idx].status = \"completed\"" "$PROGRESS_FILE"
+
+      local next_step=$((step_idx + 1))
+      if [[ "$next_step" -ge "$total_steps" ]]; then
+        # All steps done, move to next phase
+        yq -i ".phases[$phase_idx].status = \"completed\"" "$PROGRESS_FILE"
+
+        local next_phase=$((phase_idx + 1))
+        yq -i ".current.phase = $next_phase" "$PROGRESS_FILE"
+        yq -i ".current.step = 0" "$PROGRESS_FILE"
+        yq -i '.current."sub-phase" = 0' "$PROGRESS_FILE"
+
+        # Check if sprint is complete
+        if [[ "$next_phase" -ge "$total_phases" ]]; then
+          yq -i '.status = "completed"' "$PROGRESS_FILE"
+          yq -i ".stats.\"completed-at\" = \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"" "$PROGRESS_FILE"
+        fi
+      else
+        # Move to next step
+        yq -i ".current.step = $next_step" "$PROGRESS_FILE"
+        yq -i '.current."sub-phase" = 0' "$PROGRESS_FILE"
+      fi
+    else
+      # Move to next sub-phase
+      yq -i ".current.\"sub-phase\" = $next_sub" "$PROGRESS_FILE"
+    fi
+  else
+    # Simple phase (no steps)
+    local total_phases=$(yq -r '.phases | length' "$PROGRESS_FILE")
+    local next_phase=$((phase_idx + 1))
+
+    yq -i ".phases[$phase_idx].status = \"completed\"" "$PROGRESS_FILE"
+    yq -i ".current.phase = $next_phase" "$PROGRESS_FILE"
+    yq -i ".current.step = 0" "$PROGRESS_FILE"
+    yq -i '.current."sub-phase" = 0' "$PROGRESS_FILE"
+
+    # Check if sprint is complete
+    if [[ "$next_phase" -ge "$total_phases" ]]; then
+      yq -i '.status = "completed"' "$PROGRESS_FILE"
+      yq -i ".stats.\"completed-at\" = \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"" "$PROGRESS_FILE"
+    fi
+  fi
+}
+
+# Process Ralph mode result and update PROGRESS.yaml
+# Args: transcript_file, iteration
+process_ralph_result() {
+  local transcript_file="$1"
+  local iteration="$2"
+
+  # Try to extract JSON result
+  local json_result
+  json_result=$(extract_json_result "$transcript_file")
+
+  if [[ -z "$json_result" ]]; then
+    echo "Warning: No JSON result found in Ralph transcript."
+    return 1
+  fi
+
+  # Parse JSON fields
+  local status summary goal_summary
+  status=$(echo "$json_result" | jq -r '.status // "continue"')
+  summary=$(echo "$json_result" | jq -r '.summary // "No summary provided"')
+  goal_summary=$(echo "$json_result" | jq -r '.goalCompleteSummary // ""')
+
+  echo "Ralph result: status=$status, summary=$summary"
+
+  case "$status" in
+    continue)
+      # 1. Mark completed steps
+      local completed_ids
+      completed_ids=$(echo "$json_result" | jq -r '.completedStepIds // [] | .[]' 2>/dev/null)
+
+      for cid in $completed_ids; do
+        echo "Marking step $cid as completed"
+        yq -i "(.dynamic-steps[] | select(.id == \"$cid\")).status = \"completed\"" "$PROGRESS_FILE"
+        yq -i "(.dynamic-steps[] | select(.id == \"$cid\")).\"completed-at\" = \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"" "$PROGRESS_FILE"
+      done
+
+      # 2. Process pending steps (complete replacement of pending order)
+      local pending_steps
+      pending_steps=$(echo "$json_result" | jq -c '.pendingSteps // []')
+
+      if [[ "$pending_steps" != "[]" ]] && [[ "$pending_steps" != "null" ]]; then
+        # Get next available step ID
+        local max_id
+        max_id=$(yq -r '[.dynamic-steps[].id | select(. != null) | ltrimstr("step-") | tonumber] | max // -1' "$PROGRESS_FILE")
+        local next_id=$((max_id + 1))
+
+        # First, mark all current pending steps as "reordered" (will be updated or removed)
+        # We'll rebuild the pending list from the agent's specification
+
+        # Process each step from agent's pending list
+        echo "$pending_steps" | jq -c '.[]' | while read -r step; do
+          local step_id step_prompt
+          step_id=$(echo "$step" | jq -r '.id // empty')
+          step_prompt=$(echo "$step" | jq -r '.prompt')
+
+          if [[ -z "$step_id" ]] || [[ "$step_id" == "null" ]]; then
+            # New step - generate ID and add
+            local new_id="step-$next_id"
+            next_id=$((next_id + 1))
+            echo "Adding new step: $new_id"
+
+            yq -i ".dynamic-steps += [{
+              \"id\": \"$new_id\",
+              \"prompt\": \"$step_prompt\",
+              \"status\": \"pending\",
+              \"added-at\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",
+              \"added-in-iteration\": $iteration
+            }]" "$PROGRESS_FILE"
+          else
+            # Existing step - ensure it stays pending (agent wants it in this order)
+            echo "Keeping existing step: $step_id"
+            # Note: Order is determined by array position in dynamic-steps
+            # For now we trust the agent hasn't reordered existing steps incorrectly
+          fi
+        done
+      fi
+
+      return 0
+      ;;
+
+    goal-complete)
+      echo "Goal complete: $goal_summary"
+
+      # Mark any completed steps from this iteration
+      local completed_ids
+      completed_ids=$(echo "$json_result" | jq -r '.completedStepIds // [] | .[]' 2>/dev/null)
+
+      for cid in $completed_ids; do
+        yq -i "(.dynamic-steps[] | select(.id == \"$cid\")).status = \"completed\"" "$PROGRESS_FILE"
+        yq -i "(.dynamic-steps[] | select(.id == \"$cid\")).\"completed-at\" = \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"" "$PROGRESS_FILE"
+      done
+
+      # Special return code to signal goal completion
+      return 100
+      ;;
+
+    needs-human)
+      local human_reason human_details
+      human_reason=$(echo "$json_result" | jq -r '.humanNeeded.reason // "No reason provided"')
+      human_details=$(echo "$json_result" | jq -r '.humanNeeded.details // ""')
+
+      echo "Human intervention needed: $human_reason"
+
+      yq -i '.status = "needs-human"' "$PROGRESS_FILE"
+      yq -i ".human-needed.reason = \"$human_reason\"" "$PROGRESS_FILE"
+      yq -i ".human-needed.details = \"$human_details\"" "$PROGRESS_FILE"
+
+      return 2
+      ;;
+
+    *)
+      echo "Warning: Unknown Ralph status '$status'"
+      return 1
+      ;;
+  esac
+}
+
+# =============================================================================
 # RALPH MODE FUNCTIONS
 # =============================================================================
 
@@ -663,26 +973,50 @@ run_ralph_loop() {
       # Continue to next iteration (don't exit on individual failures)
     fi
 
-    # 5. Check for RALPH_COMPLETE marker in transcript
-    # Extract result text and check for completion marker
-    if jq -r 'select(.type=="result") | .result // empty' "$TRANSCRIPT_FILE" 2>/dev/null | grep -qE "RALPH_COMPLETE:"; then
-      local SUMMARY=$(jq -r 'select(.type=="result") | .result // empty' "$TRANSCRIPT_FILE" 2>/dev/null | grep -oP "RALPH_COMPLETE:\s*\K.*" | head -1)
-      record_ralph_completion "$iteration" "$SUMMARY"
-      wait  # Wait for all parallel hooks to complete
-      exit 0
-    fi
+    # 5. DETERMINISTIC STATE UPDATE: Parse JSON result and update PROGRESS.yaml
+    # The agent no longer modifies PROGRESS.yaml directly - we do it here
+    local RESULT_CODE=0
+    process_ralph_result "$TRANSCRIPT_FILE" "$iteration" || RESULT_CODE=$?
 
-    # Also check raw transcript in case result format differs
-    if grep -qE "RALPH_COMPLETE:" "$TRANSCRIPT_FILE"; then
-      local SUMMARY=$(grep -oP "RALPH_COMPLETE:\s*\K.*" "$TRANSCRIPT_FILE" | head -1)
-      record_ralph_completion "$iteration" "$SUMMARY"
-      wait  # Wait for all parallel hooks to complete
-      exit 0
-    fi
+    case "$RESULT_CODE" in
+      0)
+        # Continue - steps updated, keep iterating
+        idle_count=0  # Reset idle count since we made progress
+        ;;
+      100)
+        # Goal complete - record and exit
+        local goal_summary
+        goal_summary=$(extract_json_result "$TRANSCRIPT_FILE" | jq -r '.goalCompleteSummary // .summary // "Goal completed"')
+        record_ralph_completion "$iteration" "$goal_summary"
+        wait  # Wait for all parallel hooks to complete
+        exit 0
+        ;;
+      2)
+        # Needs human - already set in process_ralph_result
+        echo ""
+        echo "============================================================"
+        echo "RALPH MODE - HUMAN INTERVENTION REQUIRED"
+        echo "============================================================"
+        wait
+        exit 2
+        ;;
+      *)
+        # Other error - log and continue
+        echo "Warning: process_ralph_result returned $RESULT_CODE"
+        ;;
+    esac
 
-    # 6. Check for needs-human or blocked status (Claude may have set these)
+    # 6. Check for status changes (may have been set by process_ralph_result or other means)
     local STATUS=$(yq -r '.status' "$PROGRESS_FILE")
     case "$STATUS" in
+      completed)
+        echo ""
+        echo "============================================================"
+        echo "RALPH MODE COMPLETED"
+        echo "============================================================"
+        wait
+        exit 0
+        ;;
       blocked)
         echo ""
         echo "============================================================"
@@ -1338,10 +1672,40 @@ run_standard_loop() {
     continue
   fi
 
-  # Set timestamps for the phase that was just executed using loop-captured times
-  # (Claude advances pointer after marking complete, so we use PREV_* indices)
-  set_phase_timestamps "$PREV_PHASE_IDX" "$PREV_STEP_IDX" "$PREV_SUB_IDX" \
-    "$PHASE_START_ISO" "$PHASE_END_ISO"
+  # DETERMINISTIC STATE UPDATE: Parse JSON result and update PROGRESS.yaml
+  # The agent no longer modifies PROGRESS.yaml directly - we do it here
+  RESULT_CODE=0
+  process_standard_result "$TRANSCRIPT_FILE" "$PREV_PHASE_IDX" "$PREV_STEP_IDX" "$PREV_SUB_IDX" "$PHASE_START_ISO" "$PHASE_END_ISO" || RESULT_CODE=$?
+
+  case "$RESULT_CODE" in
+    0)
+      # Success - pointer was advanced by process_standard_result
+      ;;
+    1)
+      # Failed - handle with retry logic
+      ERROR_MSG="Agent reported failure in JSON result"
+      if ! handle_phase_failure "1" "$ERROR_MSG"; then
+        echo ""
+        echo "============================================================"
+        echo "SPRINT BLOCKED - Phase failed"
+        echo "Check intervention queue: $SPRINT_DIR/intervention-queue.jsonl"
+        echo "============================================================"
+        exit 1
+      fi
+      if [[ $DELAY -gt 0 ]]; then
+        sleep "$DELAY"
+      fi
+      continue
+      ;;
+    2)
+      # Needs human - already set in process_standard_result
+      echo ""
+      echo "============================================================"
+      echo "HUMAN INTERVENTION REQUIRED"
+      echo "============================================================"
+      exit 2
+      ;;
+  esac
 
   # Update elapsed times for any completed phases
   # Read current pointer to know which phases to check

@@ -3,6 +3,8 @@
 # Build Ralph Prompt - Goal-driven autonomous execution
 # Generates prompts for Ralph Mode iterations based on current state
 # Outputs prompt to stdout for use by sprint-loop.sh
+#
+# DETERMINISTIC WORKFLOW: Agent returns JSON, loop handles all YAML updates
 
 set -euo pipefail
 
@@ -44,6 +46,65 @@ if [[ -n "$WORKFLOW_FILE" ]] && [[ -f "$WORKFLOW_FILE" ]]; then
   REFLECTION_PROMPT=$(yq -r '."reflection-prompt" // ""' "$WORKFLOW_FILE")
 fi
 
+# Get existing pending steps for context
+PENDING_STEPS=$(yq -r '[.dynamic-steps // [] | .[] | select(.status == "pending")] | .[] | "- " + .id + ": " + .prompt' "$PROGRESS_FILE" 2>/dev/null || echo "")
+COMPLETED_STEPS=$(yq -r '[.dynamic-steps // [] | .[] | select(.status == "completed")] | .[] | "- " + .id + ": " + .prompt' "$PROGRESS_FILE" 2>/dev/null || echo "")
+
+# Output JSON result reporting section (common to all modes)
+output_json_instructions() {
+  cat <<'JSONEOF'
+
+## Result Reporting (IMPORTANT)
+
+Do NOT modify PROGRESS.yaml directly. The sprint loop handles all state updates.
+Report your result as JSON in your final output.
+
+**Continue working (add/reorder steps):**
+```json
+{
+  "status": "continue",
+  "summary": "What was done this iteration",
+  "completedStepIds": ["step-0", "step-1"],
+  "pendingSteps": [
+    {"id": "step-2", "prompt": "Existing step to do next"},
+    {"id": null, "prompt": "New step to add"},
+    {"id": "step-3", "prompt": "Existing step moved later"}
+  ]
+}
+```
+
+**Goal complete:**
+```json
+{
+  "status": "goal-complete",
+  "summary": "What was done this iteration",
+  "completedStepIds": ["step-5"],
+  "goalCompleteSummary": "Detailed summary of all accomplishments"
+}
+```
+
+**Need human help:**
+```json
+{
+  "status": "needs-human",
+  "summary": "What was attempted",
+  "humanNeeded": {"reason": "Why human is needed", "details": "Context"}
+}
+```
+
+### JSON Field Reference
+
+- `status`: Required. One of "continue", "goal-complete", "needs-human"
+- `summary`: Required. Brief summary of this iteration's work
+- `completedStepIds`: Array of step IDs you completed this iteration
+- `pendingSteps`: Complete ordered list of ALL pending steps (existing + new). First item = next to execute
+  - Set `id` to existing step ID to keep it, or `null` for new steps
+  - The order you provide IS the execution order
+- `goalCompleteSummary`: Final summary when goal is achieved
+- `humanNeeded.reason` / `humanNeeded.details`: Required when status is "needs-human"
+JSONEOF
+}
+
 case "$MODE" in
   planning)
     # First iteration or after reflection - analyze goal, create steps
@@ -68,21 +129,8 @@ EOF
 
 ## Instructions
 1. Analyze the goal and break it into concrete, actionable steps
-2. Add steps to PROGRESS.yaml using this command:
-   \`\`\`bash
-   yq -i '.dynamic-steps += [{"id": "step-N", "prompt": "Task description here", "status": "pending", "added-at": "'\$(date -u +%Y-%m-%dT%H:%M:%SZ)'", "added-in-iteration": $ITERATION}]' "$PROGRESS_FILE"
-   \`\`\`
-   Replace N with the next step number (0, 1, 2, ...)
-3. Create multiple steps if the goal is complex
-4. After adding steps, execute the first pending step
-5. Mark steps as completed when done:
-   \`\`\`bash
-   yq -i '(.dynamic-steps[] | select(.id == "step-N")).status = "completed"' "$PROGRESS_FILE"
-   \`\`\`
-
-## Completion
-When the goal is FULLY achieved, signal completion:
-RALPH_COMPLETE: [summary of what was accomplished]
+2. Execute the first step if you can
+3. Report your result as JSON (see below)
 
 ## Files
 - Progress: $PROGRESS_FILE
@@ -90,6 +138,8 @@ RALPH_COMPLETE: [summary of what was accomplished]
 
 ## EXIT after this iteration
 EOF
+
+    output_json_instructions
     ;;
 
   executing)
@@ -111,20 +161,27 @@ $GOAL
 
 ## Current Task: $STEP_ID
 $STEP_PROMPT
+EOF
+
+    # Show other pending steps for context
+    if [[ -n "$PENDING_STEPS" ]]; then
+      OTHER_PENDING=$(echo "$PENDING_STEPS" | grep -v "^- $STEP_ID:" || true)
+      if [[ -n "$OTHER_PENDING" ]]; then
+        cat <<EOF
+
+## Other Pending Steps
+$OTHER_PENDING
+EOF
+      fi
+    fi
+
+    cat <<EOF
 
 ## Instructions
 1. Execute this task fully
-2. When complete, mark it done:
-   \`\`\`bash
-   yq -i '(.dynamic-steps[] | select(.id == "$STEP_ID")).status = "completed"' "$PROGRESS_FILE"
-   \`\`\`
-3. If you discover additional work needed, add new steps:
-   \`\`\`bash
-   yq -i '.dynamic-steps += [{"id": "step-N", "prompt": "New task", "status": "pending", "added-at": "'\$(date -u +%Y-%m-%dT%H:%M:%SZ)'", "added-in-iteration": $ITERATION}]' "$PROGRESS_FILE"
-   \`\`\`
-
-## Completion
-If this step completes the entire goal: RALPH_COMPLETE: [summary]
+2. If you discover additional work needed, add it to pendingSteps
+3. Mark this step as completed in completedStepIds
+4. If this completes the entire goal, use status "goal-complete"
 
 ## Files
 - Progress: $PROGRESS_FILE
@@ -132,6 +189,8 @@ If this step completes the entire goal: RALPH_COMPLETE: [summary]
 
 ## EXIT after this task
 EOF
+
+    output_json_instructions
     ;;
 
   reflecting)
@@ -145,7 +204,9 @@ Iteration: $ITERATION
 ## Goal
 $GOAL
 
-## Completed: $COMPLETED_COUNT steps
+## Completed Steps ($COMPLETED_COUNT total)
+$COMPLETED_STEPS
+
 No pending steps remain.
 EOF
 
@@ -163,22 +224,13 @@ EOF
 ## Choose Your Path
 
 **Option A: Goal Achieved**
-If the goal is fully accomplished:
-RALPH_COMPLETE: [detailed summary of accomplishments]
+If the goal is fully accomplished, report status "goal-complete"
 
 **Option B: More Work Needed**
-If additional work is required, add new steps:
-\`\`\`bash
-yq -i '.dynamic-steps += [{"id": "step-N", "prompt": "Additional task", "status": "pending", "added-at": "'\$(date -u +%Y-%m-%dT%H:%M:%SZ)'", "added-in-iteration": $ITERATION}]' "$PROGRESS_FILE"
-\`\`\`
+If additional work is required, add new steps to pendingSteps
 
 **Option C: Blocked / Need Human**
-If you cannot proceed without human input:
-\`\`\`bash
-yq -i '.status = "needs-human"' "$PROGRESS_FILE"
-yq -i '.human-needed.reason = "Why human intervention is needed"' "$PROGRESS_FILE"
-yq -i '.human-needed.details = "Additional context"' "$PROGRESS_FILE"
-\`\`\`
+If you cannot proceed without human input, report status "needs-human"
 
 ## Files
 - Progress: $PROGRESS_FILE
@@ -186,6 +238,8 @@ yq -i '.human-needed.details = "Additional context"' "$PROGRESS_FILE"
 
 ## EXIT after this reflection
 EOF
+
+    output_json_instructions
     ;;
 
   *)

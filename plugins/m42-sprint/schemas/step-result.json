@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SprintStepResult",
+  "description": "Result schema for sprint step execution. Agent returns this JSON instead of manipulating PROGRESS.yaml directly.",
+  "type": "object",
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": ["completed", "failed", "needs-human"],
+      "description": "Outcome of the step execution"
+    },
+    "summary": {
+      "type": "string",
+      "description": "Brief summary of what was done (required)"
+    },
+    "error": {
+      "type": "string",
+      "description": "Error message if status is 'failed'"
+    },
+    "humanNeeded": {
+      "type": "object",
+      "description": "Details when status is 'needs-human'",
+      "properties": {
+        "reason": {
+          "type": "string",
+          "description": "Why human intervention is required"
+        },
+        "details": {
+          "type": "string",
+          "description": "Additional context for the human"
+        }
+      },
+      "required": ["reason"]
+    }
+  },
+  "required": ["status", "summary"],
+  "additionalProperties": false
+}

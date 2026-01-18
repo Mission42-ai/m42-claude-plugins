@@ -60,5 +60,23 @@ $SUB_PHASE_PROMPT
 3. Focus on completing this specific task
 4. Commit changes when done
 
-Note: Do NOT modify PROGRESS.yaml - the main loop tracks completion via process exit.
+## Result Reporting (IMPORTANT)
+
+Do NOT modify PROGRESS.yaml directly. The sprint loop handles all state updates.
+Report your result as JSON in your final output:
+
+**On Success:**
+\`\`\`json
+{"status": "completed", "summary": "Brief description of what was accomplished"}
+\`\`\`
+
+**On Failure:**
+\`\`\`json
+{"status": "failed", "summary": "What was attempted", "error": "What went wrong"}
+\`\`\`
+
+**If Human Needed:**
+\`\`\`json
+{"status": "needs-human", "summary": "What was done so far", "humanNeeded": {"reason": "Why human is needed", "details": "Additional context"}}
+\`\`\`
 EOF

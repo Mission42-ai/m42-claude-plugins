@@ -156,60 +156,32 @@ $SUB_PHASE_PROMPT
 ## Instructions
 
 1. Execute this sub-phase task
-2. When complete, update PROGRESS.yaml:
-
-\`\`\`bash
-# Mark current sub-phase as completed (timestamps set automatically by sprint loop)
-yq -i '.phases[$PHASE_IDX].steps[$STEP_IDX].phases[$SUB_PHASE_IDX].status = "completed"' "$PROGRESS_FILE"
-
-# Advance the pointer
-EOF
-
-  # Calculate next position
-  NEXT_SUB=$((SUB_PHASE_IDX + 1))
-  if [[ "$NEXT_SUB" -ge "$TOTAL_SUB_PHASES" ]]; then
-    # Move to next step
-    NEXT_STEP=$((STEP_IDX + 1))
-    if [[ "$NEXT_STEP" -ge "$TOTAL_STEPS" ]]; then
-      # Move to next phase
-      cat <<EOF
-yq -i '.phases[$PHASE_IDX].status = "completed"' "$PROGRESS_FILE"
-yq -i '.current.phase = $((PHASE_IDX + 1))' "$PROGRESS_FILE"
-yq -i '.current.step = 0' "$PROGRESS_FILE"
-yq -i '.current."sub-phase" = 0' "$PROGRESS_FILE"
-EOF
-    else
-      cat <<EOF
-yq -i '.phases[$PHASE_IDX].steps[$STEP_IDX].status = "completed"' "$PROGRESS_FILE"
-yq -i '.current.step = $NEXT_STEP' "$PROGRESS_FILE"
-yq -i '.current."sub-phase" = 0' "$PROGRESS_FILE"
-EOF
-    fi
-  else
-    cat <<EOF
-yq -i '.current."sub-phase" = $NEXT_SUB' "$PROGRESS_FILE"
-EOF
-  fi
-
-  cat <<EOF
-\`\`\`
-
-3. Commit your changes
-4. **EXIT immediately** - do NOT continue to next task
+2. Commit your changes when the task is done
+3. **EXIT immediately** - do NOT continue to next task
 
 ## Files
 - Progress: $PROGRESS_FILE
 - Sprint: $SPRINT_DIR/SPRINT.yaml
 $PREV_CONTEXT
 
-## Breaking the Loop
+## Result Reporting (IMPORTANT)
 
-If you need human intervention, set:
-\`\`\`yaml
-status: needs-human
-human-needed:
-  reason: "Why human is needed"
-  details: "Additional context"
+Do NOT modify PROGRESS.yaml directly. The sprint loop handles all state updates.
+Report your result as JSON in your final output:
+
+**On Success:**
+\`\`\`json
+{"status": "completed", "summary": "Brief description of what was accomplished"}
+\`\`\`
+
+**On Failure:**
+\`\`\`json
+{"status": "failed", "summary": "What was attempted", "error": "What went wrong"}
+\`\`\`
+
+**If Human Needed:**
+\`\`\`json
+{"status": "needs-human", "summary": "What was done so far", "humanNeeded": {"reason": "Why human is needed", "details": "Additional context"}}
 \`\`\`
 EOF
 
@@ -274,44 +246,32 @@ $PHASE_PROMPT
 ## Instructions
 
 1. Execute this phase
-2. When complete, update PROGRESS.yaml:
-
-\`\`\`bash
-# Mark phase as completed and advance (timestamps set automatically by sprint loop)
-yq -i '.phases[$PHASE_IDX].status = "completed"' "$PROGRESS_FILE"
-yq -i '.current.phase = $((PHASE_IDX + 1))' "$PROGRESS_FILE"
-yq -i '.current.step = 0' "$PROGRESS_FILE"
-yq -i '.current."sub-phase" = 0' "$PROGRESS_FILE"
-EOF
-
-  # Check if this is the last phase
-  if [[ $((PHASE_IDX + 1)) -ge "$TOTAL_PHASES" ]]; then
-    cat <<EOF
-
-# This is the last phase - mark sprint as completed
-yq -i '.status = "completed"' "$PROGRESS_FILE"
-EOF
-  fi
-
-  cat <<EOF
-\`\`\`
-
-3. Commit your changes
-4. **EXIT immediately** - do NOT continue to next task
+2. Commit your changes when the task is done
+3. **EXIT immediately** - do NOT continue to next task
 
 ## Files
 - Progress: $PROGRESS_FILE
 - Sprint: $SPRINT_DIR/SPRINT.yaml
 $PREV_CONTEXT
 
-## Breaking the Loop
+## Result Reporting (IMPORTANT)
 
-If you need human intervention, set:
-\`\`\`yaml
-status: needs-human
-human-needed:
-  reason: "Why human is needed"
-  details: "Additional context"
+Do NOT modify PROGRESS.yaml directly. The sprint loop handles all state updates.
+Report your result as JSON in your final output:
+
+**On Success:**
+\`\`\`json
+{"status": "completed", "summary": "Brief description of what was accomplished"}
+\`\`\`
+
+**On Failure:**
+\`\`\`json
+{"status": "failed", "summary": "What was attempted", "error": "What went wrong"}
+\`\`\`
+
+**If Human Needed:**
+\`\`\`json
+{"status": "needs-human", "summary": "What was done so far", "humanNeeded": {"reason": "Why human is needed", "details": "Additional context"}}
 \`\`\`
 EOF
 fi
