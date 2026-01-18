@@ -117,7 +117,8 @@ export function expandStep(
     return {
       id: phase.id,
       status: 'pending' as const,
-      prompt
+      prompt,
+      parallel: phase.parallel
     };
   });
 
