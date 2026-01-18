@@ -21,3 +21,8 @@
 {"phaseId":"context","workflow":"unknown","startTime":"2026-01-18T18:07:27Z","endTime":"2026-01-18T18:08:59Z","durationMs":92000,"sprintId":"2026-01-18_m42-signs-implementation"}
 {"phaseId":"execute","workflow":"unknown","startTime":"2026-01-18T18:09:05Z","endTime":"2026-01-18T18:11:00Z","durationMs":115000,"sprintId":"2026-01-18_m42-signs-implementation"}
 {"phaseId":"qa","workflow":"unknown","startTime":"2026-01-18T18:11:06Z","endTime":"2026-01-18T18:12:58Z","durationMs":112000,"sprintId":"2026-01-18_m42-signs-implementation"}
+{"phaseId":"verify","workflow":"unknown","startTime":"2026-01-18T18:13:04Z","endTime":"2026-01-18T18:14:43Z","durationMs":99000,"sprintId":"2026-01-18_m42-signs-implementation"}
+{"phaseId":"plan","workflow":"unknown","startTime":"2026-01-18T18:14:50Z","endTime":"2026-01-18T18:16:02Z","durationMs":72000,"sprintId":"2026-01-18_m42-signs-implementation"}
+{"phaseId":"context","workflow":"unknown","startTime":"2026-01-18T18:16:08Z","endTime":"2026-01-18T18:17:47Z","durationMs":99000,"sprintId":"2026-01-18_m42-signs-implementation"}
+{"phaseId":"execute","workflow":"unknown","startTime":"2026-01-18T18:17:53Z","endTime":"2026-01-18T18:20:19Z","durationMs":146000,"sprintId":"2026-01-18_m42-signs-implementation"}
+{"phaseId":"qa","workflow":"unknown","startTime":"2026-01-18T18:20:26Z","endTime":"2026-01-18T18:21:38Z","durationMs":72000,"sprintId":"2026-01-18_m42-signs-implementation"}
