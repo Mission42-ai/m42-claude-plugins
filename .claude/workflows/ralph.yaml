@@ -1,0 +1,42 @@
+name: Ralph Mode Workflow
+description: Autonomous goal-driven execution with configurable per-iteration hooks
+
+mode: ralph
+
+goal-prompt: |
+  Analyze the goal and create initial implementation steps.
+  Break down complex goals into concrete, actionable tasks.
+  Consider dependencies between tasks and order them appropriately.
+  Start with investigation/research if the problem space is unclear.
+
+reflection-prompt: |
+  No pending steps remain. Evaluate:
+  1. Is the goal fully achieved?
+  2. Are there edge cases or tests missing?
+  3. Is documentation complete?
+  4. Are there any cleanup tasks needed?
+
+  If complete: RALPH_COMPLETE: [summary]
+  If not: add more steps to address gaps
+
+# Deterministic hooks - executed per iteration
+# Default disabled, enable via SPRINT.yaml overrides
+per-iteration-hooks:
+  - id: learning
+    workflow: "m42-signs:learning-extraction"
+    parallel: true
+    enabled: false
+
+  - id: documentation
+    prompt: |
+      Review changes from this iteration and update relevant documentation.
+      Focus on API changes, new features, and breaking changes.
+    parallel: true
+    enabled: false
+
+  - id: tests
+    prompt: |
+      Analyze code changes and suggest additional test cases.
+      Identify untested paths and edge cases.
+    parallel: true
+    enabled: false
