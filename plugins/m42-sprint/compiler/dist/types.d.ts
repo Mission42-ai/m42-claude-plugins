@@ -61,6 +61,10 @@ export interface WorkflowPhase {
     'for-each'?: 'step';
     /** Reference to another workflow to use for each iteration */
     workflow?: string;
+    /** If true, this phase runs in background as a parallel task */
+    parallel?: boolean;
+    /** If true, wait for all parallel tasks to complete before continuing */
+    'wait-for-parallel'?: boolean;
 }
 /**
  * Workflow Definition - the reusable workflow template
@@ -75,6 +79,32 @@ export interface WorkflowDefinition {
 }
 export type PhaseStatus = 'pending' | 'in-progress' | 'completed' | 'blocked' | 'skipped' | 'failed';
 export type SprintStatus = 'not-started' | 'in-progress' | 'completed' | 'blocked' | 'paused' | 'needs-human';
+export type ParallelTaskStatus = 'spawned' | 'running' | 'completed' | 'failed';
+/**
+ * A parallel task running in the background
+ */
+export interface ParallelTask {
+    /** Unique identifier for this parallel task */
+    id: string;
+    /** Reference to the step this task belongs to */
+    'step-id': string;
+    /** Reference to the phase within the step */
+    'phase-id': string;
+    /** Current status of the parallel task */
+    status: ParallelTaskStatus;
+    /** Process ID of the spawned task */
+    pid?: number;
+    /** Path to the log file for this task */
+    'log-file'?: string;
+    /** ISO timestamp when task was spawned */
+    'spawned-at'?: string;
+    /** ISO timestamp when task completed */
+    'completed-at'?: string;
+    /** Exit code from the process */
+    'exit-code'?: number;
+    /** Error message if task failed */
+    error?: string;
+}
 /**
  * A compiled phase (leaf node - has prompt but no sub-phases)
  */
@@ -96,6 +126,10 @@ export interface CompiledPhase {
     'next-retry-at'?: string;
     /** Classified error category */
     'error-category'?: ErrorCategory;
+    /** If true, this phase runs in background as a parallel task */
+    parallel?: boolean;
+    /** ID of the parallel task if this phase was spawned */
+    'parallel-task-id'?: string;
 }
 /**
  * A compiled step (contains sub-phases from the step's workflow)
@@ -143,6 +177,8 @@ export interface CompiledTopPhase {
     'next-retry-at'?: string;
     /** Classified error category */
     'error-category'?: ErrorCategory;
+    /** If true, wait for all parallel tasks to complete before continuing */
+    'wait-for-parallel'?: boolean;
 }
 /**
  * Current position pointer in the workflow
@@ -183,6 +219,8 @@ export interface CompiledProgress {
     current: CurrentPointer;
     /** Execution statistics */
     stats: SprintStats;
+    /** Active parallel tasks running in background */
+    'parallel-tasks'?: ParallelTask[];
 }
 /**
  * Context for template variable substitution

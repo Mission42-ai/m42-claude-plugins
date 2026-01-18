@@ -201,6 +201,30 @@ function validateWorkflowPhase(phase, index, workflowName, existingIds) {
             path: `${workflowName}.phases[${index}].for-each`
         });
     }
+    // Validate parallel property (must be boolean if present)
+    if (p.parallel !== undefined && typeof p.parallel !== 'boolean') {
+        errors.push({
+            code: 'INVALID_PARALLEL',
+            message: `parallel must be a boolean (got ${typeof p.parallel})`,
+            path: `${workflowName}.phases[${index}].parallel`
+        });
+    }
+    // Validate wait-for-parallel property (must be boolean if present)
+    if (p['wait-for-parallel'] !== undefined && typeof p['wait-for-parallel'] !== 'boolean') {
+        errors.push({
+            code: 'INVALID_WAIT_FOR_PARALLEL',
+            message: `wait-for-parallel must be a boolean (got ${typeof p['wait-for-parallel']})`,
+            path: `${workflowName}.phases[${index}].wait-for-parallel`
+        });
+    }
+    // Warn if parallel: true is used on for-each phase (not supported)
+    if (p.parallel === true && p['for-each'] === 'step') {
+        errors.push({
+            code: 'PARALLEL_FOREACH_WARNING',
+            message: `parallel: true on for-each phase is not supported; use parallel in step workflow phases instead`,
+            path: `${workflowName}.phases[${index}]`
+        });
+    }
     return errors;
 }
 /**
