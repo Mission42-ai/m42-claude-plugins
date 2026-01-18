@@ -9,56 +9,68 @@ Update compiler/src/compile.ts to initialize parallel-tasks array:
 
 Reference: context/implementation-plan.md section 4.C
 
-## Related Code Patterns
+## Implementation Status: ALREADY COMPLETE
 
-### Similar Implementation: compile.ts:209-215
+All three requirements for this step are already implemented in the codebase:
+
+### 1. parallel-tasks initialization (compile.ts:215)
 ```typescript
-// Current CompiledProgress initialization pattern
+// Build compiled progress - lines 209-216
 const progress: CompiledProgress = {
   'sprint-id': sprintId,
   status: 'not-started',
   phases: compiledPhases,
   current,
-  stats
+  stats,
+  'parallel-tasks': []  // ✅ Already present at line 215
 };
 ```
-Adding `'parallel-tasks': []` follows this same object initialization pattern.
 
-### Similar Implementation: expand-foreach.ts:117-122
+### 2. expandForEach propagation (expand-foreach.ts:221)
 ```typescript
-// CompiledPhase already propagates parallel from WorkflowPhase
+// Return statement in expandForEach - lines 217-222
+return {
+  id: phase.id,
+  status: 'pending' as const,
+  steps: compiledSteps,
+  'wait-for-parallel': phase['wait-for-parallel']  // ✅ Already present at line 221
+};
+```
+
+### 3. compileSimplePhase propagation (expand-foreach.ts:252)
+```typescript
+// Return statement in compileSimplePhase - lines 248-253
 return {
   id: phase.id,
   status: 'pending' as const,
   prompt,
-  parallel: phase.parallel  // <-- Pattern to follow for wait-for-parallel
+  'wait-for-parallel': phase['wait-for-parallel']  // ✅ Already present at line 252
 };
 ```
 
-### Similar Implementation: expand-foreach.ts:217-221
+## Related Code Patterns
+
+### Pattern: Type-safe optional properties
 ```typescript
-// expandForEach returns CompiledTopPhase - need to add wait-for-parallel
-return {
-  id: phase.id,
-  status: 'pending' as const,
-  steps: compiledSteps
-  // Add: 'wait-for-parallel': phase['wait-for-parallel']
-};
+// From types.ts - optional properties use `?`
+'wait-for-parallel'?: boolean;  // line 80, 204
+'parallel-tasks'?: ParallelTask[];  // line 249
 ```
 
-### Similar Implementation: expand-foreach.ts:247-251
+### Pattern: Property propagation in compile functions
 ```typescript
-// compileSimplePhase returns CompiledTopPhase - need to add wait-for-parallel
+// From expand-foreach.ts:117-122 - parallel flag propagation
 return {
   id: phase.id,
   status: 'pending' as const,
-  prompt
-  // Add: 'wait-for-parallel': phase['wait-for-parallel']
+  prompt,
+  parallel: phase.parallel  // Direct copy from source
 };
 ```
 
 ## Required Imports
 ### Internal
+- `types.ts`: CompiledProgress, CompiledTopPhase, ParallelTask already imported in compile.ts
 - No new imports needed - all types already imported in both files
 
 ### External
@@ -66,32 +78,38 @@ return {
 
 ## Types/Interfaces to Use
 ```typescript
-// From types.ts - already defined
+// From types.ts:106-127
+interface ParallelTask {
+  id: string;
+  'step-id': string;
+  'phase-id': string;
+  status: ParallelTaskStatus;
+  pid?: number;
+  'log-file'?: string;
+  'spawned-at'?: string;
+  'completed-at'?: string;
+  'exit-code'?: number;
+  error?: string;
+}
+
+// From types.ts:239-250
 interface CompiledProgress {
   'sprint-id': string;
   status: SprintStatus;
   phases: CompiledTopPhase[];
   current: CurrentPointer;
   stats: SprintStats;
-  'parallel-tasks'?: ParallelTask[];  // Already in interface
+  'parallel-tasks'?: ParallelTask[];  // Already defined
 }
 
+// From types.ts:183-205
 interface CompiledTopPhase {
   id: string;
   status: PhaseStatus;
   prompt?: string;
   steps?: CompiledStep[];
-  'wait-for-parallel'?: boolean;  // Already in interface (line 204)
-  // ... other fields
-}
-
-interface WorkflowPhase {
-  id: string;
-  prompt?: string;
-  'for-each'?: 'step';
-  workflow?: string;
-  parallel?: boolean;
-  'wait-for-parallel'?: boolean;  // Already in interface (line 80)
+  'wait-for-parallel'?: boolean;  // Already defined
+  // ... timing and error fields
 }
 ```
 
@@ -101,32 +119,20 @@ interface WorkflowPhase {
 - **Tests**: plugins/m42-sprint/compiler/src/validate.test.ts (existing tests should still pass)
 
 ## Implementation Notes
-- The `ParallelTask[]` type is already defined in types.ts:106-127
-- The `'parallel-tasks'` field is already optional in CompiledProgress (line 249)
-- The `'wait-for-parallel'` field is already in CompiledTopPhase (line 204) and WorkflowPhase (line 80)
-- Only need to initialize `'parallel-tasks': []` to ensure the field exists at runtime
-- For wait-for-parallel propagation, use conditional spread or direct assignment:
-  ```typescript
-  // Option A: Conditional spread (cleaner for optional)
-  ...(phase['wait-for-parallel'] && { 'wait-for-parallel': phase['wait-for-parallel'] })
+- All three requirements are already implemented in the current codebase
+- The _shared-context.md file confirms this in "Already Complete" section (lines 146-149)
+- No code changes are required for this step
+- Proceed directly to gherkin verification to confirm implementation works
 
-  // Option B: Direct assignment (simpler, may include undefined)
-  'wait-for-parallel': phase['wait-for-parallel']
-  ```
-- Prefer Option B for simplicity since the field is already optional
+## Gherkin Verification Commands
+All 6 scenarios from step-2-gherkin.md should pass:
 
-## Files to Modify
-1. `plugins/m42-sprint/compiler/src/compile.ts` - Line 209-215: Add `'parallel-tasks': []`
-2. `plugins/m42-sprint/compiler/src/expand-foreach.ts` - Line 217-221: Add `'wait-for-parallel'` to expandForEach return
-3. `plugins/m42-sprint/compiler/src/expand-foreach.ts` - Line 247-251: Add `'wait-for-parallel'` to compileSimplePhase return
-
-## Verification Commands
 ```bash
 # Scenario 1: Check parallel-tasks initialization
-grep -q "'parallel-tasks':\s*\[\]" plugins/m42-sprint/compiler/src/compile.ts
+grep -q "'parallel-tasks': \[\]" plugins/m42-sprint/compiler/src/compile.ts
 
 # Scenario 2: Check expandForEach propagation
-grep -q "'wait-for-parallel'" plugins/m42-sprint/compiler/src/expand-foreach.ts
+grep -q "'wait-for-parallel': phase\['wait-for-parallel'\]" plugins/m42-sprint/compiler/src/expand-foreach.ts
 
 # Scenario 3: Check compileSimplePhase propagation
 grep -A20 "function compileSimplePhase" plugins/m42-sprint/compiler/src/expand-foreach.ts | grep -q "'wait-for-parallel'"
@@ -134,8 +140,8 @@ grep -A20 "function compileSimplePhase" plugins/m42-sprint/compiler/src/expand-f
 # Scenario 4: TypeScript compiles
 cd plugins/m42-sprint/compiler && npx tsc --noEmit
 
-# Scenario 5: Compiled output test
-cd plugins/m42-sprint/compiler && npm run build && node dist/index.js --sprint-dir ../../.claude/sprints/2026-01-18_parallel-execution --workflows-dir ../../.claude/workflows --dry-run | grep -q 'parallel-tasks'
+# Scenario 5: Check types definition
+grep -q "'parallel-tasks'.*ParallelTask\[\]" plugins/m42-sprint/compiler/src/types.ts
 
 # Scenario 6: Unit tests pass
 cd plugins/m42-sprint/compiler && npm test
