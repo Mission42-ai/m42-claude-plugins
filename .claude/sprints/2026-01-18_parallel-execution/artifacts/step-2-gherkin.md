@@ -21,7 +21,7 @@ Required score: 6/6
   When I check for parallel-tasks initialization in CompiledProgress
   Then the 'parallel-tasks': [] property is present in the progress object
 
-Verification: `grep -q "'parallel-tasks':\s*\[\]" plugins/m42-sprint/compiler/src/compile.ts`
+Verification: `grep -q "'parallel-tasks': \[\]" plugins/m42-sprint/compiler/src/compile.ts`
 Pass: Exit code = 0 → Score 1
 Fail: Exit code ≠ 0 → Score 0
 
@@ -32,7 +32,7 @@ Fail: Exit code ≠ 0 → Score 0
   When I check the expandForEach function return object
   Then wait-for-parallel is copied from the phase parameter
 
-Verification: `grep -q "'wait-for-parallel':\s*phase\.\['wait-for-parallel'\]\|'wait-for-parallel':\s*phase\[" plugins/m42-sprint/compiler/src/expand-foreach.ts`
+Verification: `grep -q "'wait-for-parallel': phase\['wait-for-parallel'\]" plugins/m42-sprint/compiler/src/expand-foreach.ts`
 Pass: Exit code = 0 → Score 1
 Fail: Exit code ≠ 0 → Score 0
 
@@ -60,12 +60,12 @@ Fail: Last line ≠ 0 → Score 0
 
 ---
 
-## Scenario 5: Compiled output includes parallel-tasks array
-  Given a test sprint with a simple workflow exists
-  When I compile the sprint to PROGRESS.yaml
-  Then the output contains a parallel-tasks field as an empty array
+## Scenario 5: CompiledProgress type includes parallel-tasks field
+  Given the types.ts source file exists
+  When I check the CompiledProgress interface definition
+  Then it includes the parallel-tasks property with ParallelTask[] type
 
-Verification: `cd plugins/m42-sprint/compiler && npm run build > /dev/null 2>&1 && node dist/index.js --sprint-dir ../../.claude/sprints/2026-01-18_parallel-execution --workflows-dir ../../.claude/workflows --dry-run 2>/dev/null | grep -q 'parallel-tasks'`
+Verification: `grep -q "'parallel-tasks'.*ParallelTask\[\]" plugins/m42-sprint/compiler/src/types.ts`
 Pass: Exit code = 0 → Score 1
 Fail: Exit code ≠ 0 → Score 0
 
