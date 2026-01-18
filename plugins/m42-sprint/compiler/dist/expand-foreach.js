@@ -183,7 +183,8 @@ function expandForEach(phase, steps, workflowsDir, defaultWorkflow, context, err
     return {
         id: phase.id,
         status: 'pending',
-        steps: compiledSteps
+        steps: compiledSteps,
+        'wait-for-parallel': phase['wait-for-parallel']
     };
 }
 /**
@@ -207,7 +208,8 @@ function compileSimplePhase(phase, context) {
     return {
         id: phase.id,
         status: 'pending',
-        prompt
+        prompt,
+        'wait-for-parallel': phase['wait-for-parallel']
     };
 }
 //# sourceMappingURL=expand-foreach.js.map

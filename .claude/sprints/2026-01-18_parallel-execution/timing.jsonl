@@ -1,0 +1,14 @@
+{"phaseId":"preflight","workflow":"unknown","startTime":"2026-01-17T23:57:42Z","endTime":"2026-01-18T00:00:19Z","durationMs":157000,"sprintId":"2026-01-18_parallel-execution"}
+{"phaseId":"plan","workflow":"unknown","startTime":"2026-01-18T00:00:22Z","endTime":"2026-01-18T00:01:18Z","durationMs":56000,"sprintId":"2026-01-18_parallel-execution"}
+{"phaseId":"context","workflow":"unknown","startTime":"2026-01-18T00:01:22Z","endTime":"2026-01-18T00:02:17Z","durationMs":55000,"sprintId":"2026-01-18_parallel-execution"}
+{"phaseId":"execute","workflow":"unknown","startTime":"2026-01-18T00:02:20Z","endTime":"2026-01-18T00:05:01Z","durationMs":161000,"sprintId":"2026-01-18_parallel-execution"}
+{"phaseId":"qa","workflow":"unknown","startTime":"2026-01-18T00:05:04Z","endTime":"2026-01-18T00:06:54Z","durationMs":110000,"sprintId":"2026-01-18_parallel-execution"}
+{"phaseId":"verify","workflow":"unknown","startTime":"2026-01-18T00:06:58Z","endTime":"2026-01-18T00:08:46Z","durationMs":108000,"sprintId":"2026-01-18_parallel-execution"}
+{"phaseId":"plan","workflow":"unknown","startTime":"2026-01-18T00:08:50Z","endTime":"2026-01-18T00:09:45Z","durationMs":55000,"sprintId":"2026-01-18_parallel-execution"}
+{"phaseId":"context","workflow":"unknown","startTime":"2026-01-18T00:09:49Z","endTime":"2026-01-18T00:10:53Z","durationMs":64000,"sprintId":"2026-01-18_parallel-execution"}
+{"phaseId":"execute","workflow":"unknown","startTime":"2026-01-18T00:10:54Z","endTime":"2026-01-18T00:12:11Z","durationMs":77000,"sprintId":"2026-01-18_parallel-execution"}
+{"phaseId":"qa","workflow":"unknown","startTime":"2026-01-18T00:12:15Z","endTime":"2026-01-18T00:14:45Z","durationMs":150000,"sprintId":"2026-01-18_parallel-execution"}
+{"phaseId":"verify","workflow":"unknown","startTime":"2026-01-18T00:14:49Z","endTime":"2026-01-18T00:16:30Z","durationMs":101000,"sprintId":"2026-01-18_parallel-execution"}
+{"phaseId":"plan","workflow":"unknown","startTime":"2026-01-18T00:16:34Z","endTime":"2026-01-18T00:17:47Z","durationMs":73000,"sprintId":"2026-01-18_parallel-execution"}
+{"phaseId":"context","workflow":"unknown","startTime":"2026-01-18T00:17:51Z","endTime":"2026-01-18T00:19:00Z","durationMs":69000,"sprintId":"2026-01-18_parallel-execution"}
+{"phaseId":"execute","workflow":"unknown","startTime":"2026-01-18T00:19:04Z","endTime":"2026-01-18T00:21:25Z","durationMs":141000,"sprintId":"2026-01-18_parallel-execution"}
