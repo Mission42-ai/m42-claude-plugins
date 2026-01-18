@@ -13,117 +13,96 @@ Add parallel execution types to compiler/src/types.ts:
 5. Add `parallel?: boolean` and `parallel-task-id?: string` to CompiledPhase (lines 101-119)
 6. Add `wait-for-parallel?: boolean` to CompiledTopPhase (lines 148-168)
 
-## Related Code Patterns
+Reference: context/implementation-plan.md sections 4.A and 5
 
-### Similar Implementation: Optional Properties in WorkflowPhase
+## Status: ALREADY IMPLEMENTED ✅
+
+All parallel execution types have already been added to `compiler/src/types.ts`. This step requires **no code changes** - only verification that existing types match requirements.
+
+## Verification Results
+
+All gherkin scenarios pass. The types were implemented in a previous iteration.
+
+## Existing Code (Verified Present)
+
+### WorkflowPhase Interface (types.ts:68-81)
 ```typescript
-// plugins/m42-sprint/compiler/src/types.ts:68-77
 export interface WorkflowPhase {
-  /** Unique identifier for this phase */
   id: string;
-  /** The prompt to execute for this phase */
   prompt?: string;
-  /** If set to 'step', iterates over all steps from SPRINT.yaml */
   'for-each'?: 'step';
-  /** Reference to another workflow to use for each iteration */
   workflow?: string;
-  // NEW: parallel execution properties go here
+  /** If true, this phase runs in background as a parallel task */
+  parallel?: boolean;                    // ✅ Line 78
+  /** If true, wait for all parallel tasks to complete before continuing */
+  'wait-for-parallel'?: boolean;         // ✅ Line 80
 }
 ```
 
-### Similar Implementation: Optional Properties in CompiledPhase
+### ParallelTaskStatus Type (types.ts:101)
 ```typescript
-// plugins/m42-sprint/compiler/src/types.ts:101-119
+export type ParallelTaskStatus = 'spawned' | 'running' | 'completed' | 'failed';  // ✅
+```
+
+### ParallelTask Interface (types.ts:106-127)
+```typescript
+export interface ParallelTask {
+  id: string;                            // ✅
+  'step-id': string;                     // ✅
+  'phase-id': string;                    // ✅
+  status: ParallelTaskStatus;            // ✅
+  pid?: number;                          // ✅
+  'log-file'?: string;                   // ✅
+  'spawned-at'?: string;                 // ✅
+  'completed-at'?: string;               // ✅
+  'exit-code'?: number;                  // ✅
+  error?: string;                        // ✅
+}
+```
+
+### CompiledPhase Interface (types.ts:132-154)
+```typescript
 export interface CompiledPhase {
-  id: string;
-  status: PhaseStatus;
-  prompt: string;
-  /** Timing information */
-  'started-at'?: string;
-  'completed-at'?: string;
-  elapsed?: string;
-  /** Any notes or summary from execution */
-  summary?: string;
-  /** Error message if phase failed */
-  error?: string;
-  /** Number of retry attempts made */
-  'retry-count'?: number;
-  // NEW: parallel and parallel-task-id go here
+  // ... other fields ...
+  parallel?: boolean;                    // ✅ Line 151
+  'parallel-task-id'?: string;           // ✅ Line 153
 }
 ```
 
-### Similar Implementation: Status Union Types
+### CompiledTopPhase Interface (types.ts:183-205)
 ```typescript
-// plugins/m42-sprint/compiler/src/types.ts:95-96
-export type PhaseStatus = 'pending' | 'in-progress' | 'completed' | 'blocked' | 'skipped' | 'failed';
-export type SprintStatus = 'not-started' | 'in-progress' | 'completed' | 'blocked' | 'paused' | 'needs-human';
-// NEW: ParallelTaskStatus type can follow this pattern
+export interface CompiledTopPhase {
+  // ... other fields ...
+  'wait-for-parallel'?: boolean;         // ✅ Line 204
+}
+```
+
+### CompiledProgress Interface (types.ts:239-250)
+```typescript
+export interface CompiledProgress {
+  // ... other fields ...
+  'parallel-tasks'?: ParallelTask[];     // ✅ Line 249
+}
 ```
 
 ## Required Imports
 ### Internal
-- No new imports required - this is the types module itself
+- No new imports needed - all types are self-contained in types.ts
 
 ### External
-- No new external packages needed
-
-## Types/Interfaces to Use
-```typescript
-// Existing types to reference:
-type PhaseStatus = 'pending' | 'in-progress' | 'completed' | 'blocked' | 'skipped' | 'failed';
-
-// NEW type to create:
-export type ParallelTaskStatus = 'spawned' | 'running' | 'completed' | 'failed';
-
-// NEW interface to create:
-export interface ParallelTask {
-  /** Unique identifier for this parallel task */
-  id: string;
-  /** Reference to the step this task belongs to */
-  'step-id': string;
-  /** Reference to the phase within the step */
-  'phase-id': string;
-  /** Current status of the parallel task */
-  status: ParallelTaskStatus;
-  /** Process ID of the spawned task */
-  pid?: number;
-  /** Path to the log file for this task */
-  'log-file'?: string;
-  /** ISO timestamp when task was spawned */
-  'spawned-at'?: string;
-  /** ISO timestamp when task completed */
-  'completed-at'?: string;
-  /** Exit code from the process */
-  'exit-code'?: number;
-  /** Error message if task failed */
-  error?: string;
-}
-```
+- No new packages needed
 
 ## Integration Points
-- **Called by**:
-  - `compile.ts` - creates CompiledProgress with potential parallel-tasks array
-  - `expand-foreach.ts` - handles WorkflowPhase with parallel property
-- **Calls**: Nothing (types module has no runtime dependencies)
-- **Tests**: `validate.test.ts` - may need to be extended if validation logic changes
+- **Used by**: `expand-foreach.ts` (propagates flags), `compile.ts` (initializes array)
+- **Calls**: N/A (pure type definitions)
+- **Tests**: `validate.test.ts` may need updates for validation rules (step 1)
 
 ## Implementation Notes
-- Follow existing naming conventions: kebab-case for YAML keys (e.g., `'step-id'`, `'phase-id'`)
-- All new properties should be optional (`?:`) to maintain backward compatibility
-- Add JSDoc comments to all new properties following existing patterns
-- Place ParallelTask interface after PhaseStatus/SprintStatus definitions (around line 97)
-- Place ParallelTaskStatus type next to other status types (line 97)
-- The status union type for ParallelTask is different from PhaseStatus - uses 'spawned' instead of 'pending'
-- Properties should be exported to be accessible from other modules
-
-## Verification Commands
-```bash
-# After implementation, verify with:
-cd plugins/m42-sprint/compiler && npx tsc --noEmit
-
-# Run gherkin scenarios (from artifacts/step-0-gherkin.md)
-grep -Pzo "interface WorkflowPhase \{[^}]*parallel\?: boolean" plugins/m42-sprint/compiler/src/types.ts
-```
+- **No code changes required** - all types are already implemented
+- Types follow existing naming conventions (kebab-case for YAML properties)
+- All new properties are optional for backward compatibility
+- `ParallelTaskStatus` is a separate type alias for reusability
+- JSDoc comments document purpose of each new field
 
 ## File Locations Summary
 - **Target file**: `plugins/m42-sprint/compiler/src/types.ts`
