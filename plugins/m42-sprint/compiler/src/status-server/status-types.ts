@@ -36,12 +36,14 @@ export interface SSEEvent<T extends SSEEventType, D> {
 
 /**
  * A phase node in the UI tree representation
+ * For standard mode: phase > step > sub-phase hierarchy
+ * For Ralph mode: flat list of 'task' nodes
  */
 export interface PhaseTreeNode {
   id: string;
   label: string;
   status: PhaseStatus;
-  type: 'phase' | 'step' | 'sub-phase';
+  type: 'phase' | 'step' | 'sub-phase' | 'task';
   depth: number;
   children?: PhaseTreeNode[];
   startedAt?: string;
@@ -82,11 +84,15 @@ export interface SprintHeader {
   sprintId: string;
   /** Overall sprint status */
   status: SprintStatus;
+  /** Execution mode: 'standard' (phase-based) or 'ralph' (goal-driven) */
+  mode?: 'standard' | 'ralph';
+  /** Goal description (Ralph mode only) */
+  goal?: string;
   /** Progress percentage (0-100) */
   progressPercent: number;
-  /** Completed phases count */
+  /** Completed phases/tasks count */
   completedPhases: number;
-  /** Total phases count */
+  /** Total phases/tasks count */
   totalPhases: number;
   /** Current iteration number (for retry loops) */
   currentIteration?: number;
