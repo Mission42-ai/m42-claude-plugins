@@ -15,8 +15,8 @@ Add parallel execution types to compiler/src/types.ts:
 
 ## Success Criteria
 All scenarios must pass (score = 1) for the step to be complete.
-Total scenarios: 7
-Required score: 7/7
+Total scenarios: 8
+Required score: 8/8
 
 ---
 
