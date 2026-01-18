@@ -9,83 +9,107 @@ Update compiler/src/expand-foreach.ts to propagate parallel flag:
 
 This ensures sub-phases marked as parallel in workflow definitions are compiled with the parallel flag.
 
+Reference: context/implementation-plan.md section 4.B
+
 ## Related Code Patterns
 
-### Target Code: plugins/m42-sprint/compiler/src/expand-foreach.ts:117-121
+### ALREADY IMPLEMENTED: expand-foreach.ts:117-122
+The parallel flag propagation is **already present** in the code:
 ```typescript
-// Current implementation - missing parallel propagation
+// plugins/m42-sprint/compiler/src/expand-foreach.ts lines 117-122
 return {
   id: phase.id,
   status: 'pending' as const,
-  prompt
+  prompt,
+  parallel: phase.parallel  // ✅ Line 121 - ALREADY IMPLEMENTED
 };
 ```
 
-### Similar Implementation: expand-foreach.ts compileSimplePhase()
-The `compileSimplePhase()` function (lines 230-251) follows the same pattern of creating a compiled phase object from a WorkflowPhase:
+### Similar Implementation: wait-for-parallel propagation
 ```typescript
-export function compileSimplePhase(
-  phase: WorkflowPhase,
-  context: TemplateContext
-): CompiledTopPhase {
-  // ... context setup and prompt substitution ...
-  return {
-    id: phase.id,
-    status: 'pending' as const,
-    prompt
-  };
-}
+// expand-foreach.ts line 217-222 - in expandForEach()
+return {
+  id: phase.id,
+  status: 'pending' as const,
+  steps: compiledSteps,
+  'wait-for-parallel': phase['wait-for-parallel']
+};
+
+// expand-foreach.ts line 248-253 - in compileSimplePhase()
+return {
+  id: phase.id,
+  status: 'pending' as const,
+  prompt,
+  'wait-for-parallel': phase['wait-for-parallel']
+};
 ```
-Note: This function may also need parallel propagation if applicable to top-level phases.
 
 ## Required Imports
 ### Internal
-- Already imported: `WorkflowPhase`, `CompiledPhase` from `./types.js`
-- No new imports needed
+- `types.js`: WorkflowPhase, CompiledPhase (already imported at lines 7-17)
 
 ### External
-- None needed
+- None - all needed imports already present
 
 ## Types/Interfaces to Use
 ```typescript
-// From types.ts - WorkflowPhase (input)
+// From types.ts lines 68-81
 interface WorkflowPhase {
   id: string;
   prompt?: string;
   'for-each'?: 'step';
   workflow?: string;
-  parallel?: boolean;           // Source of the flag (line 78)
+  parallel?: boolean;           // Source field
   'wait-for-parallel'?: boolean;
 }
 
-// From types.ts - CompiledPhase (output)
+// From types.ts lines 132-154
 interface CompiledPhase {
   id: string;
   status: PhaseStatus;
   prompt: string;
-  // ... timing fields ...
-  parallel?: boolean;           // Target field to set (line 151)
+  parallel?: boolean;           // Target field - already defined
   'parallel-task-id'?: string;
 }
 ```
 
 ## Integration Points
-- **Called by**: `expandForEach()` in the same file (line 212)
-- **Called from**: `compile()` in `compile.ts` (line 182)
-- **Tests**: No existing tests for expand-foreach.ts, but `validate.test.ts` exists
-- **Gherkin verifies**: Node.js runtime tests defined in `artifacts/step-1-gherkin.md`
+- **Called by**: `compile.ts` via `expandForEach()` which calls `expandStep()`
+- **Calls**: `substituteTemplateVars()` for prompt processing
+- **Tests**: Scenarios defined in artifacts/step-1-gherkin.md
 
 ## Implementation Notes
-- Only propagate `parallel` when `phase.parallel` is truthy to avoid adding `parallel: undefined` to output
-- Use conditional spread or explicit check: `...(phase.parallel && { parallel: phase.parallel })`
-- Alternative: `parallel: phase.parallel` (TypeScript will include `undefined` which YAML serialization may omit)
-- The gherkin scenarios explicitly test that non-parallel phases have `parallel === undefined`, not `false`
-- Must rebuild (`npm run build`) before running node verification tests since they use dist/
 
-## Key Lines in expand-foreach.ts
-- **Line 103-122**: The `workflow.phases.map()` callback where CompiledPhase objects are created
-- **Line 117-121**: The return statement that needs the `parallel` field added
-- **Line 84-130**: Full `expandStep()` function scope
+### CRITICAL: Step is ALREADY COMPLETE
+
+According to `_shared-context.md`:
+
+> **Already Complete**
+> 1. **types.ts** - All parallel execution types are defined (lines 68-81, 101, 106-127, 132-154, 183-205, 239-250)
+> 2. **expand-foreach.ts** - `parallel` flag propagation (line 121: `parallel: phase.parallel`)
+> 3. **expand-foreach.ts** - `wait-for-parallel` propagation in expandForEach (line 221) and compileSimplePhase (line 252)
+> 4. **compile.ts** - `parallel-tasks: []` initialization (line 215)
+
+The implementation was completed in step-0.
+
+### Verification Required
+
+The gherkin scenarios (6 total) will verify:
+1. File exists
+2. `parallel: phase.parallel` code pattern exists
+3. TypeScript compiles without errors
+4. Runtime test: parallel: true propagates
+5. Runtime test: undefined when not set
+6. Runtime test: mixed phases preserve individual flags
+
+Since the implementation already exists, step-1 should pass all verification scenarios without code changes.
+
+## Action Plan
+
+1. **Build the compiler** to ensure dist/ is up to date
+2. **Run gherkin scenarios** to verify existing implementation passes
+3. If all pass → step is complete (no code changes needed)
+4. If any fail → investigate and fix
 
 ## Verification Commands
 ```bash
@@ -99,5 +123,5 @@ cd plugins/m42-sprint/compiler && npx tsc --noEmit
 cd plugins/m42-sprint/compiler && npm run build
 
 # Run gherkin verification (from artifacts/step-1-gherkin.md)
-# Scenario 4, 5, 6 verify runtime behavior
+# Scenarios 4, 5, 6 verify runtime behavior
 ```
