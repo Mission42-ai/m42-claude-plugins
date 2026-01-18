@@ -1,0 +1,5 @@
+{"phaseId":"preflight","workflow":"unknown","startTime":"2026-01-18T21:09:20Z","endTime":"2026-01-18T21:10:57Z","durationMs":97000,"sprintId":"2026-01-18_ralph-mode-implementation"}
+{"phaseId":"plan","workflow":"unknown","startTime":"2026-01-18T21:11:00Z","endTime":"2026-01-18T21:12:18Z","durationMs":78000,"sprintId":"2026-01-18_ralph-mode-implementation"}
+{"phaseId":"context","workflow":"unknown","startTime":"2026-01-18T21:12:20Z","endTime":"2026-01-18T21:13:51Z","durationMs":91000,"sprintId":"2026-01-18_ralph-mode-implementation"}
+{"phaseId":"execute","workflow":"unknown","startTime":"2026-01-18T21:13:54Z","endTime":"2026-01-18T21:20:50Z","durationMs":416000,"sprintId":"2026-01-18_ralph-mode-implementation"}
+{"phaseId":"qa","workflow":"unknown","startTime":"2026-01-18T21:21:10Z","endTime":"2026-01-18T21:22:10Z","durationMs":60000,"sprintId":"2026-01-18_ralph-mode-implementation"}
