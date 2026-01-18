@@ -37,3 +37,8 @@
 {"phaseId":"context","workflow":"unknown","startTime":"2026-01-18T01:08:45Z","endTime":"2026-01-18T01:10:19Z","durationMs":94000,"sprintId":"2026-01-18_parallel-execution"}
 {"phaseId":"execute","workflow":"unknown","startTime":"2026-01-18T01:10:20Z","endTime":"2026-01-18T01:11:38Z","durationMs":78000,"sprintId":"2026-01-18_parallel-execution"}
 {"phaseId":"qa","workflow":"unknown","startTime":"2026-01-18T01:11:39Z","endTime":"2026-01-18T01:13:22Z","durationMs":103000,"sprintId":"2026-01-18_parallel-execution"}
+{"phaseId":"verify","workflow":"unknown","startTime":"2026-01-18T01:13:25Z","endTime":"2026-01-18T01:14:51Z","durationMs":86000,"sprintId":"2026-01-18_parallel-execution"}
+{"phaseId":"plan","workflow":"unknown","startTime":"2026-01-18T01:14:52Z","endTime":"2026-01-18T01:19:07Z","durationMs":255000,"sprintId":"2026-01-18_parallel-execution"}
+{"phaseId":"context","workflow":"unknown","startTime":"2026-01-18T01:19:11Z","endTime":"2026-01-18T01:21:23Z","durationMs":132000,"sprintId":"2026-01-18_parallel-execution"}
+{"phaseId":"execute","workflow":"unknown","startTime":"2026-01-18T01:21:27Z","endTime":"2026-01-18T01:22:35Z","durationMs":68000,"sprintId":"2026-01-18_parallel-execution"}
+{"phaseId":"qa","workflow":"unknown","startTime":"2026-01-18T01:22:36Z","endTime":"2026-01-18T01:25:08Z","durationMs":152000,"sprintId":"2026-01-18_parallel-execution"}
