@@ -12,7 +12,8 @@ Apply approved learnings from the backlog to their target CLAUDE.md files. Each 
 ## Options
 
 - `--dry-run`: Preview changes without writing to files
-- `--commit`: Create git commit after applying changes
+- `--commit`: Create git commit after applying changes (prompts for user confirmation)
+- `--auto-commit`: Automatically create git commit without prompting
 - `--targets <paths>`: Apply only to specific CLAUDE.md files (comma-separated)
 
 ## Preflight Checks
@@ -24,7 +25,8 @@ Apply approved learnings from the backlog to their target CLAUDE.md files. Each 
 
 Parse `$ARGUMENTS` for options:
 - `--dry-run`: Show what would be changed without modifying files
-- `--commit`: Stage and commit changes after successful apply
+- `--commit`: Stage and commit changes after successful apply (prompts user for confirmation)
+- `--auto-commit`: Automatically stage and commit changes without prompting
 - `--targets <paths>`: Filter to specific CLAUDE.md paths (comma-separated)
 
 Based on preflight:
@@ -156,9 +158,69 @@ After successfully writing to a target:
 2. Save updated backlog.yaml
 3. Status transition: `approved` → `applied`
 
-### 7. Handle --commit Mode
+### 7. Handle Git Integration (--commit / --auto-commit)
 
-If `--commit` flag is present and changes were made:
+If `--commit` or `--auto-commit` flag is present and changes were made:
+
+#### 7.1 Git Repository Detection
+
+First, check if we're in a git repository:
+
+```bash
+git rev-parse --git-dir 2>/dev/null
+```
+
+**Edge case: Not in a git repo** → Skip all git operations silently and continue. Changes are still saved to files but no commit is created. Report: "Changes saved (git commit skipped - not in a git repository)"
+
+#### 7.2 Safety Checks
+
+Before staging and committing:
+
+1. **Check for conflicts**: Run `git status --short` and check for merge conflict markers (`UU`, `AA`, `DD` prefixes)
+   - If conflicts detected: Report error and skip git commit, but keep file changes saved
+
+2. **Stage only relevant files**: Only stage the specific files modified by this command:
+   - Modified CLAUDE.md files (from target paths)
+   - `.claude/learnings/backlog.yaml`
+
+   ```bash
+   git add <modified-claude-md-file-1>
+   git add <modified-claude-md-file-2>
+   git add .claude/learnings/backlog.yaml
+   ```
+
+   **Important**: Do NOT use `git add .` or `git add -A`. Only stage the specific files we modified to ensure atomic, focused commits.
+
+#### 7.3 User Control Flow
+
+**If `--commit` flag (interactive mode):**
+
+1. Show summary of what will be committed:
+   ```
+   ## Proposed Git Commit
+
+   Files to be staged:
+   - CLAUDE.md (2 signs added)
+   - src/CLAUDE.md (1 sign added)
+   - .claude/learnings/backlog.yaml
+
+   Commit message format: "signs: apply 3 learning(s)"
+   ```
+
+2. Use AskUserQuestion to offer commit options:
+   - **Commit**: Proceed with staging and commit
+   - **Skip**: Decline commit but keep changes saved
+
+3. **On Commit**: Stage files and create commit
+4. **On Skip/Abort**: Report "Commit skipped - changes saved but not committed"
+
+**If `--auto-commit` flag:**
+
+1. Skip user prompt entirely
+2. Directly stage files and create commit
+3. Report commit hash on success
+
+#### 7.4 Create the Commit
 
 1. Stage all modified CLAUDE.md files:
    ```bash
@@ -170,7 +232,7 @@ If `--commit` flag is present and changes were made:
    git add .claude/learnings/backlog.yaml
    ```
 
-3. Generate commit message:
+3. Generate commit message in format:
    ```
    signs: apply N learning(s) to M CLAUDE.md file(s)
 
@@ -185,6 +247,13 @@ If `--commit` flag is present and changes were made:
    ```
 
 5. Show commit hash on success
+
+#### 7.5 Edge Cases
+
+- **Not in a git repo**: Skip git integration and save changes without committing
+- **User declines commit** (with `--commit`): Only file changes are saved, report "changes saved but not committed"
+- **Commit fails** (e.g., hook rejection): Report error but keep file changes saved
+- **No changes applied**: Don't create an empty commit, report "no changes to commit"
 
 ### 8. Output Summary
 
