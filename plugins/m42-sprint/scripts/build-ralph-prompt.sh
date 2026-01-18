@@ -107,13 +107,28 @@ JSONEOF
 
 case "$MODE" in
   planning)
-    # First iteration or after reflection - analyze goal, create steps
+    # First iteration or after reflection - analyze goal, think deeply
     cat <<EOF
-# Ralph Mode: Goal Analysis
+# Ralph Mode: Deep Thinking
 Iteration: $ITERATION
 
 ## Your Goal
 $GOAL
+
+## The Ralph Mindset
+This is not about rushing to implement everything. It's about **deep, thoughtful work**:
+
+- Think deeply about the problem before acting
+- Make ONE thoughtful contribution this iteration
+- Reflect on the best approach, not just any approach
+- Shape the work proactively - you design the process
+- Quality of thought matters more than speed
+
+Ask yourself:
+- What do I need to understand first?
+- What context would help me do this well?
+- What's the right approach, not just a working approach?
+- Am I solving the right problem?
 EOF
 
     # Include goal-prompt template if defined
@@ -127,10 +142,11 @@ EOF
 
     cat <<EOF
 
-## Instructions
-1. Analyze the goal and break it into concrete, actionable steps
-2. Execute the first step if you can
-3. Report your result as JSON (see below)
+## This Iteration
+1. Think deeply about the goal and what it really requires
+2. Create thoughtful steps that reflect your understanding
+3. Take ONE meaningful action if you're ready - or just plan if you need more clarity
+4. Report your result as JSON (see below)
 
 ## Files
 - Progress: $PROGRESS_FILE
@@ -143,7 +159,7 @@ EOF
     ;;
 
   executing)
-    # Has pending steps - execute next step
+    # Has pending steps - work on next step thoughtfully
     STEP_ID=$(yq -r '[.dynamic-steps[] | select(.status == "pending")][0].id // "null"' "$PROGRESS_FILE")
     STEP_PROMPT=$(yq -r "[.dynamic-steps[] | select(.id == \"$STEP_ID\")][0].prompt // \"No prompt\"" "$PROGRESS_FILE")
 
@@ -153,7 +169,7 @@ EOF
     fi
 
     cat <<EOF
-# Ralph Mode: Execute Step
+# Ralph Mode: Thoughtful Work
 Iteration: $ITERATION
 
 ## Goal (context)
@@ -161,6 +177,21 @@ $GOAL
 
 ## Current Task: $STEP_ID
 $STEP_PROMPT
+
+## The Ralph Mindset
+You don't need to complete everything in one iteration. Focus on:
+
+- **Think first**: Understand what this task really requires
+- **One thoughtful contribution**: Make meaningful progress, not rushed completion
+- **Reflect as you work**: Is this the right approach? Should the plan change?
+- **Shape the process**: Add, reorder, or refine steps based on what you learn
+- **Quality over speed**: A well-thought solution beats a quick hack
+
+It's okay to:
+- Partially complete a task and continue next iteration
+- Realize the task needs to be broken down differently
+- Discover that other work should come first
+- Add context-gathering or research as new steps
 EOF
 
     # Show other pending steps for context
@@ -177,37 +208,52 @@ EOF
 
     cat <<EOF
 
-## Instructions
-1. Execute this task fully
-2. If you discover additional work needed, add it to pendingSteps
-3. Mark this step as completed in completedStepIds
-4. If this completes the entire goal, use status "goal-complete"
+## This Iteration
+1. Think about what this task really needs
+2. Make ONE thoughtful contribution toward it
+3. Reflect: Should the plan change based on what you learned?
+4. Report your result as JSON (see below)
 
 ## Files
 - Progress: $PROGRESS_FILE
 - Sprint: $SPRINT_DIR/SPRINT.yaml
 
-## EXIT after this task
+## EXIT after this iteration
 EOF
 
     output_json_instructions
     ;;
 
   reflecting)
-    # No pending steps for multiple iterations - reflection required
+    # No pending steps - time for deep reflection
     COMPLETED_COUNT=$(yq -r '[.dynamic-steps[] | select(.status == "completed")] | length' "$PROGRESS_FILE")
 
     cat <<EOF
-# Ralph Mode: Reflection Required
+# Ralph Mode: Deep Reflection
 Iteration: $ITERATION
 
 ## Goal
 $GOAL
 
-## Completed Steps ($COMPLETED_COUNT total)
+## What's Been Done ($COMPLETED_COUNT steps)
 $COMPLETED_STEPS
 
-No pending steps remain.
+No pending steps remain. This is a moment for genuine reflection.
+
+## The Ralph Mindset
+Take time to think deeply:
+
+- **Step back**: Look at the big picture, not just the tasks
+- **Evaluate honestly**: Is the goal truly achieved, or just partially?
+- **Consider quality**: Does the work meet the standard it should?
+- **Think about what's missing**: Edge cases? Documentation? Tests? Refinement?
+- **Be honest**: If it's not ready, it's not ready
+
+Questions to consider:
+- Would I be proud to ship this?
+- What would I want to improve if I had more time?
+- Are there insights worth capturing as learnings?
+- Did I discover something that should change how we work?
 EOF
 
     # Include reflection-prompt template if defined
@@ -221,16 +267,16 @@ EOF
 
     cat <<EOF
 
-## Choose Your Path
+## Your Options
 
-**Option A: Goal Achieved**
-If the goal is fully accomplished, report status "goal-complete"
+**Goal Truly Achieved**
+If the work is genuinely complete and meets the quality bar, report "goal-complete"
 
-**Option B: More Work Needed**
-If additional work is required, add new steps to pendingSteps
+**More Work Needed**
+If there's meaningful work remaining, add thoughtful next steps
 
-**Option C: Blocked / Need Human**
-If you cannot proceed without human input, report status "needs-human"
+**Need Human Input**
+If you're blocked or need decisions you can't make, report "needs-human"
 
 ## Files
 - Progress: $PROGRESS_FILE

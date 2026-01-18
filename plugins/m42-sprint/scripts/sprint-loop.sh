@@ -861,14 +861,18 @@ spawn_per_iteration_hooks() {
     local spawned_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
     yq -i ".hook-tasks += [{\"iteration\": $iteration, \"hook-id\": \"$hook_id\", \"status\": \"in-progress\", \"spawned-at\": \"$spawned_at\"}]" "$PROGRESS_FILE"
 
+    # Export iteration transcript path for prompt substitution
+    local ITERATION_TRANSCRIPT="$SPRINT_DIR/transcripts/iteration-$iteration.jsonl"
+    export ITERATION_TRANSCRIPT
+
     # Build hook prompt
     local HOOK_PROMPT=""
     if [[ -n "$workflow" ]] && [[ "$workflow" != "null" ]] && [[ "$workflow" != "" ]]; then
       # Workflow reference (e.g., "m42-signs:learning-extraction")
-      HOOK_PROMPT="/$workflow $SPRINT_DIR/transcripts/iteration-$iteration.jsonl"
+      HOOK_PROMPT="/$workflow $ITERATION_TRANSCRIPT"
     elif [[ -n "$prompt" ]] && [[ "$prompt" != "null" ]] && [[ "$prompt" != "" ]]; then
-      # Inline prompt
-      HOOK_PROMPT="$prompt"
+      # Inline prompt - substitute variables
+      HOOK_PROMPT=$(echo "$prompt" | envsubst)
     else
       echo "Warning: Hook $hook_id has no workflow or prompt defined, skipping"
       yq -i "(.hook-tasks[] | select(.iteration == $iteration and .\"hook-id\" == \"$hook_id\")).status = \"skipped\"" "$PROGRESS_FILE"

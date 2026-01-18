@@ -1,0 +1,79 @@
+# SPRINT.yaml - M42 Sprint Plugin Refactoring
+# Mode: Ralph (Deep Thinking + Autonomous Execution)
+
+workflow: ralph
+
+goal: |
+  Refactor and harden the m42-sprint plugin to realize the vision in context/vision.md.
+
+  ## The Vision (Read First)
+  CLAUDE.md contains the full vision. Key points:
+
+  - **Scale intelligence, not limit it** - Every decision should multiply capability
+  - **Freedom + Patterns** - Ralph thinks deeply and shapes work; patterns ensure consistent execution
+  - **Deep work** - Each iteration is thoughtful, not rushed
+  - **Compound improvement** - Learnings make the system smarter over time
+
+  ## What Needs to Happen
+
+  ### 1. Solid Foundations
+  The plugin needs to be reliable before it can be powerful:
+  - Sprints shouldn't fail unexpectedly
+  - When things go wrong, we need to understand why
+  - State should be recoverable
+  - The architecture should support future growth
+
+  ### 2. The Freedom + Patterns Model
+  The core insight we haven't fully realized:
+  - Ralph should genuinely be free to think and shape work
+  - But when Ralph decides to EXECUTE something, patterns ensure quality
+  - How this works is for you to discover - the vision describes WHAT, not HOW
+
+  ### 3. Worktree Foundation
+  Enable scaling to parallel execution:
+  - Multiple sprints running in different worktrees
+  - Status server that can track them all
+  - Isolation so they don't interfere
+
+  ### 4. Developer Experience
+  Make it a joy to use:
+  - Clear errors with actionable guidance
+  - Good documentation
+  - Commands that work intuitively
+
+  ### 5. Learning Integration
+  The m42-signs integration should work seamlessly:
+  - Deep work generates meaningful learnings
+  - Learnings compound and improve future sprints
+
+  ## Known Issues to Address
+  - Sprint loop error handling is fragile
+  - /start-sprint command doesn't know about Ralph mode
+  - Status server isn't worktree-aware
+  - Documentation is scattered
+  - Testing coverage has gaps
+
+  ## Approach
+  Think deeply. One thoughtful iteration at a time.
+  - Understand before changing
+  - Test before and after
+  - Document discoveries in context/
+  - Roll back what doesn't work
+  - The vision is the guide, not a prescription
+
+  ## Success
+  - The plugin is reliable and trustworthy
+  - Ralph has genuine freedom within the system
+  - Patterns ensure consistent quality execution
+  - The architecture supports future scaling
+  - Others can understand and build on this
+
+# Learning extraction enabled
+per-iteration-hooks:
+  learning:
+    enabled: true
+
+# Metadata
+sprint-id: 2026-01-18_m42-sprint-refactor
+name: m42-sprint-refactor
+created: 2026-01-18T00:00:00Z

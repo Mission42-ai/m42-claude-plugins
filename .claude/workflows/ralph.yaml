@@ -23,20 +23,7 @@ reflection-prompt: |
 # Default disabled, enable via SPRINT.yaml overrides
 per-iteration-hooks:
   - id: learning
-    workflow: "m42-signs:learning-extraction"
-    parallel: true
-    enabled: false
-
-  - id: documentation
     prompt: |
-      Review changes from this iteration and update relevant documentation.
-      Focus on API changes, new features, and breaking changes.
-    parallel: true
-    enabled: false
-
-  - id: tests
-    prompt: |
-      Analyze code changes and suggest additional test cases.
-      Identify untested paths and edge cases.
+      /m42-signs:extract $ITERATION_TRANSCRIPT
     parallel: true
     enabled: false
