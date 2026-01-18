@@ -51,6 +51,8 @@ phases: <list>           # Required
 | `prompt` | string | Conditional | Simple phases | Instructions for phase execution |
 | `for-each` | `'step'` | Conditional | For-each phases | Iteration mode |
 | `workflow` | string | Conditional | For-each phases | Workflow reference (no `.yaml` extension) |
+| `parallel` | boolean | No | Step workflow phases | Run in background, don't block next step |
+| `wait-for-parallel` | boolean | No | Top-level phases | Wait for all parallel tasks before continuing |
 
 ## Conditional Requirements
 
@@ -73,6 +75,8 @@ interface WorkflowPhase {
   prompt?: string;
   'for-each'?: 'step';
   workflow?: string;
+  parallel?: boolean;
+  'wait-for-parallel'?: boolean;
 }
 ```
 
@@ -96,6 +100,13 @@ interface WorkflowPhase {
 1. Workflow references resolve from `.claude/workflows/<name>.yaml`
 2. References should not include `.yaml` extension
 3. Circular workflow references are invalid
+
+### Parallel Execution
+
+1. `parallel` must be boolean if present
+2. `wait-for-parallel` must be boolean if present
+3. `parallel: true` only works in step workflows (not on for-each phases)
+4. `wait-for-parallel: true` only makes sense on top-level simple phases
 
 ## Valid Examples
 
@@ -142,6 +153,45 @@ phases:
     prompt: "Implement: {{step.prompt}}"
   - id: test
     prompt: "Test implementation"
+```
+
+### Parallel Execution
+
+Use `parallel: true` on step workflow phases to run them in background without blocking the next step. Use `wait-for-parallel: true` on top-level phases to create sync points.
+
+```yaml
+# sprint-workflow.yaml - Sprint with sync point
+name: Sprint with Parallel Docs
+description: Development with non-blocking documentation updates
+phases:
+  - id: development
+    for-each: step
+    workflow: feature-with-docs
+
+  - id: sync
+    prompt: "Verify all documentation updates completed..."
+    wait-for-parallel: true
+
+  - id: qa
+    prompt: "Run final QA checks..."
+```
+
+```yaml
+# feature-with-docs.yaml - Step workflow with parallel sub-phase
+name: Feature with Docs
+phases:
+  - id: plan
+    prompt: "Plan implementation for: {{step.prompt}}"
+
+  - id: implement
+    prompt: "Implement: {{step.prompt}}"
+
+  - id: test
+    prompt: "Test the implementation..."
+
+  - id: update-docs
+    prompt: "Update documentation for {{step.prompt}}..."
+    parallel: true
 ```
 
 ## Invalid Examples
@@ -199,8 +249,8 @@ Current schema version supports:
 - Simple phases with prompts
 - For-each phases iterating over steps
 - Template variable substitution
+- Parallel execution with `parallel` and `wait-for-parallel`
 
 Future versions may add:
 - Conditional phases
-- Parallel execution
 - Phase dependencies
