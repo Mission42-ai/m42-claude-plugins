@@ -63,4 +63,92 @@ test('MISSING_PHASES: should fail when phases array is missing', () => {
   assert(missingPhasesErrors.length === 1, `Expected 1 MISSING_PHASES error, got ${missingPhasesErrors.length}`);
 });
 
+// Parallel validation tests
+test('INVALID_PARALLEL: should fail when parallel is not boolean', () => {
+  const workflow = {
+    name: 'invalid-parallel-workflow',
+    phases: [
+      { id: 'phase-1', prompt: 'Do something', parallel: 'true' } // string instead of boolean
+    ]
+  };
+
+  const errors = validateWorkflowDefinition(workflow, 'test-workflow');
+
+  const parallelErrors = errors.filter(e => e.code === 'INVALID_PARALLEL');
+  assert(parallelErrors.length === 1, `Expected 1 INVALID_PARALLEL error, got ${parallelErrors.length}`);
+  assert(parallelErrors[0].message.includes('boolean'), `Expected message to mention 'boolean'`);
+});
+
+test('INVALID_PARALLEL: should pass when parallel is boolean', () => {
+  const workflow = {
+    name: 'valid-parallel-workflow',
+    phases: [
+      { id: 'phase-1', prompt: 'Do something', parallel: true }
+    ]
+  };
+
+  const errors = validateWorkflowDefinition(workflow, 'test-workflow');
+
+  const parallelErrors = errors.filter(e => e.code === 'INVALID_PARALLEL');
+  assert(parallelErrors.length === 0, `Should have no INVALID_PARALLEL errors, got ${parallelErrors.length}`);
+});
+
+test('INVALID_WAIT_FOR_PARALLEL: should fail when wait-for-parallel is not boolean', () => {
+  const workflow = {
+    name: 'invalid-wait-workflow',
+    phases: [
+      { id: 'phase-1', prompt: 'Do something', 'wait-for-parallel': 'yes' } // string instead of boolean
+    ]
+  };
+
+  const errors = validateWorkflowDefinition(workflow, 'test-workflow');
+
+  const waitErrors = errors.filter(e => e.code === 'INVALID_WAIT_FOR_PARALLEL');
+  assert(waitErrors.length === 1, `Expected 1 INVALID_WAIT_FOR_PARALLEL error, got ${waitErrors.length}`);
+  assert(waitErrors[0].message.includes('boolean'), `Expected message to mention 'boolean'`);
+});
+
+test('INVALID_WAIT_FOR_PARALLEL: should pass when wait-for-parallel is boolean', () => {
+  const workflow = {
+    name: 'valid-wait-workflow',
+    phases: [
+      { id: 'phase-1', prompt: 'Do something', 'wait-for-parallel': true }
+    ]
+  };
+
+  const errors = validateWorkflowDefinition(workflow, 'test-workflow');
+
+  const waitErrors = errors.filter(e => e.code === 'INVALID_WAIT_FOR_PARALLEL');
+  assert(waitErrors.length === 0, `Should have no INVALID_WAIT_FOR_PARALLEL errors, got ${waitErrors.length}`);
+});
+
+test('PARALLEL_FOREACH_WARNING: should warn when parallel used with for-each', () => {
+  const workflow = {
+    name: 'parallel-foreach-workflow',
+    phases: [
+      { id: 'phase-1', 'for-each': 'step', parallel: true, workflow: 'step-workflow' }
+    ]
+  };
+
+  const errors = validateWorkflowDefinition(workflow, 'test-workflow');
+
+  const warningErrors = errors.filter(e => e.code === 'PARALLEL_FOREACH_WARNING');
+  assert(warningErrors.length === 1, `Expected 1 PARALLEL_FOREACH_WARNING error, got ${warningErrors.length}`);
+  assert(warningErrors[0].message.includes('for-each'), `Expected message to mention 'for-each'`);
+});
+
+test('PARALLEL_FOREACH_WARNING: should not warn when parallel false with for-each', () => {
+  const workflow = {
+    name: 'parallel-false-foreach-workflow',
+    phases: [
+      { id: 'phase-1', 'for-each': 'step', parallel: false, workflow: 'step-workflow' }
+    ]
+  };
+
+  const errors = validateWorkflowDefinition(workflow, 'test-workflow');
+
+  const warningErrors = errors.filter(e => e.code === 'PARALLEL_FOREACH_WARNING');
+  assert(warningErrors.length === 0, `Should have no PARALLEL_FOREACH_WARNING errors, got ${warningErrors.length}`);
+});
+
 console.log('\nValidation tests completed.'); // intentional

@@ -193,7 +193,8 @@ async function compile(config) {
         status: 'not-started',
         phases: compiledPhases,
         current,
-        stats
+        stats,
+        'parallel-tasks': []
     };
     // Validate compiled progress
     const progressErrors = (0, validate_js_1.validateCompiledProgress)(progress);

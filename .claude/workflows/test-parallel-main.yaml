@@ -1,0 +1,28 @@
+# Test Parallel Main Workflow
+# Main workflow with a wait-for-parallel sync phase for integration testing
+#
+# This workflow tests that:
+# 1. for-each step expansion works with step workflow containing parallel phases
+# 2. wait-for-parallel: true flag is set on a sync phase
+# 3. Both flags propagate correctly during compilation
+
+name: Test Parallel Main Workflow
+description: |
+  Test main workflow that demonstrates parallel execution pattern.
+  Contains a for-each step phase and a sync phase that waits for parallel tasks.
+
+phases:
+  # Development phase - expands to each step using the step workflow
+  - id: development
+    for-each: step
+    workflow: test-parallel-step
+
+  # Sync phase - waits for all parallel tasks to complete
+  - id: sync
+    prompt: |
+      Wait for all parallel tasks to complete before proceeding.
+
+      ## Instructions
+      This phase blocks until all parallel tasks from the development phase
+      have finished executing.
+    wait-for-parallel: true

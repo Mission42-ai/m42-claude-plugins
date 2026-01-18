@@ -93,6 +93,17 @@ if [[ "$HAS_STEPS" != "null" ]]; then
     exit 0
   fi
 
+  # Skip if spawned (running in background as parallel task)
+  if [[ "$SUB_PHASE_STATUS" == "spawned" ]]; then
+    exit 0
+  fi
+
+  # Skip if has parallel-task-id (already tracked as parallel task)
+  SUB_PHASE_TASK_ID=$(yq -r ".phases[$PHASE_IDX].steps[$STEP_IDX].phases[$SUB_PHASE_IDX].\"parallel-task-id\" // \"null\"" "$PROGRESS_FILE")
+  if [[ "$SUB_PHASE_TASK_ID" != "null" ]]; then
+    exit 0
+  fi
+
   # Mark sub-phase as in-progress (timestamps set by sprint-loop.sh for accuracy)
   SUB_PHASE_STATUS=$(yq -r ".phases[$PHASE_IDX].steps[$STEP_IDX].phases[$SUB_PHASE_IDX].status // \"pending\"" "$PROGRESS_FILE")
   if [[ "$SUB_PHASE_STATUS" == "pending" ]]; then
@@ -215,6 +226,17 @@ else
 
   # Skip if blocked (retries exhausted)
   if [[ "$PHASE_STATUS" == "blocked" ]]; then
+    exit 0
+  fi
+
+  # Skip if spawned (running in background as parallel task)
+  if [[ "$PHASE_STATUS" == "spawned" ]]; then
+    exit 0
+  fi
+
+  # Skip if has parallel-task-id (already tracked as parallel task)
+  PHASE_TASK_ID=$(yq -r ".phases[$PHASE_IDX].\"parallel-task-id\" // \"null\"" "$PROGRESS_FILE")
+  if [[ "$PHASE_TASK_ID" != "null" ]]; then
     exit 0
   fi
 
