@@ -1,0 +1,10 @@
+Implementation complete. I've successfully added the EventEmitter pattern to StatusServer with all 7 gherkin scenarios passing:
+
+**Summary of changes to `server.ts`:**
+1. Imported `EventEmitter` from `'events'`
+2. Made `StatusServer` extend `EventEmitter` with `super()` call in constructor
+3. Added `StatusServerEvents` interface for type documentation
+4. Added `DEFAULT_READY_TIMEOUT` constant (10 seconds)
+5. Added `isReady` state tracking property
+6. Emit `'ready'` event after `server.listen()` callback fires
+7. Added `waitForReady(): Promise<void>` method with timeout handling using `Promise.race`

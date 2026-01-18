@@ -1,0 +1,16 @@
+**Plan sub-phase completed for step-6.**
+
+Created 7 gherkin scenarios in `artifacts/step-6-gherkin.md` covering:
+1. Global keydown event listener registration
+2. All required shortcut keys (P, L, N, D, Esc, ?)
+3. Keyboard shortcuts help modal HTML structure
+4. Input field detection to ignore shortcuts while typing
+5. Visual hints on buttons (underlined shortcut keys)
+6. TypeScript compilation without errors
+7. Escape key closing all modals
+
+Commits:
+- `e106cd1` - plan(step-6): define gherkin scenarios
+- `ccf7e6b` - progress(step-6): complete plan sub-phase
+
+PROGRESS.yaml updated to sub-phase 1 (execute).

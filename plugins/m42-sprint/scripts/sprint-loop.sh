@@ -19,7 +19,7 @@ ARGUMENTS:
   sprint-dir    Path to sprint directory (required)
 
 OPTIONS:
-  --max-iterations <n>    Maximum iterations (default: 100)
+  --max-iterations <n>    Maximum iterations (default: unlimited, 0 = unlimited)
   --max-retries <n>       Maximum retries per phase on failure (default: 0)
   --delay <seconds>       Delay between iterations (default: 2)
   -h, --help              Show this help message
@@ -39,16 +39,17 @@ EXIT CODES:
   2 - Human intervention required
 
 EXAMPLE:
-  sprint-loop.sh .claude/sprints/2026-01-15_my-sprint --max-iterations 100
+  sprint-loop.sh .claude/sprints/2026-01-15_my-sprint --max-iterations 0
 EOF
 }
 
 # Parse arguments
 SPRINT_DIR=""
-MAX_ITERATIONS=100
+MAX_ITERATIONS=0
 MAX_RETRIES=0
 DELAY=2
 HOOK_CONFIG=""
+CLI_MAX_ITER_SET=false
 
 # Default exponential backoff delays in milliseconds: 1s, 5s, 30s
 BACKOFF_MS=(1000 5000 30000)
@@ -72,6 +73,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --max-iterations)
       MAX_ITERATIONS="$2"
+      CLI_MAX_ITER_SET=true
       shift 2
       ;;
     --max-retries)
@@ -117,12 +119,65 @@ if ! command -v yq &> /dev/null; then
 fi
 
 SPRINT_NAME=$(basename "$SPRINT_DIR")
+SPRINT_YAML="$SPRINT_DIR/SPRINT.yaml"
 
-# Cleanup function for hook config file on exit
+# Read max-iterations from SPRINT.yaml config if present and no CLI override was provided
+# CLI flag takes precedence over config file
+if [[ "$MAX_ITERATIONS" -eq 0 ]] && [[ "$CLI_MAX_ITER_SET" != "true" ]] && [[ -f "$SPRINT_YAML" ]]; then
+  CONFIG_MAX_ITER=$(yq -r '.config."max-iterations" // "null"' "$SPRINT_YAML" 2>/dev/null || echo "null")
+  if [[ "$CONFIG_MAX_ITER" != "null" ]]; then
+    if [[ "$CONFIG_MAX_ITER" == "unlimited" ]] || [[ "$CONFIG_MAX_ITER" == "0" ]]; then
+      MAX_ITERATIONS=0
+      echo "Config: max-iterations set to unlimited (from SPRINT.yaml)"
+    else
+      MAX_ITERATIONS="$CONFIG_MAX_ITER"
+      echo "Config: max-iterations set to $MAX_ITERATIONS (from SPRINT.yaml)"
+    fi
+  fi
+fi
+
+# Handle unlimited iterations (0 = unlimited, use very large number for bash for-loop)
+UNLIMITED_MODE=false
+if [[ "$MAX_ITERATIONS" -eq 0 ]]; then
+  UNLIMITED_MODE=true
+  # Use a very large number that effectively means unlimited
+  # 2147483647 is max signed 32-bit int, but we use 1000000 for sanity
+  MAX_ITERATIONS=1000000
+  echo "Running in unlimited iteration mode (will only stop on status conditions)"
+fi
+
+# Cleanup function to remove sprint hook from settings on exit
+# Cleanup function to remove sprint hook from settings on exit
 cleanup_hook_config() {
+  # Remove sprint hook from .claude/settings.json
+  local settings_file=".claude/settings.json"
+  if [[ -f "$settings_file" ]]; then
+    node -e "
+      const fs = require('fs');
+      try {
+        const settings = JSON.parse(fs.readFileSync('$settings_file', 'utf8'));
+        if (settings.hooks && settings.hooks.PostToolUse) {
+          settings.hooks.PostToolUse = settings.hooks.PostToolUse.filter(h =>
+            !(h.hooks && h.hooks.some(hh => hh.command && hh.command.includes('sprint-activity-hook')))
+          );
+          if (settings.hooks.PostToolUse.length === 0) {
+            delete settings.hooks.PostToolUse;
+          }
+          if (Object.keys(settings.hooks).length === 0) {
+            delete settings.hooks;
+          }
+          fs.writeFileSync('$settings_file', JSON.stringify(settings, null, 2) + '\n');
+          console.log('Cleaned up sprint hook from settings');
+        }
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+    " 2>/dev/null || true
+  fi
+
+  # Also remove old hook config file if present
   if [[ -n "$HOOK_CONFIG" ]] && [[ -f "$HOOK_CONFIG" ]]; then
     rm -f "$HOOK_CONFIG"
-    echo "Cleaned up hook config: $HOOK_CONFIG"
   fi
 }
 
@@ -525,7 +580,11 @@ echo "============================================================"
 echo ""
 echo "Sprint: $SPRINT_NAME"
 echo "Directory: $SPRINT_DIR"
-echo "Max iterations: $MAX_ITERATIONS"
+if [[ "$UNLIMITED_MODE" == "true" ]]; then
+  echo "Max iterations: unlimited (loop until completion)"
+else
+  echo "Max iterations: $MAX_ITERATIONS"
+fi
 echo "Max retries per phase: $MAX_RETRIES"
 echo ""
 
@@ -564,6 +623,134 @@ get_log_filename() {
   echo "$SPRINT_DIR/logs/${log_name}.log"
 }
 
+# Helper function to generate transcript filename (mirrors get_log_filename)
+get_transcript_filename() {
+  local log_file=$(get_log_filename)
+  local base_name=$(basename "$log_file" .log)
+  mkdir -p "$SPRINT_DIR/transcripts"
+  echo "$SPRINT_DIR/transcripts/${base_name}.jsonl"
+}
+
+# Helper function to build log filename from explicit indices (internal use)
+_build_log_filename_for_position() {
+  local phase_idx="$1"
+  local step_idx="$2"
+  local sub_phase_idx="$3"
+
+  # Get phase name
+  local phase_name=$(yq -r ".phases[$phase_idx].id // \"phase-$phase_idx\"" "$PROGRESS_FILE")
+  local log_name="$phase_name"
+
+  # Check if phase has steps
+  local has_steps=$(yq -r ".phases[$phase_idx].steps // \"null\"" "$PROGRESS_FILE")
+  if [[ "$has_steps" != "null" ]] && [[ "$step_idx" != "null" ]] && [[ "$step_idx" != "-1" ]]; then
+    local step_name=$(yq -r ".phases[$phase_idx].steps[$step_idx].id // \"step-$step_idx\"" "$PROGRESS_FILE")
+    log_name="${log_name}-${step_name}"
+
+    if [[ "$sub_phase_idx" != "null" ]] && [[ "$sub_phase_idx" != "-1" ]]; then
+      local sub_name=$(yq -r ".phases[$phase_idx].steps[$step_idx].phases[$sub_phase_idx].id // \"subphase-$sub_phase_idx\"" "$PROGRESS_FILE")
+      log_name="${log_name}-${sub_name}"
+    fi
+  fi
+
+  # Sanitize filename
+  log_name=$(echo "$log_name" | tr ' ' '-' | tr -cd 'a-zA-Z0-9_-')
+  echo "$SPRINT_DIR/logs/${log_name}.log"
+}
+
+# Helper function to get previous step's log filename (deterministic from current position)
+get_previous_log_filename() {
+  local phase_idx=$(yq -r '.current.phase // 0' "$PROGRESS_FILE")
+  local step_idx=$(yq -r '.current.step // "null"' "$PROGRESS_FILE")
+  local sub_phase_idx=$(yq -r '.current."sub-phase" // "null"' "$PROGRESS_FILE")
+
+  # Calculate previous position
+  local prev_phase_idx=""
+  local prev_step_idx=""
+  local prev_sub_idx=""
+
+  # Check if current phase has steps
+  local has_steps=$(yq -r ".phases[$phase_idx].steps // \"null\"" "$PROGRESS_FILE")
+
+  if [[ "$has_steps" != "null" ]] && [[ "$step_idx" != "null" ]]; then
+    # Phase with steps - check sub-phase position
+    if [[ "$sub_phase_idx" != "null" ]] && [[ "$sub_phase_idx" -gt 0 ]]; then
+      # Previous is same phase, same step, previous sub-phase
+      prev_phase_idx="$phase_idx"
+      prev_step_idx="$step_idx"
+      prev_sub_idx=$((sub_phase_idx - 1))
+    elif [[ "$step_idx" -gt 0 ]]; then
+      # Previous is same phase, previous step, last sub-phase of that step
+      prev_phase_idx="$phase_idx"
+      prev_step_idx=$((step_idx - 1))
+      local total_subs=$(yq -r ".phases[$phase_idx].steps[$prev_step_idx].phases | length // 0" "$PROGRESS_FILE")
+      if [[ "$total_subs" -gt 0 ]]; then
+        prev_sub_idx=$((total_subs - 1))
+      else
+        prev_sub_idx="null"
+      fi
+    elif [[ "$phase_idx" -gt 0 ]]; then
+      # Previous is previous phase, last step, last sub-phase
+      prev_phase_idx=$((phase_idx - 1))
+      local prev_has_steps=$(yq -r ".phases[$prev_phase_idx].steps // \"null\"" "$PROGRESS_FILE")
+      if [[ "$prev_has_steps" != "null" ]]; then
+        local total_steps=$(yq -r ".phases[$prev_phase_idx].steps | length // 0" "$PROGRESS_FILE")
+        prev_step_idx=$((total_steps - 1))
+        local total_subs=$(yq -r ".phases[$prev_phase_idx].steps[$prev_step_idx].phases | length // 0" "$PROGRESS_FILE")
+        if [[ "$total_subs" -gt 0 ]]; then
+          prev_sub_idx=$((total_subs - 1))
+        else
+          prev_sub_idx="null"
+        fi
+      else
+        # Previous phase is simple (no steps)
+        prev_step_idx="null"
+        prev_sub_idx="null"
+      fi
+    else
+      # First position - no previous
+      echo ""
+      return
+    fi
+  else
+    # Simple phase (no steps)
+    if [[ "$phase_idx" -gt 0 ]]; then
+      prev_phase_idx=$((phase_idx - 1))
+      local prev_has_steps=$(yq -r ".phases[$prev_phase_idx].steps // \"null\"" "$PROGRESS_FILE")
+      if [[ "$prev_has_steps" != "null" ]]; then
+        local total_steps=$(yq -r ".phases[$prev_phase_idx].steps | length // 0" "$PROGRESS_FILE")
+        prev_step_idx=$((total_steps - 1))
+        local total_subs=$(yq -r ".phases[$prev_phase_idx].steps[$prev_step_idx].phases | length // 0" "$PROGRESS_FILE")
+        if [[ "$total_subs" -gt 0 ]]; then
+          prev_sub_idx=$((total_subs - 1))
+        else
+          prev_sub_idx="null"
+        fi
+      else
+        prev_step_idx="null"
+        prev_sub_idx="null"
+      fi
+    else
+      # First phase - no previous
+      echo ""
+      return
+    fi
+  fi
+
+  _build_log_filename_for_position "$prev_phase_idx" "$prev_step_idx" "$prev_sub_idx"
+}
+
+# Helper function to get previous step's transcript filename
+get_previous_transcript_filename() {
+  local prev_log=$(get_previous_log_filename)
+  if [[ -z "$prev_log" ]]; then
+    echo ""
+    return
+  fi
+  local base_name=$(basename "$prev_log" .log)
+  echo "$SPRINT_DIR/transcripts/${base_name}.jsonl"
+}
+
 # Run preflight checks before starting the loop
 PREFLIGHT_SCRIPT="$SCRIPT_DIR/preflight-check.sh"
 if [[ -f "$PREFLIGHT_SCRIPT" ]]; then
@@ -592,7 +779,11 @@ yq -i ".stats.\"max-iterations\" = $MAX_ITERATIONS" "$PROGRESS_FILE"
 # Main loop
 for ((i=1; i<=MAX_ITERATIONS; i++)); do
   echo ""
-  echo "=== Iteration $i/$MAX_ITERATIONS ==="
+  if [[ "$UNLIMITED_MODE" == "true" ]]; then
+    echo "=== Iteration $i (unlimited mode) ==="
+  else
+    echo "=== Iteration $i/$MAX_ITERATIONS ==="
+  fi
 
   # Check for force-retry signal (bypasses normal backoff wait)
   if check_force_retry; then
@@ -606,6 +797,10 @@ for ((i=1; i<=MAX_ITERATIONS; i++)); do
   yq -i ".stats.\"current-iteration\" = $i" "$PROGRESS_FILE"
 
   # Build prompt for current position
+  # Pass previous step paths as environment variables for context
+  PREV_LOG_FILE=$(get_previous_log_filename)
+  PREV_TRANSCRIPT_FILE=$(get_previous_transcript_filename)
+  export PREV_LOG_FILE PREV_TRANSCRIPT_FILE
   PROMPT=$("$SCRIPT_DIR/build-sprint-prompt.sh" "$SPRINT_DIR" "$i")
 
   if [[ -z "$PROMPT" ]]; then
@@ -635,7 +830,9 @@ for ((i=1; i<=MAX_ITERATIONS; i++)); do
 
   # Get log file path for this phase
   LOG_FILE=$(get_log_filename)
+  TRANSCRIPT_FILE=$(get_transcript_filename)
   echo "Logging to: $LOG_FILE"
+  echo "Transcript: $TRANSCRIPT_FILE"
   echo ""
 
   # Capture current position BEFORE Claude runs (it advances the pointer after completion)
@@ -647,9 +844,20 @@ for ((i=1; i<=MAX_ITERATIONS; i++)); do
   PHASE_START_EPOCH=$(date +%s)
   PHASE_START_ISO=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-  # Build claude command, tee output to .log file
+  # Invoke Claude with JSON streaming to capture full transcript
   # Note: HOOK_CONFIG is accepted but not used - Claude Code hooks are configured via settings files
-  CLI_OUTPUT=$(claude -p "$PROMPT" --dangerously-skip-permissions 2>&1 | tee "$LOG_FILE") || CLI_EXIT_CODE=${PIPESTATUS[0]}
+  claude -p "$PROMPT" \
+    --dangerously-skip-permissions \
+    --output-format stream-json \
+    --verbose \
+    > "$TRANSCRIPT_FILE" 2>&1
+  CLI_EXIT_CODE=$?
+
+  # Extract final result text for legacy log file
+  jq -r 'select(.type=="result") | .result // empty' "$TRANSCRIPT_FILE" > "$LOG_FILE" 2>/dev/null || true
+
+  # Also extract CLI_OUTPUT for error handling
+  CLI_OUTPUT=$(jq -r 'select(.type=="result") | .result // empty' "$TRANSCRIPT_FILE" 2>/dev/null || cat "$TRANSCRIPT_FILE")
 
   # AFTER Claude exits - capture end time for deterministic timing
   PHASE_END_EPOCH=$(date +%s)
@@ -760,8 +968,20 @@ for ((i=1; i<=MAX_ITERATIONS; i++)); do
   fi
 done
 
+
 echo ""
 echo "============================================================"
-echo "MAX ITERATIONS REACHED"
+echo "ITERATION LIMIT REACHED ($MAX_ITERATIONS iterations)"
 echo "============================================================"
+echo ""
+echo "The sprint loop has reached its iteration limit but the sprint"
+echo "is not yet complete. This is a safety limit, not a failure."
+echo ""
+echo "Options:"
+echo "  1. Resume with: /run-sprint $SPRINT_DIR"
+echo "  2. Increase limit: --max-iterations <N> or set in SPRINT.yaml:"
+echo "     config:"
+echo "       max-iterations: unlimited"
+echo ""
+echo "Current status: $(yq -r '.status' "$PROGRESS_FILE")"
 exit 1

@@ -1,0 +1,15 @@
+**Plan sub-phase complete for step-5.**
+
+Created 7 binary-verifiable gherkin scenarios in `artifacts/step-5-gherkin.md`:
+
+1. **openBrowser import exists** - Verifies import from browser.ts
+2. **waitForReady is called** - Verifies blocking startup pattern
+3. **openBrowser called with URL** - Verifies browser opens after ready
+4. **--no-browser flag defined** - Verifies CLI option exists
+5. **Browser open is conditional** - Verifies flag is respected
+6. **Server URL logged** - Verifies URL shown regardless of browser flag
+7. **TypeScript compiles** - Verifies no type errors
+
+Commits:
+- `82fe99d` plan(step-5): define gherkin scenarios
+- `99afdd7` progress(step-5): complete plan sub-phase

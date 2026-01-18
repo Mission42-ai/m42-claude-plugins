@@ -8,7 +8,7 @@ import { validateWorkflowDefinition } from './validate.js';
 function test(name: string, fn: () => void): void {
   try {
     fn();
-    console.log(`✓ ${name}`);
+    console.log(`✓ ${name}`); // intentional
   } catch (error) {
     console.error(`✗ ${name}`);
     console.error(`  ${error}`);
@@ -63,4 +63,4 @@ test('MISSING_PHASES: should fail when phases array is missing', () => {
   assert(missingPhasesErrors.length === 1, `Expected 1 MISSING_PHASES error, got ${missingPhasesErrors.length}`);
 });
 
-console.log('\nValidation tests completed.');
+console.log('\nValidation tests completed.'); // intentional

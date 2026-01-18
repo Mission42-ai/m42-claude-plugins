@@ -39,6 +39,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.StatusServer = void 0;
 exports.createStatusServer = createStatusServer;
+const events_1 = require("events");
 const http = __importStar(require("http"));
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
@@ -49,6 +50,9 @@ const activity_watcher_js_1 = require("./activity-watcher.js");
 const transforms_js_1 = require("./transforms.js");
 const page_js_1 = require("./page.js");
 const timing_tracker_js_1 = require("./timing-tracker.js");
+const sprint_scanner_js_1 = require("./sprint-scanner.js");
+const metrics_aggregator_js_1 = require("./metrics-aggregator.js");
+const dashboard_page_js_1 = require("./dashboard-page.js");
 /**
  * Default configuration values
  */
@@ -56,10 +60,14 @@ const DEFAULT_KEEP_ALIVE_INTERVAL = 15000; // 15 seconds
 const DEFAULT_PORT = 3100;
 const DEFAULT_HOST = 'localhost';
 /**
+ * Default timeout for server ready signal in milliseconds
+ */
+const DEFAULT_READY_TIMEOUT = 10_000; // 10 seconds
+/**
  * Status Server class
  * Manages HTTP server, SSE connections, and file watching
  */
-class StatusServer {
+class StatusServer extends events_1.EventEmitter {
     config;
     server = null;
     watcher = null;
@@ -71,7 +79,9 @@ class StatusServer {
     clientIdCounter = 0;
     progressFilePath;
     activityFilePath;
+    isReady = false;
     constructor(config) {
+        super();
         this.config = {
             port: config.port ?? DEFAULT_PORT,
             host: config.host ?? DEFAULT_HOST,
@@ -127,6 +137,8 @@ class StatusServer {
                 reject(error);
             });
             this.server.listen(this.config.port, this.config.host, () => {
+                this.isReady = true;
+                this.emit('ready');
                 resolve();
             });
         });
@@ -164,6 +176,29 @@ class StatusServer {
                 });
             });
         }
+    }
+    /**
+     * Wait for the server to be ready to accept connections
+     * Resolves immediately if already ready, otherwise waits for 'ready' event
+     * @throws Error if server doesn't become ready within timeout (10 seconds)
+     */
+    waitForReady() {
+        const timeout = DEFAULT_READY_TIMEOUT;
+        // If already ready, resolve immediately
+        if (this.isReady) {
+            return Promise.resolve();
+        }
+        // Wait for ready event with timeout
+        return Promise.race([
+            new Promise((resolve) => {
+                this.once('ready', resolve);
+            }),
+            new Promise((_, reject) => {
+                setTimeout(() => {
+                    reject(new Error(`Server failed to start within ${timeout}ms timeout`));
+                }, timeout);
+            }),
+        ]);
     }
     /**
      * Get the server URL
@@ -245,9 +280,14 @@ class StatusServer {
             this.handleDownloadAllLogs(res);
             return;
         }
-        switch (url) {
+        // Match sprint detail route: /sprint/:id
+        const sprintDetailMatch = url.match(/^\/sprint\/([^/?]+)/);
+        // Parse URL for query parameters
+        const urlObj = new URL(url, `http://${this.config.host}:${this.config.port}`);
+        switch (urlObj.pathname) {
             case '/':
-                this.handlePageRequest(res);
+            case '/dashboard':
+                this.handleDashboardPageRequest(res);
                 break;
             case '/events':
                 this.handleSSERequest(req, res);
@@ -270,13 +310,26 @@ class StatusServer {
             case '/api/stop':
                 this.handleStopRequest(res);
                 break;
+            case '/api/sprints':
+                this.handleSprintsApiRequest(res, urlObj.searchParams);
+                break;
+            case '/api/metrics':
+                this.handleMetricsApiRequest(res);
+                break;
             default:
-                res.writeHead(404, { 'Content-Type': 'text/plain' });
-                res.end('Not Found');
+                // Handle dynamic routes
+                if (sprintDetailMatch) {
+                    const sprintId = decodeURIComponent(sprintDetailMatch[1]);
+                    this.handleSprintDetailPageRequest(res, sprintId);
+                }
+                else {
+                    res.writeHead(404, { 'Content-Type': 'text/plain' });
+                    res.end('Not Found');
+                }
         }
     }
     /**
-     * Serve the HTML page
+     * Serve the HTML page (legacy - now redirects to dashboard or sprint detail)
      */
     handlePageRequest(res) {
         res.writeHead(200, {
@@ -284,6 +337,155 @@ class StatusServer {
             'Cache-Control': 'no-cache',
         });
         res.end((0, page_js_1.getPageHtml)());
+    }
+    /**
+     * Get the sprints directory path (parent of current sprint)
+     */
+    getSprintsDir() {
+        return path.dirname(this.config.sprintDir);
+    }
+    /**
+     * Get the current sprint ID from the sprint directory path
+     */
+    getCurrentSprintId() {
+        return path.basename(this.config.sprintDir);
+    }
+    /**
+     * Serve the dashboard page with sprint list and metrics
+     */
+    handleDashboardPageRequest(res) {
+        try {
+            const sprintsDir = this.getSprintsDir();
+            const scanner = new sprint_scanner_js_1.SprintScanner(sprintsDir);
+            const sprints = scanner.scan();
+            const aggregator = new metrics_aggregator_js_1.MetricsAggregator(sprints);
+            const metrics = aggregator.aggregate();
+            // Determine the active sprint (the one this server is monitoring)
+            const currentSprintId = this.getCurrentSprintId();
+            const activeSprint = sprints.find(s => s.sprintId === currentSprintId && s.status === 'in-progress')
+                ? currentSprintId
+                : null;
+            const html = (0, dashboard_page_js_1.generateDashboardPage)(sprints, metrics, activeSprint);
+            res.writeHead(200, {
+                'Content-Type': 'text/html; charset=utf-8',
+                'Cache-Control': 'no-cache',
+            });
+            res.end(html);
+        }
+        catch (error) {
+            res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' });
+            res.end(`<html><body><h1>Error loading dashboard</h1><p>${error instanceof Error ? error.message : String(error)}</p></body></html>`);
+        }
+    }
+    /**
+     * Serve the sprint detail page for a specific sprint
+     */
+    handleSprintDetailPageRequest(res, sprintId) {
+        try {
+            const sprintsDir = this.getSprintsDir();
+            const scanner = new sprint_scanner_js_1.SprintScanner(sprintsDir);
+            const sprint = scanner.getById(sprintId);
+            if (!sprint) {
+                res.writeHead(404, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Sprint not found', sprintId }));
+                return;
+            }
+            // Get all sprints for the navigation switcher (last 10)
+            const allSprints = scanner.scan();
+            const navigation = {
+                currentSprintId: sprintId,
+                availableSprints: allSprints.slice(0, 10).map(s => ({
+                    sprintId: s.sprintId,
+                    status: s.status,
+                })),
+            };
+            // Check if this is the currently monitored sprint
+            const currentSprintId = this.getCurrentSprintId();
+            if (sprintId === currentSprintId) {
+                // Serve the live status page for the current sprint
+                res.writeHead(200, {
+                    'Content-Type': 'text/html; charset=utf-8',
+                    'Cache-Control': 'no-cache',
+                });
+                res.end((0, page_js_1.getPageHtml)(navigation));
+            }
+            else {
+                // For other sprints, show a static view (currently serve same page with note)
+                // Future: could show read-only historical view
+                res.writeHead(200, {
+                    'Content-Type': 'text/html; charset=utf-8',
+                    'Cache-Control': 'no-cache',
+                });
+                res.end((0, page_js_1.getPageHtml)(navigation));
+            }
+        }
+        catch (error) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                error: 'Failed to load sprint',
+                message: error instanceof Error ? error.message : String(error),
+            }));
+        }
+    }
+    /**
+     * Handle GET /api/sprints request
+     * Returns list of sprints with optional pagination
+     */
+    handleSprintsApiRequest(res, params) {
+        try {
+            const sprintsDir = this.getSprintsDir();
+            const scanner = new sprint_scanner_js_1.SprintScanner(sprintsDir);
+            const allSprints = scanner.scan();
+            // Parse pagination parameters
+            const page = parseInt(params.get('page') || '1', 10);
+            const limit = parseInt(params.get('limit') || '20', 10);
+            const offset = (page - 1) * limit;
+            // Apply pagination
+            const sprints = allSprints.slice(offset, offset + limit);
+            res.writeHead(200, {
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-cache',
+            });
+            res.end(JSON.stringify({
+                sprints,
+                total: allSprints.length,
+                page,
+                limit,
+                hasMore: offset + limit < allSprints.length,
+            }, null, 2));
+        }
+        catch (error) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                error: 'Failed to scan sprints',
+                message: error instanceof Error ? error.message : String(error),
+            }));
+        }
+    }
+    /**
+     * Handle GET /api/metrics request
+     * Returns aggregate metrics across all sprints
+     */
+    handleMetricsApiRequest(res) {
+        try {
+            const sprintsDir = this.getSprintsDir();
+            const scanner = new sprint_scanner_js_1.SprintScanner(sprintsDir);
+            const sprints = scanner.scan();
+            const aggregator = new metrics_aggregator_js_1.MetricsAggregator(sprints);
+            const metrics = aggregator.aggregate();
+            res.writeHead(200, {
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-cache',
+            });
+            res.end(JSON.stringify(metrics, null, 2));
+        }
+        catch (error) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                error: 'Failed to calculate metrics',
+                message: error instanceof Error ? error.message : String(error),
+            }));
+        }
     }
     /**
      * Handle SSE connection

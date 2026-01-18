@@ -1,0 +1,9 @@
+Context gathering for step-4 is complete. I have created the context document covering:
+
+- **Related Code Patterns**: `ProgressWatcher` in `watcher.ts` as the reference implementation for EventEmitter pattern
+- **Required Imports**: `EventEmitter` from Node.js `events` module
+- **Types/Interfaces**: Proposed `StatusServerEvents` interface and `DEFAULT_READY_TIMEOUT` constant
+- **Integration Points**: How `index.ts` will call `waitForReady()`, and where the ready event should be emitted in `start()`
+- **Implementation Notes**: Key details like using `extends EventEmitter`, tracking ready state, timeout pattern with `Promise.race()`, and ensuring no breaking changes
+
+The sub-phase has been marked complete and the pointer advanced to sub-phase 2 (plan).

@@ -204,9 +204,9 @@ The Ralph Loop is implemented in `scripts/sprint-loop.sh`. Here are the key comp
 ### 1. The Main Loop
 
 ```bash
-# Main loop - iterate until done or max iterations
+# Main loop - iterate until done (unlimited by default)
 for ((i=1; i<=MAX_ITERATIONS; i++)); do
-    echo "=== Iteration $i/$MAX_ITERATIONS ==="
+    echo "=== Iteration $i (unlimited mode) ==="
 
     # Build prompt for current position
     PROMPT=$("$SCRIPT_DIR/build-sprint-prompt.sh" "$SPRINT_DIR" "$i")

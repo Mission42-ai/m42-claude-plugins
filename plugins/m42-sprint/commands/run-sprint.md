@@ -1,6 +1,6 @@
 ---
 allowed-tools: Bash(ls:*), Bash(test:*), Bash(grep:*), Bash(cat:*), Bash(sleep:*), Bash(rm:*), Bash(node:*), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/sprint-loop.sh:*), Read(*), Edit(*)
-argument-hint: <sprint-directory> [--max-iterations N] [--dry-run] [--recompile] [--no-status]
+argument-hint: <sprint-directory> [--max-iterations N] [--dry-run] [--recompile] [--no-status] [--no-browser]
 description: Start sprint execution loop (fresh context per task)
 model: sonnet
 ---
@@ -22,21 +22,23 @@ The first argument MUST be the sprint directory path. Parse $ARGUMENTS to extrac
    - Must contain SPRINT.yaml
 
 2. **Options** (OPTIONAL):
-   - `--max-iterations N` - Maximum loop iterations (default: 30)
+   - `--max-iterations N` - Maximum loop iterations (default: unlimited, use 0 for unlimited)
    - `--dry-run` - Preview tasks without executing (read-only mode)
    - `--recompile` - Force recompilation even if PROGRESS.yaml exists
    - `--no-status` - Skip launching the live status server
+   - `--no-browser` - Disable automatic browser opening when status server starts
 
 If no sprint directory is provided, output this error and stop:
 ```
 Error: Sprint directory path is required.
 
-Usage: /run-sprint <sprint-directory> [--max-iterations N] [--dry-run] [--recompile] [--no-status]
+Usage: /run-sprint <sprint-directory> [--max-iterations N] [--dry-run] [--recompile] [--no-status] [--no-browser]
 
 Example: /run-sprint .claude/sprints/2026-01-15_my-sprint --max-iterations 50
 Example: /run-sprint .claude/sprints/2026-01-15_my-sprint --dry-run
 Example: /run-sprint .claude/sprints/2026-01-15_my-sprint --recompile
 Example: /run-sprint .claude/sprints/2026-01-15_my-sprint --no-status
+Example: /run-sprint .claude/sprints/2026-01-15_my-sprint --no-browser
 ```
 
 ## Preflight Checks
@@ -126,35 +128,51 @@ Then STOP - do not start the loop or modify any files.
 
 ### If --dry-run flag is NOT present:
 
-1. **Generate Hook Configuration**
+1. **Register Sprint Hooks in Settings**
 
-   Before launching the sprint loop, generate `.sprint-hooks.json` in the sprint directory to enable activity logging. The hook captures PostToolCall events and writes them to `.sprint-activity.jsonl`.
+   Before launching the sprint loop, register the activity logging hook in the project's `.claude/settings.json`. This enables PostToolUse events to be captured and written to `.sprint-activity.jsonl`.
 
-   Create the hook config file at `$SPRINT_DIR/.sprint-hooks.json`:
-
+   **Step 1**: Backup existing settings (if not already backed up):
    ```bash
-   cat > "$SPRINT_DIR/.sprint-hooks.json" << 'HOOKEOF'
-   {
-     "hooks": {
-       "PostToolUse": [
-         {
-           "matcher": "",
-           "hooks": [
-             {
-               "type": "command",
-               "command": "bash ${PLUGIN_DIR}/hooks/sprint-activity-hook.sh ${SPRINT_DIR}"
-             }
-           ]
-         }
-       ]
-     }
-   }
-   HOOKEOF
+   if [ ! -f ".claude/settings.json.pre-sprint" ]; then
+     cp ".claude/settings.json" ".claude/settings.json.pre-sprint" 2>/dev/null || echo '{}' > ".claude/settings.json.pre-sprint"
+   fi
    ```
 
-   **Important**: Replace `${PLUGIN_DIR}` and `${SPRINT_DIR}` with their actual absolute paths when generating the file. The JSON doesn't support variable expansion.
+   **Step 2**: Generate the hook configuration and merge into settings:
+   ```bash
+   # Create hook config for this sprint
+   HOOK_COMMAND="bash ${PLUGIN_DIR}/hooks/sprint-activity-hook.sh ${SPRINT_DIR}"
 
-   The hook config format uses PostToolCall events to trigger the sprint-activity-hook.sh script, which logs tool usage to enable the live activity panel in the status page.
+   # Read existing settings or create empty object
+   SETTINGS=$(cat .claude/settings.json 2>/dev/null || echo '{}')
+
+   # Merge hook into settings using node (jq alternative)
+   node -e "
+     const settings = JSON.parse(process.argv[1]);
+     settings.hooks = settings.hooks || {};
+     settings.hooks.PostToolUse = settings.hooks.PostToolUse || [];
+
+     // Add sprint hook if not already present
+     const hookCmd = process.argv[2];
+     const exists = settings.hooks.PostToolUse.some(h =>
+       h.hooks && h.hooks.some(hh => hh.command && hh.command.includes('sprint-activity-hook'))
+     );
+
+     if (!exists) {
+       settings.hooks.PostToolUse.push({
+         matcher: '',
+         hooks: [{ type: 'command', command: hookCmd }]
+       });
+     }
+
+     console.log(JSON.stringify(settings, null, 2));
+   " "$SETTINGS" "$HOOK_COMMAND" > .claude/settings.json.tmp && mv .claude/settings.json.tmp .claude/settings.json
+   ```
+
+   **Important**: Replace `${PLUGIN_DIR}` and `${SPRINT_DIR}` with their actual absolute paths when generating the command.
+
+   The hook captures PostToolUse events and writes them to `.sprint-activity.jsonl` in the sprint directory, enabling the live activity panel in the status page.
 
    **Verbosity Configuration**: Set the `SPRINT_ACTIVITY_VERBOSITY` environment variable before launching to control detail level:
    - `minimal` - Tool names only
@@ -163,6 +181,27 @@ Then STOP - do not start the loop or modify any files.
    - `verbose` - Complete tool data
 
    If not set, defaults to "basic".
+
+   Also save the hook config to `.sprint-hooks.json` for reference (this file is informational only):
+   ```bash
+   cat > "$SPRINT_DIR/.sprint-hooks.json" << HOOKEOF
+   {
+     "hooks": {
+       "PostToolUse": [
+         {
+           "matcher": "",
+           "hooks": [
+             {
+               "type": "command",
+               "command": "$HOOK_COMMAND"
+             }
+           ]
+         }
+       ]
+     }
+   }
+   HOOKEOF
+   ```
 
 2. **Launch Sprint Loop**
 

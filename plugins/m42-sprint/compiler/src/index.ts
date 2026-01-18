@@ -62,11 +62,11 @@ program
       }
 
       if (options.verbose) {
-        console.log('Sprint Compiler Configuration:');
-        console.log(`  Sprint dir: ${absoluteSprintDir}`);
-        console.log(`  Workflows dir: ${absoluteWorkflowsDir}`);
-        console.log(`  Output: ${outputPath}`);
-        console.log('');
+        console.log('Sprint Compiler Configuration:'); // intentional
+        console.log(`  Sprint dir: ${absoluteSprintDir}`); // intentional
+        console.log(`  Workflows dir: ${absoluteWorkflowsDir}`); // intentional
+        console.log(`  Output: ${outputPath}`); // intentional
+        console.log(''); // intentional
       }
 
       // Compile
@@ -105,25 +105,25 @@ program
         });
 
         if (options.dryRun) {
-          console.log('\n--- Compiled PROGRESS.yaml (dry-run) ---\n');
-          console.log(yamlOutput);
+          console.log('\n--- Compiled PROGRESS.yaml (dry-run) ---\n'); // intentional
+          console.log(yamlOutput); // intentional
         } else {
           fs.writeFileSync(outputPath, yamlOutput, 'utf8');
-          console.log(`\nCompiled successfully: ${outputPath}`);
+          console.log(`\nCompiled successfully: ${outputPath}`); // intentional
 
           // Summary
           const p = result.progress;
-          console.log(`\nSummary:`);
-          console.log(`  Phases: ${p.phases.length}`);
+          console.log(`\nSummary:`); // intentional
+          console.log(`  Phases: ${p.phases.length}`); // intentional
           const totalSteps = p.phases.reduce((acc, phase) =>
             acc + (phase.steps?.length || 0), 0);
           if (totalSteps > 0) {
-            console.log(`  Steps: ${totalSteps}`);
+            console.log(`  Steps: ${totalSteps}`); // intentional
           }
           const totalSubPhases = p.phases.reduce((acc, phase) =>
             acc + (phase.steps?.reduce((a, s) => a + s.phases.length, 0) || 0), 0);
           if (totalSubPhases > 0) {
-            console.log(`  Sub-phases: ${totalSubPhases}`);
+            console.log(`  Sub-phases: ${totalSubPhases}`); // intentional
           }
         }
       }

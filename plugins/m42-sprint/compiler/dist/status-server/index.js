@@ -44,6 +44,7 @@ const commander_1 = require("commander");
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const server_js_1 = require("./server.js");
+const browser_js_1 = require("./browser.js");
 const program = new commander_1.Command();
 program
     .name('sprint-status-server')
@@ -53,6 +54,7 @@ program
     .argument('<sprint-dir>', 'Path to the sprint directory containing PROGRESS.yaml')
     .option('-p, --port <number>', 'Port to listen on', '3100')
     .option('-H, --host <host>', 'Host to bind to', 'localhost')
+    .option('--no-browser', 'Disable automatic browser opening')
     .action(async (sprintDir, options) => {
     try {
         // Resolve paths
@@ -85,7 +87,7 @@ program
         });
         // Handle graceful shutdown
         const shutdown = async (signal) => {
-            console.log(`\n${signal} received, shutting down...`);
+            console.log(`\n${signal} received, shutting down...`); // intentional
             // Delete port file
             try {
                 if (fs.existsSync(portFilePath)) {
@@ -102,16 +104,21 @@ program
         process.on('SIGTERM', () => shutdown('SIGTERM'));
         // Start server
         await server.start();
+        await server.waitForReady();
         // Write port to discovery file
         fs.writeFileSync(portFilePath, port.toString(), 'utf-8');
         // Display server URL
         const url = server.getUrl();
-        console.log(`Sprint Status Server started`);
-        console.log(`  URL: ${url}`);
-        console.log(`  Watching: ${progressYamlPath}`);
-        console.log(`  Port file: ${portFilePath}`);
-        console.log('');
-        console.log('Press Ctrl+C to stop');
+        console.log(`Sprint Status Server started`); // intentional
+        console.log(`  URL: ${url}`); // intentional
+        console.log(`  Watching: ${progressYamlPath}`); // intentional
+        console.log(`  Port file: ${portFilePath}`); // intentional
+        // Open browser if not disabled
+        if (options.browser) {
+            (0, browser_js_1.openBrowser)(url);
+        }
+        console.log(''); // intentional
+        console.log('Press Ctrl+C to stop'); // intentional
     }
     catch (error) {
         console.error('Failed to start server:', error instanceof Error ? error.message : error);

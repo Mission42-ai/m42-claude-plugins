@@ -4,7 +4,8 @@
   },
   "enabledPlugins": {
     "frontend-design@claude-plugins-official": true,
-    "m42-sprint@m42-claude-plugins": true
+    "m42-sprint@m42-claude-plugins": true,
+    "m42-meta-toolkit@m42-claude-plugins": true
   },
   "defaultMode": "plan"
 }

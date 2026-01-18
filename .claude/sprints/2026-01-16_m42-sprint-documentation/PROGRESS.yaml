@@ -1,5 +1,5 @@
 sprint-id: 2026-01-16_m42-sprint-documentation
-status: in-progress
+status: completed
 phases:
   - id: prepare
     status: completed
@@ -2833,6 +2833,7 @@ phases:
               - QA failures MUST result in injected fix tasks, not just reports
             started-at: "2026-01-16T17:17:50Z"
             completed-at: "2026-01-16T17:17:50Z"
+            elapsed: 00:00:00
         started-at: "2026-01-16T17:15:09Z"
     started-at: "2026-01-16T16:18:41Z"
 current:
@@ -2846,6 +2847,6 @@ stats:
   total-steps: 14
   completed-steps: 0
   max-iterations: 30
-  current-iteration: 28
-  completed-at: "2026-01-16T16:24:41Z"
-  elapsed: 00:08:29
+  current-iteration: 29
+  completed-at: "2026-01-16T17:20:43Z"
+  elapsed: 01:04:31

@@ -2,12 +2,21 @@
  * HTTP Server with SSE endpoint for Sprint Status updates
  * Serves the HTML page and streams real-time progress updates
  */
+import { EventEmitter } from 'events';
 import type { ServerConfig } from './status-types.js';
+/**
+ * Events emitted by StatusServer
+ */
+export interface StatusServerEvents {
+    ready: [];
+    error: [error: Error];
+    close: [];
+}
 /**
  * Status Server class
  * Manages HTTP server, SSE connections, and file watching
  */
-export declare class StatusServer {
+export declare class StatusServer extends EventEmitter {
     private readonly config;
     private server;
     private watcher;
@@ -19,6 +28,7 @@ export declare class StatusServer {
     private clientIdCounter;
     private progressFilePath;
     private activityFilePath;
+    private isReady;
     constructor(config: ServerConfig);
     /**
      * Start the HTTP server and file watcher
@@ -28,6 +38,12 @@ export declare class StatusServer {
      * Stop the server and clean up resources
      */
     stop(): Promise<void>;
+    /**
+     * Wait for the server to be ready to accept connections
+     * Resolves immediately if already ready, otherwise waits for 'ready' event
+     * @throws Error if server doesn't become ready within timeout (10 seconds)
+     */
+    waitForReady(): Promise<void>;
     /**
      * Get the server URL
      */
@@ -41,9 +57,35 @@ export declare class StatusServer {
      */
     private handleRequest;
     /**
-     * Serve the HTML page
+     * Serve the HTML page (legacy - now redirects to dashboard or sprint detail)
      */
     private handlePageRequest;
+    /**
+     * Get the sprints directory path (parent of current sprint)
+     */
+    private getSprintsDir;
+    /**
+     * Get the current sprint ID from the sprint directory path
+     */
+    private getCurrentSprintId;
+    /**
+     * Serve the dashboard page with sprint list and metrics
+     */
+    private handleDashboardPageRequest;
+    /**
+     * Serve the sprint detail page for a specific sprint
+     */
+    private handleSprintDetailPageRequest;
+    /**
+     * Handle GET /api/sprints request
+     * Returns list of sprints with optional pagination
+     */
+    private handleSprintsApiRequest;
+    /**
+     * Handle GET /api/metrics request
+     * Returns aggregate metrics across all sprints
+     */
+    private handleMetricsApiRequest;
     /**
      * Handle SSE connection
      */

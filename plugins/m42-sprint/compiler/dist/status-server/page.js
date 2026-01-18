@@ -7,21 +7,24 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getPageHtml = getPageHtml;
 /**
  * Generate the complete HTML page for the status dashboard
+ * @param navigation Optional navigation context for sprint switching
  * @returns Complete HTML document as a string
  */
-function getPageHtml() {
+function getPageHtml(navigation) {
+    const navBar = navigation ? generateNavigationBar(navigation) : '';
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sprint Status</title>
+  <title>Sprint Status${navigation ? ` - ${navigation.currentSprintId}` : ''}</title>
   <style>
 ${getStyles()}
   </style>
 </head>
 <body>
   <div class="container">
+    ${navBar}
     <header class="header">
       <div class="header-left">
         <h1 class="sprint-name" id="sprint-name">Loading...</h1>
@@ -79,17 +82,20 @@ ${getStyles()}
             <option value="bell">Bell</option>
           </select>
         </div>
+        <div class="notification-settings-section">
+          <button class="test-notification-btn" id="test-notification-btn">Test Notification</button>
+        </div>
       </div>
     </div>
 
     <div class="control-bar" id="control-bar">
       <button class="control-btn" id="pause-btn" style="display: none;">
         <span class="control-btn-icon">⏸</span>
-        <span>Pause</span>
+        <span><u>P</u>ause</span>
       </button>
       <button class="control-btn" id="resume-btn" style="display: none;">
         <span class="control-btn-icon">▶</span>
-        <span>Resume</span>
+        <span>Resume (<u>P</u>)</span>
       </button>
       <button class="control-btn danger" id="stop-btn" style="display: none;">
         <span class="control-btn-icon">⏹</span>
@@ -136,6 +142,18 @@ ${getStyles()}
           <h2 class="section-title">Activity Feed</h2>
           <div class="feed-content" id="activity-feed">
             <div class="feed-empty">Waiting for updates...</div>
+          </div>
+        </section>
+
+        <section class="performance-metrics" id="performance-metrics-section">
+          <div class="section-header-row">
+            <h2 class="section-title">Performance Metrics</h2>
+            <div class="metrics-controls">
+              <button class="collapse-btn" id="collapse-metrics-btn" title="Collapse/Expand">▼</button>
+            </div>
+          </div>
+          <div class="performance-metrics-content" id="performance-metrics-content">
+            <div class="metrics-loading">Loading timing data...</div>
           </div>
         </section>
       </main>
@@ -192,7 +210,13 @@ ${getStyles()}
       <div class="log-viewer-header">
         <span class="log-viewer-title" id="log-viewer-title">Phase Log</span>
         <div class="log-viewer-controls">
-          <input type="text" class="log-search-input" id="log-search-input" placeholder="Search logs..." />
+          <button class="log-nav-btn log-jump-error-btn" id="log-jump-error-btn" title="Jump to first error">Jump to Error</button>
+          <div class="log-search-nav">
+            <input type="text" class="log-search-input" id="log-search-input" placeholder="Search logs..." />
+            <button class="log-nav-btn log-search-prev-btn" id="log-search-prev-btn" title="Previous match">◀</button>
+            <span class="log-match-count" id="log-match-count"></span>
+            <button class="log-nav-btn log-search-next-btn" id="log-search-next-btn" title="Next match">▶</button>
+          </div>
           <button class="log-download-btn" id="log-download-btn">Download Log</button>
           <button class="log-viewer-close" id="log-viewer-close">Close</button>
         </div>
@@ -203,11 +227,71 @@ ${getStyles()}
     </div>
   </div>
 
+  <div class="modal-overlay" id="shortcuts-help-modal">
+    <div class="modal-content shortcuts-help-content">
+      <div class="modal-title">Keyboard Shortcuts</div>
+      <div class="shortcuts-list">
+        <div class="shortcut-row"><kbd>P</kbd><span>Pause/Resume sprint</span></div>
+        <div class="shortcut-row"><kbd>L</kbd><span>Toggle live activity panel</span></div>
+        <div class="shortcut-row"><kbd>N</kbd><span>Open notification settings</span></div>
+        <div class="shortcut-row"><kbd>D</kbd><span>Download all logs</span></div>
+        <div class="shortcut-row"><kbd>Esc</kbd><span>Close modals</span></div>
+        <div class="shortcut-row"><kbd>?</kbd><span>Show this help</span></div>
+      </div>
+      <div class="modal-actions">
+        <button class="modal-btn modal-btn-primary" id="shortcuts-close-btn">Close</button>
+      </div>
+    </div>
+  </div>
+
   <script>
 ${getScript()}
   </script>
 </body>
 </html>`;
+}
+/**
+ * Generate the navigation bar HTML for sprint detail pages
+ */
+function generateNavigationBar(navigation) {
+    const sprintOptions = navigation.availableSprints
+        .slice(0, 10)
+        .map(sprint => {
+        const selected = sprint.sprintId === navigation.currentSprintId ? ' selected' : '';
+        const statusIndicator = sprint.status === 'in-progress' ? ' ●' : '';
+        return `<option value="${escapeHtml(sprint.sprintId)}"${selected}>${escapeHtml(sprint.sprintId)}${statusIndicator}</option>`;
+    })
+        .join('');
+    return `
+    <nav class="nav-bar">
+      <div class="nav-left">
+        <a href="/dashboard" class="nav-link nav-back">← Back to Dashboard</a>
+        <span class="breadcrumb">
+          <a href="/dashboard" class="breadcrumb-link">Dashboard</a>
+          <span class="breadcrumb-separator">›</span>
+          <span class="breadcrumb-current">Sprint: ${escapeHtml(navigation.currentSprintId)}</span>
+        </span>
+      </div>
+      <div class="nav-right">
+        <label class="sprint-switcher">
+          <span class="sprint-switcher-label">Sprint:</span>
+          <select id="sprint-select" class="sprint-select" onchange="window.location.href='/sprint/' + this.value">
+            ${sprintOptions}
+          </select>
+        </label>
+      </div>
+    </nav>`;
+}
+/**
+ * Escape HTML special characters
+ */
+function escapeHtml(str) {
+    return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
 }
 /**
  * Generate the CSS styles for the status page
@@ -251,6 +335,103 @@ function getStyles() {
       flex-direction: column;
       height: 100vh;
       max-width: 100%;
+    }
+
+    /* Navigation Bar */
+    .nav-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 20px;
+      background-color: var(--bg-primary);
+      border-bottom: 1px solid var(--border-color);
+      flex-shrink: 0;
+    }
+
+    .nav-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .nav-link {
+      color: var(--accent-blue);
+      text-decoration: none;
+      font-size: 13px;
+      padding: 6px 12px;
+      border-radius: 6px;
+      transition: background-color 0.15s;
+    }
+
+    .nav-link:hover {
+      background-color: var(--bg-tertiary);
+    }
+
+    .nav-back {
+      font-weight: 500;
+    }
+
+    .breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .breadcrumb-link {
+      color: var(--accent-blue);
+      text-decoration: none;
+    }
+
+    .breadcrumb-link:hover {
+      text-decoration: underline;
+    }
+
+    .breadcrumb-separator {
+      color: var(--text-muted);
+    }
+
+    .breadcrumb-current {
+      color: var(--text-primary);
+    }
+
+    .sprint-switcher {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sprint-switcher-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .sprint-select {
+      background-color: var(--bg-tertiary);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      cursor: pointer;
+      min-width: 180px;
+    }
+
+    .sprint-select:hover {
+      border-color: var(--text-muted);
+    }
+
+    .sprint-select:focus {
+      outline: none;
+      border-color: var(--accent-blue);
     }
 
     /* Header */
@@ -656,6 +837,93 @@ function getStyles() {
       color: var(--text-secondary);
     }
 
+    /* Error Details Section */
+    .error-details {
+      margin-top: 8px;
+      margin-left: 32px;
+      background-color: rgba(218, 54, 51, 0.08);
+      border: 1px solid rgba(218, 54, 51, 0.3);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .error-details-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      width: 100%;
+      padding: 6px 10px;
+      background: none;
+      border: none;
+      color: var(--accent-red);
+      font-size: 11px;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .error-details-toggle:hover {
+      background-color: rgba(218, 54, 51, 0.12);
+    }
+
+    .error-details-toggle::before {
+      content: '▶';
+      font-size: 8px;
+      transition: transform 0.15s ease;
+    }
+
+    .error-details-toggle.expanded::before {
+      transform: rotate(90deg);
+    }
+
+    .error-details-content {
+      display: none;
+      padding: 10px;
+      border-top: 1px solid rgba(218, 54, 51, 0.2);
+    }
+
+    .error-details-content.expanded {
+      display: block;
+    }
+
+    .recovery-suggestion {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 8px 10px;
+      background-color: rgba(35, 134, 54, 0.1);
+      border: 1px solid rgba(35, 134, 54, 0.3);
+      border-radius: 4px;
+      margin-bottom: 10px;
+      font-size: 12px;
+      color: var(--accent-green);
+    }
+
+    .recovery-suggestion::before {
+      content: '💡';
+      flex-shrink: 0;
+    }
+
+    .error-message {
+      padding: 8px 10px;
+      background-color: var(--bg-secondary);
+      border-radius: 4px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-secondary);
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+
+    .error-message-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
     /* Content Area */
     .content {
       flex: 1;
@@ -972,8 +1240,33 @@ function getStyles() {
       animation: pulse 1s infinite;
     }
 
+    .status-dot.connection-lost {
+      background-color: var(--accent-red);
+      animation: pulse 1.5s infinite;
+    }
+
+    .status-dot.reconnecting {
+      background-color: var(--accent-yellow);
+      animation: pulse 1s infinite;
+    }
+
     .status-text {
       color: var(--text-secondary);
+    }
+
+    .connection-retry-btn {
+      background-color: var(--accent-blue);
+      color: white;
+      border: none;
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-size: 10px;
+      cursor: pointer;
+      margin-left: 6px;
+    }
+
+    .connection-retry-btn:hover {
+      background-color: #4090e0;
     }
 
     .elapsed {
@@ -1384,6 +1677,102 @@ function getStyles() {
       padding: 0 2px;
     }
 
+    .log-content-pre .highlight.current {
+      background-color: rgba(210, 153, 34, 0.6);
+      outline: 1px solid var(--accent-yellow);
+    }
+
+    /* Log line with line-numbers column */
+    .log-line {
+      display: flex;
+      min-height: 1.5em;
+    }
+
+    /* .log-line-number { width: 5ch; text-align: right; position: sticky; } */
+    .log-line-number {
+      width: 5ch;
+      min-width: 5ch;
+      text-align: right;
+      padding-right: 1ch;
+      color: var(--text-muted);
+      user-select: none;
+      position: sticky;
+      left: 0;
+      background-color: var(--bg-primary);
+      border-right: 1px solid var(--border-color);
+      margin-right: 1ch;
+      flex-shrink: 0;
+    }
+
+    .log-line-content {
+      flex: 1;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* .log-line.error { background-color: rgba(248, 81, 73, 0.15); } - red highlight for errors */
+    .log-line.error {
+      background-color: rgba(248, 81, 73, 0.15);
+    }
+
+    .log-line.error .log-line-number {
+      background-color: rgba(248, 81, 73, 0.15);
+      color: var(--accent-red);
+    }
+
+    /* Search navigation controls */
+    .log-search-nav {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .log-nav-btn {
+      padding: 6px 10px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background-color: var(--bg-tertiary);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .log-nav-btn:hover:not(:disabled) {
+      background-color: var(--bg-highlight);
+      border-color: var(--text-muted);
+    }
+
+    .log-nav-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .log-search-prev-btn,
+    .log-search-next-btn {
+      padding: 6px 8px;
+      min-width: 28px;
+    }
+
+    .log-jump-error-btn {
+      background-color: rgba(248, 81, 73, 0.1);
+      border-color: rgba(248, 81, 73, 0.3);
+      color: var(--accent-red);
+    }
+
+    .log-jump-error-btn:hover:not(:disabled) {
+      background-color: rgba(248, 81, 73, 0.2);
+      border-color: var(--accent-red);
+    }
+
+    .log-match-count {
+      font-size: 11px;
+      color: var(--text-secondary);
+      min-width: 80px;
+      text-align: center;
+    }
+
     .log-loading {
       color: var(--text-muted);
       text-align: center;
@@ -1560,6 +1949,24 @@ function getStyles() {
       background-color: #4a9eff;
     }
 
+    .test-notification-btn {
+      padding: 6px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background-color: var(--bg-tertiary);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      width: 100%;
+    }
+
+    .test-notification-btn:hover {
+      background-color: var(--bg-secondary);
+      border-color: var(--accent-blue);
+    }
+
     .notification-settings-toggle {
       display: flex;
       align-items: center;
@@ -1627,6 +2034,621 @@ function getStyles() {
       outline: none;
       border-color: var(--accent-blue);
     }
+
+    /* Keyboard Shortcuts Help Modal */
+    .shortcuts-help-content {
+      max-width: 360px;
+    }
+
+    .shortcuts-list {
+      margin-bottom: 16px;
+    }
+
+    .shortcut-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .shortcut-row:last-child {
+      border-bottom: none;
+    }
+
+    .shortcut-row kbd {
+      display: inline-block;
+      min-width: 32px;
+      padding: 4px 8px;
+      background-color: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      text-align: center;
+      color: var(--text-primary);
+    }
+
+    .shortcut-row span {
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    .modal-btn-primary {
+      background-color: var(--accent-blue);
+      border: 1px solid var(--accent-blue);
+      color: white;
+    }
+
+    .modal-btn-primary:hover {
+      background-color: #4a9eff;
+    }
+
+    /* Keyboard shortcut hints on buttons */
+    .kbd-hint {
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    /* =====================================================
+       PERFORMANCE METRICS SECTION
+       ===================================================== */
+
+    .performance-metrics {
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      margin-top: 16px;
+    }
+
+    .performance-metrics.collapsed {
+      max-height: 36px;
+      overflow: hidden;
+    }
+
+    .metrics-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .performance-metrics-content {
+      padding: 16px;
+      background-color: var(--bg-primary);
+    }
+
+    .metrics-loading {
+      color: var(--text-muted);
+      font-style: italic;
+      text-align: center;
+      padding: 24px;
+    }
+
+    .metrics-empty {
+      color: var(--text-muted);
+      font-style: italic;
+      text-align: center;
+      padding: 24px;
+    }
+
+    /* Phase Timing Table */
+    .phase-timing-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 16px;
+    }
+
+    .phase-timing-table th,
+    .phase-timing-table td {
+      padding: 8px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .phase-timing-table th {
+      color: var(--text-secondary);
+      font-weight: 500;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .phase-timing-table td {
+      font-size: 13px;
+    }
+
+    .phase-timing-name {
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    .phase-timing-time {
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-family: var(--font-mono);
+    }
+
+    .phase-timing-duration {
+      color: var(--accent-blue);
+      font-weight: 500;
+      font-family: var(--font-mono);
+    }
+
+    /* Bar Chart Visualization */
+    .timing-bar-container {
+      width: 100%;
+      min-width: 100px;
+    }
+
+    .timing-bar {
+      height: 16px;
+      background-color: var(--accent-blue);
+      border-radius: 3px;
+      min-width: 4px;
+      transition: width 0.3s ease;
+    }
+
+    .timing-bar.fast {
+      background-color: var(--accent-green);
+    }
+
+    .timing-bar.medium {
+      background-color: var(--accent-yellow);
+    }
+
+    .timing-bar.slow {
+      background-color: var(--accent-red);
+    }
+
+    /* Sprint Totals Summary */
+    .metrics-totals {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .metrics-total-item {
+      padding: 12px;
+      background-color: var(--bg-secondary);
+      border-radius: 6px;
+      text-align: center;
+    }
+
+    .metrics-total-label {
+      display: block;
+      color: var(--text-secondary);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .metrics-total-value {
+      display: block;
+      color: var(--text-primary);
+      font-size: 18px;
+      font-weight: 600;
+      font-family: var(--font-mono);
+    }
+
+    .metrics-total-value.highlight {
+      color: var(--accent-blue);
+    }
+
+    .metrics-total-subtitle {
+      display: block;
+      color: var(--text-muted);
+      font-size: 11px;
+      margin-top: 2px;
+    }
+
+    /* =====================================================
+       RESPONSIVE STYLES - Tablet and Mobile
+       ===================================================== */
+
+    /* Tablet Breakpoint: 1024px and below */
+    @media (max-width: 1024px) {
+      .sidebar {
+        width: 280px;
+      }
+
+      .nav-bar {
+        padding: 8px 16px;
+      }
+
+      .header {
+        padding: 10px 16px;
+      }
+
+      .content {
+        padding: 16px;
+      }
+
+      .nav-left {
+        gap: 12px;
+      }
+
+      .nav-right {
+        gap: 8px;
+      }
+
+      .sprint-switcher {
+        max-width: 180px;
+      }
+    }
+
+    /* Mobile Breakpoint: 768px and below */
+    @media (max-width: 768px) {
+      /* Main layout: stack vertically */
+      .main {
+        flex-direction: column;
+        overflow: auto;
+      }
+
+      .sidebar {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+        max-height: 40vh;
+        flex-shrink: 0;
+      }
+
+      .content {
+        flex: 1;
+        overflow: auto;
+        padding: 12px;
+      }
+
+      /* Navigation adjustments */
+      .nav-bar {
+        padding: 8px 12px;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .nav-left {
+        gap: 8px;
+      }
+
+      .nav-right {
+        gap: 6px;
+      }
+
+      .breadcrumb {
+        font-size: 12px;
+        gap: 4px;
+      }
+
+      .nav-link {
+        padding: 8px 10px;
+        font-size: 12px;
+      }
+
+      /* Header adjustments */
+      .header {
+        padding: 10px 12px;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .sprint-info h1 {
+        font-size: 16px;
+      }
+
+      .sprint-info-row {
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .progress-section {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+      }
+
+      .elapsed {
+        font-size: 12px;
+      }
+
+      /* Touch-friendly control buttons - 44px minimum height */
+      .control-btn {
+        padding: 12px 16px;
+        min-height: 44px;
+        font-size: 13px;
+      }
+
+      .controls {
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      /* Hide keyboard shortcut hints on mobile */
+      .kbd-hint {
+        display: none;
+      }
+
+      /* Sidebar title and phase tree */
+      .sidebar-title {
+        padding: 10px 12px 6px;
+        font-size: 10px;
+      }
+
+      .tree-node {
+        padding: 6px 10px 6px 0;
+      }
+
+      .tree-node-content {
+        padding: 6px 10px;
+      }
+
+      /* Activity panel on mobile */
+      .live-activity {
+        max-height: 250px;
+      }
+
+      .live-activity.collapsed {
+        max-height: 44px;
+      }
+
+      .activity-header {
+        padding: 10px 12px;
+        min-height: 44px;
+      }
+
+      .activity-header-left {
+        gap: 8px;
+      }
+
+      .collapse-btn {
+        min-width: 44px;
+        min-height: 44px;
+        padding: 10px;
+      }
+
+      .activity-controls select,
+      .activity-controls button {
+        min-height: 36px;
+        padding: 6px 10px;
+      }
+
+      /* Log viewer on mobile */
+      .log-viewer-body {
+        overflow-x: auto;
+        padding: 10px;
+      }
+
+      .log-viewer-body pre {
+        white-space: pre;
+        min-width: max-content;
+      }
+
+      .log-viewer-header {
+        padding: 12px;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .log-search-container {
+        width: 100%;
+        order: 1;
+      }
+
+      .log-search-input {
+        min-height: 40px;
+      }
+
+      .log-search-nav button {
+        min-width: 40px;
+        min-height: 40px;
+      }
+
+      .log-actions {
+        width: 100%;
+        justify-content: space-between;
+        order: 2;
+      }
+
+      .log-actions button {
+        min-height: 44px;
+        padding: 10px 14px;
+      }
+
+      /* Modal adjustments */
+      .modal-content {
+        margin: 10px;
+        max-height: calc(100vh - 20px);
+      }
+
+      .modal-header,
+      .modal-body,
+      .modal-footer {
+        padding: 12px;
+      }
+
+      .modal-btn {
+        min-height: 44px;
+        padding: 10px 16px;
+      }
+
+      /* Current task section */
+      .current-task {
+        padding: 12px;
+      }
+
+      .task-header h3 {
+        font-size: 11px;
+      }
+
+      .task-body {
+        padding: 10px;
+      }
+
+      /* Notification settings panel */
+      .notification-settings-panel {
+        width: calc(100vw - 20px);
+        max-width: 320px;
+        right: 10px;
+        top: auto;
+        bottom: 60px;
+      }
+
+      .notification-toggle,
+      .test-notification-btn {
+        min-height: 44px;
+      }
+
+      /* Toast notifications */
+      .toast-container {
+        bottom: 12px;
+        right: 12px;
+        left: 12px;
+        max-width: none;
+      }
+
+      .toast {
+        padding: 12px;
+      }
+
+      /* Estimate display */
+      .estimate-display {
+        font-size: 11px;
+        padding: 4px 8px;
+      }
+
+      /* Sprint switcher */
+      .sprint-switcher {
+        max-width: 140px;
+      }
+
+      .sprint-switcher select {
+        padding: 6px 8px;
+        font-size: 11px;
+      }
+
+      /* Connection status */
+      .connection-status {
+        font-size: 11px;
+        padding: 4px 8px;
+      }
+
+      /* Shortcuts modal */
+      .shortcuts-content {
+        width: calc(100vw - 20px);
+        max-width: 320px;
+      }
+
+      .shortcut-row {
+        padding: 10px 0;
+      }
+
+      .shortcut-row kbd {
+        min-width: 28px;
+        padding: 6px 10px;
+      }
+
+      /* Phase action buttons touch-friendly */
+      .phase-action-btn {
+        min-width: 44px;
+        min-height: 44px;
+        padding: 10px;
+      }
+
+      /* Skip/Retry buttons */
+      .skip-btn,
+      .retry-btn,
+      .view-log-btn {
+        min-height: 44px;
+        padding: 10px 14px;
+      }
+
+      /* Error details section */
+      .error-details {
+        padding: 10px;
+      }
+
+      .error-recovery {
+        padding: 8px;
+      }
+
+      /* Reduced padding throughout */
+      .section {
+        padding: 10px;
+      }
+
+      .card {
+        padding: 10px;
+      }
+    }
+
+    /* Very small mobile: 480px and below */
+    @media (max-width: 480px) {
+      body {
+        font-size: 12px;
+      }
+
+      .nav-bar {
+        padding: 6px 10px;
+      }
+
+      .header {
+        padding: 8px 10px;
+      }
+
+      .sprint-info h1 {
+        font-size: 14px;
+      }
+
+      .sidebar {
+        max-height: 35vh;
+      }
+
+      .content {
+        padding: 10px;
+      }
+
+      .control-btn {
+        padding: 10px 12px;
+        font-size: 12px;
+      }
+
+      .controls {
+        flex-direction: column;
+        width: 100%;
+      }
+
+      .controls .control-btn {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .modal-content {
+        margin: 5px;
+      }
+
+      .log-viewer-header {
+        padding: 10px;
+      }
+
+      .log-actions button {
+        padding: 8px 10px;
+        font-size: 11px;
+      }
+
+      /* Activity panel full collapse */
+      .activity-header {
+        padding: 8px 10px;
+      }
+
+      .activity-controls {
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+    }
   `;
 }
 /**
@@ -1670,6 +2692,10 @@ function getScript() {
         logViewerBody: document.getElementById('log-viewer-body'),
         logViewerClose: document.getElementById('log-viewer-close'),
         logSearchInput: document.getElementById('log-search-input'),
+        logSearchPrevBtn: document.getElementById('log-search-prev-btn'),
+        logSearchNextBtn: document.getElementById('log-search-next-btn'),
+        logMatchCount: document.getElementById('log-match-count'),
+        logJumpErrorBtn: document.getElementById('log-jump-error-btn'),
         logDownloadBtn: document.getElementById('log-download-btn'),
         downloadAllLogsBtn: document.getElementById('download-all-logs-btn'),
         notificationSettingsBtn: document.getElementById('notification-settings-btn'),
@@ -1684,15 +2710,25 @@ function getScript() {
         notifyHumanCheckbox: document.getElementById('notify-human'),
         soundEnabledCheckbox: document.getElementById('sound-enabled'),
         soundSelect: document.getElementById('sound-select'),
+        testNotificationBtn: document.getElementById('test-notification-btn'),
         estimateDisplay: document.getElementById('estimate-display'),
         estimateTime: document.getElementById('estimate-time'),
-        estimateConfidence: document.getElementById('estimate-confidence')
+        estimateConfidence: document.getElementById('estimate-confidence'),
+        shortcutsHelpModal: document.getElementById('shortcuts-help-modal'),
+        shortcutsCloseBtn: document.getElementById('shortcuts-close-btn'),
+        performanceMetricsSection: document.getElementById('performance-metrics-section'),
+        performanceMetricsContent: document.getElementById('performance-metrics-content'),
+        collapseMetricsBtn: document.getElementById('collapse-metrics-btn')
       };
 
       // State
       let eventSource = null;
       let reconnectAttempts = 0;
       const maxReconnectDelay = 30000;
+      const maxReconnectAttempts = 10;
+      let reconnectCountdown = 0;
+      let countdownTimer = null;
+      let wasReconnecting = false;
       const activityLog = [];
       const maxLogEntries = 100;
       let expandedNodes = new Set();
@@ -1706,8 +2742,28 @@ function getScript() {
       let activityAutoScroll = true;
       let activityCollapsed = false;
 
+      // Performance Metrics State
+      let metricsCollapsed = false;
+      let currentTimingData = null;
+
       // Verbosity level ordering for filtering
       const VERBOSITY_ORDER = { minimal: 0, basic: 1, detailed: 2, verbose: 3 };
+
+      // Recovery suggestions for error categories
+      const RECOVERY_SUGGESTIONS = {
+        'network': 'Check internet connection and retry',
+        'rate-limit': 'Wait a few minutes before retrying',
+        'timeout': 'Phase took too long - try breaking into smaller steps',
+        'validation': 'Review input/output requirements',
+        'logic': "Review Claude's reasoning in the log"
+      };
+
+      // Track which error details sections are expanded
+      let expandedErrorDetails = new Set();
+
+      function getRecoverySuggestion(category) {
+        return RECOVERY_SUGGESTIONS[category] || 'An error occurred. Check the log for details.';
+      }
 
       // Phase action state
       let pendingSkipPhaseId = null;
@@ -1716,10 +2772,36 @@ function getScript() {
       // Log viewer state
       let currentLogPhaseId = null;
       let currentLogContent = '';
+      let currentMatchIndex = 0;
+      let totalMatches = 0;
+      let matchElements = [];
 
       // Notification state
       let previousSprintStatus = null;
       let notificationPreferences = loadNotificationPreferences();
+
+      // Shared AudioContext for notification sounds (pre-initialized on user interaction)
+      let sharedAudioContext = null;
+      let audioContextInitialized = false;
+
+      // Pre-initialize AudioContext on first user click (required by browser autoplay policy)
+      function initAudioContextOnUserInteraction() {
+        if (audioContextInitialized) return;
+        try {
+          sharedAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+          // Resume if suspended (required by some browsers)
+          if (sharedAudioContext.state === 'suspended') {
+            sharedAudioContext.resume();
+          }
+          audioContextInitialized = true;
+          console.log('[Notifications] AudioContext pre-initialized on user interaction');
+        } catch (e) {
+          console.warn('[Notifications] Failed to pre-initialize AudioContext:', e);
+        }
+      }
+
+      // Set up one-time click listener for AudioContext initialization
+      document.addEventListener('click', initAudioContextOnUserInteraction, { once: true });
 
       function getDefaultNotificationPreferences() {
         return {
@@ -1846,6 +2928,8 @@ function getScript() {
         setupSkipModal();
         setupLogViewer();
         setupNotifications();
+        setupKeyboardShortcuts();
+        setupPerformanceMetrics();
         // Update elapsed time every second
         setInterval(updateElapsedTimes, 1000);
         // Update relative times in activity panel
@@ -1859,12 +2943,14 @@ function getScript() {
         elements.downloadAllLogsBtn.addEventListener('click', downloadAllLogs);
         elements.logSearchInput.addEventListener('input', handleLogSearch);
 
-        // Close on Escape key
-        document.addEventListener('keydown', function(e) {
-          if (e.key === 'Escape' && elements.logViewerModal.classList.contains('visible')) {
-            hideLogViewer();
-          }
-        });
+        // Search navigation buttons
+        elements.logSearchPrevBtn.addEventListener('click', navigateToPrevMatch);
+        elements.logSearchNextBtn.addEventListener('click', navigateToNextMatch);
+        elements.logJumpErrorBtn.addEventListener('click', jumpToFirstError);
+
+        // Initialize navigation buttons as disabled
+        elements.logSearchPrevBtn.disabled = true;
+        elements.logSearchNextBtn.disabled = true;
 
         // Close on backdrop click
         elements.logViewerModal.addEventListener('click', function(e) {
@@ -1879,6 +2965,12 @@ function getScript() {
         elements.logViewerTitle.textContent = 'Log: ' + phaseId;
         elements.logViewerBody.innerHTML = '<div class="log-loading">Loading log...</div>';
         elements.logSearchInput.value = '';
+        elements.logMatchCount.textContent = '';
+        currentMatchIndex = 0;
+        totalMatches = 0;
+        matchElements = [];
+        elements.logSearchPrevBtn.disabled = true;
+        elements.logSearchNextBtn.disabled = true;
         elements.logViewerModal.classList.add('visible');
 
         fetchLogContent(phaseId);
@@ -1906,24 +2998,129 @@ function getScript() {
         }
       }
 
-      function renderLogContent(content, searchTerm) {
-        let html = ansiToHtml(content);
+      // Error detection patterns for log lines
+      var errorPatterns = [
+        /\\berror\\b/i,
+        /\\bfailed\\b/i,
+        /\\bfailure\\b/i,
+        /\\bexception\\b/i,
+        /^Error:/,
+        /^Uncaught/,
+        /\\[ERROR\\]/,
+        /\\[FATAL\\]/
+      ];
 
-        // Apply search highlighting if search term is provided
-        if (searchTerm && searchTerm.length > 0) {
-          // Escape regex special characters in the search term
-          var escapedTerm = escapeHtml(searchTerm).replace(/[.*+?^$\\{\\}()|\\[\\]\\\\]/g, '\\\\$&');
-          var regex = new RegExp('(' + escapedTerm + ')', 'gi');
-          html = html.replace(regex, '<span class="highlight">$1</span>');
+      function isErrorLine(line) {
+        for (var i = 0; i < errorPatterns.length; i++) {
+          if (errorPatterns[i].test(line)) {
+            return true;
+          }
+        }
+        return false;
+      }
+
+      function renderLogContent(content, searchTerm) {
+        // Split content into lines
+        var lines = content.split('\\n');
+        var linesHtml = [];
+
+        for (var i = 0; i < lines.length; i++) {
+          var lineNum = i + 1;
+          var lineContent = ansiToHtml(lines[i]);
+          var isError = isErrorLine(lines[i]);
+
+          // Apply search highlighting if search term is provided
+          if (searchTerm && searchTerm.length > 0) {
+            var escapedTerm = escapeHtml(searchTerm).replace(/[.*+?^$\\{\\}()|\\[\\]\\\\]/g, '\\\\$&');
+            var regex = new RegExp('(' + escapedTerm + ')', 'gi');
+            lineContent = lineContent.replace(regex, '<span class="highlight">$1</span>');
+          }
+
+          var lineClass = 'log-line' + (isError ? ' error' : '');
+          linesHtml.push(
+            '<div class="' + lineClass + '">' +
+            '<span class="log-line-number">' + lineNum + '</span>' +
+            '<span class="log-line-content">' + (lineContent || ' ') + '</span>' +
+            '</div>'
+          );
         }
 
-        elements.logViewerBody.innerHTML = '<pre class="log-content-pre">' + html + '</pre>';
+        elements.logViewerBody.innerHTML = '<pre class="log-content-pre">' + linesHtml.join('') + '</pre>';
+
+        // Reset search state and update match count after rendering
+        currentMatchIndex = 0;
+        matchElements = Array.from(elements.logViewerBody.querySelectorAll('.highlight'));
+        totalMatches = matchElements.length;
+        updateMatchCountDisplay();
+        updateCurrentMatchHighlight();
       }
 
       function handleLogSearch() {
         const searchTerm = elements.logSearchInput.value;
         if (currentLogContent) {
           renderLogContent(currentLogContent, searchTerm);
+        }
+      }
+
+      function updateMatchCountDisplay() {
+        if (totalMatches > 0) {
+          elements.logMatchCount.textContent = (currentMatchIndex + 1) + ' of ' + totalMatches + ' matches';
+          elements.logSearchPrevBtn.disabled = false;
+          elements.logSearchNextBtn.disabled = false;
+        } else if (elements.logSearchInput.value.length > 0) {
+          elements.logMatchCount.textContent = '0 matches';
+          elements.logSearchPrevBtn.disabled = true;
+          elements.logSearchNextBtn.disabled = true;
+        } else {
+          elements.logMatchCount.textContent = '';
+          elements.logSearchPrevBtn.disabled = true;
+          elements.logSearchNextBtn.disabled = true;
+        }
+      }
+
+      function updateCurrentMatchHighlight() {
+        // Remove current highlight from all matches
+        for (var i = 0; i < matchElements.length; i++) {
+          matchElements[i].classList.remove('current');
+        }
+        // Add current highlight to the active match
+        if (matchElements.length > 0 && currentMatchIndex < matchElements.length) {
+          matchElements[currentMatchIndex].classList.add('current');
+        }
+      }
+
+      function navigateToNextMatch() {
+        if (totalMatches === 0) return;
+        currentMatchIndex = (currentMatchIndex + 1) % totalMatches;
+        updateMatchCountDisplay();
+        updateCurrentMatchHighlight();
+        scrollToCurrentMatch();
+      }
+
+      function navigateToPrevMatch() {
+        if (totalMatches === 0) return;
+        currentMatchIndex = (currentMatchIndex - 1 + totalMatches) % totalMatches;
+        updateMatchCountDisplay();
+        updateCurrentMatchHighlight();
+        scrollToCurrentMatch();
+      }
+
+      function scrollToCurrentMatch() {
+        if (matchElements.length > 0 && currentMatchIndex < matchElements.length) {
+          matchElements[currentMatchIndex].scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
+          });
+        }
+      }
+
+      function jumpToFirstError() {
+        var errorLine = elements.logViewerBody.querySelector('.log-line.error');
+        if (errorLine) {
+          errorLine.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
+          });
         }
       }
 
@@ -2024,6 +3221,11 @@ function getScript() {
             playNotificationSound(this.value);
           }
         });
+
+        // Test notification button click handler
+        elements.testNotificationBtn.addEventListener('click', function() {
+          showNotification('Test', 'Notification test successful!');
+        });
       }
 
       function updateNotificationPermissionUI() {
@@ -2105,29 +3307,55 @@ function getScript() {
       }
 
       function showNotification(title, body) {
-        var notification = new Notification(title, {
-          body: body,
-          icon: '/favicon.ico',
-          tag: 'sprint-status'
-        });
-
-        notification.onclick = function() { window.focus(); notification.close(); };
-
-        // Play sound if enabled
-        if (notificationPreferences.sound.enabled) {
-          playNotificationSound(notificationPreferences.sound.soundId);
+        // Check if Notification API is available
+        if (!('Notification' in window)) {
+          console.warn('[Notifications] Notification API not available');
+          showToast('info', title + ': ' + body);
+          return;
         }
 
-        // Auto-close after 10 seconds
-        setTimeout(function() {
-          notification.close();
-        }, 10000);
+        // Check permission
+        if (Notification.permission !== 'granted') {
+          console.warn('[Notifications] Permission not granted, current:', Notification.permission);
+          showToast('info', title + ': ' + body);
+          return;
+        }
+
+        try {
+          var notification = new Notification(title, {
+            body: body,
+            icon: '/favicon.ico',
+            tag: 'sprint-status'
+          });
+
+          notification.onclick = function() { window.focus(); notification.close(); };
+
+          // Play sound if enabled
+          if (notificationPreferences.sound.enabled) {
+            playNotificationSound(notificationPreferences.sound.soundId);
+          }
+
+          // Auto-close after 10 seconds
+          setTimeout(function() {
+            notification.close();
+          }, 10000);
+        } catch (e) {
+          console.error('[Notifications] Failed to show notification:', e);
+          showToast('info', title + ': ' + body);
+        }
       }
 
       function playNotificationSound(soundId) {
         // Use Web Audio API to generate notification sounds
         try {
-          var audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          // Use shared AudioContext if available (pre-initialized on user interaction)
+          var audioContext = sharedAudioContext || new (window.AudioContext || window.webkitAudioContext)();
+
+          // Resume if suspended
+          if (audioContext.state === 'suspended') {
+            audioContext.resume();
+          }
+
           var oscillator = audioContext.createOscillator();
           var gainNode = audioContext.createGain();
 
@@ -2164,7 +3392,126 @@ function getScript() {
               oscillator.stop(audioContext.currentTime + 0.3);
           }
         } catch (e) {
-          console.error('Failed to play notification sound:', e);
+          console.error('[Notifications] Failed to play notification sound:', e);
+        }
+      }
+
+      // Keyboard Shortcuts Setup
+      function setupKeyboardShortcuts() {
+        // Close button for shortcuts help modal
+        elements.shortcutsCloseBtn.addEventListener('click', hideShortcutsHelpModal);
+
+        // Close shortcuts modal on backdrop click
+        elements.shortcutsHelpModal.addEventListener('click', function(e) {
+          if (e.target === elements.shortcutsHelpModal) {
+            hideShortcutsHelpModal();
+          }
+        });
+
+        // Global keydown handler
+        document.addEventListener('keydown', handleGlobalKeydown);
+      }
+
+      function handleGlobalKeydown(e) {
+        // Ignore shortcuts when typing in input fields
+        const target = e.target;
+        const tagName = target.tagName.toLowerCase();
+        if (tagName === 'input' || tagName === 'textarea' || target.isContentEditable) {
+          // Only handle Escape in input fields to close modals
+          if (e.key === 'Escape') {
+            closeAllModals();
+          }
+          return;
+        }
+
+        const key = e.key.toLowerCase();
+
+        // Handle Escape key to close all modals
+        if (e.key === 'Escape') {
+          closeAllModals();
+          return;
+        }
+
+        // Handle ? key for shortcuts help (requires shift, so check e.key directly)
+        if (e.key === '?') {
+          e.preventDefault();
+          toggleShortcutsHelpModal();
+          return;
+        }
+
+        // Handle P key for Pause/Resume
+        if (key === 'p') {
+          if (currentSprintStatus === 'in-progress') {
+            handlePauseClick();
+          } else if (currentSprintStatus === 'paused') {
+            handleResumeClick();
+          }
+          return;
+        }
+
+        // Handle L key for Live Activity toggle
+        if (key === 'l') {
+          toggleLiveActivity();
+          return;
+        }
+
+        // Handle N key for Notification settings
+        if (key === 'n') {
+          elements.notificationSettingsPanel.classList.toggle('visible');
+          return;
+        }
+
+        // Handle D key for Download all logs
+        if (key === 'd') {
+          downloadAllLogs();
+          return;
+        }
+      }
+
+      function closeAllModals() {
+        // Close all modal overlays
+        if (elements.stopConfirmModal.classList.contains('visible')) {
+          hideStopModal();
+        }
+        if (elements.skipConfirmModal.classList.contains('visible')) {
+          hideSkipModal();
+        }
+        if (elements.logViewerModal.classList.contains('visible')) {
+          hideLogViewer();
+        }
+        if (elements.shortcutsHelpModal.classList.contains('visible')) {
+          hideShortcutsHelpModal();
+        }
+        // Close notification settings panel
+        if (elements.notificationSettingsPanel.classList.contains('visible')) {
+          elements.notificationSettingsPanel.classList.remove('visible');
+        }
+      }
+
+      function showShortcutsHelpModal() {
+        elements.shortcutsHelpModal.classList.add('visible');
+      }
+
+      function hideShortcutsHelpModal() {
+        elements.shortcutsHelpModal.classList.remove('visible');
+      }
+
+      function toggleShortcutsHelpModal() {
+        if (elements.shortcutsHelpModal.classList.contains('visible')) {
+          hideShortcutsHelpModal();
+        } else {
+          showShortcutsHelpModal();
+        }
+      }
+
+      function toggleLiveActivity() {
+        activityCollapsed = !activityCollapsed;
+        if (activityCollapsed) {
+          elements.liveActivitySection.classList.add('collapsed');
+          elements.collapseActivityBtn.textContent = '▶';
+        } else {
+          elements.liveActivitySection.classList.remove('collapsed');
+          elements.collapseActivityBtn.textContent = '▼';
         }
       }
 
@@ -2434,6 +3781,11 @@ function getScript() {
         eventSource = new EventSource('/events');
 
         eventSource.onopen = function() {
+          clearCountdownTimer();
+          // Show toast if we were reconnecting
+          if (reconnectAttempts > 0) {
+            showToast('success', 'Connection restored');
+          }
           reconnectAttempts = 0;
           updateConnectionStatus('connected');
         };
@@ -2476,15 +3828,63 @@ function getScript() {
         });
       }
 
+      function clearCountdownTimer() {
+        if (countdownTimer) {
+          clearInterval(countdownTimer);
+          countdownTimer = null;
+        }
+        reconnectCountdown = 0;
+      }
+
+      function startCountdownTimer(delaySec) {
+        clearCountdownTimer();
+        reconnectCountdown = delaySec;
+        updateConnectionStatus('reconnecting');
+
+        countdownTimer = setInterval(function() {
+          reconnectCountdown--;
+          if (reconnectCountdown > 0) {
+            updateConnectionStatus('reconnecting');
+          } else {
+            clearCountdownTimer();
+          }
+        }, 1000);
+      }
+
       function scheduleReconnect() {
         reconnectAttempts++;
+
+        // Check if max attempts reached
+        if (reconnectAttempts > maxReconnectAttempts) {
+          clearCountdownTimer();
+          updateConnectionStatus('connection-lost');
+          return;
+        }
+
         const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), maxReconnectDelay);
+        const delaySec = Math.ceil(delay / 1000);
+
+        // Start countdown timer
+        startCountdownTimer(delaySec);
+
         setTimeout(connect, delay);
+      }
+
+      function manualReconnect() {
+        reconnectAttempts = 0;
+        clearCountdownTimer();
+        connect();
       }
 
       function updateConnectionStatus(status) {
         const dot = elements.connectionStatus.querySelector('.status-dot');
         const text = elements.connectionStatus.querySelector('.status-text');
+
+        // Remove existing retry button if present
+        const existingBtn = elements.connectionStatus.querySelector('.connection-retry-btn');
+        if (existingBtn) {
+          existingBtn.remove();
+        }
 
         dot.className = 'status-dot ' + status;
 
@@ -2497,6 +3897,18 @@ function getScript() {
             break;
           case 'disconnected':
             text.textContent = 'Disconnected - Reconnecting...';
+            break;
+          case 'reconnecting':
+            text.textContent = 'Reconnecting in ' + reconnectCountdown + 's... (attempt ' + reconnectAttempts + '/' + maxReconnectAttempts + ')';
+            break;
+          case 'connection-lost':
+            text.textContent = 'Connection lost';
+            // Add retry button
+            const retryBtn = document.createElement('button');
+            retryBtn.className = 'connection-retry-btn';
+            retryBtn.textContent = 'Retry';
+            retryBtn.onclick = manualReconnect;
+            elements.connectionStatus.appendChild(retryBtn);
             break;
         }
       }
@@ -2514,6 +3926,9 @@ function getScript() {
         updateHeader(update.header);
         updatePhaseTree(update.phaseTree);
         updateCurrentTask(update.currentTask);
+
+        // Refresh performance metrics on status updates
+        fetchTimingData();
       }
 
       function updateHeader(header) {
@@ -2653,6 +4068,28 @@ function getScript() {
         elements.phaseTree.querySelectorAll('.log-viewer-toggle').forEach(btn => {
           btn.addEventListener('click', handleViewLogClick);
         });
+
+        // Add click handlers for error details toggle buttons
+        elements.phaseTree.querySelectorAll('.error-details-toggle').forEach(btn => {
+          btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const errorId = this.dataset.errorId;
+            const contentId = 'error-details-' + errorId.replace(/[^a-zA-Z0-9]/g, '-');
+            const content = document.getElementById(contentId);
+
+            if (content) {
+              if (expandedErrorDetails.has(errorId)) {
+                expandedErrorDetails.delete(errorId);
+                content.classList.remove('expanded');
+                this.classList.remove('expanded');
+              } else {
+                expandedErrorDetails.add(errorId);
+                content.classList.add('expanded');
+                this.classList.add('expanded');
+              }
+            }
+          });
+        });
       }
 
       function renderTreeNode(node, parentPath = '') {
@@ -2734,6 +4171,31 @@ function getScript() {
         html += '</span>';
 
         html += '</div>';
+
+        // Add error details expandable section for failed phases with errors
+        if (node.status === 'failed' && (node.error || errorCategory)) {
+          var errorDetailsId = 'error-details-' + nodePath.replace(/[^a-zA-Z0-9]/g, '-');
+          var isErrorExpanded = expandedErrorDetails.has(nodePath);
+
+          html += '<div class="error-details">';
+          html += '<button class="error-details-toggle' + (isErrorExpanded ? ' expanded' : '') + '" data-error-id="' + escapeHtml(nodePath) + '">';
+          html += 'View Error Details';
+          html += '</button>';
+          html += '<div class="error-details-content' + (isErrorExpanded ? ' expanded' : '') + '" id="' + escapeHtml(errorDetailsId) + '">';
+
+          // Recovery suggestion based on error category
+          var suggestion = getRecoverySuggestion(errorCategory);
+          html += '<div class="recovery-suggestion">' + escapeHtml(suggestion) + '</div>';
+
+          // Error message
+          if (node.error) {
+            html += '<div class="error-message-label">Error Details</div>';
+            html += '<div class="error-message">' + escapeHtml(node.error) + '</div>';
+          }
+
+          html += '</div>';
+          html += '</div>';
+        }
 
         if (hasChildren) {
           html += '<div class="tree-children' + (isExpanded ? '' : ' collapsed') + '">';
@@ -2953,6 +4415,124 @@ function getScript() {
         });
       }
 
+      // Performance Metrics Functions
+      function setupPerformanceMetrics() {
+        // Toggle collapse button for metrics section
+        if (elements.collapseMetricsBtn) {
+          elements.collapseMetricsBtn.addEventListener('click', function() {
+            metricsCollapsed = !metricsCollapsed;
+            if (metricsCollapsed) {
+              elements.performanceMetricsSection.classList.add('collapsed');
+              this.textContent = '▶';
+            } else {
+              elements.performanceMetricsSection.classList.remove('collapsed');
+              this.textContent = '▼';
+            }
+          });
+        }
+
+        // Initial fetch
+        fetchTimingData();
+      }
+
+      async function fetchTimingData() {
+        try {
+          const response = await fetch('/api/timing');
+          if (!response.ok) {
+            throw new Error('Failed to fetch timing data');
+          }
+          const data = await response.json();
+          currentTimingData = data;
+          renderPerformanceMetrics(data);
+        } catch (err) {
+          console.error('[PerformanceMetrics] Error fetching timing data:', err);
+          if (elements.performanceMetricsContent) {
+            elements.performanceMetricsContent.innerHTML = '<div class="metrics-empty">Unable to load timing data</div>';
+          }
+        }
+      }
+
+      function formatMetricsDuration(ms) {
+        if (ms <= 0) return '0s';
+        const seconds = Math.floor(ms / 1000) % 60;
+        const minutes = Math.floor(ms / (1000 * 60)) % 60;
+        const hours = Math.floor(ms / (1000 * 60 * 60));
+
+        if (hours > 0) return hours + 'h ' + minutes + 'm';
+        if (minutes > 0) return minutes + 'm ' + seconds + 's';
+        return seconds + 's';
+      }
+
+      function getTimingBarClass(durationMs, maxDurationMs) {
+        const ratio = durationMs / maxDurationMs;
+        if (ratio <= 0.33) return 'fast';
+        if (ratio <= 0.66) return 'medium';
+        return 'slow';
+      }
+
+      function renderPerformanceMetrics(data) {
+        if (!elements.performanceMetricsContent) return;
+
+        const stats = data.historicalStats || [];
+
+        if (stats.length === 0) {
+          elements.performanceMetricsContent.innerHTML = '<div class="metrics-empty">No timing data available yet</div>';
+          return;
+        }
+
+        // Calculate totals
+        const maxDuration = Math.max(...stats.map(function(s) { return s.avgDurationMs; }));
+        const totalDurationMs = stats.reduce(function(sum, s) { return sum + s.avgDurationMs; }, 0);
+        const avgPhaseDuration = totalDurationMs / stats.length;
+        const longestPhase = stats.reduce(function(max, s) { return s.avgDurationMs > max.avgDurationMs ? s : max; });
+        const shortestPhase = stats.reduce(function(min, s) { return s.avgDurationMs < min.avgDurationMs ? s : min; });
+
+        // Build phase timing table HTML
+        let tableHtml = '<table class="phase-timing-table">' +
+          '<thead><tr>' +
+          '<th>Phase</th>' +
+          '<th>Duration</th>' +
+          '<th>Bar</th>' +
+          '</tr></thead><tbody>';
+
+        stats.forEach(function(stat) {
+          const widthPercent = maxDuration > 0 ? (stat.avgDurationMs / maxDuration) * 100 : 0;
+          const barClass = getTimingBarClass(stat.avgDurationMs, maxDuration);
+
+          tableHtml += '<tr>' +
+            '<td><span class="phase-timing-name">' + escapeHtml(stat.phaseId) + '</span></td>' +
+            '<td><span class="phase-timing-duration">' + formatMetricsDuration(stat.avgDurationMs) + '</span></td>' +
+            '<td><div class="timing-bar-container"><div class="timing-bar ' + barClass + '" style="width: ' + widthPercent + '%"></div></div></td>' +
+            '</tr>';
+        });
+
+        tableHtml += '</tbody></table>';
+
+        // Build totals HTML
+        let totalsHtml = '<div class="metrics-totals">' +
+          '<div class="metrics-total-item">' +
+            '<span class="metrics-total-label">Total Execution Time</span>' +
+            '<span class="metrics-total-value highlight">' + formatMetricsDuration(totalDurationMs) + '</span>' +
+          '</div>' +
+          '<div class="metrics-total-item">' +
+            '<span class="metrics-total-label">Average Phase Duration</span>' +
+            '<span class="metrics-total-value">' + formatMetricsDuration(avgPhaseDuration) + '</span>' +
+          '</div>' +
+          '<div class="metrics-total-item">' +
+            '<span class="metrics-total-label">Longest Phase</span>' +
+            '<span class="metrics-total-value">' + formatMetricsDuration(longestPhase.avgDurationMs) + '</span>' +
+            '<span class="metrics-total-subtitle">' + escapeHtml(longestPhase.phaseId) + '</span>' +
+          '</div>' +
+          '<div class="metrics-total-item">' +
+            '<span class="metrics-total-label">Shortest Phase</span>' +
+            '<span class="metrics-total-value">' + formatMetricsDuration(shortestPhase.avgDurationMs) + '</span>' +
+            '<span class="metrics-total-subtitle">' + escapeHtml(shortestPhase.phaseId) + '</span>' +
+          '</div>' +
+          '</div>';
+
+        elements.performanceMetricsContent.innerHTML = tableHtml + totalsHtml;
+      }
+
       // Utilities
       function escapeHtml(text) {
         const div = document.createElement('div');
@@ -2987,6 +4567,13 @@ function getScript() {
       }
 
       function updateElapsedTimes() {
+        // Skip updates for terminal/paused statuses
+        // Timer stops for: 'completed', 'failed', 'blocked', 'needs-human'
+        // Timer freezes for: 'paused' (resumes when status changes back to 'in-progress')
+        if (currentSprintStatus && ['completed', 'failed', 'blocked', 'needs-human', 'paused'].includes(currentSprintStatus)) {
+          return;
+        }
+
         // Update footer elapsed time
         const startedAt = elements.elapsed.dataset.startedAt;
         if (startedAt) {

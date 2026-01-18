@@ -1,0 +1,273 @@
+# Sprint: Simplification Audit Workflow
+# Creates a workflow for identifying unnecessary complexity, dead code, and removal opportunities
+#
+# Philosophy: The best code is no code. This workflow helps identify what to REMOVE.
+
+workflow: gherkin-verified-execution
+sprint-id: 2026-01-17_simplification-audit-workflow
+
+name: Simplification Audit Workflow Implementation
+
+steps:
+  # Step 1: Top-level workflow
+  - id: step-0
+    prompt: |
+      Create the top-level simplification audit workflow.
+
+      ## Context
+      Read: context/implementation-plan.md (full design rationale and architecture)
+      Read: context/codebase-hygiene-guide.md (maintenance patterns and metrics)
+
+      ## File to Create
+      `.claude/workflows/simplification-audit.yaml`
+
+      ## Workflow Structure
+      4 phases:
+
+      ### Phase 1: preflight
+      - Create audit branch
+      - Parse optional `target` config from SPRINT.yaml (path, include, exclude globs)
+      - Default to whole codebase if no target specified
+      - Create context/_audit-scope.md documenting what will be analyzed
+
+      ### Phase 2: inventory
+      - Map all exports, files, dependencies within scope
+      - Create artifacts/audit-inventory.md with:
+        - File count, LOC, dependency count
+        - Export map (file → symbols)
+        - Dependency list (package → version → usage locations)
+      - Establish metrics baseline (from codebase-hygiene-guide.md):
+        - Technical debt ratio (target: <5%)
+        - Code duplication percentage (target: <3%)
+        - Dependency freshness (flag anything >30 days outdated)
+        - Stale branches (>2-3 weeks without activity)
+      - This baseline measures reduction and tracks health
+
+      ### Phase 3: analysis
+      - for-each: step
+      - workflow: analysis-step-workflow
+      - Each step analyzes one dimension (dead-code, abstractions, dependencies, patterns, config)
+
+      ### Phase 4: synthesis
+      - Read all *-findings.md artifacts
+      - Create artifacts/simplification-plan.md with tiered removal queue:
+        - Tier 1: Safe immediate deletion (no dependents)
+        - Tier 2: Simple removal (few dependents, clear migration)
+        - Tier 3: Requires migration path
+        - Tier 4: Breaking change, needs deprecation
+      - Generate artifacts/removal-sprint.yaml - a follow-up sprint for executing removals
+      - Calculate projected reduction metrics
+
+      ## Reference
+      Use gherkin-verified-execution.yaml as pattern for phase structure.
+      Use template variables: {{sprint.id}}, {{phase.id}}
+
+  # Step 2: Analysis step workflow
+  - id: step-1
+    prompt: |
+      Create the per-step analysis workflow.
+
+      ## Context
+      Read: context/implementation-plan.md (analysis dimensions and classification system)
+      Read: context/codebase-hygiene-guide.md (tool recommendations and quadrant approach)
+
+      ## File to Create
+      `.claude/workflows/analysis-step-workflow.yaml`
+
+      ## Workflow Structure
+      3 phases per analysis step:
+
+      ### Phase 1: investigate
+      - Read context/_audit-scope.md for target boundaries
+      - Read artifacts/audit-inventory.md for baseline data
+      - Run analysis commands specific to {{step.id}}:
+        - dead-code:
+          - grep for exports, cross-reference imports
+          - Find debugging artifacts: console.log(), debugger statements
+          - Find commented-out code blocks
+          - Identify test-only exports (only imported by *.test.ts)
+        - abstractions: find interfaces/abstract classes, count implementations
+        - dependencies:
+          - Run `depcheck` or `npm-check` for unused packages
+          - Analyze import frequency (single-function usage)
+          - Check for stdlib replacements
+        - patterns: find similar code blocks, inconsistent approaches
+        - config: find env vars, feature flags, check if values vary
+      - Gather raw findings
+
+      ### Phase 2: document
+      - Create artifacts/{{step.id}}-findings.md with structured format:
+        - Executive summary (X items found, Y high priority)
+        - Findings table: Item | Location | Impact | Effort | Confidence | Tier | Recommendation
+        - Detailed analysis for each finding
+        - Verification commands to confirm findings
+
+      ### Phase 3: score
+      - Classify each finding using Impact × Effort quadrant (from codebase-hygiene-guide.md):
+        - Impact: HIGH (affects core functionality, security, performance) / LOW (cosmetic, isolated)
+        - Effort: TRIVIAL (<5min) / SMALL (5-30min) / MEDIUM (30min-2hr) / LARGE (2-8hr)
+        - Quadrant determines action:
+          - High-Impact + Low-Effort → Fix immediately (Tier 1)
+          - High-Impact + High-Effort → Schedule (Tier 3)
+          - Low-Impact + Low-Effort → Fix opportunistically (Tier 2)
+          - Low-Impact + High-Effort → Document and defer (Tier 4)
+      - Also classify:
+        - Confidence: HIGH (static proof) / MEDIUM (strong indicators) / LOW (needs verification)
+      - Update findings document with classifications
+      - Commit: `git add artifacts/{{step.id}}-findings.md && git commit -m "audit({{step.id}}): document findings"`
+
+      ## Reference
+      Use gherkin-step-workflow.yaml as pattern for phase structure.
+
+  # Step 3: Removal workflow
+  - id: step-2
+    prompt: |
+      Create the removal execution workflow.
+
+      ## Context
+      Read: context/implementation-plan.md (tier system and follow-up sprint concept)
+
+      ## File to Create
+      `.claude/workflows/removal-workflow.yaml`
+
+      ## Purpose
+      This workflow executes the removal sprint generated by simplification-audit.
+      It's a development workflow (makes changes) not an analysis workflow.
+
+      ## Workflow Structure
+      4 phases:
+
+      ### Phase 1: preflight
+      - Read the original audit's simplification-plan.md
+      - Verify findings are still valid (code hasn't changed)
+      - Create removal branch
+      - Document what will be removed
+
+      ### Phase 2: removal (for-each step)
+      - workflow: removal-step-workflow (simple 3-phase: remove → verify → commit)
+      - Each step is a removal action from the tiered plan
+
+      ### Phase 3: verification
+      - Run full build, typecheck, lint, tests
+      - Verify no regressions
+      - Calculate actual reduction metrics
+      - Compare against projected metrics from audit
+
+      ### Phase 4: summary
+      - Document what was removed
+      - Show before/after metrics
+      - Create PR with removal summary
+
+  # Step 4: SKILL documentation
+  - id: step-3
+    prompt: |
+      Create the simplification audit skill documentation.
+
+      ## Context
+      Read: context/implementation-plan.md (full philosophy, classification system, examples)
+      Read: context/codebase-hygiene-guide.md (tool recommendations, metrics, maintenance patterns)
+
+      ## File to Create
+      `plugins/m42-sprint/skills/simplification-audit/SKILL.md`
+
+      ## Content Structure
+
+      ### Frontmatter
+      - name: simplification-audit
+      - description: Identify unnecessary complexity, dead code, and removal opportunities
+      - triggers: "simplification audit", "find dead code", "reduce complexity", "what can I remove"
+
+      ### Overview
+      - Philosophy: Best code is no code
+      - When to use: After features stabilize, before major releases, when codebase feels bloated
+      - Output: Prioritized removal plan + executable follow-up sprint
+
+      ### Analysis Dimensions
+      Document each of the 5 analysis steps:
+      1. dead-code - Unused exports, unreachable paths, test-only code, debugging artifacts (console.log, debugger), commented-out code
+      2. abstractions - Rule of Three violations, premature optimization
+      3. dependencies - Unused packages, single-function usage, stdlib replacements
+      4. patterns - Duplicate code, inconsistent approaches, multiple implementations
+      5. config - Dead flags, constant values, unused env vars
+
+      ### Recommended Tools
+      Document tools for each dimension (from codebase-hygiene-guide.md):
+      - `depcheck` / `npm-check` - unused dependency detection
+      - `jscpd` - code duplication detection
+      - ESLint rules: `no-console`, `no-debugger` - debugging artifacts
+      - `gitleaks` - accidental secrets detection
+      - `docker system prune` - container cleanup (if applicable)
+
+      ### Classification System (Impact × Effort Quadrant)
+      - Impact: HIGH (core functionality, security, perf) / LOW (cosmetic, isolated)
+      - Effort: TRIVIAL (<5min) / SMALL (5-30min) / MEDIUM (30min-2hr) / LARGE (2-8hr)
+      - Confidence: HIGH (static proof) / MEDIUM (strong indicators) / LOW (needs verification)
+      - Quadrant → Tier mapping:
+        - High-Impact + Low-Effort → Tier 1 (fix immediately)
+        - Low-Impact + Low-Effort → Tier 2 (fix opportunistically)
+        - High-Impact + High-Effort → Tier 3 (schedule)
+        - Low-Impact + High-Effort → Tier 4 (document/defer)
+
+      ### Metrics Targets
+      - Technical debt ratio: <5%
+      - Code duplication: <3%
+      - Dependency freshness: nothing >30 days outdated
+      - Stale branches: flag >2-3 weeks inactive
+
+      ### Example SPRINT.yaml
+      Show both scoped and whole-codebase examples
+
+      ### Workflow
+      1. Create SPRINT.yaml with target scope
+      2. Run audit sprint
+      3. Review findings in artifacts/
+      4. Approve removal-sprint.yaml
+      5. Run removal sprint
+
+      ## Reference
+      Follow creating-skills patterns for structure.
+
+  # Step 5: Example sprint definitions
+  - id: step-4
+    prompt: |
+      Create example SPRINT.yaml files for the simplification audit.
+
+      ## Context
+      Read: context/implementation-plan.md (example usage section with SPRINT.yaml templates)
+
+      ## Files to Create
+
+      ### 1. Scoped audit example
+      `plugins/m42-sprint/skills/simplification-audit/assets/scoped-audit-example.yaml`
+
+      ```yaml
+      workflow: simplification-audit
+      sprint-id: YYYY-MM-DD_module-simplification
+
+      target:
+        path: src/utils
+        include: "**/*.ts"
+        exclude: "**/*.test.ts"
+
+      steps:
+        - id: dead-code
+          prompt: Identify unused exports and unreachable code paths
+        - id: abstractions
+          prompt: Find over-abstracted patterns violating Rule of Three
+        - id: dependencies
+          prompt: Identify removable dependencies
+        - id: patterns
+          prompt: Find duplicate utilities and inconsistent patterns
+        - id: config
+          prompt: Identify dead configuration and constant flags
+      ```
+
+      ### 2. Full codebase audit example
+      `plugins/m42-sprint/skills/simplification-audit/assets/full-audit-example.yaml`
+
+      Same structure but without target (analyzes everything).
+
+      ### 3. Quick audit example (subset of dimensions)
+      `plugins/m42-sprint/skills/simplification-audit/assets/quick-audit-example.yaml`
+
+      Only dead-code and dependencies steps for faster analysis.

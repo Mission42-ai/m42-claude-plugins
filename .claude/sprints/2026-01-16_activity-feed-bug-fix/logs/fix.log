@@ -1,0 +1,15 @@
+**Fix phase complete.**
+
+## Summary
+
+I've implemented the fix for the Activity Feed bug. The root cause was that `.sprint-hooks.json` was being generated but never applied to Claude Code (since the CLI has no `--hook-config` flag - hooks must be registered in `.claude/settings.json`).
+
+### Changes Made:
+1. **`plugins/m42-sprint/commands/run-sprint.md`**: Updated to merge sprint hooks into `.claude/settings.json` instead of just creating `.sprint-hooks.json`
+2. **`plugins/m42-sprint/commands/stop-sprint.md`**: Added cleanup logic to remove sprint hooks on stop
+3. **`plugins/m42-sprint/scripts/sprint-loop.sh`**: Updated cleanup trap to remove hook from settings on exit
+
+### Commit:
+`4dca6c8` - fix(m42-sprint): register activity hooks in .claude/settings.json
+
+PROGRESS.yaml updated: Phase 2 (fix) marked complete, pointer advanced to Phase 3 (verify).

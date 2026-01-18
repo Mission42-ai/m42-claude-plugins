@@ -1,0 +1,16 @@
+Context sub-phase completed. I gathered implementation context for step-7 which includes:
+
+**Findings:**
+- Error category types (`ErrorCategory`) are already defined in `types.ts`
+- CSS styling for error category badges already exists in `page.ts`
+- Error category badge display is already implemented in `renderTreeNode()`
+- The `error` field is passed through the transform pipeline to `PhaseTreeNode`
+
+**What needs to be added:**
+1. `RECOVERY_SUGGESTIONS` mapping with all 5 error categories and messages
+2. `getRecoverySuggestion()` function to lookup suggestions
+3. CSS styles for `.error-details`, `.recovery-suggestion`, `.error-message`
+4. "View Error Details" expandable section in phase cards for failed phases
+5. Click handlers to toggle the expandable section
+
+The context document is now at `context/step-7-context.md` with detailed patterns and implementation notes.

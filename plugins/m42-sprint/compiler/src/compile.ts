@@ -98,7 +98,7 @@ export async function compile(config: CompilerConfig): Promise<CompilerResult> {
   }
 
   if (config.verbose) {
-    console.log(`Loaded SPRINT.yaml: ${sprintDef.steps.length} steps`);
+    console.log(`Loaded SPRINT.yaml: ${sprintDef.steps.length} steps`); // intentional
   }
 
   // Load the main workflow
@@ -128,7 +128,7 @@ export async function compile(config: CompilerConfig): Promise<CompilerResult> {
   }
 
   if (config.verbose) {
-    console.log(`Loaded workflow: ${mainWorkflow.definition.name} (${mainWorkflow.definition.phases.length} phases)`);
+    console.log(`Loaded workflow: ${mainWorkflow.definition.name} (${mainWorkflow.definition.phases.length} phases)`); // intentional
   }
 
   // Resolve all workflow references (for cycle detection and validation)

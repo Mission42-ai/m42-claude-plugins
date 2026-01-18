@@ -25,6 +25,15 @@ if ! command -v yq &> /dev/null; then
   exit 1
 fi
 
+# Build previous step context if available (passed via environment variables)
+PREV_CONTEXT=""
+if [[ -n "${PREV_TRANSCRIPT_FILE:-}" ]] && [[ -f "$PREV_TRANSCRIPT_FILE" ]]; then
+  PREV_CONTEXT="
+## Previous Step Output
+- Transcript (JSON): $PREV_TRANSCRIPT_FILE
+- Log (text): ${PREV_LOG_FILE:-}"
+fi
+
 # Read current pointer
 PHASE_IDX=$(yq -r '.current.phase // 0' "$PROGRESS_FILE")
 STEP_IDX=$(yq -r '.current.step // "null"' "$PROGRESS_FILE")
@@ -180,6 +189,7 @@ EOF
 ## Files
 - Progress: $PROGRESS_FILE
 - Sprint: $SPRINT_DIR/SPRINT.yaml
+$PREV_CONTEXT
 
 ## Breaking the Loop
 
@@ -270,6 +280,7 @@ EOF
 ## Files
 - Progress: $PROGRESS_FILE
 - Sprint: $SPRINT_DIR/SPRINT.yaml
+$PREV_CONTEXT
 
 ## Breaking the Loop
 

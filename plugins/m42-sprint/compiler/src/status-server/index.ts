@@ -10,6 +10,7 @@ import { Command } from 'commander';
 import * as fs from 'fs';
 import * as path from 'path';
 import { StatusServer } from './server.js';
+import { openBrowser } from './browser.js';
 
 const program = new Command();
 
@@ -22,7 +23,8 @@ program
   .argument('<sprint-dir>', 'Path to the sprint directory containing PROGRESS.yaml')
   .option('-p, --port <number>', 'Port to listen on', '3100')
   .option('-H, --host <host>', 'Host to bind to', 'localhost')
-  .action(async (sprintDir: string, options: { port: string; host: string }) => {
+  .option('--no-browser', 'Disable automatic browser opening')
+  .action(async (sprintDir: string, options: { port: string; host: string; browser: boolean }) => {
     try {
       // Resolve paths
       const absoluteSprintDir = path.resolve(sprintDir);
@@ -60,7 +62,7 @@ program
 
       // Handle graceful shutdown
       const shutdown = async (signal: string) => {
-        console.log(`\n${signal} received, shutting down...`);
+        console.log(`\n${signal} received, shutting down...`); // intentional
 
         // Delete port file
         try {
@@ -80,18 +82,25 @@ program
 
       // Start server
       await server.start();
+      await server.waitForReady();
 
       // Write port to discovery file
       fs.writeFileSync(portFilePath, port.toString(), 'utf-8');
 
       // Display server URL
       const url = server.getUrl();
-      console.log(`Sprint Status Server started`);
-      console.log(`  URL: ${url}`);
-      console.log(`  Watching: ${progressYamlPath}`);
-      console.log(`  Port file: ${portFilePath}`);
-      console.log('');
-      console.log('Press Ctrl+C to stop');
+      console.log(`Sprint Status Server started`); // intentional
+      console.log(`  URL: ${url}`); // intentional
+      console.log(`  Watching: ${progressYamlPath}`); // intentional
+      console.log(`  Port file: ${portFilePath}`); // intentional
+
+      // Open browser if not disabled
+      if (options.browser) {
+        openBrowser(url);
+      }
+
+      console.log(''); // intentional
+      console.log('Press Ctrl+C to stop'); // intentional
     } catch (error) {
       console.error(
         'Failed to start server:',

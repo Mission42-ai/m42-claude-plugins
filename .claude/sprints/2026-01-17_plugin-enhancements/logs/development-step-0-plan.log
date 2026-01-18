@@ -1,0 +1,14 @@
+⚠️  [BashTool] Pre-flight check is taking longer than expected. Run with ANTHROPIC_LOG=debug to check for failed or slow API requests.
+**Plan sub-phase complete for step-0.**
+
+Created `artifacts/step-0-gherkin.md` with 6 binary-verifiable scenarios:
+1. **Status check exists** - verifies `updateElapsedTimes()` references `currentSprintStatus`
+2. **Completed handling** - timer stops on 'completed' status
+3. **Failed handling** - timer stops on 'failed' status
+4. **Blocked handling** - timer stops on 'blocked' status
+5. **Paused handling** - timer freezes on 'paused' status
+6. **TypeScript validity** - code compiles without errors
+
+The implementation should modify the `updateElapsedTimes()` function (line ~2989) to check `currentSprintStatus` and skip updates for terminal/paused states.
+
+**Exiting as instructed.**
