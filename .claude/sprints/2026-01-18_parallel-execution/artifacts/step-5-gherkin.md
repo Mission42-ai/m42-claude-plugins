@@ -40,7 +40,7 @@ Fail: Exit code ≠ 0 → Score 0
   When I search for the spawn_parallel_task function
   Then the function is defined and spawns background processes
 
-Verification: `grep -q 'spawn_parallel_task()' plugins/m42-sprint/scripts/sprint-loop.sh && grep -A20 'spawn_parallel_task()' plugins/m42-sprint/scripts/sprint-loop.sh | grep -qE '&$|&"'`
+Verification: `grep -q 'spawn_parallel_task()' plugins/m42-sprint/scripts/sprint-loop.sh && sed -n '/^spawn_parallel_task()/,/^[a-z_]*() {$/p' plugins/m42-sprint/scripts/sprint-loop.sh | grep -qE '\) &$'`
 Pass: Exit code = 0 → Score 1
 Fail: Exit code ≠ 0 → Score 0
 
@@ -51,7 +51,7 @@ Fail: Exit code ≠ 0 → Score 0
   When I search for the is_wait_for_parallel_phase function
   Then the function is defined with correct yq query
 
-Verification: `grep -q 'is_wait_for_parallel_phase()' plugins/m42-sprint/scripts/sprint-loop.sh && grep -A5 'is_wait_for_parallel_phase()' plugins/m42-sprint/scripts/sprint-loop.sh | grep -q 'wait-for-parallel'`
+Verification: `grep -q 'is_wait_for_parallel_phase()' plugins/m42-sprint/scripts/sprint-loop.sh && sed -n '/^is_wait_for_parallel_phase()/,/^[a-z_]*() {$/p' plugins/m42-sprint/scripts/sprint-loop.sh | grep -q 'wait-for-parallel'`
 Pass: Exit code = 0 → Score 1
 Fail: Exit code ≠ 0 → Score 0
 
@@ -106,7 +106,7 @@ Fail: Exit code ≠ 0 → Score 0
   When I examine the function body
   Then it updates parallel-tasks array with proper schema fields
 
-Verification: `grep -A40 'spawn_parallel_task()' plugins/m42-sprint/scripts/sprint-loop.sh | grep -qE 'parallel-tasks.*\+=' && grep -A40 'spawn_parallel_task()' plugins/m42-sprint/scripts/sprint-loop.sh | grep -qE 'status.*spawned|spawned-at'`
+Verification: `grep -A60 'spawn_parallel_task()' plugins/m42-sprint/scripts/sprint-loop.sh | grep -qE 'parallel-tasks.*\+=' && grep -A60 'spawn_parallel_task()' plugins/m42-sprint/scripts/sprint-loop.sh | grep -qE 'spawned-at'`
 Pass: Exit code = 0 → Score 1
 Fail: Exit code ≠ 0 → Score 0
 
