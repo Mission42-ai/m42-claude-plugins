@@ -15,6 +15,7 @@ Guide for authoring sprint workflow definitions in `.claude/workflows/`.
 | Phase | Individual step with prompt or iteration |
 | For-Each | Phase that iterates over sprint steps |
 | Template Variables | Dynamic values substituted at runtime |
+| Ralph Mode | Autonomous goal-driven workflow (no predefined phases) |
 
 ## Workflow Location
 
@@ -75,6 +76,7 @@ Do you need to process multiple sprint steps?
 | For-Each Development | Step iteration | `development` phase with `for-each: step` |
 | Nested Workflow | Complex step execution | For-each phase referencing step workflow |
 | Hybrid | Mixed phases | Simple + for-each combined |
+| Ralph Mode | Autonomous goal-driven | `mode: ralph` with dynamic steps |
 
 ## Template Variables
 
@@ -117,9 +119,46 @@ phases:
     prompt: "Create PR and finalize"
 ```
 
+## Ralph Mode Workflows
+
+Ralph Mode enables autonomous goal-driven execution where Claude creates steps dynamically instead of following predefined phases.
+
+### Ralph Mode Structure
+
+```yaml
+name: My Ralph Workflow
+mode: ralph
+
+goal-prompt: |
+  Analyze goal and create steps...
+
+reflection-prompt: |
+  Evaluate if goal is complete...
+
+per-iteration-hooks:
+  - id: learning
+    workflow: "m42-signs:learning-extraction"
+    parallel: true
+    enabled: false
+```
+
+### Per-Iteration Hooks
+
+Hooks are deterministic tasks that run every iteration:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique hook identifier |
+| `workflow` | string | External workflow/plugin reference |
+| `prompt` | string | Inline prompt (alternative to workflow) |
+| `parallel` | boolean | Run non-blocking in background |
+| `enabled` | boolean | Default enabled state |
+
+See `references/workflow-schema.md` for full Ralph Mode schema.
+
 ## References
 
-- `references/workflow-schema.md` - Complete YAML schema
+- `references/workflow-schema.md` - Complete YAML schema (includes Ralph Mode)
 - `references/template-variables.md` - All available variables
 - `references/phase-types.md` - Simple vs for-each phases
 - `references/workflow-patterns.md` - Common patterns

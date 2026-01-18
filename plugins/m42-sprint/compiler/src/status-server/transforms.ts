@@ -102,7 +102,7 @@ export function countPhases(progress: CompiledProgress): { total: number; comple
   let total = 0;
   let completed = 0;
 
-  for (const topPhase of progress.phases) {
+  for (const topPhase of progress.phases ?? []) {
     if (topPhase.steps) {
       // For-each phase: count sub-phases within each step
       for (const step of topPhase.steps) {
@@ -221,7 +221,7 @@ function buildTopPhaseNode(topPhase: CompiledTopPhase, depth: number): PhaseTree
  * Build the complete phase tree from CompiledProgress
  */
 export function buildPhaseTree(progress: CompiledProgress): PhaseTreeNode[] {
-  return progress.phases.map((p) => buildTopPhaseNode(p, 0));
+  return (progress.phases ?? []).map((p) => buildTopPhaseNode(p, 0));
 }
 
 // ============================================================================
@@ -239,8 +239,8 @@ function buildCurrentPath(
 ): string {
   const parts: string[] = [];
 
-  if (phaseIdx >= 0 && phaseIdx < progress.phases.length) {
-    const phase = progress.phases[phaseIdx];
+  if (phaseIdx >= 0 && phaseIdx < (progress.phases?.length ?? 0)) {
+    const phase = progress.phases![phaseIdx];
     parts.push(phase.id);
 
     if (stepIdx !== null && phase.steps && stepIdx >= 0 && stepIdx < phase.steps.length) {
@@ -263,11 +263,11 @@ function buildCurrentPath(
 export function extractCurrentTask(progress: CompiledProgress): CurrentTask | null {
   const { phase: phaseIdx, step: stepIdx, 'sub-phase': subPhaseIdx } = progress.current;
 
-  if (phaseIdx < 0 || phaseIdx >= progress.phases.length) {
+  if (phaseIdx < 0 || phaseIdx >= (progress.phases?.length ?? 0)) {
     return null;
   }
 
-  const phase = progress.phases[phaseIdx];
+  const phase = progress.phases![phaseIdx];
 
   // If we're not in-progress, no current task
   if (progress.status !== 'in-progress') {
@@ -413,7 +413,7 @@ export function generateDiffLogEntries(
       { status: PhaseStatus; startedAt?: string; completedAt?: string }
     >();
 
-    for (const phase of progress.phases) {
+    for (const phase of progress.phases ?? []) {
       const phasePath = phase.id;
       result.set(phasePath, {
         status: phase.status,

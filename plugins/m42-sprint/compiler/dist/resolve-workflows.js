@@ -114,7 +114,7 @@ function loadWorkflow(name, workflowsDir, errors) {
  */
 function resolveWorkflowRefs(workflow, workflowsDir, visited = new Set(), errors = []) {
     const resolved = new Map();
-    for (const phase of workflow.phases) {
+    for (const phase of workflow.phases ?? []) {
         if (phase.workflow) {
             // Check for cycles
             if (visited.has(phase.workflow)) {

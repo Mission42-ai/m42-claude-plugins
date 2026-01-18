@@ -3,14 +3,27 @@
  *
  * Schema validation for SPRINT.yaml and workflow definitions
  */
-import type { CompiledProgress, CompilerError } from './types.js';
+import type { SprintDefinition, WorkflowDefinition, CompiledProgress, CompilerError } from './types.js';
 /**
- * Validate a sprint definition (SPRINT.yaml)
+ * Validate a sprint definition (SPRINT.yaml) - basic validation
+ *
+ * This performs minimal validation before workflow is loaded.
+ * The `steps` array requirement is deferred to validateStandardModeSprint()
+ * because Ralph mode sprints don't use steps.
  *
  * @param sprint - The sprint definition to validate
  * @returns Array of validation errors
  */
 export declare function validateSprintDefinition(sprint: unknown): CompilerError[];
+/**
+ * Validate standard mode sprint requirements
+ *
+ * Called after workflow is loaded to validate sprint-specific standard mode requirements.
+ *
+ * @param sprint - The sprint definition
+ * @returns Array of validation errors
+ */
+export declare function validateStandardModeSprint(sprint: SprintDefinition): CompilerError[];
 /**
  * Validate a single sprint step
  *
@@ -27,6 +40,25 @@ export declare function validateSprintStep(step: unknown, index: number): Compil
  * @returns Array of validation errors
  */
 export declare function validateWorkflowDefinition(workflow: unknown, name: string): CompilerError[];
+/**
+ * Validate a per-iteration hook
+ *
+ * @param hook - The hook to validate
+ * @param index - Index of the hook
+ * @param workflowName - Name of the containing workflow
+ * @returns Array of validation errors
+ */
+export declare function validatePerIterationHook(hook: unknown, index: number, workflowName: string): CompilerError[];
+/**
+ * Validate Ralph mode sprint requirements
+ *
+ * Called after workflow is loaded to validate sprint-specific Ralph mode requirements.
+ *
+ * @param sprint - The sprint definition
+ * @param workflow - The workflow definition (known to be Ralph mode)
+ * @returns Array of validation errors
+ */
+export declare function validateRalphModeSprint(sprint: SprintDefinition, workflow: WorkflowDefinition): CompilerError[];
 /**
  * Validate a single workflow phase
  *

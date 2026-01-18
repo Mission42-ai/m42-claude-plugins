@@ -756,7 +756,9 @@ class StatusServer extends events_1.EventEmitter {
         const parts = phaseId.split(' > ').map(p => p.trim());
         if (parts.length === 0)
             return null;
-        // Find top-level phase
+        // Find top-level phase (Ralph mode has no phases)
+        if (!progress.phases)
+            return null;
         const phaseIndex = progress.phases.findIndex(p => p.id === parts[0]);
         if (phaseIndex === -1)
             return null;
@@ -1161,7 +1163,7 @@ class StatusServer extends events_1.EventEmitter {
                 else {
                     // No more steps, move to next phase
                     current.step = 0;
-                    if (location.phaseIndex < progress.phases.length - 1) {
+                    if (location.phaseIndex < (progress.phases?.length ?? 0) - 1) {
                         current.phase = location.phaseIndex + 1;
                     }
                 }
@@ -1176,7 +1178,7 @@ class StatusServer extends events_1.EventEmitter {
             else {
                 // No more steps, move to next phase
                 current.step = 0;
-                if (location.phaseIndex < progress.phases.length - 1) {
+                if (location.phaseIndex < (progress.phases?.length ?? 0) - 1) {
                     current.phase = location.phaseIndex + 1;
                 }
             }
@@ -1185,7 +1187,7 @@ class StatusServer extends events_1.EventEmitter {
             // Skipped a top-level phase, move to next phase
             current.step = 0;
             current['sub-phase'] = 0;
-            if (location.phaseIndex < progress.phases.length - 1) {
+            if (location.phaseIndex < (progress.phases?.length ?? 0) - 1) {
                 current.phase = location.phaseIndex + 1;
             }
         }
@@ -1218,7 +1220,7 @@ class StatusServer extends events_1.EventEmitter {
     updateProgressStats(progress) {
         let completedPhases = 0;
         let totalPhases = 0;
-        for (const phase of progress.phases) {
+        for (const phase of progress.phases ?? []) {
             if (phase.steps) {
                 for (const step of phase.steps) {
                     if (step.phases) {

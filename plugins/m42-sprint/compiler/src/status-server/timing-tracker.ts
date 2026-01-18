@@ -208,8 +208,9 @@ export class TimingTracker {
     let totalSampleSize = 0;
     let sampleCount = 0;
 
-    // Iterate through all phases and calculate estimates
-    for (const topPhase of progress.phases) {
+    // Iterate through all phases and calculate estimates (Ralph mode has no phases)
+    const phases = progress.phases ?? [];
+    for (const topPhase of phases) {
       if (topPhase.steps) {
         // For-each phase with steps
         for (const step of topPhase.steps) {
