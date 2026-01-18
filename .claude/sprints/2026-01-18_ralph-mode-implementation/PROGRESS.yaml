@@ -377,6 +377,13 @@ phases:
 
 
 
+
+
+
+
+
+
+
                 ↓
               step-3
       ```
@@ -413,6 +420,13 @@ phases:
       - context/sprint-plan.md with step analysis
 
       - Commit preflight artifacts:
+
+
+
+
+
+
+
 
 
 
@@ -4780,10 +4794,10 @@ phases:
               - Set status to needs-human
               - Do NOT leave partial/broken implementation
             started-at: "2026-01-18T21:43:52Z"
-            completed-at: "2026-01-18T21:48:20Z"
+            completed-at: "2026-01-18T21:49:53Z"
             elapsed: 00:04:28
           - id: qa
-            status: in-progress
+            status: completed
             prompt: |
               Verify implementation against gherkin scenarios.
 
@@ -4901,6 +4915,7 @@ phases:
               - EVERY scenario must pass for the step to be complete
               - Failed QA MUST inject fix phases, not just report
               - This creates a self-healing loop until all pass
+            error: step-3 QA failed - see report - fix phase injected
           - id: verify
             status: pending
             prompt: |
@@ -5038,6 +5053,38 @@ phases:
               This is the final gate before moving to the next step.
               The step's gherkin scenarios already passed in QA.
               This phase ensures the step works in the broader context.
+          - id: fix
+            status: pending
+            prompt: |-
+              Fix failing scenarios for step-3.
+
+              ## Context
+              Read: artifacts/step-3-qa-report.md
+
+              ## Instructions
+              1. Review each FAIL scenario
+              2. Fix the implementation to make it pass
+              3. Re-run the verification command to confirm
+              4. Make atomic commits for each fix
+
+              ## After Fixing
+              Do NOT mark as complete until ALL verifications pass.
+          - id: reverify
+            status: pending
+            prompt: |-
+              Re-verify all scenarios after fixes.
+
+              ## Instructions
+              Re-run ALL verification commands from artifacts/step-3-gherkin.md
+
+              ## If ALL pass:
+              - Update artifacts/step-3-qa-report.md with PASS status
+              - Commit the updated report
+
+              ## If ANY still fail:
+              - Update the QA report with new results
+              - Inject another fix phase using yq
+              - Loop continues until all pass
       - id: step-4
         prompt: >
           Führe einen End-to-End Test der Ralph Mode Implementierung durch.
@@ -5271,11 +5318,25 @@ phases:
 
 
 
+
+
+
+
+
+
+
             Create a simple hello.ts file that exports a greet function.
             The function should take a name and return "Hello, {name}!".
             Include a test file hello.test.ts with basic tests.
 
           per-iteration-hooks:
+
+
+
+
+
+
+
 
 
 
@@ -5799,11 +5860,25 @@ phases:
 
 
 
+
+
+
+
+
+
+
             Given test-ralph-e2e Sprint existiert
             When Compiler ausgeführt wird
             Then wird PROGRESS.yaml mit mode: ralph generiert
 
           Scenario: E2E Prompt Generation alle Modi
+
+
+
+
+
+
+
 
 
 
@@ -6239,11 +6314,25 @@ phases:
 
 
 
+
+
+
+
+
+
+
             Given PROGRESS.yaml mit mode: ralph
             When sprint-loop.sh die Mode prüft
             Then erkennt es Ralph Mode
 
           Scenario: E2E Cleanup
+
+
+
+
+
+
+
 
 
 
@@ -6720,11 +6809,25 @@ phases:
 
 
 
+
+
+
+
+
+
+
                 Create a simple hello.ts file that exports a greet function.
                 The function should take a name and return "Hello, {name}!".
                 Include a test file hello.test.ts with basic tests.
 
               per-iteration-hooks:
+
+
+
+
+
+
+
 
 
 
@@ -7248,11 +7351,25 @@ phases:
 
 
 
+
+
+
+
+
+
+
                 Given test-ralph-e2e Sprint existiert
                 When Compiler ausgeführt wird
                 Then wird PROGRESS.yaml mit mode: ralph generiert
 
               Scenario: E2E Prompt Generation alle Modi
+
+
+
+
+
+
+
 
 
 
@@ -7688,11 +7805,25 @@ phases:
 
 
 
+
+
+
+
+
+
+
                 Given PROGRESS.yaml mit mode: ralph
                 When sprint-loop.sh die Mode prüft
                 Then erkennt es Ralph Mode
 
               Scenario: E2E Cleanup
+
+
+
+
+
+
+
 
 
 
@@ -8173,6 +8304,13 @@ phases:
 
 
 
+
+
+
+
+
+
+
                 Given [precondition or context]
                 When [action taken]
                 Then [expected outcome]
@@ -8194,6 +8332,13 @@ phases:
               ```gherkin
 
               Scenario: Source file exists
+
+
+
+
+
+
+
 
 
 
@@ -8642,6 +8787,13 @@ phases:
 
 
 
+
+
+
+
+
+
+
                 Given the file src/auth/service.ts exists
                 When I run the TypeScript compiler
                 Then no compilation errors occur
@@ -8660,6 +8812,13 @@ phases:
               ```gherkin
 
               Scenario: Login function is exported
+
+
+
+
+
+
+
 
 
 
@@ -9108,6 +9267,13 @@ phases:
 
 
 
+
+
+
+
+
+
+
                 Given tests exist in src/auth/service.test.ts
                 When I run the test suite
                 Then all tests pass
@@ -9126,6 +9292,13 @@ phases:
               ```gherkin
 
               Scenario: Code passes linting
+
+
+
+
+
+
+
 
 
 
@@ -9597,11 +9770,25 @@ phases:
 
 
 
+
+
+
+
+
+
+
                 Create a simple hello.ts file that exports a greet function.
                 The function should take a name and return "Hello, {name}!".
                 Include a test file hello.test.ts with basic tests.
 
               per-iteration-hooks:
+
+
+
+
+
+
+
 
 
 
@@ -10125,11 +10312,25 @@ phases:
 
 
 
+
+
+
+
+
+
+
                 Given test-ralph-e2e Sprint existiert
                 When Compiler ausgeführt wird
                 Then wird PROGRESS.yaml mit mode: ralph generiert
 
               Scenario: E2E Prompt Generation alle Modi
+
+
+
+
+
+
+
 
 
 
@@ -10565,11 +10766,25 @@ phases:
 
 
 
+
+
+
+
+
+
+
                 Given PROGRESS.yaml mit mode: ralph
                 When sprint-loop.sh die Mode prüft
                 Then erkennt es Ralph Mode
 
               Scenario: E2E Cleanup
+
+
+
+
+
+
+
 
 
 
@@ -11086,11 +11301,25 @@ phases:
 
 
 
+
+
+
+
+
+
+
                 Create a simple hello.ts file that exports a greet function.
                 The function should take a name and return "Hello, {name}!".
                 Include a test file hello.test.ts with basic tests.
 
               per-iteration-hooks:
+
+
+
+
+
+
+
 
 
 
@@ -11614,11 +11843,25 @@ phases:
 
 
 
+
+
+
+
+
+
+
                 Given test-ralph-e2e Sprint existiert
                 When Compiler ausgeführt wird
                 Then wird PROGRESS.yaml mit mode: ralph generiert
 
               Scenario: E2E Prompt Generation alle Modi
+
+
+
+
+
+
+
 
 
 
@@ -12054,11 +12297,25 @@ phases:
 
 
 
+
+
+
+
+
+
+
                 Given PROGRESS.yaml mit mode: ralph
                 When sprint-loop.sh die Mode prüft
                 Then erkennt es Ralph Mode
 
               Scenario: E2E Cleanup
+
+
+
+
+
+
+
 
 
 
@@ -12524,11 +12781,25 @@ phases:
 
 
 
+
+
+
+
+
+
+
                  - Find similar implementations to follow as patterns
                  - Identify modules this step will import from
                  - Note any interfaces/types to implement or extend
 
               2. **Dependencies**
+
+
+
+
+
+
+
 
 
 
@@ -12964,11 +13235,25 @@ phases:
 
 
 
+
+
+
+
+
+
+
                  - How will this code be called/used?
                  - What modules will import from this step's output?
                  - Are there existing tests to extend?
 
               4. **Specific Patterns**
+
+
+
+
+
+
+
 
 
 
@@ -13431,11 +13716,25 @@ phases:
 
 
 
+
+
+
+
+
+
+
                 Create a simple hello.ts file that exports a greet function.
                 The function should take a name and return "Hello, {name}!".
                 Include a test file hello.test.ts with basic tests.
 
               per-iteration-hooks:
+
+
+
+
+
+
+
 
 
 
@@ -13959,11 +14258,25 @@ phases:
 
 
 
+
+
+
+
+
+
+
                 Given test-ralph-e2e Sprint existiert
                 When Compiler ausgeführt wird
                 Then wird PROGRESS.yaml mit mode: ralph generiert
 
               Scenario: E2E Prompt Generation alle Modi
+
+
+
+
+
+
+
 
 
 
@@ -14399,11 +14712,25 @@ phases:
 
 
 
+
+
+
+
+
+
+
                 Given PROGRESS.yaml mit mode: ralph
                 When sprint-loop.sh die Mode prüft
                 Then erkennt es Ralph Mode
 
               Scenario: E2E Cleanup
+
+
+
+
+
+
+
 
 
 
@@ -14894,6 +15221,13 @@ phases:
 
 
 
+
+
+
+
+
+
+
                 [relevant fields]
               }
 
@@ -15167,11 +15501,25 @@ phases:
 
 
 
+
+
+
+
+
+
+
                 Create a simple hello.ts file that exports a greet function.
                 The function should take a name and return "Hello, {name}!".
                 Include a test file hello.test.ts with basic tests.
 
               per-iteration-hooks:
+
+
+
+
+
+
+
 
 
 
@@ -15695,11 +16043,25 @@ phases:
 
 
 
+
+
+
+
+
+
+
                 Given test-ralph-e2e Sprint existiert
                 When Compiler ausgeführt wird
                 Then wird PROGRESS.yaml mit mode: ralph generiert
 
               Scenario: E2E Prompt Generation alle Modi
+
+
+
+
+
+
+
 
 
 
@@ -16135,11 +16497,25 @@ phases:
 
 
 
+
+
+
+
+
+
+
                 Given PROGRESS.yaml mit mode: ralph
                 When sprint-loop.sh die Mode prüft
                 Then erkennt es Ralph Mode
 
               Scenario: E2E Cleanup
+
+
+
+
+
+
+
 
 
 
@@ -16823,11 +17199,25 @@ phases:
 
 
 
+
+
+
+
+
+
+
                 Create a simple hello.ts file that exports a greet function.
                 The function should take a name and return "Hello, {name}!".
                 Include a test file hello.test.ts with basic tests.
 
               per-iteration-hooks:
+
+
+
+
+
+
+
 
 
 
@@ -17351,11 +17741,25 @@ phases:
 
 
 
+
+
+
+
+
+
+
                 Given test-ralph-e2e Sprint existiert
                 When Compiler ausgeführt wird
                 Then wird PROGRESS.yaml mit mode: ralph generiert
 
               Scenario: E2E Prompt Generation alle Modi
+
+
+
+
+
+
+
 
 
 
@@ -17791,11 +18195,25 @@ phases:
 
 
 
+
+
+
+
+
+
+
                 Given PROGRESS.yaml mit mode: ralph
                 When sprint-loop.sh die Mode prüft
                 Then erkennt es Ralph Mode
 
               Scenario: E2E Cleanup
+
+
+
+
+
+
+
 
 
 
@@ -18290,7 +18708,7 @@ phases:
 current:
   phase: 1
   step: 3
-  sub-phase: 3
+  sub-phase: 4
 stats:
   started-at: "2026-01-18T21:09:19Z"
   total-phases: 30
