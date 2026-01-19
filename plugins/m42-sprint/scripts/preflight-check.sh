@@ -57,9 +57,19 @@ else
       ERRORS+=("PROGRESS.yaml missing required field: status")
     fi
 
-    PHASES=$(yq -r '.phases // "null"' "$PROGRESS_FILE")
-    if [[ "$PHASES" == "null" ]]; then
-      ERRORS+=("PROGRESS.yaml missing required field: phases")
+    # Check for mode-specific required fields
+    # Standard mode requires 'phases', Ralph mode requires 'goal'
+    MODE=$(yq -r '.mode // "standard"' "$PROGRESS_FILE")
+    if [[ "$MODE" == "ralph" ]]; then
+      GOAL=$(yq -r '.goal // ""' "$PROGRESS_FILE")
+      if [[ -z "$GOAL" ]]; then
+        ERRORS+=("PROGRESS.yaml missing required field for ralph mode: goal")
+      fi
+    else
+      PHASES=$(yq -r '.phases // "null"' "$PROGRESS_FILE")
+      if [[ "$PHASES" == "null" ]]; then
+        ERRORS+=("PROGRESS.yaml missing required field: phases")
+      fi
     fi
   fi
 fi
