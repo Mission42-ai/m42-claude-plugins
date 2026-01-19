@@ -50,6 +50,87 @@ fi
 PENDING_STEPS=$(yq -r '[.dynamic-steps // [] | .[] | select(.status == "pending")] | .[] | "- " + .id + ": " + .prompt' "$PROGRESS_FILE" 2>/dev/null || echo "")
 COMPLETED_STEPS=$(yq -r '[.dynamic-steps // [] | .[] | select(.status == "completed")] | .[] | "- " + .id + ": " + .prompt' "$PROGRESS_FILE" 2>/dev/null || echo "")
 
+# Get pattern results for context
+# Pattern results tell Ralph what patterns accomplished in previous iterations
+# Uses yq to extract data, then bash to format (more compatible with yq v4)
+format_pattern_result() {
+  local pattern="$1"
+  local iteration="$2"
+  local verified="$3"
+  local message="$4"
+  local show_iteration="$5"  # "true" to show iteration number
+
+  local status_str
+  if [[ "$verified" == "true" ]]; then
+    status_str="✓ verified"
+  else
+    status_str="✗ verification failed"
+  fi
+
+  local result="- **${pattern}**"
+  if [[ "$show_iteration" == "true" ]]; then
+    result="${result} (iteration ${iteration})"
+  fi
+  result="${result}: ${status_str}"
+
+  if [[ -n "$message" ]] && [[ "$message" != "null" ]] && [[ "$message" != "" ]]; then
+    result="${result} - ${message}"
+  fi
+
+  echo "$result"
+}
+
+get_pattern_results() {
+  local filter="${1:-all}"  # "all", "recent" (last iteration), or a specific iteration number
+  local current_iter="$ITERATION"
+
+  # Check if pattern-results exists and is non-empty
+  local has_results
+  has_results=$(yq -r '.pattern-results // [] | length' "$PROGRESS_FILE" 2>/dev/null || echo "0")
+
+  if [[ "$has_results" == "0" ]]; then
+    return
+  fi
+
+  local results=""
+  local selector=""
+  local show_iteration="false"
+
+  case "$filter" in
+    all)
+      # Get all results, show iteration numbers
+      selector="."
+      show_iteration="true"
+      ;;
+    recent)
+      # Get results from previous iteration (current - 1)
+      local prev_iter=$((current_iter - 1))
+      if [[ $prev_iter -lt 1 ]]; then
+        return
+      fi
+      selector="select(.iteration == $prev_iter)"
+      show_iteration="false"
+      ;;
+    *)
+      # Specific iteration number
+      selector="select(.iteration == $filter)"
+      show_iteration="false"
+      ;;
+  esac
+
+  # Extract pattern results as tab-separated values and format each
+  while IFS=$'\t' read -r pattern iteration verified message; do
+    if [[ -n "$pattern" ]]; then
+      format_pattern_result "$pattern" "$iteration" "$verified" "$message" "$show_iteration"
+    fi
+  done < <(yq -r ".pattern-results[] | $selector | [.pattern, .iteration, .verified, .[\"verification-message\"] // \"\"] | @tsv" "$PROGRESS_FILE" 2>/dev/null)
+}
+
+# Get recent pattern results (from previous iteration)
+RECENT_PATTERN_RESULTS=$(get_pattern_results "recent")
+# Get all pattern results
+ALL_PATTERN_RESULTS=$(get_pattern_results "all")
+
 # Output JSON result reporting section (common to all modes)
 output_json_instructions() {
   cat <<'JSONEOF'
@@ -92,6 +173,30 @@ Report your result as JSON in your final output.
 }
 ```
 
+**Invoke a pattern (optional):**
+When you're ready to EXECUTE something that should follow proven practices, invoke a pattern:
+```json
+{
+  "status": "continue",
+  "summary": "Designed the feature, ready to implement",
+  "invokePattern": {
+    "name": "implement-feature",
+    "params": {
+      "feature": "User authentication",
+      "scope": "src/auth/**",
+      "context": "JWT-based authentication with refresh tokens"
+    }
+  },
+  "pendingSteps": [...]
+}
+```
+
+### Available Patterns
+- `implement-feature`: TDD implementation (params: feature, scope, context)
+- `fix-bug`: Debug and fix workflow (params: issue, symptoms, location)
+- `refactor`: Safe refactoring (params: target, goal, scope)
+- `document`: Documentation update (params: subject, type, audience)
+
 ### JSON Field Reference
 
 - `status`: Required. One of "continue", "goal-complete", "needs-human"
@@ -102,6 +207,7 @@ Report your result as JSON in your final output.
   - The order you provide IS the execution order
 - `goalCompleteSummary`: Final summary when goal is achieved
 - `humanNeeded.reason` / `humanNeeded.details`: Required when status is "needs-human"
+- `invokePattern`: Optional. Invoke a proven execution pattern (name + params)
 JSONEOF
 }
 
@@ -137,6 +243,15 @@ EOF
 
 ## Goal Analysis Guidelines
 $GOAL_PROMPT
+EOF
+    fi
+
+    # Show recent pattern results if any (previous iteration)
+    if [[ -n "$RECENT_PATTERN_RESULTS" ]]; then
+      cat <<EOF
+
+## Previous Iteration Pattern Results
+$RECENT_PATTERN_RESULTS
 EOF
     fi
 
@@ -177,6 +292,21 @@ $GOAL
 
 ## Current Task: $STEP_ID
 $STEP_PROMPT
+EOF
+
+    # Show recent pattern results if any
+    if [[ -n "$RECENT_PATTERN_RESULTS" ]]; then
+      cat <<EOF
+
+## Previous Iteration Pattern Results
+The following patterns were invoked in the previous iteration:
+$RECENT_PATTERN_RESULTS
+
+Use these results to inform your next steps. If a pattern failed verification, consider what went wrong.
+EOF
+    fi
+
+    cat <<EOF
 
 ## The Ralph Mindset
 You don't need to complete everything in one iteration. Focus on:
@@ -237,6 +367,19 @@ $GOAL
 
 ## What's Been Done ($COMPLETED_COUNT steps)
 $COMPLETED_STEPS
+EOF
+
+    # Show all pattern results in reflection mode
+    if [[ -n "$ALL_PATTERN_RESULTS" ]]; then
+      cat <<EOF
+
+## Pattern Executions
+The following patterns were invoked during this sprint:
+$ALL_PATTERN_RESULTS
+EOF
+    fi
+
+    cat <<EOF
 
 No pending steps remain. This is a moment for genuine reflection.
 
