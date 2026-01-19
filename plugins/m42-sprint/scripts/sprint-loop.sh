@@ -191,20 +191,111 @@ trap cleanup_hook_config EXIT
 
 # Backup file for recovery
 PROGRESS_BACKUP="${PROGRESS_FILE}.backup"
+PROGRESS_CHECKSUM="${PROGRESS_FILE}.checksum"
+
+# Calculate SHA256 checksum of PROGRESS.yaml
+calculate_checksum() {
+  if command -v sha256sum &> /dev/null; then
+    sha256sum "$PROGRESS_FILE" | cut -d' ' -f1
+  elif command -v shasum &> /dev/null; then
+    shasum -a 256 "$PROGRESS_FILE" | cut -d' ' -f1
+  else
+    # Fallback: use file size + modification time as pseudo-checksum
+    stat -c '%s-%Y' "$PROGRESS_FILE" 2>/dev/null || stat -f '%z-%m' "$PROGRESS_FILE" 2>/dev/null || echo "no-checksum"
+  fi
+}
+
+# Save checksum after successful write
+save_checksum() {
+  calculate_checksum > "$PROGRESS_CHECKSUM"
+}
+
+# Validate PROGRESS.yaml integrity via checksum
+# Returns 0 if valid, 1 if corrupted/mismatched
+validate_checksum() {
+  if [[ ! -f "$PROGRESS_CHECKSUM" ]]; then
+    # No checksum file - this is normal for first run or old sprints
+    return 0
+  fi
+
+  local stored_checksum
+  stored_checksum=$(cat "$PROGRESS_CHECKSUM" 2>/dev/null)
+  local current_checksum
+  current_checksum=$(calculate_checksum)
+
+  if [[ "$stored_checksum" == "$current_checksum" ]]; then
+    return 0
+  else
+    echo "Warning: PROGRESS.yaml checksum mismatch" >&2
+    echo "  Expected: $stored_checksum" >&2
+    echo "  Actual:   $current_checksum" >&2
+    return 1
+  fi
+}
 
 # Create a backup of PROGRESS.yaml before critical operations
 backup_progress() {
   cp "$PROGRESS_FILE" "$PROGRESS_BACKUP"
+  # Also backup checksum if it exists
+  if [[ -f "$PROGRESS_CHECKSUM" ]]; then
+    cp "$PROGRESS_CHECKSUM" "${PROGRESS_CHECKSUM}.backup"
+  fi
 }
 
 # Restore from backup if available
 restore_progress() {
   if [[ -f "$PROGRESS_BACKUP" ]]; then
     mv "$PROGRESS_BACKUP" "$PROGRESS_FILE"
+    # Restore checksum backup if it exists
+    if [[ -f "${PROGRESS_CHECKSUM}.backup" ]]; then
+      mv "${PROGRESS_CHECKSUM}.backup" "$PROGRESS_CHECKSUM"
+    fi
     echo "Restored PROGRESS.yaml from backup" >&2
     return 0
   fi
   return 1
+}
+
+# Recover from interrupted transaction on startup
+# Call this BEFORE the main loop to handle previous crashes
+recover_from_interrupted_transaction() {
+  if [[ -f "$PROGRESS_BACKUP" ]]; then
+    echo ""
+    echo "============================================================"
+    echo "RECOVERY: Interrupted transaction detected"
+    echo "============================================================"
+    echo "A backup file exists from a previous interrupted operation."
+    echo ""
+
+    # Check if current PROGRESS.yaml is valid
+    if yq -e '.' "$PROGRESS_FILE" > /dev/null 2>&1; then
+      # Current file is valid YAML - check if backup is newer or if checksum invalid
+      if ! validate_checksum; then
+        echo "Current PROGRESS.yaml has checksum mismatch - restoring from backup..."
+        restore_progress
+        echo "Recovery complete."
+      else
+        # Both valid, current has correct checksum - discard backup
+        echo "Current PROGRESS.yaml is valid and matches checksum."
+        echo "Discarding stale backup file."
+        rm -f "$PROGRESS_BACKUP" "${PROGRESS_CHECKSUM}.backup"
+      fi
+    else
+      # Current file is corrupted - restore from backup
+      echo "Current PROGRESS.yaml is corrupted - restoring from backup..."
+      restore_progress
+      echo "Recovery complete."
+    fi
+    echo ""
+  fi
+
+  # Validate final state
+  if ! yq -e '.' "$PROGRESS_FILE" > /dev/null 2>&1; then
+    echo "Error: PROGRESS.yaml is invalid YAML after recovery attempt" >&2
+    return 1
+  fi
+
+  return 0
 }
 
 # Atomic YAML update - applies multiple yq expressions atomically
@@ -241,6 +332,9 @@ yaml_atomic_update() {
     return 1
   fi
 
+  # Update checksum after successful write
+  save_checksum
+
   return 0
 }
 
@@ -262,7 +356,7 @@ yaml_transaction_start() {
 
 yaml_transaction_end() {
   # Transaction successful, remove backup
-  rm -f "$PROGRESS_BACKUP"
+  rm -f "$PROGRESS_BACKUP" "${PROGRESS_CHECKSUM}.backup"
 }
 
 # Helper function to calculate elapsed time in HH:MM:SS format
@@ -1152,6 +1246,9 @@ run_ralph_loop() {
 
     # 5. DETERMINISTIC STATE UPDATE: Parse JSON result and update PROGRESS.yaml
     # The agent no longer modifies PROGRESS.yaml directly - we do it here
+    # TRANSACTION: Wrap state updates to ensure recovery on interrupt
+    yaml_transaction_start
+
     local RESULT_CODE=0
     process_ralph_result "$TRANSCRIPT_FILE" "$iteration" || RESULT_CODE=$?
 
@@ -1159,17 +1256,20 @@ run_ralph_loop() {
       0)
         # Continue - steps updated, keep iterating
         idle_count=0  # Reset idle count since we made progress
+        yaml_transaction_end  # Commit transaction
         ;;
       100)
         # Goal complete - record and exit
         local goal_summary
         goal_summary=$(extract_json_result "$TRANSCRIPT_FILE" | jq -r '.goalCompleteSummary // .summary // "Goal completed"')
         record_ralph_completion "$iteration" "$goal_summary"
+        yaml_transaction_end  # Commit transaction
         wait  # Wait for all parallel hooks to complete
         exit 0
         ;;
       2)
         # Needs human - already set in process_ralph_result
+        yaml_transaction_end  # Commit transaction (state was set in process_ralph_result)
         echo ""
         echo "============================================================"
         echo "RALPH MODE - HUMAN INTERVENTION REQUIRED"
@@ -1178,8 +1278,9 @@ run_ralph_loop() {
         exit 2
         ;;
       *)
-        # Other error - log and continue
+        # Other error - log and continue (keep backup for potential recovery)
         echo "Warning: process_ralph_result returned $RESULT_CODE"
+        # Don't call yaml_transaction_end - backup remains for recovery if crash follows
         ;;
     esac
 
@@ -1682,6 +1783,17 @@ if [[ -f "$PREFLIGHT_SCRIPT" ]]; then
   echo ""
 fi
 
+# Recover from any interrupted transactions before starting
+# This handles crashes/interrupts that left backup files behind
+if ! recover_from_interrupted_transaction; then
+  echo ""
+  echo "============================================================"
+  echo "RECOVERY FAILED - Cannot recover PROGRESS.yaml"
+  echo "============================================================"
+  echo "Check the sprint directory for backup files and manual recovery."
+  exit 1
+fi
+
 # Set initial status to in-progress if not-started
 CURRENT_STATUS=$(yq -r '.status' "$PROGRESS_FILE")
 if [[ "$CURRENT_STATUS" == "not-started" ]]; then
@@ -1851,15 +1963,20 @@ run_standard_loop() {
 
   # DETERMINISTIC STATE UPDATE: Parse JSON result and update PROGRESS.yaml
   # The agent no longer modifies PROGRESS.yaml directly - we do it here
+  # TRANSACTION: Wrap state updates to ensure recovery on interrupt
+  yaml_transaction_start
+
   RESULT_CODE=0
   process_standard_result "$TRANSCRIPT_FILE" "$PREV_PHASE_IDX" "$PREV_STEP_IDX" "$PREV_SUB_IDX" "$PHASE_START_ISO" "$PHASE_END_ISO" || RESULT_CODE=$?
 
   case "$RESULT_CODE" in
     0)
       # Success - pointer was advanced by process_standard_result
+      yaml_transaction_end  # Commit transaction
       ;;
     1)
       # Failed - handle with retry logic
+      yaml_transaction_end  # Commit what we have (retry will update later)
       ERROR_MSG="Agent reported failure in JSON result"
       if ! handle_phase_failure "1" "$ERROR_MSG"; then
         echo ""
@@ -1876,6 +1993,7 @@ run_standard_loop() {
       ;;
     2)
       # Needs human - already set in process_standard_result
+      yaml_transaction_end  # Commit transaction
       echo ""
       echo "============================================================"
       echo "HUMAN INTERVENTION REQUIRED"
