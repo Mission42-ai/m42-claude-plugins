@@ -450,6 +450,59 @@ Then resume: `/resume-sprint`
 
 ---
 
+## Development & Testing
+
+### Running the Status Server Manually
+
+For debugging or development, run the status server directly:
+
+```bash
+# Build the compiler (if needed)
+cd plugins/m42-sprint/compiler && npm run build && cd -
+
+# Run server for a sprint directory
+node plugins/m42-sprint/compiler/dist/status-server/index.js .claude/sprints/<sprint-id> --no-browser
+
+# Use alternate port if default is busy
+node plugins/m42-sprint/compiler/dist/status-server/index.js .claude/sprints/<sprint-id> --port 3101 --no-browser
+```
+
+**Options:**
+- `-p, --port <number>` - Port to listen on (default: 3100)
+- `-H, --host <host>` - Host to bind to (default: localhost)
+- `--no-browser` - Disable automatic browser opening
+
+### Testing API Endpoints
+
+```bash
+# Sprint status
+curl http://localhost:3100/api/status | jq
+
+# List worktrees and their sprints
+curl http://localhost:3100/api/worktrees | jq
+
+# Available controls
+curl http://localhost:3100/api/controls | jq
+
+# Timing estimates
+curl http://localhost:3100/api/timing | jq
+
+# SSE events stream
+curl -N http://localhost:3100/events
+```
+
+### Checking Port Conflicts
+
+```bash
+# See what's using port 3100
+lsof -i :3100
+
+# Kill the process if needed
+kill -9 <PID>
+```
+
+---
+
 ## Debug Commands Reference
 
 | Command | Purpose |
