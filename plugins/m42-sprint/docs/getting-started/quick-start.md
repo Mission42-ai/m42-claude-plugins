@@ -13,7 +13,7 @@ Before starting, verify you have these tools installed:
 yq --version
 # Expected: yq (https://github.com/mikefarah/yq/) version v4.x
 
-# Check Node.js (required for compilation)
+# Check Node.js (required for compilation - workflow mode only)
 node --version
 # Expected: v18.x or higher
 ```
@@ -30,135 +30,118 @@ sudo apt install nodejs npm
 
 ---
 
-## Step 1: Create a Sprint
+## Choose Your Mode
 
-Initialize a new sprint with a name:
+M42 Sprint offers two execution modes:
+
+| Mode | Best For | How It Works |
+|------|----------|--------------|
+| **Ralph Mode** (Recommended) | Complex features, open-ended goals | Define a goal; Claude thinks and shapes work dynamically |
+| **Workflow Mode** | Routine tasks, known sequences | Define steps; compiler expands through workflow phases |
+
+---
+
+## Option A: Ralph Mode (Recommended)
+
+Ralph Mode is ideal when you have a goal but want Claude to figure out the steps.
+
+### Step 1: Create a Ralph Sprint
 
 ```bash
-/start-sprint hello-sprint
+/start-sprint hello-sprint --ralph
 ```
 
 **What happens:**
 - Creates directory `.claude/sprints/2026-01-16_hello-sprint/`
-- Generates `SPRINT.yaml` with default configuration
+- Generates `SPRINT.yaml` configured for Ralph mode
 - Creates `context/` and `artifacts/` folders
 
-**Expected output:**
-```
-Sprint initialized successfully!
+### Step 2: Define Your Goal
 
-Location: .claude/sprints/2026-01-16_hello-sprint/
+Edit `SPRINT.yaml` to describe what you want to achieve:
 
-Created files:
-  - SPRINT.yaml (workflow definition)
-  - context/ (context files)
-  - artifacts/ (output files)
+```yaml
+workflow: ralph
 
-Next steps:
-  1. Edit SPRINT.yaml to add your steps
-  2. Run /run-sprint to compile and execute
-```
+goal: |
+  Create a greeting utility module with:
+  - A function that takes a name and returns "Hello, {name}!"
+  - Unit tests for the function
+  - TypeScript types
 
----
+  Success criteria:
+  - All tests pass
+  - Code compiles without errors
 
-## Step 2: Add Your First Step
-
-Add a step that describes a task for Claude:
-
-```bash
-/add-step "Create a simple greeting function that takes a name and returns 'Hello, {name}!'"
+per-iteration-hooks:
+  learning:
+    enabled: true  # Extract learnings after each iteration
 ```
 
-**What happens:**
-- Appends your step to the `steps:` array in SPRINT.yaml
-- Each step becomes a task in the execution queue
-
-**Expected output:**
-```
-Step added to sprint.
-
-Sprint: 2026-01-16_hello-sprint
-Step #1: Create a simple greeting function that takes a name...
-
-SPRINT.yaml updated.
-Note: Run /run-sprint to compile and execute.
-```
-
----
-
-## Step 3: Add Another Step
-
-Add a second step to see how multi-step sprints work:
-
-```bash
-/add-step "Write unit tests for the greeting function"
-```
-
-**What happens:**
-- Another step is added to the queue
-- Steps execute sequentially, each with fresh context
-
-**Expected output:**
-```
-Step added to sprint.
-
-Sprint: 2026-01-16_hello-sprint
-Step #2: Write unit tests for the greeting function
-
-SPRINT.yaml updated.
-Note: Run /run-sprint to compile and execute.
-```
-
----
-
-## Step 4: Run the Sprint
-
-Execute your sprint:
+### Step 3: Run the Sprint
 
 ```bash
 /run-sprint .claude/sprints/2026-01-16_hello-sprint
 ```
 
 **What happens:**
-1. **Compilation**: SPRINT.yaml is compiled through the workflow into PROGRESS.yaml
-2. **Ralph Loop starts**: A background process begins executing tasks
-3. **Fresh context per task**: Each step runs in a clean Claude session
-4. **Live status**: A web server shows real-time progress
+1. Ralph Loop starts with your goal
+2. Claude analyzes the goal and creates implementation steps
+3. Each iteration runs with fresh context
+4. Claude signals `goal-complete` when done
 
-**Expected output:**
+### Step 4: Watch Progress
+
+```bash
+/sprint-watch
 ```
-Sprint Loop Launched
-====================
 
-Sprint: 2026-01-16_hello-sprint
-Directory: .claude/sprints/2026-01-16_hello-sprint
-Background Task ID: task_abc123
-
-Workflow: sprint-default
-Phases: 3
-Steps: 2
-
-Live Status: http://localhost:3100
-(Open in browser for real-time progress)
-
-Each phase/step runs with FRESH context (no accumulation).
-
-Monitor progress:
-- /sprint-status - View PROGRESS.yaml status
-- TaskOutput(task_abc123) - View loop output
-```
+Opens a live dashboard showing:
+- Current iteration and step being executed
+- Dynamically created steps
+- Hook task status
 
 ---
 
-## Step 5: Watch Progress
+## Option B: Workflow Mode
 
-Check how your sprint is progressing:
+Workflow Mode is best when you have specific steps to execute.
+
+### Step 1: Create a Workflow Sprint
+
+```bash
+/start-sprint hello-sprint --workflow sprint-default
+```
+
+### Step 2: Add Your Steps
+
+```bash
+/add-step "Create a simple greeting function that takes a name and returns 'Hello, {name}!'"
+/add-step "Write unit tests for the greeting function"
+```
+
+**What happens:**
+- Each step is appended to `SPRINT.yaml`
+- Steps will be expanded through workflow phases
+
+### Step 3: Run the Sprint
+
+```bash
+/run-sprint .claude/sprints/2026-01-16_hello-sprint
+```
+
+**What happens:**
+1. **Compilation**: SPRINT.yaml is expanded into PROGRESS.yaml
+2. **Sprint Loop starts**: Executes each phase sequentially
+3. **Fresh context**: Each phase runs in a clean Claude session
+
+### Step 4: Check Status
 
 ```bash
 /sprint-status
 ```
 
-**Expected output:**
+**Example output:**
 ```
 Sprint: 2026-01-16_hello-sprint
 Status: in-progress
@@ -169,40 +152,31 @@ Phases:
 [>] execute-all (in-progress)
     [x] step-0 (2/2 phases)
     [>] step-1 (1/2 phases)
-        [x] implement
-        [>] qa (current)
 [ ] finalize (pending)
-
-Current: execute-all > step-1 > qa
 ```
-
-**Status indicators:**
-- `[x]` = Completed
-- `[>]` = Currently running
-- `[ ]` = Pending
 
 ---
 
 ## What Just Happened?
 
-1. **You defined work**: Two simple steps in plain language
-2. **Compiler expanded it**: Your steps became a hierarchical execution plan with sub-phases
-3. **Ralph Loop executed**: Each phase ran with fresh Claude context
-4. **No context pollution**: Unlike a single long session, each task started clean
+Both modes use the **Fresh Context Pattern**:
+- Each iteration/phase runs in a clean Claude session
+- No slowdown from context accumulation
+- Reliable multi-hour sprints
 
-This is the **Fresh Context Pattern** - the core innovation of M42 Sprint.
+**Ralph Mode**: Claude thought about the goal, created steps dynamically, and decided when complete.
+
+**Workflow Mode**: Your steps were expanded through workflow phases and executed sequentially.
 
 ---
 
 ## Next Steps
 
-You've completed the quick start. Here's where to go next:
-
 | Want to... | Read |
 |------------|------|
-| Understand the full workflow | [First Sprint Tutorial](first-sprint.md) |
-| Learn the architecture | [Architecture Overview](../concepts/overview.md) |
-| Write better sprints | [Writing Sprints Guide](../guides/writing-sprints.md) |
+| Learn Ralph Mode deeply | [Ralph Mode Concepts](../concepts/ralph-mode.md) |
+| Understand the architecture | [Architecture Overview](../concepts/overview.md) |
+| See complete usage guide | [User Guide](../USER-GUIDE.md) |
 | See all commands | [Commands Reference](../reference/commands.md) |
 
 ---
@@ -210,17 +184,21 @@ You've completed the quick start. Here's where to go next:
 ## Quick Reference
 
 ```bash
-# Create sprint
-/start-sprint <name>
+# Create sprint (Ralph mode - recommended)
+/start-sprint <name> --ralph
 
-# Add steps
+# Create sprint (Workflow mode)
+/start-sprint <name> --workflow sprint-default
+
+# Add steps (workflow mode)
 /add-step "<description>"
 
 # Run sprint
 /run-sprint <directory>
 
 # Monitor
-/sprint-status
+/sprint-watch    # Live dashboard
+/sprint-status   # Quick status
 
 # Control
 /pause-sprint    # Pause gracefully
@@ -230,4 +208,4 @@ You've completed the quick start. Here's where to go next:
 
 ---
 
-[Back to Documentation Index](../index.md) | [Full Tutorial](first-sprint.md)
+[Back to Documentation Index](../index.md) | [User Guide](../USER-GUIDE.md)
