@@ -124,13 +124,17 @@ function cleanupTestDir(ctx: TestContext): void {
   }
 }
 
-// Simple interface for test fixtures - yaml-ops doesn't depend on exact types
+// Import types from yaml-ops for test fixtures
+import type { CompiledProgress, SprintStatus, SprintStats } from './yaml-ops.js';
+
+// Simple interface for test fixtures - compatible with CompiledProgress
 interface TestProgress {
   'sprint-id': string;
-  status: string;
+  status: SprintStatus;
   current: { phase: number; step: number | null; 'sub-phase': number | null };
-  stats: Record<string, unknown>;
+  stats: SprintStats;
   phases?: Array<{ id: string; status: string; prompt: string }>;
+  [key: string]: unknown;
 }
 
 function createMinimalProgress(): TestProgress {
@@ -690,7 +694,8 @@ test('Integration: full write-read cycle preserves data', async () => {
     assertEqual(readBack['sprint-id'], original['sprint-id'], 'sprint-id preserved');
     assertEqual(readBack.status, original.status, 'status preserved');
     assertEqual(readBack.current.phase, original.current.phase, 'current.phase preserved');
-    assertEqual(readBack.phases![0].status, 'completed', 'phase status preserved');
+    const readBackPhases = readBack.phases as Array<{ status: string }>;
+    assertEqual(readBackPhases[0].status, 'completed', 'phase status preserved');
   } finally {
     cleanupTestDir(ctx);
   }
