@@ -12,7 +12,7 @@ Start with these guides to get up and running quickly.
 |-------|------|-------------------|
 | [Quick Start](getting-started/quick-start.md) | 5 min | Create and run your first sprint |
 | [First Sprint Tutorial](getting-started/first-sprint.md) | 15 min | Complete walkthrough with explanations |
-| [Writing Sprints](guides/writing-sprints.md) | 10 min | Best practices for effective sprints |
+| [User Guide](USER-GUIDE.md) | 10 min | Complete guide with activity logging & best practices |
 
 ---
 
@@ -78,7 +78,8 @@ ls .claude/workflows/   # Verify workflow exists
 
 ### Path 1: Just Ship It (15 minutes)
 1. [Quick Start](getting-started/quick-start.md) - Get running
-2. [Commands Reference](reference/commands.md) - Know your tools
+2. [User Guide](USER-GUIDE.md) - Activity logging & best practices
+3. [Commands Reference](reference/commands.md) - Know your tools
 
 ### Path 2: Understand the System (45 minutes)
 1. [Quick Start](getting-started/quick-start.md) - Get running
@@ -99,6 +100,7 @@ ls .claude/workflows/   # Verify workflow exists
 ```
 docs/
 ├── index.md                    ← You are here
+├── USER-GUIDE.md               ← Complete user guide
 │
 ├── getting-started/            ← Tutorials
 │   ├── quick-start.md          (5 min)
