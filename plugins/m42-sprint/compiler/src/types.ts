@@ -15,6 +15,12 @@ export type PhaseStatus = 'pending' | 'in-progress' | 'completed' | 'blocked' | 
 export type SprintStatus = 'not-started' | 'in-progress' | 'completed' | 'blocked' | 'paused' | 'needs-human';
 export type ParallelTaskStatus = 'spawned' | 'running' | 'completed' | 'failed';
 
+/** Log severity levels for LOG actions */
+export type LogLevel = 'info' | 'warn' | 'error';
+
+/** Step insertion position strategies */
+export type InsertPosition = 'after-current' | 'end-of-phase';
+
 // ============================================================================
 // XState-Inspired Discriminated Unions (Type-Safe State Machine)
 // ============================================================================
@@ -77,13 +83,13 @@ export type SprintEvent =
  * Actions are data that represent what should happen, not the execution itself.
  */
 export type SprintAction =
-  | { type: 'LOG'; level: 'info' | 'warn' | 'error'; message: string }
+  | { type: 'LOG'; level: LogLevel; message: string }
   | { type: 'SPAWN_CLAUDE'; prompt: string; phaseId: string; onComplete: SprintEvent['type'] }
   | { type: 'WRITE_PROGRESS' }
   | { type: 'UPDATE_STATS'; updates: Partial<SprintStats> }
   | { type: 'EMIT_ACTIVITY'; activity: string; data: unknown }
   | { type: 'SCHEDULE_RETRY'; phaseId: string; delayMs: number }
-  | { type: 'INSERT_STEP'; step: StepQueueItem; position: 'after-current' | 'end-of-phase' };
+  | { type: 'INSERT_STEP'; step: StepQueueItem; position: InsertPosition };
 
 /**
  * Result of a state transition - combines next state, actions to execute, and context updates.
