@@ -4,35 +4,62 @@ Sprint orchestration with **fresh context per task** for Claude Code.
 
 ## What is M42 Sprint?
 
+M42 Sprint enables autonomous, goal-driven development where Claude thinks deeply and shapes work dynamically. Two modes are available:
+
+**Ralph Mode** (Recommended) - Autonomous goal-driven execution:
+```
+┌─────────────────┐     ┌──────────────┐     ┌─────────────────┐
+│  SPRINT.yaml    │ ──► │  Ralph Loop  │ ──► │  goal-complete  │
+│    (goal)       │     │ (iterates)   │     │    or pause     │
+└─────────────────┘     └──────────────┘     └─────────────────┘
+```
+
+**Workflow Mode** - Structured step-based execution:
 ```
 ┌─────────────────┐     ┌──────────────┐     ┌─────────────────┐
 │  SPRINT.yaml    │ ──► │   Compiler   │ ──► │ PROGRESS.yaml   │
-│  (your steps)   │     │  (expands)   │     │ (execution plan)│
-└─────────────────┘     └──────────────┘     └────────┬────────┘
-                                                      │
-                                                      ▼
-                                             ┌─────────────────┐
-                                             │   Ralph Loop    │
-                                             │ (fresh context  │
-                                             │   per phase)    │
-                                             └─────────────────┘
+│   (steps)       │     │  (expands)   │     │   (phases)      │
+└─────────────────┘     └──────────────┘     └─────────────────┘
 ```
 
-**The Ralph Loop** solves context accumulation: each task runs in a fresh Claude session, preventing the slowdown that happens when context fills up during long sprints.
+**The Ralph Loop** solves context accumulation: each iteration runs in a fresh Claude session, preventing slowdown during long sprints.
 
 ## Quick Links
 
 | Getting Started | Deep Dives | Reference |
 |-----------------|------------|-----------|
-| [Quick Start](docs/getting-started/quick-start.md) | [Architecture Overview](docs/concepts/overview.md) | [Commands](docs/reference/commands.md) |
-| [First Sprint](docs/getting-started/first-sprint.md) | [Ralph Loop Pattern](docs/concepts/ralph-loop.md) | [SPRINT.yaml Schema](docs/reference/sprint-yaml-schema.md) |
-| [Writing Sprints](docs/guides/writing-sprints.md) | [Workflow Compilation](docs/concepts/workflow-compilation.md) | [PROGRESS.yaml Schema](docs/reference/progress-yaml-schema.md) |
+| [Quick Start](docs/getting-started/quick-start.md) | [Ralph Mode](docs/concepts/ralph-mode.md) | [Commands](docs/reference/commands.md) |
+| [First Sprint](docs/getting-started/first-sprint.md) | [Architecture Overview](docs/concepts/overview.md) | [SPRINT.yaml Schema](docs/reference/sprint-yaml-schema.md) |
+| [User Guide](docs/USER-GUIDE.md) | [Workflow Compilation](docs/concepts/workflow-compilation.md) | [API Reference](docs/reference/api.md) |
 
 ## 30-Second Example
 
+### Ralph Mode (Recommended)
+
 ```bash
-# 1. Create sprint
-/start-sprint my-feature
+# 1. Create Ralph mode sprint
+/start-sprint my-feature --ralph
+
+# 2. Edit SPRINT.yaml to define your goal
+goal: |
+  Build a user authentication system with JWT tokens.
+  Requirements: registration, login, token refresh, logout.
+  Success criteria: All tests passing, TypeScript compiles.
+
+# 3. Run it
+/run-sprint .claude/sprints/2026-01-16_my-feature
+
+# 4. Watch progress
+/sprint-watch
+```
+
+Ralph thinks deeply, creates steps dynamically, and signals when the goal is complete.
+
+### Workflow Mode
+
+```bash
+# 1. Create workflow-based sprint
+/start-sprint my-feature --workflow sprint-default
 
 # 2. Add steps
 /add-step "Create user model with validation"
@@ -41,11 +68,11 @@ Sprint orchestration with **fresh context per task** for Claude Code.
 # 3. Run it
 /run-sprint .claude/sprints/2026-01-16_my-feature
 
-# 4. Watch progress
+# 4. Check status
 /sprint-status
 ```
 
-Each step runs with fresh context. No slowdown. No context pollution.
+Each step runs through predefined workflow phases with fresh context.
 
 ## Installation
 
@@ -61,11 +88,12 @@ Requirements:
 
 | Command | Description |
 |---------|-------------|
-| `/start-sprint <name>` | Initialize new sprint |
-| `/add-step <prompt>` | Add step to queue |
+| `/start-sprint <name> [--ralph\|--workflow <name>]` | Initialize new sprint |
+| `/add-step <prompt>` | Add step to queue (workflow mode) |
 | `/import-steps` | Bulk import from GitHub |
 | `/run-sprint <dir>` | Start execution loop |
-| `/sprint-status` | View progress dashboard |
+| `/sprint-watch` | Open live status dashboard |
+| `/sprint-status` | View progress summary |
 | `/pause-sprint` | Pause after current task |
 | `/resume-sprint` | Resume paused sprint |
 | `/stop-sprint` | Stop immediately |
@@ -74,11 +102,20 @@ Requirements:
 
 ```
 .claude/sprints/YYYY-MM-DD_name/
-├── SPRINT.yaml       # Your steps and config
-├── PROGRESS.yaml     # Generated execution plan
+├── SPRINT.yaml       # Goal (Ralph) or steps (workflow)
+├── PROGRESS.yaml     # Generated execution state
 ├── context/          # Cached context files
 └── artifacts/        # Outputs and results
 ```
+
+## When to Use Each Mode
+
+| Ralph Mode | Workflow Mode |
+|------------|---------------|
+| Complex features, open-ended goals | Well-defined tasks, routine work |
+| Research-heavy, exploratory work | Batched operations |
+| Tasks benefiting from reflection | Known phase sequences |
+| Goals where exact steps aren't known | Compliance workflows |
 
 ## Why Fresh Context?
 
@@ -87,11 +124,15 @@ Traditional approaches accumulate context as tasks complete, leading to:
 - Increased token costs
 - Risk of context overflow
 
-The **Fresh Context Pattern** gives each phase a clean slate, enabling reliable multi-hour sprints.
+The **Fresh Context Pattern** gives each iteration a clean slate, enabling reliable multi-hour sprints.
 
-## Troubleshooting
+## Documentation
 
-See [Common Issues](docs/troubleshooting/common-issues.md) or run `/help` for command details.
+- [User Guide](docs/USER-GUIDE.md) - Complete usage guide
+- [Ralph Mode](docs/concepts/ralph-mode.md) - Autonomous goal-driven workflows
+- [Commands Reference](docs/reference/commands.md) - All commands with examples
+- [API Reference](docs/reference/api.md) - Status server REST API
+- [Troubleshooting](docs/troubleshooting/common-issues.md) - Common issues and solutions
 
 ## License
 

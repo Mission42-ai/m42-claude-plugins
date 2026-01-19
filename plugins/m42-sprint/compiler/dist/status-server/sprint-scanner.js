@@ -2,6 +2,10 @@
 /**
  * Sprint Scanner - Enumerate and parse sprints in .claude/sprints/
  * Provides sprint history for the dashboard view
+ *
+ * Supports worktree awareness for parallel sprint execution:
+ * - Each sprint knows which worktree it belongs to
+ * - Can scan across all worktrees in a repository
  */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -39,27 +43,39 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SprintScanner = void 0;
 exports.scanSprints = scanSprints;
+exports.scanSprintsAcrossWorktrees = scanSprintsAcrossWorktrees;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const yaml = __importStar(require("js-yaml"));
+const worktree_js_1 = require("./worktree.js");
 /**
  * Maximum number of sprints to return for performance
  */
 const MAX_SPRINTS = 50;
-// ============================================================================
-// Sprint Scanner Class
-// ============================================================================
 /**
  * SprintScanner enumerates and parses all sprints in a sprints directory
  */
 class SprintScanner {
     sprintsDir;
+    options;
+    worktreeCache = undefined;
     /**
      * Create a new SprintScanner
      * @param sprintsDir Path to the .claude/sprints/ directory
+     * @param options Scanner options
      */
-    constructor(sprintsDir) {
+    constructor(sprintsDir, options = {}) {
         this.sprintsDir = sprintsDir;
+        this.options = options;
+    }
+    /**
+     * Get worktree info for this sprints directory (cached)
+     */
+    getWorktreeInfo() {
+        if (this.worktreeCache === undefined) {
+            this.worktreeCache = (0, worktree_js_1.detectWorktree)(this.sprintsDir);
+        }
+        return this.worktreeCache;
     }
     /**
      * Scan the sprints directory and return summaries of all sprints
@@ -139,7 +155,8 @@ class SprintScanner {
             const { totalSteps, completedSteps } = this.countSteps(phases);
             // Try to get workflow from SPRINT.yaml
             const workflow = this.getWorkflow(sprintDir);
-            return {
+            // Build summary
+            const summary = {
                 sprintId: progress['sprint-id'],
                 status: progress.status,
                 startedAt: progress.stats?.['started-at'] ?? null,
@@ -152,6 +169,18 @@ class SprintScanner {
                 workflow,
                 path: sprintDir,
             };
+            // Add worktree info if requested
+            if (this.options.includeWorktreeInfo) {
+                const worktreeInfo = this.getWorktreeInfo();
+                if (worktreeInfo) {
+                    summary.worktree = {
+                        name: worktreeInfo.isMain ? 'main' : worktreeInfo.name,
+                        branch: worktreeInfo.branch,
+                        isMain: worktreeInfo.isMain,
+                    };
+                }
+            }
+            return summary;
         }
         catch {
             return null;
@@ -215,10 +244,44 @@ exports.SprintScanner = SprintScanner;
 /**
  * Convenience function to scan sprints directory
  * @param sprintsDir Path to .claude/sprints/ directory
+ * @param options Scanner options
  * @returns Array of SprintSummary sorted by date (newest first)
  */
-function scanSprints(sprintsDir) {
-    const scanner = new SprintScanner(sprintsDir);
+function scanSprints(sprintsDir, options) {
+    const scanner = new SprintScanner(sprintsDir, options);
     return scanner.scan();
+}
+/**
+ * Scan sprints across all worktrees in a repository
+ *
+ * @param targetPath Any path within a git repository
+ * @param sprintsRelativePath Relative path to sprints directory (default: .claude/sprints)
+ * @returns Array of SprintSummary from all worktrees, sorted by date (newest first)
+ */
+function scanSprintsAcrossWorktrees(targetPath, sprintsRelativePath = '.claude/sprints') {
+    const worktreeList = (0, worktree_js_1.listWorktrees)(targetPath);
+    if (!worktreeList) {
+        // Fallback to single directory scan
+        const sprintsDir = path.join(path.dirname(targetPath), sprintsRelativePath);
+        return scanSprints(sprintsDir, { includeWorktreeInfo: true });
+    }
+    const allSprints = [];
+    for (const worktree of worktreeList.worktrees) {
+        const sprintsDir = path.join(worktree.root, sprintsRelativePath);
+        try {
+            if (fs.existsSync(sprintsDir) && fs.statSync(sprintsDir).isDirectory()) {
+                const scanner = new SprintScanner(sprintsDir, { includeWorktreeInfo: true });
+                const sprints = scanner.scan();
+                allSprints.push(...sprints);
+            }
+        }
+        catch {
+            // Skip inaccessible directories
+        }
+    }
+    // Sort all sprints by date (newest first)
+    allSprints.sort((a, b) => b.sprintId.localeCompare(a.sprintId));
+    // Limit to MAX_SPRINTS
+    return allSprints.slice(0, MAX_SPRINTS);
 }
 //# sourceMappingURL=sprint-scanner.js.map

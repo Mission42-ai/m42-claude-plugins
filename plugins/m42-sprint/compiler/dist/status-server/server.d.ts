@@ -29,6 +29,8 @@ export declare class StatusServer extends EventEmitter {
     private progressFilePath;
     private activityFilePath;
     private isReady;
+    /** Worktree context for this server instance (detected on startup) */
+    private worktreeInfo;
     constructor(config: ServerConfig);
     /**
      * Start the HTTP server and file watcher
@@ -79,6 +81,10 @@ export declare class StatusServer extends EventEmitter {
     /**
      * Handle GET /api/sprints request
      * Returns list of sprints with optional pagination
+     * Query params:
+     *   - page: Page number (default: 1)
+     *   - limit: Items per page (default: 20)
+     *   - includeWorktree: Include worktree info (default: false)
      */
     private handleSprintsApiRequest;
     /**
@@ -87,11 +93,36 @@ export declare class StatusServer extends EventEmitter {
      */
     private handleMetricsApiRequest;
     /**
+     * Handle GET /api/worktrees request
+     * Returns list of all worktrees in the repository with their active sprints
+     *
+     * Response format:
+     * {
+     *   worktrees: [{
+     *     name: string,        // "main" or worktree directory name
+     *     branch: string,      // Current git branch
+     *     commit: string,      // Current commit SHA (abbreviated)
+     *     isMain: boolean,     // Whether this is the main worktree
+     *     root: string,        // Absolute path to worktree root
+     *     sprints: [{          // Sprints in this worktree (newest first)
+     *       sprintId: string,
+     *       status: string,
+     *       startedAt: string | null,
+     *       ...SprintSummary fields
+     *     }]
+     *   }],
+     *   total: number,         // Total number of worktrees
+     *   serverWorktree: {...}  // This server's worktree context
+     * }
+     */
+    private handleWorktreesApiRequest;
+    /**
      * Handle SSE connection
      */
     private handleSSERequest;
     /**
      * Handle JSON API request
+     * Returns current sprint status with optional worktree context
      */
     private handleAPIRequest;
     /**

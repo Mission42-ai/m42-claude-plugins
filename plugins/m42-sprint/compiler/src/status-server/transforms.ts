@@ -15,7 +15,10 @@ import type {
   PhaseTreeNode,
   LogEntry,
   LogEntryType,
+  HookTaskStatus,
 } from './status-types.js';
+
+import type { DynamicStep, HookTask } from '../types.js';
 
 /**
  * Timing information passed to toStatusUpdate
@@ -96,9 +99,36 @@ export function calculateElapsed(startIso: string, endIso?: string): string {
 // ============================================================================
 
 /**
+ * Count total and completed tasks for Ralph mode (dynamic-steps)
+ */
+export function countRalphTasks(progress: CompiledProgress): { total: number; completed: number } {
+  const dynamicSteps = (progress as unknown as { 'dynamic-steps'?: DynamicStep[] })['dynamic-steps'];
+  if (!dynamicSteps) {
+    return { total: 0, completed: 0 };
+  }
+
+  let completed = 0;
+  for (const step of dynamicSteps) {
+    if (step.status === 'completed' || step.status === 'skipped') {
+      completed++;
+    }
+  }
+
+  return { total: dynamicSteps.length, completed };
+}
+
+/**
  * Count total and completed phases in the progress structure
+ * Handles both standard mode (phases) and Ralph mode (dynamic-steps)
  */
 export function countPhases(progress: CompiledProgress): { total: number; completed: number } {
+  // Check for Ralph mode
+  const mode = (progress as unknown as { mode?: string }).mode;
+  if (mode === 'ralph') {
+    return countRalphTasks(progress);
+  }
+
+  // Standard mode: count phases
   let total = 0;
   let completed = 0;
 
@@ -222,6 +252,45 @@ function buildTopPhaseNode(topPhase: CompiledTopPhase, depth: number): PhaseTree
  */
 export function buildPhaseTree(progress: CompiledProgress): PhaseTreeNode[] {
   return (progress.phases ?? []).map((p) => buildTopPhaseNode(p, 0));
+}
+
+// ============================================================================
+// Ralph Mode Task Tree Building
+// ============================================================================
+
+/**
+ * Build a PhaseTreeNode from a DynamicStep (Ralph mode)
+ * Ralph tasks are flat (no hierarchy) - each is a leaf node
+ */
+function buildTaskNode(step: DynamicStep, depth: number): PhaseTreeNode {
+  // Extract a short label from the prompt
+  const label = step.prompt.length <= 50
+    ? step.prompt
+    : step.prompt.substring(0, 47) + '...';
+
+  return {
+    id: step.id,
+    label,
+    status: step.status,
+    type: 'task',
+    depth,
+    startedAt: step['added-at'],
+    // Ralph tasks don't have completedAt in the current schema
+    // They transition: pending -> in-progress -> completed
+  };
+}
+
+/**
+ * Build task tree for Ralph mode from dynamic-steps
+ * Returns a flat list of task nodes (no hierarchy)
+ */
+export function buildRalphTaskTree(progress: CompiledProgress): PhaseTreeNode[] {
+  const dynamicSteps = (progress as unknown as { 'dynamic-steps'?: DynamicStep[] })['dynamic-steps'];
+  if (!dynamicSteps || dynamicSteps.length === 0) {
+    return [];
+  }
+
+  return dynamicSteps.map((step) => buildTaskNode(step, 0));
 }
 
 // ============================================================================
@@ -469,30 +538,89 @@ export function generateDiffLogEntries(
 }
 
 // ============================================================================
+// Hook Task Transformation (Ralph Mode)
+// ============================================================================
+
+/**
+ * Transform HookTask array to HookTaskStatus array for UI display
+ * Groups by iteration and shows latest status for each hook
+ */
+export function transformHookTasks(hookTasks?: HookTask[]): HookTaskStatus[] {
+  if (!hookTasks || hookTasks.length === 0) {
+    return [];
+  }
+
+  // Get the most recent entries for each iteration/hook combination
+  const latestTasks = new Map<string, HookTask>();
+  for (const task of hookTasks) {
+    const key = `${task.iteration}-${task['hook-id']}`;
+    const existing = latestTasks.get(key);
+    // Keep the one with more complete status (completed > in-progress > spawned)
+    if (!existing || isMoreCompleteStatus(task.status, existing.status)) {
+      latestTasks.set(key, task);
+    }
+  }
+
+  // Convert to HookTaskStatus array, sorted by iteration desc
+  return Array.from(latestTasks.values())
+    .map(task => ({
+      hookId: task['hook-id'],
+      iteration: task.iteration,
+      status: task.status,
+      spawnedAt: task['spawned-at'],
+      completedAt: task['completed-at'],
+      exitCode: task['exit-code'],
+    }))
+    .sort((a, b) => b.iteration - a.iteration);
+}
+
+/**
+ * Helper to determine if a status is more complete than another
+ */
+function isMoreCompleteStatus(
+  a: HookTask['status'],
+  b: HookTask['status']
+): boolean {
+  const order = { spawned: 0, running: 1, 'in-progress': 1, completed: 2, failed: 2 };
+  return (order[a] || 0) > (order[b] || 0);
+}
+
+// ============================================================================
 // Main Transform Function
 // ============================================================================
 
 /**
  * Convert CompiledProgress to StatusUpdate format
  * This is the main entry point for transforming progress data for the UI
+ * Handles both standard mode (phases) and Ralph mode (goal-driven with dynamic-steps)
  */
 export function toStatusUpdate(
   progress: CompiledProgress,
   includeRaw: boolean = false,
   timingInfo?: TimingInfo
 ): StatusUpdate {
+  // Detect execution mode
+  const progressWithMode = progress as unknown as { mode?: 'standard' | 'ralph'; goal?: string };
+  const isRalphMode = progressWithMode.mode === 'ralph';
+
   const { total, completed } = countPhases(progress);
 
   // Build the header
   const header: SprintHeader = {
     sprintId: progress['sprint-id'],
     status: progress.status,
+    mode: isRalphMode ? 'ralph' : 'standard',
     progressPercent: total > 0 ? Math.round((completed / total) * 100) : 0,
     completedPhases: completed,
     totalPhases: total,
     startedAt: progress.stats['started-at'] || undefined,
     elapsed: progress.stats.elapsed,
   };
+
+  // Add Ralph-specific header fields
+  if (isRalphMode && progressWithMode.goal) {
+    header.goal = progressWithMode.goal;
+  }
 
   // Add iteration info if available (from enhanced SprintStats)
   // Use type assertion through unknown to access potential extra fields
@@ -514,17 +642,25 @@ export function toStatusUpdate(
     }
   }
 
-  // Build the phase tree
-  const phaseTree = buildPhaseTree(progress);
+  // Build the phase/task tree based on mode
+  const phaseTree = isRalphMode ? buildRalphTaskTree(progress) : buildPhaseTree(progress);
 
-  // Extract current task
-  const currentTask = extractCurrentTask(progress);
+  // Extract current task (only for standard mode - Ralph mode is goal-driven)
+  const currentTask = isRalphMode ? null : extractCurrentTask(progress);
 
   const update: StatusUpdate = {
     header,
     phaseTree,
     currentTask,
   };
+
+  // Add hook tasks for Ralph mode
+  if (isRalphMode) {
+    const hookTasks = (progress as unknown as { 'hook-tasks'?: HookTask[] })['hook-tasks'];
+    if (hookTasks && hookTasks.length > 0) {
+      update.hookTasks = transformHookTasks(hookTasks);
+    }
+  }
 
   // Optionally include raw progress data for debugging
   if (includeRaw) {

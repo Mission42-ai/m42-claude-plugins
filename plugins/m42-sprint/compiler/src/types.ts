@@ -61,6 +61,12 @@ export interface HookTask {
   pid?: number;
   /** Path to transcript file */
   transcript?: string;
+  /** When spawned (ISO timestamp) */
+  'spawned-at'?: string;
+  /** When completed (ISO timestamp) */
+  'completed-at'?: string;
+  /** Exit code if completed */
+  'exit-code'?: number;
 }
 
 /**

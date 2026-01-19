@@ -13,7 +13,7 @@ Ralph Mode transforms the sprint system from a **deterministic phase executor** 
 | Predefined phases execute sequentially | Claude analyzes goal and creates steps dynamically |
 | Fixed step count | Unlimited iterations until goal complete |
 | Workflow defines the path | Workflow defines prompts, Claude decides path |
-| Exits when phases exhausted | Exits on `RALPH_COMPLETE` signal |
+| Exits when phases exhausted | Exits on `goal-complete` JSON result |
 
 Ralph Mode is ideal for:
 - Open-ended implementation tasks
@@ -54,10 +54,10 @@ Ralph Mode is ideal for:
                            │
                            ▼
               ┌────────────────────────┐
-              │    RALPH_COMPLETE?     │
+              │   goal-complete?       │
               │                        │
-              │  Ja → Exit             │
-              │  Nein → Nächste Iter.  │
+              │  Yes → Exit            │
+              │  No  → Next Iteration  │
               └────────────────────────┘
 ```
 
@@ -97,7 +97,7 @@ Each iteration enters one of three modes based on state:
       │                   │                    │
       │                   ▼                    │
       │         ┌─────────────────┐           │
-      └────────▶│ RALPH_COMPLETE  │◀──────────┘
+      └────────▶│  goal-complete  │◀──────────┘
                 └─────────────────┘
 ```
 
@@ -113,7 +113,7 @@ goal: |
   Build a complete authentication system with JWT tokens.
 ```
 
-### Full Example with Hook Overrides
+### Full Example with All Options
 
 ```yaml
 workflow: ralph
@@ -121,13 +121,36 @@ goal: |
   Build a complete authentication system with JWT tokens.
   Include registration, login, token refresh, and logout.
 
-# Override per-iteration hooks from workflow defaults
+  Success criteria:
+  - All endpoints tested and documented
+  - TypeScript compiles without errors
+  - All tests passing
+
+# Ralph mode configuration
+ralph:
+  idle-threshold: 3      # Iterations without progress → reflection mode
+  min-iterations: 15     # Minimum iterations before goal-complete accepted
+
+# Per-iteration hooks run in background after each iteration
 per-iteration-hooks:
-  learning:
-    enabled: true      # Enable learning extraction
-  documentation:
-    enabled: true      # Enable documentation updates
+  - id: learning
+    prompt: |
+      /m42-signs:extract $ITERATION_TRANSCRIPT
+    parallel: true
+    enabled: true
+
+# Sprint metadata
+sprint-id: 2026-01-18_auth-feature
+name: auth-feature
+created: 2026-01-18T10:30:00Z
 ```
+
+### Configuration Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `ralph.idle-threshold` | 3 | Iterations without new steps before entering reflection mode |
+| `ralph.min-iterations` | 0 | Minimum iterations required before `goal-complete` is accepted. Use to ensure deep thinking. |
 
 ---
 
@@ -179,29 +202,80 @@ per-iteration-hooks:
 
 ---
 
-## Exit Mechanism: RALPH_COMPLETE
+## Exit Mechanism: JSON Result Reporting
 
-Claude signals goal completion by outputting:
+Claude signals its state by outputting a JSON result in its response. This provides structured communication between Claude and the sprint loop.
 
+### JSON Result Format
+
+Claude outputs a JSON code block in its final message:
+
+```json
+{
+  "status": "continue" | "goal-complete" | "needs-human",
+  "summary": "What was done this iteration",
+  "completedStepIds": ["step-0", "step-1"],
+  "pendingSteps": [
+    {"id": "step-2", "prompt": "Existing step"},
+    {"id": null, "prompt": "New step to add"}
+  ],
+  "goalCompleteSummary": "Final summary when goal achieved",
+  "humanNeeded": {"reason": "Why human is needed", "details": "Context"}
+}
 ```
-RALPH_COMPLETE: [summary of what was accomplished]
-```
+
+### Result Statuses
+
+| Status | When to Use | Required Fields |
+|--------|-------------|-----------------|
+| `continue` | More work to do | `summary`, optionally `completedStepIds`, `pendingSteps` |
+| `goal-complete` | Goal achieved | `summary`, `goalCompleteSummary`, optionally `completedStepIds` |
+| `needs-human` | Blocked, need help | `summary`, `humanNeeded.reason`, `humanNeeded.details` |
 
 ### Exit Detection
 
-The sprint loop detects this pattern and:
-1. Records the completion summary
-2. Waits for all parallel hooks to complete
-3. Updates PROGRESS.yaml with final status
-4. Exits the loop
+The sprint loop parses this JSON and:
+1. Updates step statuses based on `completedStepIds`
+2. Adds new steps from `pendingSteps` (where `id: null`)
+3. For `goal-complete`: records completion summary, exits loop
+4. For `needs-human`: sets sprint status, exits for intervention
+5. For `continue`: proceeds to next iteration
 
 ### Example Claude Output
 
-```text
-All authentication endpoints have been implemented and tested.
+**Continue working:**
+```json
+{
+  "status": "continue",
+  "summary": "Implemented login endpoint with JWT generation",
+  "completedStepIds": ["step-0"],
+  "pendingSteps": [
+    {"id": "step-1", "prompt": "Add logout endpoint"},
+    {"id": null, "prompt": "Add token refresh mechanism"}
+  ]
+}
+```
 
-RALPH_COMPLETE: Implemented JWT authentication with registration, login,
-token refresh, and logout endpoints. All 12 tests passing.
+**Goal complete:**
+```json
+{
+  "status": "goal-complete",
+  "summary": "Completed final verification and documentation",
+  "completedStepIds": ["step-4"],
+  "goalCompleteSummary": "Implemented JWT authentication with registration, login, token refresh, and logout endpoints. All 12 tests passing."
+}
+```
+
+**Need human help:**
+```json
+{
+  "status": "needs-human",
+  "summary": "Attempted database migration but encountered blocking issue",
+  "humanNeeded": {
+    "reason": "Database credentials not configured",
+    "details": "The .env file is missing DATABASE_URL. Please add credentials and resume."
+  }
+}
 ```
 
 ---
@@ -209,22 +283,24 @@ token refresh, and logout endpoints. All 12 tests passing.
 ## PROGRESS.yaml Structure (Ralph Mode)
 
 ```yaml
+sprint-id: 2026-01-18_auth-feature
+status: in-progress
 mode: ralph
+
 goal: |
-  Build authentication system with JWT tokens
+  Build authentication system with JWT tokens.
+  Include registration, login, token refresh, and logout.
 
 ralph:
   idle-threshold: 3           # Iterations without progress → reflection
+  min-iterations: 10          # Minimum iterations before goal-complete allowed
 
 per-iteration-hooks:
   - id: learning
-    workflow: "m42-signs:learning-extraction"
+    prompt: |
+      /m42-signs:extract $ITERATION_TRANSCRIPT
     parallel: true
     enabled: true
-  - id: documentation
-    workflow: "doc-update"
-    parallel: true
-    enabled: false
 
 dynamic-steps:
   - id: step-0
@@ -232,9 +308,10 @@ dynamic-steps:
     status: completed
     added-at: "2026-01-18T10:00:00Z"
     added-in-iteration: 1
+    completed-at: "2026-01-18T10:05:00Z"
   - id: step-1
     prompt: "Implement JWT token generation"
-    status: in-progress
+    status: pending
     added-at: "2026-01-18T10:05:00Z"
     added-in-iteration: 1
 
@@ -242,14 +319,32 @@ hook-tasks:
   - iteration: 1
     hook-id: learning
     status: completed
-    pid: null
-    transcript: transcripts/iter-1-learning.jsonl
+    spawned-at: "2026-01-18T10:00:00Z"
+    completed-at: "2026-01-18T10:01:00Z"
+    exit-code: 0
 
 ralph-exit:
   detected-at: null
   iteration: null
   final-summary: null
+
+stats:
+  started-at: "2026-01-18T10:00:00Z"
+  current-iteration: 2
+  max-iterations: 1000000
 ```
+
+### Key Fields
+
+| Field | Description |
+|-------|-------------|
+| `mode: ralph` | Activates Ralph mode execution |
+| `goal` | The high-level objective Claude works toward |
+| `ralph.idle-threshold` | Iterations without progress before reflection mode |
+| `ralph.min-iterations` | Minimum iterations required before `goal-complete` is accepted |
+| `dynamic-steps` | Steps created by Claude during execution |
+| `hook-tasks` | Background hook execution records |
+| `ralph-exit` | Populated when goal is complete |
 
 ---
 
@@ -275,7 +370,7 @@ fi
 |--------|---------------|------------|
 | **Step definition** | SPRINT.yaml | Claude creates dynamically |
 | **Iteration count** | Fixed (phase count) | Unlimited until complete |
-| **Exit condition** | All phases done | `RALPH_COMPLETE` detected |
+| **Exit condition** | All phases done | `goal-complete` JSON status |
 | **Hooks** | None | Per-iteration, parallel |
 | **Reflection** | Not applicable | After idle threshold |
 | **Best for** | Known task sequences | Open-ended goals |
@@ -306,7 +401,9 @@ fi
 | Loop never exits | Goal too vague | Make goal more specific and measurable |
 | Hook not running | Hook disabled | Enable in SPRINT.yaml `per-iteration-hooks` |
 | Stuck in reflection | No clear completion criteria | Add success criteria to goal |
-| Steps keep growing | Goal scope creep | Constrain goal or use `RALPH_COMPLETE` |
+| Steps keep growing | Goal scope creep | Constrain goal or use `goal-complete` status |
+| Goal-complete ignored | `min-iterations` not reached | Wait for threshold or adjust `ralph.min-iterations` |
+| No JSON result parsed | Claude output malformed | Ensure JSON is in ```json code block |
 
 ---
 

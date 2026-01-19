@@ -337,3 +337,19 @@ We're building the foundation for a new way of developing software - one where:
 ---
 
 *This vision is the input. The implementation is Ralph's to discover.*
+
+## Findings
+
+### Iteration 1: Architecture Analysis
+
+**Sprint Activity Hook Status** (Corrected Finding):
+- The note "sprint hooks are no longer in use" is INCORRECT
+- `sprint-activity-hook.sh` IS actively used for activity logging
+- It's installed by run-sprint.md, produces JSONL consumed by status server
+- DO NOT REMOVE without understanding the full dependency chain
+
+**Key Gap Identified**: Freedom + Patterns model not fully realized
+- Ralph has FREEDOM (dynamic steps, idle detection, reflection)
+- System has STRUCTURE (deterministic state, JSON contracts)
+- Missing: PATTERNS as invocable entities
+- See: context/architecture-analysis.md for full analysis
