@@ -730,7 +730,9 @@ run_pattern_verification() {
     verify_cmd=$(echo "$verify_yaml" | yq -r ".verify[$i].command // \"\"")
     verify_expect=$(echo "$verify_yaml" | yq -r ".verify[$i].expect // \"exit-code-0\"")
     verify_desc=$(echo "$verify_yaml" | yq -r ".verify[$i].description // \"\"")
-    verify_required=$(echo "$verify_yaml" | yq -r ".verify[$i].required // \"true\"")
+    # Note: yq's // alternative treats false as falsy, so we extract raw and default in bash
+    verify_required=$(echo "$verify_yaml" | yq -r ".verify[$i].required")
+    [[ "$verify_required" == "null" || -z "$verify_required" ]] && verify_required="true"
 
     if [[ -z "$verify_cmd" ]]; then
       continue
@@ -740,9 +742,11 @@ run_pattern_verification() {
     echo "  [$verify_id] $verify_desc"
 
     # Execute the verification command
-    local cmd_output cmd_exit_code
-    cmd_output=$(eval "$verify_cmd" 2>&1) || true
-    cmd_exit_code=$?
+    # Note: We capture exit code properly - the || cmd_exit_code=$? pattern
+    # ensures set -e doesn't kill the script while still capturing the actual exit code
+    local cmd_output
+    local cmd_exit_code=0
+    cmd_output=$(eval "$verify_cmd" 2>&1) || cmd_exit_code=$?
 
     # Evaluate expectation
     local check_passed=false
