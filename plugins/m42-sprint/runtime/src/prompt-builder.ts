@@ -257,6 +257,32 @@ export function loadContextFiles(contextDir: string): string {
 }
 
 // ============================================================================
+// Helper Functions
+// ============================================================================
+
+/**
+ * Append the standard Files section to prompt parts
+ */
+function appendFilesSection(parts: string[], sprintDir: string): void {
+  parts.push('');
+  parts.push('## Files');
+  parts.push(`- Progress: ${path.join(sprintDir, 'PROGRESS.yaml')}`);
+  parts.push(`- Sprint: ${path.join(sprintDir, 'SPRINT.yaml')}`);
+}
+
+/**
+ * Append context files content if available
+ */
+function appendContextContent(parts: string[], sprintDir: string): void {
+  const contextDir = path.join(sprintDir, 'context');
+  const contextContent = loadContextFiles(contextDir);
+  if (contextContent) {
+    parts.push('');
+    parts.push(contextContent);
+  }
+}
+
+// ============================================================================
 // Prompt Building
 // ============================================================================
 
@@ -347,10 +373,7 @@ function buildSimplePrompt(
   parts.push(substituteVariables(instructionsTemplate, context));
 
   // Files section
-  parts.push('');
-  parts.push('## Files');
-  parts.push(`- Progress: ${path.join(sprintDir, 'PROGRESS.yaml')}`);
-  parts.push(`- Sprint: ${path.join(sprintDir, 'SPRINT.yaml')}`);
+  appendFilesSection(parts, sprintDir);
 
   // Result reporting
   parts.push('');
@@ -358,12 +381,7 @@ function buildSimplePrompt(
   parts.push(substituteVariables(resultTemplate, context));
 
   // Context files
-  const contextDir = path.join(sprintDir, 'context');
-  const contextContent = loadContextFiles(contextDir);
-  if (contextContent) {
-    parts.push('');
-    parts.push(contextContent);
-  }
+  appendContextContent(parts, sprintDir);
 
   return parts.join('\n');
 }
@@ -455,10 +473,7 @@ function buildForEachPrompt(
   parts.push(substituteVariables(instructionsTemplate, context));
 
   // Files section
-  parts.push('');
-  parts.push('## Files');
-  parts.push(`- Progress: ${path.join(sprintDir, 'PROGRESS.yaml')}`);
-  parts.push(`- Sprint: ${path.join(sprintDir, 'SPRINT.yaml')}`);
+  appendFilesSection(parts, sprintDir);
 
   // Result reporting
   parts.push('');
@@ -466,12 +481,7 @@ function buildForEachPrompt(
   parts.push(substituteVariables(resultTemplate, context));
 
   // Context files
-  const contextDir = path.join(sprintDir, 'context');
-  const contextContent = loadContextFiles(contextDir);
-  if (contextContent) {
-    parts.push('');
-    parts.push(contextContent);
-  }
+  appendContextContent(parts, sprintDir);
 
   return parts.join('\n');
 }
