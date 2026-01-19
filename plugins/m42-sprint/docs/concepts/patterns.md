@@ -82,7 +82,7 @@ steps:
       Step 1: Implement user registration...
 ```
 
-See `.claude/sprints/2026-01-17_plugin-enhancements/SPRINT.yaml` for a complete example of well-structured steps with a workflow template.
+See [Writing Sprints Guide](../guides/writing-sprints.md) for complete examples of well-structured steps with workflow templates.
 
 ---
 
@@ -141,7 +141,7 @@ Ralph can dynamically create well-structured steps that embody pattern principle
 ## Related Concepts
 
 - [Ralph Mode](ralph-mode.md) - Autonomous execution with dynamic steps
-- [Workflow Templates](../reference/workflows.md) - How to define and use workflows
+- [Workflow YAML Schema](../reference/workflow-yaml-schema.md) - How to define and use workflows
 - [SPRINT.yaml Reference](../reference/sprint-yaml-schema.md) - Sprint definition format
 
 ---
