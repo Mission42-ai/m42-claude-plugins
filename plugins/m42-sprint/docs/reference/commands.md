@@ -404,6 +404,7 @@ To stop the server, close this terminal or use Ctrl+C.
 - If server already running, shows existing URL
 - Page auto-refreshes when PROGRESS.yaml changes
 - Useful when sprint was started without status server
+- **Worktree-aware**: Dashboard shows sprints from all git worktrees for parallel execution monitoring. See [API Reference](api.md#worktree-aware-endpoints) for details.
 
 ---
 
@@ -632,3 +633,4 @@ The sprint loop monitors PROGRESS.yaml for these status values:
 - [Workflow Compilation](../concepts/workflow-compilation.md) - How SPRINT.yaml compiles
 - [SPRINT.yaml Schema](sprint-yaml-schema.md) - Sprint configuration reference
 - [PROGRESS.yaml Schema](progress-yaml-schema.md) - Progress tracking reference
+- [API Reference](api.md) - Status server REST API for worktree-aware monitoring
