@@ -6,7 +6,7 @@ Complete reference for all M42-Sprint commands organized by category.
 
 | Command | Description | Category |
 |---------|-------------|----------|
-| `/start-sprint <name>` | Initialize new sprint directory | Lifecycle |
+| `/start-sprint <name> [--ralph \| --workflow <name>]` | Initialize new sprint directory | Lifecycle |
 | `/run-sprint <dir> [options]` | Compile and execute sprint | Lifecycle |
 | `/stop-sprint` | Forcefully stop sprint loop | Control |
 | `/pause-sprint` | Pause after current task | Control |
@@ -26,11 +26,11 @@ Commands for creating and running sprints.
 
 ### /start-sprint
 
-Initialize a new sprint directory with workflow-based configuration.
+Initialize a new sprint directory with either **Ralph mode** (autonomous goal-driven) or **workflow-based** configuration.
 
 **Usage:**
 ```bash
-/start-sprint <sprint-name>
+/start-sprint <sprint-name> [--ralph | --workflow <name>]
 ```
 
 **Arguments:**
@@ -38,38 +38,80 @@ Initialize a new sprint directory with workflow-based configuration.
 |----------|----------|-------------|
 | `<sprint-name>` | Yes | Name for the sprint (alphanumeric, hyphens allowed) |
 
+**Options:**
+| Option | Description |
+|--------|-------------|
+| `--ralph` | Create Ralph mode sprint (autonomous, goal-driven) |
+| `--workflow <name>` | Create workflow-based sprint with specified workflow |
+
+**Sprint Modes:**
+
+| Mode | When to Use |
+|------|-------------|
+| **Ralph** (`--ralph`) | Complex features, research-heavy work, open-ended goals |
+| **Workflow** (`--workflow`) | Well-defined tasks, routine work, batched operations |
+
 **What it creates:**
 ```
 .claude/sprints/YYYY-MM-DD_<sprint-name>/
-├── SPRINT.yaml     # Sprint configuration (workflow + steps)
+├── SPRINT.yaml     # Sprint configuration (mode-dependent)
 ├── context/        # Context files and cached research
-└── artifacts/      # Sprint outputs and deliverables
+├── artifacts/      # Sprint outputs and deliverables
+└── patterns/       # (Optional) Sprint-specific execution patterns
 ```
 
-**Example:**
+**Examples:**
 ```bash
-/start-sprint auth-feature
+# Create Ralph mode sprint (recommended for complex goals)
+/start-sprint feature-auth --ralph
+
+# Create workflow-based sprint
+/start-sprint bugfix-batch --workflow bugfix-workflow
+
+# If mode not specified, you'll be asked to choose
+/start-sprint my-sprint
 ```
 
-**Output:**
+**Output (Ralph Mode):**
 ```
-Sprint initialized successfully!
+Sprint initialized (Ralph Mode)!
 
-Location: .claude/sprints/2026-01-15_auth-feature/
+Location: .claude/sprints/2026-01-15_feature-auth/
 
-Created files:
-  - SPRINT.yaml (workflow definition)
-  - context/ (context files)
-  - artifacts/ (output files)
+Ralph Mode Features:
+  - Autonomous goal-driven execution
+  - Deep thinking with dynamic task shaping
+  - Pattern-based execution for quality consistency
+  - Per-iteration learning extraction (if enabled)
+
+Next steps:
+  1. Edit SPRINT.yaml to define your goal
+  2. (Optional) Add context files to context/ directory
+  3. Run /run-sprint to execute
+
+Available patterns for Ralph to invoke:
+  - implement-feature (TDD implementation)
+  - fix-bug (debug and fix with regression test)
+  - refactor (safe refactoring with test preservation)
+  - document (documentation updates)
+```
+
+**Output (Workflow Mode):**
+```
+Sprint initialized (Workflow Mode)!
+
+Location: .claude/sprints/2026-01-15_bugfix-batch/
 
 Next steps:
   1. Edit SPRINT.yaml to add your steps
   2. Run /run-sprint to compile and execute
+  3. Use --dry-run first to preview the workflow
 ```
 
 **Notes:**
 - Creates sprint with current date prefix: `YYYY-MM-DD_<name>`
-- Requires `.claude/workflows/` directory with at least one workflow
+- Ralph mode: Uses `workflow: ralph` with `goal:` field
+- Workflow mode: Uses `workflow: <name>` with `steps:` array
 - PROGRESS.yaml is NOT created here - it's compiled when running `/run-sprint`
 
 ---
@@ -553,11 +595,29 @@ Display comprehensive help about the M42-Sprint plugin.
 
 ## Common Workflows
 
-### Starting a New Sprint
+### Starting a New Sprint (Ralph Mode - Recommended for Complex Goals)
 
 ```bash
-# 1. Create sprint
-/start-sprint feature-auth
+# 1. Create Ralph mode sprint
+/start-sprint feature-auth --ralph
+
+# 2. Edit SPRINT.yaml to set your goal
+# goal: |
+#   Implement user authentication system with:
+#   - User registration with email verification
+#   - Login with JWT tokens
+#   - Password reset flow
+#   Success: All endpoints tested, documented, and deployed
+
+# 3. Execute sprint
+/run-sprint .claude/sprints/2026-01-15_feature-auth
+```
+
+### Starting a New Sprint (Workflow Mode - For Well-Defined Steps)
+
+```bash
+# 1. Create workflow-based sprint
+/start-sprint bugfix-batch --workflow bugfix-workflow
 
 # 2. Add steps
 /add-step "Implement user registration endpoint"
@@ -565,10 +625,10 @@ Display comprehensive help about the M42-Sprint plugin.
 /add-step "Create password reset flow"
 
 # 3. Preview workflow
-/run-sprint .claude/sprints/2026-01-15_feature-auth --dry-run
+/run-sprint .claude/sprints/2026-01-15_bugfix-batch --dry-run
 
 # 4. Execute sprint
-/run-sprint .claude/sprints/2026-01-15_feature-auth --max-iterations 30
+/run-sprint .claude/sprints/2026-01-15_bugfix-batch --max-iterations 30
 ```
 
 ### Monitoring and Controlling
