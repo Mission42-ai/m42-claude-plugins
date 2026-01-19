@@ -499,8 +499,10 @@ extract_json_result() {
   local transcript_file="$1"
 
   # First, try to extract from result field in stream-json output
+  # NOTE: Using -s (slurp) to read whole file, then get LAST result entry
+  # The result field contains multi-line text, so piping to tail -1 would break it
   local result_text
-  result_text=$(jq -r 'select(.type=="result") | .result // empty' "$transcript_file" 2>/dev/null | tail -1)
+  result_text=$(jq -rs '[.[] | select(.type=="result")] | last | .result // empty' "$transcript_file" 2>/dev/null)
 
   if [[ -z "$result_text" ]]; then
     # Fallback: try to read raw file content
@@ -682,6 +684,294 @@ advance_pointer() {
   fi
 }
 
+# =============================================================================
+# PATTERN EXECUTION
+# Patterns are proven execution approaches that ensure consistent quality
+# Phase 1: Patterns as prompt templates
+# Phase 2: Verification commands - hard guarantees that patterns executed correctly
+# =============================================================================
+
+# Run verification commands for a pattern
+# Args: pattern_file, pattern_name
+# Returns: JSON object with verification results
+# Exit code: 0 if all required verifications pass, 1 otherwise
+run_pattern_verification() {
+  local pattern_file="$1"
+  local pattern_name="$2"
+
+  # Extract verify array from frontmatter using yq
+  # Pattern files have --- frontmatter --- content structure
+  local verify_yaml
+  verify_yaml=$(sed -n '/^---$/,/^---$/p' "$pattern_file" | head -n -1 | tail -n +2)
+
+  # Check if verify section exists
+  if ! echo "$verify_yaml" | yq -e '.verify' > /dev/null 2>&1; then
+    echo '{"verified": true, "checks": [], "message": "No verification commands defined"}'
+    return 0
+  fi
+
+  local checks_json="[]"
+  local all_required_passed=true
+  local total_checks=0
+  local passed_checks=0
+
+  echo ""
+  echo "Running verification commands for pattern: $pattern_name"
+  echo "------------------------------------------------------------"
+
+  # Iterate over each verification command
+  local num_verifications
+  num_verifications=$(echo "$verify_yaml" | yq '.verify | length')
+
+  for ((i=0; i<num_verifications; i++)); do
+    local verify_id verify_type verify_cmd verify_expect verify_desc verify_required
+    verify_id=$(echo "$verify_yaml" | yq -r ".verify[$i].id // \"check-$i\"")
+    verify_type=$(echo "$verify_yaml" | yq -r ".verify[$i].type // \"bash\"")
+    verify_cmd=$(echo "$verify_yaml" | yq -r ".verify[$i].command // \"\"")
+    verify_expect=$(echo "$verify_yaml" | yq -r ".verify[$i].expect // \"exit-code-0\"")
+    verify_desc=$(echo "$verify_yaml" | yq -r ".verify[$i].description // \"\"")
+    verify_required=$(echo "$verify_yaml" | yq -r ".verify[$i].required // \"true\"")
+
+    if [[ -z "$verify_cmd" ]]; then
+      continue
+    fi
+
+    total_checks=$((total_checks + 1))
+    echo "  [$verify_id] $verify_desc"
+
+    # Execute the verification command
+    local cmd_output cmd_exit_code
+    cmd_output=$(eval "$verify_cmd" 2>&1) || true
+    cmd_exit_code=$?
+
+    # Evaluate expectation
+    local check_passed=false
+    case "$verify_expect" in
+      exit-code-0)
+        [[ $cmd_exit_code -eq 0 ]] && check_passed=true
+        ;;
+      empty)
+        [[ -z "$cmd_output" ]] && check_passed=true
+        ;;
+      non-empty)
+        [[ -n "$cmd_output" ]] && check_passed=true
+        ;;
+      contains-ok-or-empty)
+        [[ -z "$cmd_output" || "$cmd_output" == "OK" ]] && check_passed=true
+        ;;
+      *)
+        # Default: exit-code-0
+        [[ $cmd_exit_code -eq 0 ]] && check_passed=true
+        ;;
+    esac
+
+    local status_icon status_text
+    if $check_passed; then
+      status_icon="✓"
+      status_text="passed"
+      passed_checks=$((passed_checks + 1))
+    else
+      if [[ "$verify_required" == "true" ]]; then
+        status_icon="✗"
+        status_text="FAILED (required)"
+        all_required_passed=false
+      else
+        status_icon="○"
+        status_text="failed (optional)"
+      fi
+    fi
+
+    echo "    $status_icon $status_text"
+
+    # Build check result JSON (escape output for JSON)
+    local escaped_output
+    escaped_output=$(printf '%s' "$cmd_output" | head -c 500 | jq -Rs '.')
+    checks_json=$(echo "$checks_json" | jq \
+      --arg id "$verify_id" \
+      --arg desc "$verify_desc" \
+      --arg status "$status_text" \
+      --argjson passed "$check_passed" \
+      --argjson required "$(echo "$verify_required" | jq -R 'if . == "true" then true else false end')" \
+      --argjson output "$escaped_output" \
+      '. += [{"id": $id, "description": $desc, "passed": $passed, "required": $required, "status": $status, "output": $output}]')
+  done
+
+  echo "------------------------------------------------------------"
+  echo "Verification: $passed_checks/$total_checks checks passed"
+
+  # Build final result
+  local result_json
+  if $all_required_passed; then
+    result_json=$(jq -n \
+      --argjson verified true \
+      --argjson checks "$checks_json" \
+      --arg message "$passed_checks/$total_checks checks passed" \
+      '{"verified": $verified, "checks": $checks, "message": $message}')
+    echo "Result: VERIFIED ✓"
+    echo ""
+    echo "$result_json"
+    return 0
+  else
+    result_json=$(jq -n \
+      --argjson verified false \
+      --argjson checks "$checks_json" \
+      --arg message "Required verification(s) failed" \
+      '{"verified": $verified, "checks": $checks, "message": $message}')
+    echo "Result: VERIFICATION FAILED ✗"
+    echo ""
+    echo "$result_json"
+    return 1
+  fi
+}
+
+# Execute a pattern in fresh context
+# Args: pattern_name, params_json, iteration
+# Returns: 0 on success, non-zero on failure
+execute_pattern() {
+  local pattern_name="$1"
+  local params_json="$2"
+  local iteration="$3"
+
+  echo ""
+  echo "============================================================"
+  echo "EXECUTING PATTERN: $pattern_name"
+  echo "============================================================"
+
+  # Pattern locations (in order of precedence):
+  # 1. Sprint-local: $SPRINT_DIR/patterns/
+  # 2. Project-level: .claude/patterns/
+  # 3. Plugin default: $PLUGIN_DIR/patterns/
+  local pattern_file=""
+  local pattern_search_paths=(
+    "$SPRINT_DIR/patterns/${pattern_name}.md"
+    ".claude/patterns/${pattern_name}.md"
+    "$PLUGIN_DIR/patterns/${pattern_name}.md"
+  )
+
+  for path in "${pattern_search_paths[@]}"; do
+    if [[ -f "$path" ]]; then
+      pattern_file="$path"
+      echo "Found pattern: $path"
+      break
+    fi
+  done
+
+  if [[ -z "$pattern_file" ]]; then
+    echo "Error: Pattern '$pattern_name' not found in search paths:"
+    for path in "${pattern_search_paths[@]}"; do
+      echo "  - $path"
+    done
+    return 1
+  fi
+
+  # Load pattern template
+  local pattern_template
+  pattern_template=$(cat "$pattern_file")
+
+  # Extract pattern metadata from frontmatter (if present)
+  local pattern_desc=""
+  if echo "$pattern_template" | head -1 | grep -q "^---"; then
+    pattern_desc=$(echo "$pattern_template" | sed -n '/^---$/,/^---$/p' | yq -r '.description // ""' 2>/dev/null || echo "")
+  fi
+
+  # Build the pattern prompt with parameter substitution
+  # Parameters are available as {{param_name}} in the template
+  local pattern_prompt="$pattern_template"
+
+  # Substitute parameters using jq to extract each key-value pair
+  while IFS='=' read -r key value; do
+    if [[ -n "$key" ]]; then
+      # Escape special characters in value for sed
+      local escaped_value
+      escaped_value=$(printf '%s\n' "$value" | sed 's/[&/\]/\\&/g')
+      pattern_prompt=$(echo "$pattern_prompt" | sed "s|{{${key}}}|${escaped_value}|g")
+    fi
+  done < <(echo "$params_json" | jq -r 'to_entries[] | "\(.key)=\(.value)"' 2>/dev/null)
+
+  # Add context about the sprint
+  local goal
+  goal=$(yq -r '.goal // "No goal defined"' "$PROGRESS_FILE")
+
+  local full_prompt
+  full_prompt=$(cat <<EOF
+# Pattern Execution: $pattern_name
+
+## Sprint Context
+Goal: $goal
+Pattern: $pattern_name
+Iteration: $iteration
+
+## Pattern Instructions
+$pattern_prompt
+
+## Important
+- Execute the pattern completely before returning
+- Report what was accomplished
+- Note any learnings or issues encountered
+- Use atomic commits for any code changes
+EOF
+)
+
+  # Create pattern transcript directory
+  mkdir -p "$SPRINT_DIR/transcripts/patterns"
+  local pattern_transcript="$SPRINT_DIR/transcripts/patterns/iter${iteration}-${pattern_name}.jsonl"
+
+  # Execute pattern in fresh context
+  echo "Executing pattern in fresh context..."
+  local pattern_exit_code=0
+
+  if ! claude -p "$full_prompt" \
+    --output-format stream-json \
+    --dangerously-skip-permissions \
+    > "$pattern_transcript" 2>&1; then
+    pattern_exit_code=$?
+    echo "Pattern execution returned exit code: $pattern_exit_code"
+  fi
+
+  # Log pattern completion
+  local pattern_summary
+  pattern_summary=$(extract_last_assistant_message "$pattern_transcript" 2>/dev/null | head -c 500 || echo "No summary available")
+
+  echo ""
+  echo "Pattern '$pattern_name' Claude execution completed (exit: $pattern_exit_code)"
+  echo "Transcript: $pattern_transcript"
+
+  # =========================================================================
+  # PHASE 2: Run verification commands
+  # Hard guarantees that the pattern actually executed correctly
+  # =========================================================================
+  local verification_result verification_exit_code
+  verification_result=$(run_pattern_verification "$pattern_file" "$pattern_name")
+  verification_exit_code=$?
+
+  # Store verification result in a file for later retrieval
+  local verification_file="$SPRINT_DIR/transcripts/patterns/iter${iteration}-${pattern_name}-verification.json"
+  echo "$verification_result" > "$verification_file"
+
+  # Log final status
+  local verified
+  verified=$(echo "$verification_result" | jq -r '.verified')
+
+  echo "============================================================"
+  if [[ "$verified" == "true" ]]; then
+    echo "Pattern '$pattern_name' VERIFIED ✓"
+    # If Claude succeeded and verification passed, return success
+    return $pattern_exit_code
+  else
+    echo "Pattern '$pattern_name' VERIFICATION FAILED ✗"
+    echo "See: $verification_file"
+    # Verification failure takes precedence over Claude exit code
+    return 1
+  fi
+}
+
+# Extract the last assistant message from a transcript for summaries
+extract_last_assistant_message() {
+  local transcript_file="$1"
+  # Get the last assistant message from JSONL
+  tac "$transcript_file" | jq -r 'select(.type == "assistant") | .message.content[0].text // empty' 2>/dev/null | head -1
+}
+
 # Process Ralph mode result and update PROGRESS.yaml
 # Args: transcript_file, iteration
 process_ralph_result() {
@@ -704,6 +994,44 @@ process_ralph_result() {
   goal_summary=$(echo "$json_result" | jq -r '.goalCompleteSummary // ""')
 
   echo "Ralph result: status=$status, summary=$summary"
+
+  # =============================================================================
+  # PATTERN INVOCATION CHECK
+  # If Ralph requests a pattern, execute it before processing normal status
+  # =============================================================================
+  if echo "$json_result" | jq -e '.invokePattern' > /dev/null 2>&1; then
+    local pattern_name pattern_params
+    pattern_name=$(echo "$json_result" | jq -r '.invokePattern.name')
+    pattern_params=$(echo "$json_result" | jq -c '.invokePattern.params // {}')
+
+    echo "Pattern invocation requested: $pattern_name"
+    execute_pattern "$pattern_name" "$pattern_params" "$iteration"
+    local pattern_exit_code=$?
+
+    if [[ $pattern_exit_code -ne 0 ]]; then
+      echo "Warning: Pattern '$pattern_name' failed with exit code $pattern_exit_code"
+      # Pattern failure doesn't block Ralph - it continues with the result
+    fi
+
+    # Load verification result if it exists
+    local verification_file="$SPRINT_DIR/transcripts/patterns/iter${iteration}-${pattern_name}-verification.json"
+    local verified="null"
+    local verification_message=""
+    if [[ -f "$verification_file" ]]; then
+      verified=$(jq -r '.verified' "$verification_file")
+      verification_message=$(jq -r '.message // ""' "$verification_file")
+    fi
+
+    # Store pattern result for Ralph's next iteration context (now includes verification)
+    yq -i ".pattern-results += [{
+      \"iteration\": $iteration,
+      \"pattern\": \"$pattern_name\",
+      \"exit-code\": $pattern_exit_code,
+      \"verified\": $verified,
+      \"verification-message\": \"$verification_message\",
+      \"executed-at\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
+    }]" "$PROGRESS_FILE"
+  fi
 
   case "$status" in
     continue)
@@ -731,7 +1059,9 @@ process_ralph_result() {
         # We'll rebuild the pending list from the agent's specification
 
         # Process each step from agent's pending list
-        echo "$pending_steps" | jq -c '.[]' | while read -r step; do
+        # NOTE: Using process substitution (< <(...)) instead of pipe to avoid subshell
+        # Piping into while creates a subshell where yq -i changes are lost!
+        while read -r step; do
           local step_id step_prompt
           step_id=$(echo "$step" | jq -r '.id // empty')
           step_prompt=$(echo "$step" | jq -r '.prompt')
@@ -755,7 +1085,7 @@ process_ralph_result() {
             # Note: Order is determined by array position in dynamic-steps
             # For now we trust the agent hasn't reordered existing steps incorrectly
           fi
-        done
+        done < <(echo "$pending_steps" | jq -c '.[]')
       fi
 
       return 0
@@ -849,6 +1179,9 @@ spawn_per_iteration_hooks() {
     return
   fi
 
+  # Ensure logs directory exists for hook output
+  mkdir -p "$SPRINT_DIR/logs"
+
   echo "Spawning $hooks_count per-iteration hook(s)..."
 
   for ((h=0; h<hooks_count; h++)); do
@@ -879,18 +1212,36 @@ spawn_per_iteration_hooks() {
       continue
     fi
 
+    # Log file for hook output (provides visibility into hook execution)
+    local HOOK_LOG="$SPRINT_DIR/logs/hook-iter${iteration}-${hook_id}.log"
+
     if [[ "$parallel" == "true" ]]; then
       # Non-blocking: spawn in background
-      echo "  Spawning hook '$hook_id' in background (parallel)"
+      echo "  Spawning hook '$hook_id' in background (parallel) -> $HOOK_LOG"
       (
-        claude -p "$HOOK_PROMPT" --dangerously-skip-permissions > /dev/null 2>&1
-        yq -i "(.hook-tasks[] | select(.iteration == $iteration and .\"hook-id\" == \"$hook_id\")).status = \"completed\"" "$PROGRESS_FILE"
+        local exit_code=0
+        claude -p "$HOOK_PROMPT" --dangerously-skip-permissions > "$HOOK_LOG" 2>&1 || exit_code=$?
+        local completed_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        if [[ $exit_code -eq 0 ]]; then
+          yq -i "(.hook-tasks[] | select(.iteration == $iteration and .\"hook-id\" == \"$hook_id\")) |= (.status = \"completed\" | .\"completed-at\" = \"$completed_at\" | .\"exit-code\" = 0)" "$PROGRESS_FILE"
+        else
+          yq -i "(.hook-tasks[] | select(.iteration == $iteration and .\"hook-id\" == \"$hook_id\")) |= (.status = \"failed\" | .\"completed-at\" = \"$completed_at\" | .\"exit-code\" = $exit_code)" "$PROGRESS_FILE"
+          echo "[HOOK FAILED] exit_code=$exit_code" >> "$HOOK_LOG"
+        fi
       ) &
     else
       # Blocking: wait for completion
-      echo "  Running hook '$hook_id' (blocking)"
-      claude -p "$HOOK_PROMPT" --dangerously-skip-permissions > /dev/null 2>&1
-      yq -i "(.hook-tasks[] | select(.iteration == $iteration and .\"hook-id\" == \"$hook_id\")).status = \"completed\"" "$PROGRESS_FILE"
+      echo "  Running hook '$hook_id' (blocking) -> $HOOK_LOG"
+      local exit_code=0
+      claude -p "$HOOK_PROMPT" --dangerously-skip-permissions > "$HOOK_LOG" 2>&1 || exit_code=$?
+      local completed_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+      if [[ $exit_code -eq 0 ]]; then
+        yq -i "(.hook-tasks[] | select(.iteration == $iteration and .\"hook-id\" == \"$hook_id\")) |= (.status = \"completed\" | .\"completed-at\" = \"$completed_at\" | .\"exit-code\" = 0)" "$PROGRESS_FILE"
+      else
+        yq -i "(.hook-tasks[] | select(.iteration == $iteration and .\"hook-id\" == \"$hook_id\")) |= (.status = \"failed\" | .\"completed-at\" = \"$completed_at\" | .\"exit-code\" = $exit_code)" "$PROGRESS_FILE"
+        echo "[HOOK FAILED] exit_code=$exit_code" >> "$HOOK_LOG"
+        echo "  Warning: Hook '$hook_id' failed with exit code $exit_code (see $HOOK_LOG)"
+      fi
     fi
   done
 }
