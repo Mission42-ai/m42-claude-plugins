@@ -105,14 +105,15 @@ rm -rf "$TEST_DIR"/*
 cat > "$TEST_DIR/PROGRESS.yaml" << 'YAML'
 sprint-id: test-sprint
 status: in-progress
-mode: ralph
-goal: "Test goal"
+phases:
+  - id: test-phase
+    status: pending
 YAML
 
 if bash "$PREFLIGHT" "$TEST_DIR" > /dev/null 2>&1; then
-  pass "Preflight passes for valid Ralph mode config"
+  pass "Preflight passes for valid standard mode config"
 else
-  fail "Preflight should pass valid Ralph mode config"
+  fail "Preflight should pass valid standard mode config"
 fi
 
 # Test missing PROGRESS.yaml
@@ -131,66 +132,6 @@ if echo "$PREFLIGHT_OUT" | grep -qi "invalid\|corrupted"; then
   pass "Preflight detects invalid YAML"
 else
   fail "Preflight should detect invalid YAML"
-fi
-
-# =============================================================================
-# Ralph Mode Features
-# =============================================================================
-echo ""
-echo "=== Ralph Mode Features ==="
-
-if grep -q "run_ralph_loop" "$LOOP_FILE"; then
-  pass "Ralph mode loop implemented"
-else
-  fail "Ralph mode loop missing"
-fi
-
-if grep -q "min-iterations" "$LOOP_FILE"; then
-  pass "Min-iterations threshold implemented"
-else
-  fail "Min-iterations threshold missing"
-fi
-
-if grep -q "spawn_per_iteration_hooks" "$LOOP_FILE"; then
-  pass "Per-iteration hooks implemented"
-else
-  fail "Per-iteration hooks missing"
-fi
-
-if grep -q "process_ralph_result" "$LOOP_FILE"; then
-  pass "Ralph result processing implemented"
-else
-  fail "Ralph result processing missing"
-fi
-
-# Test Ralph prompt builder modes
-RALPH_PROMPT="$SCRIPT_DIR/build-ralph-prompt.sh"
-
-cat > "$TEST_DIR/PROGRESS.yaml" << 'YAML'
-sprint-id: test
-status: in-progress
-mode: ralph
-goal: "Test"
-ralph:
-  idle-threshold: 3
-dynamic-steps:
-  - id: step-0
-    prompt: "Do something"
-    status: pending
-YAML
-
-RALPH_OUT=$(bash "$RALPH_PROMPT" "$TEST_DIR" planning 1 2>&1 || true)
-if echo "$RALPH_OUT" | grep -q "Deep Thinking"; then
-  pass "Ralph planning mode prompt generation"
-else
-  fail "Ralph planning mode prompt generation"
-fi
-
-RALPH_OUT=$(bash "$RALPH_PROMPT" "$TEST_DIR" executing 2 2>&1 || true)
-if echo "$RALPH_OUT" | grep -q "step-0"; then
-  pass "Ralph executing mode includes current step"
-else
-  fail "Ralph executing mode should include current step"
 fi
 
 # =============================================================================
