@@ -1,6 +1,12 @@
 #!/bin/bash
 set -euo pipefail
 
+# DEPRECATED: This script is no longer used by /m42-signs:extract
+# The extraction command now uses LLM-based analysis which infers targets
+# based on semantic understanding of what the learning is about.
+#
+# Kept for reference - shows path-based target inference logic.
+#
 # Infer target CLAUDE.md for learning signs based on file paths
 # Analyzes paths to find common directory prefix and existing CLAUDE.md files
 #

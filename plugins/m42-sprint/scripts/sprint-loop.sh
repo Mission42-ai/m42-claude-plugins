@@ -2,7 +2,7 @@
 
 # Sprint Loop - Hierarchical Workflow Execution
 # Iterates through phases → steps → sub-phases with fresh context each iteration
-# Uses a simple bash loop pattern with deterministic state updates
+# This is the "dumb bash loop" pattern from Ralph Loop
 
 set -euo pipefail
 
@@ -882,6 +882,449 @@ advance_pointer() {
   fi
 }
 
+# Process Ralph mode result and update PROGRESS.yaml
+# Args: transcript_file, iteration
+process_ralph_result() {
+  local transcript_file="$1"
+  local iteration="$2"
+
+  # Try to extract JSON result
+  local json_result
+  json_result=$(extract_json_result "$transcript_file")
+
+  if [[ -z "$json_result" ]]; then
+    echo "Warning: No JSON result found in Ralph transcript."
+    return 1
+  fi
+
+  # Parse JSON fields
+  local status summary goal_summary
+  status=$(echo "$json_result" | jq -r '.status // "continue"')
+  summary=$(echo "$json_result" | jq -r '.summary // "No summary provided"')
+  goal_summary=$(echo "$json_result" | jq -r '.goalCompleteSummary // ""')
+
+  echo "Ralph result: status=$status, summary=$summary"
+
+  case "$status" in
+    continue)
+      # 1. Mark completed steps
+      local completed_ids
+      completed_ids=$(echo "$json_result" | jq -r '.completedStepIds // [] | .[]' 2>/dev/null)
+      local completed_at_ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+      for cid in $completed_ids; do
+        echo "Marking step $cid as completed"
+        # Atomic update for status and timestamp
+        yaml_atomic_update \
+          "(.dynamic-steps[] | select(.id == \"$cid\")).status = \"completed\"" \
+          "(.dynamic-steps[] | select(.id == \"$cid\")).\"completed-at\" = \"$completed_at_ts\""
+      done
+
+      # 2. Process pending steps (complete replacement of pending order)
+      local pending_steps
+      pending_steps=$(echo "$json_result" | jq -c '.pendingSteps // []')
+
+      if [[ "$pending_steps" != "[]" ]] && [[ "$pending_steps" != "null" ]]; then
+        # Get next available step ID
+        local max_id
+        max_id=$(yq -r '[.dynamic-steps[].id | select(. != null) | ltrimstr("step-") | tonumber] | max // -1' "$PROGRESS_FILE")
+        local next_id=$((max_id + 1))
+
+        # First, mark all current pending steps as "reordered" (will be updated or removed)
+        # We'll rebuild the pending list from the agent's specification
+
+        # Process each step from agent's pending list
+        # NOTE: Using process substitution (< <(...)) instead of pipe to avoid subshell
+        # Piping into while creates a subshell where yq -i changes are lost!
+        while read -r step; do
+          local step_id step_prompt
+          step_id=$(echo "$step" | jq -r '.id // empty')
+          step_prompt=$(echo "$step" | jq -r '.prompt')
+
+          if [[ -z "$step_id" ]] || [[ "$step_id" == "null" ]]; then
+            # New step - generate ID and add
+            local new_id="step-$next_id"
+            next_id=$((next_id + 1))
+            echo "Adding new step: $new_id"
+
+            yq -i ".dynamic-steps += [{
+              \"id\": \"$new_id\",
+              \"prompt\": \"$step_prompt\",
+              \"status\": \"pending\",
+              \"added-at\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",
+              \"added-in-iteration\": $iteration
+            }]" "$PROGRESS_FILE"
+          else
+            # Existing step - ensure it stays pending (agent wants it in this order)
+            echo "Keeping existing step: $step_id"
+            # Note: Order is determined by array position in dynamic-steps
+            # For now we trust the agent hasn't reordered existing steps incorrectly
+          fi
+        done < <(echo "$pending_steps" | jq -c '.[]')
+      fi
+
+      return 0
+      ;;
+
+    goal-complete)
+      # Check min-iterations threshold before allowing goal-complete
+      local min_iterations
+      min_iterations=$(yq -r '.ralph."min-iterations" // 0' "$PROGRESS_FILE")
+
+      if [[ "$min_iterations" -gt 0 ]] && [[ "$iteration" -lt "$min_iterations" ]]; then
+        echo "Goal-complete requested at iteration $iteration, but min-iterations is $min_iterations"
+        echo "Continuing execution until threshold is reached..."
+
+        # Record the premature goal-complete attempt for context
+        yaml_update ".ralph.\"goal-complete-attempted-at\" = $iteration"
+
+        # Mark any completed steps from this iteration (same as below)
+        local completed_ids
+        completed_ids=$(echo "$json_result" | jq -r '.completedStepIds // [] | .[]' 2>/dev/null)
+        local completed_at_ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+        for cid in $completed_ids; do
+          yaml_atomic_update \
+            "(.dynamic-steps[] | select(.id == \"$cid\")).status = \"completed\"" \
+            "(.dynamic-steps[] | select(.id == \"$cid\")).\"completed-at\" = \"$completed_at_ts\""
+        done
+
+        # Return 0 to continue (agent will get another iteration)
+        return 0
+      fi
+
+      echo "Goal complete: $goal_summary"
+
+      # Mark any completed steps from this iteration
+      local completed_ids
+      completed_ids=$(echo "$json_result" | jq -r '.completedStepIds // [] | .[]' 2>/dev/null)
+      local completed_at_ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+      for cid in $completed_ids; do
+        # Atomic update for status and timestamp
+        yaml_atomic_update \
+          "(.dynamic-steps[] | select(.id == \"$cid\")).status = \"completed\"" \
+          "(.dynamic-steps[] | select(.id == \"$cid\")).\"completed-at\" = \"$completed_at_ts\""
+      done
+
+      # Special return code to signal goal completion
+      return 100
+      ;;
+
+    needs-human)
+      local human_reason human_details
+      human_reason=$(echo "$json_result" | jq -r '.humanNeeded.reason // "No reason provided"')
+      human_details=$(echo "$json_result" | jq -r '.humanNeeded.details // ""')
+
+      echo "Human intervention needed: $human_reason"
+
+      # Atomic update for needs-human state
+      yaml_atomic_update \
+        ".status = \"needs-human\"" \
+        ".\"human-needed\".reason = \"$human_reason\"" \
+        ".\"human-needed\".details = \"$human_details\""
+
+      return 2
+      ;;
+
+    *)
+      echo "Warning: Unknown Ralph status '$status'"
+      return 1
+      ;;
+  esac
+}
+
+# =============================================================================
+# RALPH MODE FUNCTIONS
+# =============================================================================
+
+# Record Ralph mode completion
+# Uses atomic update to ensure completion state is consistent
+record_ralph_completion() {
+  local iteration="$1"
+  local summary="$2"
+  local completed_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+  # Calculate elapsed time first (needs read before atomic write)
+  local started_at=$(yq -r '.stats."started-at" // "null"' "$PROGRESS_FILE")
+  local elapsed=""
+  if [[ "$started_at" != "null" ]]; then
+    elapsed=$(calculate_elapsed "$started_at" "$completed_at")
+  fi
+
+  # Atomic update for all completion state
+  if [[ -n "$elapsed" ]]; then
+    yaml_atomic_update \
+      ".ralph-exit.\"detected-at\" = \"$completed_at\"" \
+      ".ralph-exit.iteration = $iteration" \
+      ".ralph-exit.\"final-summary\" = \"$summary\"" \
+      ".status = \"completed\"" \
+      ".stats.\"completed-at\" = \"$completed_at\"" \
+      ".stats.elapsed = \"$elapsed\""
+  else
+    yaml_atomic_update \
+      ".ralph-exit.\"detected-at\" = \"$completed_at\"" \
+      ".ralph-exit.iteration = $iteration" \
+      ".ralph-exit.\"final-summary\" = \"$summary\"" \
+      ".status = \"completed\"" \
+      ".stats.\"completed-at\" = \"$completed_at\""
+  fi
+
+  echo ""
+  echo "============================================================"
+  echo "RALPH MODE COMPLETED"
+  echo "============================================================"
+  echo "Iteration: $iteration"
+  echo "Summary: $summary"
+}
+
+# Spawn per-iteration hooks for Ralph mode
+spawn_per_iteration_hooks() {
+  local iteration=$1
+
+  # Check if per-iteration-hooks section exists
+  local hooks_exist=$(yq -r '.per-iteration-hooks // "null"' "$PROGRESS_FILE")
+  if [[ "$hooks_exist" == "null" ]]; then
+    return
+  fi
+
+  # Read enabled hooks count
+  local hooks_count=$(yq -r '.per-iteration-hooks // [] | map(select(.enabled == true)) | length' "$PROGRESS_FILE")
+
+  if [[ "$hooks_count" -eq 0 ]]; then
+    return
+  fi
+
+  # Ensure logs directory exists for hook output
+  mkdir -p "$SPRINT_DIR/logs"
+
+  echo "Spawning $hooks_count per-iteration hook(s)..."
+
+  for ((h=0; h<hooks_count; h++)); do
+    local hook_id=$(yq -r ".per-iteration-hooks | map(select(.enabled == true))[$h].id" "$PROGRESS_FILE")
+    local workflow=$(yq -r ".per-iteration-hooks | map(select(.enabled == true))[$h].workflow // \"\"" "$PROGRESS_FILE")
+    local prompt=$(yq -r ".per-iteration-hooks | map(select(.enabled == true))[$h].prompt // \"\"" "$PROGRESS_FILE")
+    local parallel=$(yq -r ".per-iteration-hooks | map(select(.enabled == true))[$h].parallel // false" "$PROGRESS_FILE")
+
+    # Register task in hook-tasks array
+    local spawned_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    yq -i ".hook-tasks += [{\"iteration\": $iteration, \"hook-id\": \"$hook_id\", \"status\": \"in-progress\", \"spawned-at\": \"$spawned_at\"}]" "$PROGRESS_FILE"
+
+    # Export iteration transcript path for prompt substitution
+    local ITERATION_TRANSCRIPT="$SPRINT_DIR/transcripts/iteration-$iteration.jsonl"
+    export ITERATION_TRANSCRIPT
+
+    # Build hook prompt
+    local HOOK_PROMPT=""
+    if [[ -n "$workflow" ]] && [[ "$workflow" != "null" ]] && [[ "$workflow" != "" ]]; then
+      # Workflow reference (e.g., "m42-signs:learning-extraction")
+      HOOK_PROMPT="/$workflow $ITERATION_TRANSCRIPT"
+    elif [[ -n "$prompt" ]] && [[ "$prompt" != "null" ]] && [[ "$prompt" != "" ]]; then
+      # Inline prompt - substitute variables
+      HOOK_PROMPT=$(echo "$prompt" | envsubst)
+    else
+      echo "Warning: Hook $hook_id has no workflow or prompt defined, skipping"
+      yq -i "(.hook-tasks[] | select(.iteration == $iteration and .\"hook-id\" == \"$hook_id\")).status = \"skipped\"" "$PROGRESS_FILE"
+      continue
+    fi
+
+    # Log file for hook output (provides visibility into hook execution)
+    local HOOK_LOG="$SPRINT_DIR/logs/hook-iter${iteration}-${hook_id}.log"
+
+    if [[ "$parallel" == "true" ]]; then
+      # Non-blocking: spawn in background
+      echo "  Spawning hook '$hook_id' in background (parallel) -> $HOOK_LOG"
+      (
+        local exit_code=0
+        claude -p "$HOOK_PROMPT" --dangerously-skip-permissions > "$HOOK_LOG" 2>&1 || exit_code=$?
+        local completed_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        if [[ $exit_code -eq 0 ]]; then
+          yq -i "(.hook-tasks[] | select(.iteration == $iteration and .\"hook-id\" == \"$hook_id\")) |= (.status = \"completed\" | .\"completed-at\" = \"$completed_at\" | .\"exit-code\" = 0)" "$PROGRESS_FILE"
+        else
+          yq -i "(.hook-tasks[] | select(.iteration == $iteration and .\"hook-id\" == \"$hook_id\")) |= (.status = \"failed\" | .\"completed-at\" = \"$completed_at\" | .\"exit-code\" = $exit_code)" "$PROGRESS_FILE"
+          echo "[HOOK FAILED] exit_code=$exit_code" >> "$HOOK_LOG"
+        fi
+      ) &
+    else
+      # Blocking: wait for completion
+      echo "  Running hook '$hook_id' (blocking) -> $HOOK_LOG"
+      local exit_code=0
+      claude -p "$HOOK_PROMPT" --dangerously-skip-permissions > "$HOOK_LOG" 2>&1 || exit_code=$?
+      local completed_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+      if [[ $exit_code -eq 0 ]]; then
+        yq -i "(.hook-tasks[] | select(.iteration == $iteration and .\"hook-id\" == \"$hook_id\")) |= (.status = \"completed\" | .\"completed-at\" = \"$completed_at\" | .\"exit-code\" = 0)" "$PROGRESS_FILE"
+      else
+        yq -i "(.hook-tasks[] | select(.iteration == $iteration and .\"hook-id\" == \"$hook_id\")) |= (.status = \"failed\" | .\"completed-at\" = \"$completed_at\" | .\"exit-code\" = $exit_code)" "$PROGRESS_FILE"
+        echo "[HOOK FAILED] exit_code=$exit_code" >> "$HOOK_LOG"
+        echo "  Warning: Hook '$hook_id' failed with exit code $exit_code (see $HOOK_LOG)"
+      fi
+    fi
+  done
+}
+
+# Ralph Loop - Autonomous goal-driven execution
+run_ralph_loop() {
+  local iteration=0
+  local idle_count=0
+  local IDLE_THRESHOLD=$(yq -r '.ralph."idle-threshold" // 3' "$PROGRESS_FILE")
+
+  echo ""
+  echo "============================================================"
+  echo "RALPH MODE - Autonomous Goal-Driven Execution"
+  echo "============================================================"
+  echo "Idle threshold: $IDLE_THRESHOLD iterations"
+  echo ""
+
+  # Ensure transcripts directory exists
+  mkdir -p "$SPRINT_DIR/transcripts"
+
+  while true; do
+    iteration=$((iteration + 1))
+
+    echo ""
+    echo "=== Ralph Iteration $iteration ==="
+
+    # Update iteration counter in PROGRESS.yaml
+    yq -i ".stats.\"current-iteration\" = $iteration" "$PROGRESS_FILE"
+
+    # 1. Determine mode based on pending dynamic steps
+    local PENDING_COUNT=$(yq -r '[.dynamic-steps // [] | .[] | select(.status == "pending")] | length' "$PROGRESS_FILE")
+    local LOOP_MODE=""
+
+    if [[ "$PENDING_COUNT" -eq 0 ]]; then
+      idle_count=$((idle_count + 1))
+      if [[ $idle_count -ge $IDLE_THRESHOLD ]]; then
+        LOOP_MODE="reflecting"
+      else
+        LOOP_MODE="planning"
+      fi
+    else
+      LOOP_MODE="executing"
+      idle_count=0
+    fi
+
+    echo "Mode: $LOOP_MODE (pending steps: $PENDING_COUNT, idle count: $idle_count)"
+
+    # 2. Build prompt via build-ralph-prompt.sh
+    local PROMPT=""
+    if [[ -x "$SCRIPT_DIR/build-ralph-prompt.sh" ]]; then
+      PROMPT=$("$SCRIPT_DIR/build-ralph-prompt.sh" "$SPRINT_DIR" "$LOOP_MODE" "$iteration")
+    else
+      echo "Error: build-ralph-prompt.sh not found or not executable" >&2
+      yq -i '.status = "blocked"' "$PROGRESS_FILE"
+      yq -i '.error = "build-ralph-prompt.sh not found"' "$PROGRESS_FILE"
+      exit 1
+    fi
+
+    if [[ -z "$PROMPT" ]]; then
+      echo "Error: Empty prompt from build-ralph-prompt.sh" >&2
+      yq -i '.status = "blocked"' "$PROGRESS_FILE"
+      yq -i '.error = "Empty prompt from build-ralph-prompt.sh"' "$PROGRESS_FILE"
+      exit 1
+    fi
+
+    # 3. Spawn per-iteration hooks (parallel tasks)
+    spawn_per_iteration_hooks "$iteration"
+
+    # 4. Execute Claude with transcript capture
+    local TRANSCRIPT_FILE="$SPRINT_DIR/transcripts/iteration-$iteration.jsonl"
+    echo "Transcript: $TRANSCRIPT_FILE"
+    echo ""
+    echo "Invoking Claude CLI..."
+
+    claude -p "$PROMPT" \
+      --dangerously-skip-permissions \
+      --output-format stream-json \
+      --verbose \
+      > "$TRANSCRIPT_FILE" 2>&1
+    local CLI_EXIT_CODE=$?
+
+    if [[ "$CLI_EXIT_CODE" -ne 0 ]]; then
+      echo "Warning: Claude CLI returned non-zero exit code: $CLI_EXIT_CODE"
+      # Continue to next iteration (don't exit on individual failures)
+    fi
+
+    # 5. DETERMINISTIC STATE UPDATE: Parse JSON result and update PROGRESS.yaml
+    # The agent no longer modifies PROGRESS.yaml directly - we do it here
+    # TRANSACTION: Wrap state updates to ensure recovery on interrupt
+    yaml_transaction_start
+
+    local RESULT_CODE=0
+    process_ralph_result "$TRANSCRIPT_FILE" "$iteration" || RESULT_CODE=$?
+
+    case "$RESULT_CODE" in
+      0)
+        # Continue - steps updated, keep iterating
+        idle_count=0  # Reset idle count since we made progress
+        yaml_transaction_end  # Commit transaction
+        ;;
+      100)
+        # Goal complete - record and exit
+        local goal_summary
+        goal_summary=$(extract_json_result "$TRANSCRIPT_FILE" | jq -r '.goalCompleteSummary // .summary // "Goal completed"')
+        record_ralph_completion "$iteration" "$goal_summary"
+        yaml_transaction_end  # Commit transaction
+        wait  # Wait for all parallel hooks to complete
+        exit 0
+        ;;
+      2)
+        # Needs human - already set in process_ralph_result
+        yaml_transaction_end  # Commit transaction (state was set in process_ralph_result)
+        echo ""
+        echo "============================================================"
+        echo "RALPH MODE - HUMAN INTERVENTION REQUIRED"
+        echo "============================================================"
+        wait
+        exit 2
+        ;;
+      *)
+        # Other error - log and continue (keep backup for potential recovery)
+        echo "Warning: process_ralph_result returned $RESULT_CODE"
+        # Don't call yaml_transaction_end - backup remains for recovery if crash follows
+        ;;
+    esac
+
+    # 6. Check for status changes (may have been set by process_ralph_result or other means)
+    local STATUS=$(yq -r '.status' "$PROGRESS_FILE")
+    case "$STATUS" in
+      completed)
+        echo ""
+        echo "============================================================"
+        echo "RALPH MODE COMPLETED"
+        echo "============================================================"
+        wait
+        exit 0
+        ;;
+      blocked)
+        echo ""
+        echo "============================================================"
+        echo "RALPH MODE BLOCKED"
+        echo "============================================================"
+        wait
+        exit 1
+        ;;
+      needs-human)
+        echo ""
+        echo "============================================================"
+        echo "RALPH MODE - HUMAN INTERVENTION REQUIRED"
+        echo "============================================================"
+        wait
+        exit 2
+        ;;
+      paused)
+        echo ""
+        echo "============================================================"
+        echo "RALPH MODE PAUSED"
+        echo "============================================================"
+        wait
+        exit 0
+        ;;
+    esac
+
+    # Small delay between iterations
+    sleep 2
+  done
+}
 
 # =============================================================================
 # PARALLEL TASK MANAGEMENT FUNCTIONS
@@ -1362,11 +1805,332 @@ fi
 yq -i ".stats.\"max-iterations\" = $MAX_ITERATIONS" "$PROGRESS_FILE"
 
 # =============================================================================
-# STANDARD LOOP FUNCTION
+# ORCHESTRATION FUNCTIONS
 # =============================================================================
 
-# Standard Loop - Hierarchical phase-based workflow execution
-run_standard_loop() {
+# Extract proposedSteps from Claude's JSON result
+# Returns empty array [] if not present or invalid
+extract_proposed_steps() {
+  local transcript_file="$1"
+  local json_result
+  json_result=$(extract_json_result "$transcript_file")
+
+  if [[ -z "$json_result" ]]; then
+    echo "[]"
+    return
+  fi
+
+  # Extract proposedSteps array, default to empty
+  local proposed
+  proposed=$(echo "$json_result" | jq -c '.proposedSteps // []' 2>/dev/null)
+
+  if [[ -z "$proposed" ]] || [[ "$proposed" == "null" ]]; then
+    echo "[]"
+  else
+    echo "$proposed"
+  fi
+}
+
+# Add proposed steps to step-queue in PROGRESS.yaml
+# Args: proposed_json (JSON array), proposed_by (step ID that proposed these)
+add_to_step_queue() {
+  local proposed_json="$1"
+  local proposed_by="$2"
+  local timestamp
+  timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+  # Validate JSON array
+  if [[ "$proposed_json" == "[]" ]] || [[ -z "$proposed_json" ]]; then
+    return 0
+  fi
+
+  # Initialize step-queue if not exists
+  local queue_exists
+  queue_exists=$(yq -r '."step-queue" // "null"' "$PROGRESS_FILE")
+  if [[ "$queue_exists" == "null" ]]; then
+    yq -i '."step-queue" = []' "$PROGRESS_FILE"
+  fi
+
+  # Get next queue ID
+  local max_id
+  max_id=$(yq -r '."step-queue" // [] | .[].id | select(. != null) | ltrimstr("proposed-")' "$PROGRESS_FILE" 2>/dev/null | sort -rn | head -1)
+  local next_id=$((${max_id:-0} + 1))
+
+  # Parse each proposed step and add to queue
+  # Using process substitution to avoid subshell variable scope issues
+  while IFS= read -r step; do
+    [[ -z "$step" ]] && continue
+
+    local prompt priority reasoning
+    prompt=$(echo "$step" | jq -r '.prompt // ""')
+    priority=$(echo "$step" | jq -r '.priority // "medium"')
+    reasoning=$(echo "$step" | jq -r '.reasoning // ""')
+
+    if [[ -z "$prompt" ]]; then
+      continue
+    fi
+
+    # Escape special characters for YAML
+    prompt=$(echo "$prompt" | sed 's/"/\\"/g')
+    reasoning=$(echo "$reasoning" | sed 's/"/\\"/g')
+
+    yq -i ".[\"step-queue\"] += [{
+      \"id\": \"proposed-$next_id\",
+      \"prompt\": \"$prompt\",
+      \"proposedBy\": \"$proposed_by\",
+      \"proposedAt\": \"$timestamp\",
+      \"priority\": \"$priority\",
+      \"reasoning\": \"$reasoning\"
+    }]" "$PROGRESS_FILE"
+    next_id=$((next_id + 1))
+  done < <(echo "$proposed_json" | jq -c '.[]' 2>/dev/null)
+
+  echo "Added $(echo "$proposed_json" | jq 'length') step(s) to step-queue"
+}
+
+# Check if orchestration should run
+# Returns 0 (true) if step-queue not empty AND orchestration.enabled
+should_run_orchestration() {
+  # Check if orchestration is enabled (from PROGRESS.yaml or SPRINT.yaml)
+  local enabled
+  enabled=$(yq -r '.orchestration.enabled // false' "$PROGRESS_FILE")
+  if [[ "$enabled" != "true" ]]; then
+    return 1
+  fi
+
+  # Check if step-queue has items
+  local queue_count
+  queue_count=$(yq -r '."step-queue" // [] | length' "$PROGRESS_FILE")
+  if [[ "$queue_count" -eq 0 ]]; then
+    return 1
+  fi
+
+  return 0
+}
+
+# Insert a step at specified position in phases array
+# Args: step_data (JSON), position (after-current|end-of-phase), phase_idx, step_idx
+insert_step_at_position() {
+  local step_prompt="$1"
+  local position="$2"
+  local phase_idx="$3"
+  local step_idx="$4"
+
+  local timestamp
+  timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+  # Generate unique step ID
+  local new_step_id="inserted-$(date +%s)-$RANDOM"
+
+  # Escape prompt for YAML
+  step_prompt=$(echo "$step_prompt" | sed 's/"/\\"/g')
+
+  case "$position" in
+    after-current)
+      # Insert as next sub-phase within current step
+      local current_sub
+      current_sub=$(yq -r '.current."sub-phase" // 0' "$PROGRESS_FILE")
+      local insert_at=$((current_sub + 1))
+
+      # Insert new sub-phase at position
+      yq -i ".phases[$phase_idx].steps[$step_idx].phases |= (
+        .[:$insert_at] + [{
+          \"id\": \"$new_step_id\",
+          \"prompt\": \"$step_prompt\",
+          \"status\": \"pending\",
+          \"inserted-at\": \"$timestamp\"
+        }] + .[$insert_at:]
+      )" "$PROGRESS_FILE"
+      echo "Inserted step $new_step_id after current position"
+      ;;
+    end-of-phase)
+      # Append to end of current step's phases array
+      yq -i ".phases[$phase_idx].steps[$step_idx].phases += [{
+        \"id\": \"$new_step_id\",
+        \"prompt\": \"$step_prompt\",
+        \"status\": \"pending\",
+        \"inserted-at\": \"$timestamp\"
+      }]" "$PROGRESS_FILE"
+      echo "Inserted step $new_step_id at end of phase"
+      ;;
+    *)
+      # Default to end-of-phase
+      yq -i ".phases[$phase_idx].steps[$step_idx].phases += [{
+        \"id\": \"$new_step_id\",
+        \"prompt\": \"$step_prompt\",
+        \"status\": \"pending\",
+        \"inserted-at\": \"$timestamp\"
+      }]" "$PROGRESS_FILE"
+      echo "Inserted step $new_step_id at end of phase (default)"
+      ;;
+  esac
+}
+
+# Run orchestration iteration to process step-queue
+# Reads queue, builds prompt, executes Claude for decisions, processes results
+run_orchestration_iteration() {
+  echo ""
+  echo "=== Running Orchestration ==="
+
+  # Read step-queue from PROGRESS.yaml
+  local queue_json
+  queue_json=$(yq -o=json '."step-queue" // []' "$PROGRESS_FILE")
+
+  if [[ "$queue_json" == "[]" ]]; then
+    echo "Step queue is empty, skipping orchestration"
+    return 0
+  fi
+
+  local queue_count
+  queue_count=$(echo "$queue_json" | jq 'length')
+  echo "Processing $queue_count proposed step(s)"
+
+  # Get current position for context
+  local phase_idx step_idx
+  phase_idx=$(yq -r '.current.phase // 0' "$PROGRESS_FILE")
+  step_idx=$(yq -r '.current.step // 0' "$PROGRESS_FILE")
+
+  # Get current phase/step context
+  local current_phase_id current_step_id
+  current_phase_id=$(yq -r ".phases[$phase_idx].id // \"phase-$phase_idx\"" "$PROGRESS_FILE")
+  current_step_id=$(yq -r ".phases[$phase_idx].steps[$step_idx].id // \"step-$step_idx\"" "$PROGRESS_FILE")
+
+  # Build orchestration prompt inline
+  local orchestration_prompt
+  orchestration_prompt=$(cat <<EOF
+# Orchestration Decision Required
+
+You are reviewing proposed steps from the sprint execution.
+
+## Current Position
+- Phase: $current_phase_id
+- Step: $current_step_id
+
+## Proposed Steps to Review
+$queue_json
+
+## Your Task
+For each proposed step, decide:
+1. **insert**: Add the step to the sprint (provide position: after-current or end-of-phase)
+2. **reject**: Do not add the step (provide reasoning)
+3. **defer**: Keep in queue for later review
+
+## Response Format
+Respond with JSON:
+\`\`\`json
+{
+  "decisions": [
+    {"id": "proposed-1", "action": "insert", "position": "after-current"},
+    {"id": "proposed-2", "action": "reject", "reasoning": "Already covered by existing step"},
+    {"id": "proposed-3", "action": "defer"}
+  ]
+}
+\`\`\`
+EOF
+)
+
+  # Execute Claude for orchestration decisions
+  local orchestration_transcript="$SPRINT_DIR/transcripts/orchestration-$(date +%s).jsonl"
+  mkdir -p "$SPRINT_DIR/transcripts"
+
+  echo "Invoking Claude for orchestration decisions..."
+  claude -p "$orchestration_prompt" \
+    --dangerously-skip-permissions \
+    --output-format stream-json \
+    > "$orchestration_transcript" 2>&1
+  local exit_code=$?
+
+  if [[ "$exit_code" -ne 0 ]]; then
+    echo "Warning: Orchestration Claude call failed with exit code $exit_code"
+    return 1
+  fi
+
+  # Extract decisions from result
+  local orchestration_result
+  orchestration_result=$(extract_json_result "$orchestration_transcript")
+
+  if [[ -z "$orchestration_result" ]]; then
+    echo "Warning: No valid JSON result from orchestration"
+    return 1
+  fi
+
+  # Process each decision
+  local decisions
+  decisions=$(echo "$orchestration_result" | jq -c '.decisions // []')
+
+  while IFS= read -r decision; do
+    [[ -z "$decision" ]] && continue
+
+    local step_id action position
+    step_id=$(echo "$decision" | jq -r '.id')
+    action=$(echo "$decision" | jq -r '.action')
+    position=$(echo "$decision" | jq -r '.position // "end-of-phase"')
+
+    # Get the prompt for this step from queue
+    local step_prompt
+    step_prompt=$(yq -r ".[\"step-queue\"][] | select(.id == \"$step_id\") | .prompt" "$PROGRESS_FILE")
+
+    case "$action" in
+      insert)
+        echo "Inserting step $step_id at position: $position"
+        insert_step_at_position "$step_prompt" "$position" "$phase_idx" "$step_idx"
+        # Remove from queue
+        yq -i "del(.[\"step-queue\"][] | select(.id == \"$step_id\"))" "$PROGRESS_FILE"
+        ;;
+      reject)
+        echo "Rejecting step $step_id"
+        # Remove from queue
+        yq -i "del(.[\"step-queue\"][] | select(.id == \"$step_id\"))" "$PROGRESS_FILE"
+        ;;
+      defer)
+        echo "Deferring step $step_id"
+        # Keep in queue - no action needed
+        ;;
+      *)
+        echo "Unknown action '$action' for step $step_id, deferring"
+        ;;
+    esac
+  done < <(echo "$decisions" | jq -c '.[]' 2>/dev/null)
+
+  echo "Orchestration complete"
+  return 0
+}
+
+# Process proposed steps with auto-approve mode
+# Directly inserts steps without orchestration call
+process_auto_approve() {
+  local insert_strategy
+  insert_strategy=$(yq -r '.orchestration.insertStrategy // "end-of-phase"' "$PROGRESS_FILE")
+
+  local phase_idx step_idx
+  phase_idx=$(yq -r '.current.phase // 0' "$PROGRESS_FILE")
+  step_idx=$(yq -r '.current.step // 0' "$PROGRESS_FILE")
+
+  echo "Auto-approving queued steps with strategy: $insert_strategy"
+
+  # Process each step in queue
+  local queue_items
+  queue_items=$(yq -o=json '."step-queue" // []' "$PROGRESS_FILE")
+
+  while IFS= read -r item; do
+    [[ -z "$item" ]] && continue
+
+    local step_id step_prompt
+    step_id=$(echo "$item" | jq -r '.id')
+    step_prompt=$(echo "$item" | jq -r '.prompt')
+
+    insert_step_at_position "$step_prompt" "$insert_strategy" "$phase_idx" "$step_idx"
+    # Remove from queue
+    yq -i "del(.[\"step-queue\"][] | select(.id == \"$step_id\"))" "$PROGRESS_FILE"
+  done < <(echo "$queue_items" | jq -c '.[]' 2>/dev/null)
+}
+
+# =============================================================================
+# UNIFIED LOOP FUNCTION
+# =============================================================================
+
+# Unified Loop - Hierarchical phase-based workflow execution with orchestration support
+run_loop() {
   echo "============================================================"
   echo "SPRINT LOOP STARTING (Hierarchical Workflow)"
   echo "============================================================"
@@ -1559,6 +2323,33 @@ run_standard_loop() {
       ;;
   esac
 
+  # Extract and process proposedSteps from result (orchestration support)
+  # Only process if step completed successfully (RESULT_CODE == 0)
+  if [[ "$RESULT_CODE" -eq 0 ]]; then
+    # Get step ID for proposedBy tracking
+    local step_id
+    step_id=$(yq -r ".phases[$PREV_PHASE_IDX].steps[$PREV_STEP_IDX].id // \"step-$PREV_STEP_IDX\"" "$PROGRESS_FILE")
+
+    # Extract proposedSteps from transcript
+    local proposed_steps
+    proposed_steps=$(extract_proposed_steps "$TRANSCRIPT_FILE")
+
+    # Add to step-queue if any proposed
+    if [[ "$proposed_steps" != "[]" ]] && [[ -n "$proposed_steps" ]]; then
+      add_to_step_queue "$proposed_steps" "$step_id"
+
+      # Check if orchestration should run
+      if should_run_orchestration; then
+        # Check auto-approve mode
+        if [[ "$(yq -r '.orchestration.autoApprove // false' "$PROGRESS_FILE")" == "true" ]]; then
+          process_auto_approve
+        else
+          run_orchestration_iteration
+        fi
+      fi
+    fi
+  fi
+
   # Update elapsed times for any completed phases
   # Read current pointer to know which phases to check
   CURR_PHASE=$(yq -r '.current.phase // 0' "$PROGRESS_FILE")
@@ -1657,7 +2448,17 @@ exit 1
 }
 
 # =============================================================================
-# START THE SPRINT LOOP
+# MODE DETECTION AND DISPATCH
 # =============================================================================
 
-run_standard_loop
+# Detect mode from PROGRESS.yaml and dispatch to appropriate loop
+SPRINT_MODE=$(yq -r '.mode // "standard"' "$PROGRESS_FILE")
+
+case "$SPRINT_MODE" in
+  "ralph")
+    run_ralph_loop
+    ;;
+  *)
+    run_loop
+    ;;
+esac
