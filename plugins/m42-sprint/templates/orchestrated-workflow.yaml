@@ -1,0 +1,22 @@
+# Orchestrated Workflow
+# Dynamic step injection based on discoveries during execution
+#
+# This workflow enables agents to propose new steps during execution.
+# Proposed steps are queued and can be auto-approved or reviewed.
+
+name: Orchestrated Workflow
+description: Dynamic step injection based on discoveries
+
+orchestration:
+  enabled: true
+  insert-strategy: after-current
+
+phases:
+  - id: execute
+    for-each: step
+    prompt: |
+      {{step.prompt}}
+
+      ## Optional: Proposed Steps
+      If you discover new tasks during execution, include in your JSON result:
+      {"proposedSteps": [{"prompt": "...", "reasoning": "...", "priority": "medium"}]}

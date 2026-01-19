@@ -1,0 +1,472 @@
+# Gherkin Step Workflow
+# Per-step workflow with binary-verifiable gherkin scenarios
+#
+# Each step goes through 5 phases:
+# 1. plan    - Generate explicit gherkin scenarios with verification commands
+# 2. context - Gather step-specific patterns, types, dependencies
+# 3. execute - Implement following gherkin and context
+# 4. qa      - Verify each scenario with 1/0 result, inject fixes on failure
+# 5. verify  - End-to-end integration verification
+
+name: Gherkin Step Workflow
+description: |
+  Per-step workflow that generates binary-verifiable gherkin scenarios before
+  implementation. Each scenario has an explicit verification command that returns
+  1 (pass) or 0 (fail). QA phase runs all verifications and injects fix phases
+  for any failures, creating a self-healing execution loop.
+
+phases:
+  # ============================================================================
+  # Phase 1: PLAN
+  # Generate 4-8 explicit gherkin scenarios with binary verification
+  # ============================================================================
+  - id: plan
+    prompt: |
+      Generate binary-verifiable gherkin scenarios for this step.
+
+      ## Your Task
+      {{step.prompt}}
+
+      ## Shared Context
+      Read: context/_shared-context.md (project patterns, conventions, commands)
+      Read: context/sprint-plan.md (how this step fits in the sprint)
+
+      ## Instructions
+      Create 4-8 gherkin scenarios that, when ALL pass, prove the step is complete.
+      Each scenario MUST have:
+      1. Clear Given/When/Then structure
+      2. An explicit verification command that returns exit code 0 on success
+      3. Binary outcome: exactly 1 (pass) or 0 (fail)
+
+      ## Gherkin Format
+      Each scenario follows this exact structure:
+
+      ```gherkin
+      Scenario: [Descriptive name]
+        Given [precondition or context]
+        When [action taken]
+        Then [expected outcome]
+
+      Verification: `[shell command that exits 0 on success, non-zero on failure]`
+      Pass: Exit code = 0 → Score 1
+      Fail: Exit code ≠ 0 → Score 0
+      ```
+
+      ## Example Scenarios
+
+      ### File Existence
+      ```gherkin
+      Scenario: Source file exists
+        Given the project structure is set up
+        When I check for the module file
+        Then src/auth/service.ts exists
+
+      Verification: `test -f src/auth/service.ts`
+      Pass: Exit code = 0 → Score 1
+      Fail: Exit code ≠ 0 → Score 0
+      ```
+
+      ### TypeScript Compilation
+      ```gherkin
+      Scenario: TypeScript compiles without errors
+        Given the file src/auth/service.ts exists
+        When I run the TypeScript compiler
+        Then no compilation errors occur
+
+      Verification: `npx tsc --noEmit src/auth/service.ts 2>&1; echo $?`
+      Pass: Last line = 0 → Score 1
+      Fail: Last line ≠ 0 → Score 0
+      ```
+
+      ### Function Export
+      ```gherkin
+      Scenario: Login function is exported
+        Given src/auth/service.ts exists
+        When I check for the login export
+        Then the function is publicly available
+
+      Verification: `grep -q "export.*function login\|export.*const login\|export { login" src/auth/service.ts`
+      Pass: Exit code = 0 → Score 1
+      Fail: Exit code ≠ 0 → Score 0
+      ```
+
+      ### Test Execution
+      ```gherkin
+      Scenario: Unit tests pass
+        Given tests exist in src/auth/service.test.ts
+        When I run the test suite
+        Then all tests pass
+
+      Verification: `npm test -- --testPathPattern="auth/service" --passWithNoTests 2>&1; echo $?`
+      Pass: Last line = 0 → Score 1
+      Fail: Last line ≠ 0 → Score 0
+      ```
+
+      ### Lint Check
+      ```gherkin
+      Scenario: Code passes linting
+        Given the implementation is complete
+        When I run the linter
+        Then no lint errors in new files
+
+      Verification: `npm run lint -- src/auth/service.ts 2>&1; echo $?`
+      Pass: Last line = 0 → Score 1
+      Fail: Last line ≠ 0 → Score 0
+      ```
+
+      ## Output
+      Create: artifacts/{{step.id}}-gherkin.md
+
+      ```markdown
+      # Gherkin Scenarios: {{step.id}}
+
+      ## Step Task
+      {{step.prompt}}
+
+      ## Success Criteria
+      All scenarios must pass (score = 1) for the step to be complete.
+      Total scenarios: [N]
+      Required score: [N]/[N]
+
+      ---
+
+      ## Scenario 1: [Name]
+      [Full gherkin with verification as shown above]
+
+      ---
+
+      ## Scenario 2: [Name]
+      ...
+
+      [Continue for 4-8 scenarios]
+      ```
+
+      ## Commit
+      ```bash
+      git add artifacts/{{step.id}}-gherkin.md
+      git commit -m "plan({{step.id}}): define gherkin scenarios"
+      ```
+
+  # ============================================================================
+  # Phase 2: CONTEXT
+  # Gather step-specific patterns, types, dependencies
+  # ============================================================================
+  - id: context
+    prompt: |
+      Gather step-specific context for implementation.
+
+      ## Your Task
+      {{step.prompt}}
+
+      ## Shared Context
+      Read: context/_shared-context.md (already has project-wide patterns)
+      Read: artifacts/{{step.id}}-gherkin.md (scenarios to implement)
+
+      ## Instructions
+      Research the specific code areas this step will touch:
+
+      1. **Related Existing Code**
+         - Find similar implementations to follow as patterns
+         - Identify modules this step will import from
+         - Note any interfaces/types to implement or extend
+
+      2. **Dependencies**
+         - List imports needed from internal modules
+         - List any new external packages needed
+         - Check for peer dependencies or version constraints
+
+      3. **Integration Points**
+         - How will this code be called/used?
+         - What modules will import from this step's output?
+         - Are there existing tests to extend?
+
+      4. **Specific Patterns**
+         - Error handling patterns used in similar code
+         - Naming conventions for this area
+         - File organization patterns
+
+      ## Output
+      Create: context/{{step.id}}-context.md
+
+      ```markdown
+      # Step Context: {{step.id}}
+
+      ## Task
+      {{step.prompt}}
+
+      ## Related Code Patterns
+
+      ### Similar Implementation: [path]
+      ```typescript
+      // Key pattern to follow
+      [relevant code snippet]
+      ```
+
+      ### Similar Implementation: [path]
+      [continue as needed]
+
+      ## Required Imports
+      ### Internal
+      - `[module]`: [what to import]
+
+      ### External
+      - `[package]`: [what to import]
+
+      ## Types/Interfaces to Use
+      ```typescript
+      // From [source]
+      interface [Name] {
+        [relevant fields]
+      }
+      ```
+
+      ## Integration Points
+      - Called by: [who will use this]
+      - Calls: [what this will call]
+      - Tests: [related test files]
+
+      ## Implementation Notes
+      - [Specific note 1]
+      - [Specific note 2]
+      ```
+
+      ## Commit
+      ```bash
+      git add context/{{step.id}}-context.md
+      git commit -m "context({{step.id}}): gather implementation context"
+      ```
+
+  # ============================================================================
+  # Phase 3: EXECUTE
+  # Implement following gherkin scenarios and context
+  # ============================================================================
+  - id: execute
+    prompt: |
+      Implement the step following gherkin scenarios and context.
+
+      ## Your Task
+      {{step.prompt}}
+
+      ## MUST READ BEFORE IMPLEMENTING
+      Read these files in order:
+      1. context/_shared-context.md (project patterns, conventions)
+      2. context/sprint-plan.md (how this fits in sprint)
+      3. artifacts/{{step.id}}-gherkin.md (scenarios to satisfy)
+      4. context/{{step.id}}-context.md (specific patterns, imports)
+
+      ## Implementation Rules
+
+      ### Follow the Gherkin
+      Your implementation MUST satisfy ALL gherkin scenarios.
+      Each scenario has a verification command - mentally run it to check your work.
+
+      ### Follow the Context
+      - Use patterns from similar implementations
+      - Import from specified modules
+      - Implement required interfaces
+      - Follow naming conventions
+
+      ### Code Quality
+      - Keep code simple and focused
+      - Follow existing patterns exactly
+      - No over-engineering or extra abstractions
+      - Only implement what's needed for the scenarios
+
+      ### Commits
+      Make atomic commits for logical units:
+      ```bash
+      # After each logical piece
+      git add [files]
+      git commit -m "[type]({{step.id}}): [description]"
+      ```
+
+      Types: feat, fix, refactor, test, docs
+
+      ## Implementation Checklist
+      Before marking complete, verify:
+      - [ ] All files from gherkin scenarios exist
+      - [ ] Code follows patterns from context
+      - [ ] Imports are correct
+      - [ ] No TypeScript errors (run typecheck mentally)
+      - [ ] Each scenario's verification should pass
+
+      ## If Blocked
+      If you encounter an issue that prevents completion:
+      - Document the blocker clearly
+      - Set status to needs-human
+      - Do NOT leave partial/broken implementation
+
+  # ============================================================================
+  # Phase 4: QA
+  # Verify each gherkin scenario with 1/0 result
+  # ============================================================================
+  - id: qa
+    prompt: |
+      Verify implementation against gherkin scenarios.
+
+      ## Context
+      Read: artifacts/{{step.id}}-gherkin.md (scenarios with verification commands)
+
+      ## Step 1: Run Each Verification
+
+      For EACH scenario in the gherkin file:
+      1. Run the verification command
+      2. Record the result: 1 (pass) or 0 (fail)
+      3. If fail, capture the error output
+
+      ## Step 2: Calculate Score
+
+      Score = (passed scenarios) / (total scenarios)
+      - Score = 1.0 (all pass) → PASS
+      - Score < 1.0 (any fail) → FAIL
+
+      ## Step 3: Generate QA Report
+
+      Create: artifacts/{{step.id}}-qa-report.md
+
+      ```markdown
+      # QA Report: {{step.id}}
+
+      ## Summary
+      - Total Scenarios: [N]
+      - Passed: [N]
+      - Failed: [N]
+      - Score: [X]/[N] = [percentage]%
+
+      ## Verification Results
+
+      | # | Scenario | Result | Details |
+      |---|----------|--------|---------|
+      | 1 | [Name] | PASS/FAIL | [output or error] |
+      | 2 | [Name] | PASS/FAIL | [output or error] |
+      ...
+
+      ## Detailed Results
+
+      ### Scenario 1: [Name]
+      **Verification**: `[command]`
+      **Exit Code**: [0 or N]
+      **Output**:
+      ```
+      [actual output]
+      ```
+      **Result**: PASS / FAIL
+
+      ### Scenario 2: [Name]
+      ...
+
+      ## Issues Found
+      [If any failures, describe each issue]
+
+      1. **[Scenario name]**: [What failed and why]
+
+      ## Status: PASS / FAIL
+      ```
+
+      ## Step 4: Handle Outcome
+
+      ### If ALL scenarios PASS (Score = 100%):
+      1. Ensure report shows "Status: PASS"
+      2. Commit the report:
+         ```bash
+         git add artifacts/{{step.id}}-qa-report.md
+         git commit -m "qa({{step.id}}): all scenarios passed"
+         ```
+      3. Mark phase as completed
+
+      ### If ANY scenario FAILS (Score < 100%):
+      You MUST inject fix phases. Do NOT just report and continue.
+
+      1. Ensure report shows "Status: FAIL" with specific issues
+
+      2. Find the PROGRESS.yaml file:
+         ```bash
+         PROGRESS_FILE=$(find .claude/sprints -name "PROGRESS.yaml" -type f 2>/dev/null | head -1)
+         echo "Found: $PROGRESS_FILE"
+         ```
+
+      3. Inject fix and re-verify phases using yq:
+         ```bash
+         yq -i '
+           (.phases[] | select(.steps) | .steps[] | select(.status == "in-progress") | .phases) +=
+           [
+             {
+               "id": "fix",
+               "status": "pending",
+               "prompt": "Fix failing scenarios for {{step.id}}.\n\n## Context\nRead: artifacts/{{step.id}}-qa-report.md\n\n## Instructions\n1. Review each FAIL scenario\n2. Fix the implementation to make it pass\n3. Re-run the verification command to confirm\n4. Make atomic commits for each fix\n\n## After Fixing\nDo NOT mark as complete until ALL verifications pass."
+             },
+             {
+               "id": "reverify",
+               "status": "pending",
+               "prompt": "Re-verify all scenarios after fixes.\n\n## Instructions\nRe-run ALL verification commands from artifacts/{{step.id}}-gherkin.md\n\n## If ALL pass:\n- Update artifacts/{{step.id}}-qa-report.md with PASS status\n- Commit the updated report\n\n## If ANY still fail:\n- Update the QA report with new results\n- Inject another fix phase using yq\n- Loop continues until all pass"
+             }
+           ]
+         ' "$PROGRESS_FILE"
+         ```
+
+      4. Mark current QA phase as failed:
+         ```bash
+         yq -i '
+           (.. | select(.id == "qa" and .status == "in-progress")) |=
+           (.status = "failed" | .error = "{{step.id}} QA failed - see report - fix phase injected")
+         ' "$PROGRESS_FILE"
+         ```
+
+      5. The sprint loop will now execute fix → reverify phases
+
+      ## Important
+      - EVERY scenario must pass for the step to be complete
+      - Failed QA MUST inject fix phases, not just report
+      - This creates a self-healing loop until all pass
+
+  # ============================================================================
+  # Phase 5: VERIFY
+  # End-to-end integration verification
+  # ============================================================================
+  - id: verify
+    prompt: |
+      Final integration verification for the step.
+
+      ## Your Task
+      {{step.prompt}}
+
+      ## Context
+      Read: context/_shared-context.md (build commands)
+      Read: artifacts/{{step.id}}-qa-report.md (should show PASS)
+
+      ## Step 1: Build Verification
+      Run the project build to ensure this step integrates:
+      ```bash
+      # Use commands from _shared-context.md, typically:
+      npm run build
+      npm run typecheck
+      ```
+
+      ## Step 2: Integration Check
+      Verify this step works with the rest of the sprint:
+      - Check imports resolve correctly
+      - Verify no circular dependencies
+      - Ensure types are compatible
+
+      ## Step 3: Smoke Test
+      If possible, manually verify the functionality:
+      - Run the code path that uses this step's output
+      - Check expected behavior matches gherkin scenarios
+
+      ## Step 4: Final Commit
+      If all verification passes:
+      ```bash
+      git add -A
+      git status  # Check for any uncommitted changes
+      # Only commit if there are changes
+      git diff --cached --quiet || git commit -m "verify({{step.id}}): integration verified"
+      ```
+
+      ## Outcome
+      - If integration passes: Mark step as complete
+      - If integration fails: Document the issue and set status to needs-human
+
+      ## Important
+      This is the final gate before moving to the next step.
+      The step's gherkin scenarios already passed in QA.
+      This phase ensures the step works in the broader context.

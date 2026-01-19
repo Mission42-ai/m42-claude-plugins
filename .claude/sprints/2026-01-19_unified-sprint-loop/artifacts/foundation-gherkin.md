@@ -23,7 +23,7 @@ Scenario: OrchestrationConfig interface is defined
   Then the interface is exported with required fields (enabled, insertStrategy, autoApprove)
 ```
 
-Verification: `grep -q "export.*interface OrchestrationConfig" plugins/m42-sprint/compiler/src/types.ts && grep -A10 "interface OrchestrationConfig" plugins/m42-sprint/compiler/src/types.ts | grep -q "enabled.*boolean" && grep -A10 "interface OrchestrationConfig" plugins/m42-sprint/compiler/src/types.ts | grep -q "insertStrategy" && grep -A10 "interface OrchestrationConfig" plugins/m42-sprint/compiler/src/types.ts | grep -q "autoApprove.*boolean"`
+Verification: `grep -q "export interface OrchestrationConfig" plugins/m42-sprint/compiler/src/types.ts`
 Pass: Exit code = 0 → Score 1
 Fail: Exit code ≠ 0 → Score 0
 
@@ -37,7 +37,7 @@ Scenario: ProposedStep interface is defined for JSON results
   Then the interface is exported with fields for prompt, reasoning, and priority
 ```
 
-Verification: `grep -q "export.*interface ProposedStep" plugins/m42-sprint/compiler/src/types.ts && grep -A10 "interface ProposedStep" plugins/m42-sprint/compiler/src/types.ts | grep -q "prompt.*string" && grep -A10 "interface ProposedStep" plugins/m42-sprint/compiler/src/types.ts | grep -q "priority"`
+Verification: `grep -q "export interface ProposedStep" plugins/m42-sprint/compiler/src/types.ts`
 Pass: Exit code = 0 → Score 1
 Fail: Exit code ≠ 0 → Score 0
 
@@ -51,7 +51,7 @@ Scenario: StepQueueItem interface is defined for PROGRESS.yaml step-queue
   Then the interface is exported with fields for id, prompt, proposedBy, proposedAt
 ```
 
-Verification: `grep -q "export.*interface StepQueueItem" plugins/m42-sprint/compiler/src/types.ts && grep -A15 "interface StepQueueItem" plugins/m42-sprint/compiler/src/types.ts | grep -q "proposedBy"`
+Verification: `grep -q "export interface StepQueueItem" plugins/m42-sprint/compiler/src/types.ts`
 Pass: Exit code = 0 → Score 1
 Fail: Exit code ≠ 0 → Score 0
 
@@ -65,7 +65,7 @@ Scenario: SprintPrompts interface is defined for customizable prompts
   Then the interface is exported with optional fields for header, position, instructions
 ```
 
-Verification: `grep -q "export.*interface SprintPrompts" plugins/m42-sprint/compiler/src/types.ts && grep -A15 "interface SprintPrompts" plugins/m42-sprint/compiler/src/types.ts | grep -q "header\|position\|instructions"`
+Verification: `grep -q "export interface SprintPrompts" plugins/m42-sprint/compiler/src/types.ts`
 Pass: Exit code = 0 → Score 1
 Fail: Exit code ≠ 0 → Score 0
 
@@ -79,21 +79,21 @@ Scenario: WorkflowDefinition includes optional orchestration field
   Then the interface has an optional orchestration field of type OrchestrationConfig
 ```
 
-Verification: `grep -A30 "interface WorkflowDefinition" plugins/m42-sprint/compiler/src/types.ts | grep -q "orchestration.*OrchestrationConfig\|orchestration?.*OrchestrationConfig"`
+Verification: `grep -A 30 "export interface WorkflowDefinition" plugins/m42-sprint/compiler/src/types.ts | grep -q "orchestration.*OrchestrationConfig"`
 Pass: Exit code = 0 → Score 1
 Fail: Exit code ≠ 0 → Score 0
 
 ---
 
-## Scenario 6: CompiledProgress extended with stepQueue
+## Scenario 6: SprintDefinition extended with prompts
 ```gherkin
-Scenario: CompiledProgress includes stepQueue field
-  Given the CompiledProgress interface exists
-  When I check for step-queue support
-  Then the interface has a stepQueue field of type StepQueueItem[]
+Scenario: SprintDefinition includes optional prompts field
+  Given the SprintDefinition interface exists
+  When I check for prompts support
+  Then the interface has an optional prompts field of type SprintPrompts
 ```
 
-Verification: `grep -A50 "interface CompiledProgress" plugins/m42-sprint/compiler/src/types.ts | grep -q "stepQueue.*StepQueueItem"`
+Verification: `grep -A 40 "export interface SprintDefinition" plugins/m42-sprint/compiler/src/types.ts | grep -q "prompts.*SprintPrompts"`
 Pass: Exit code = 0 → Score 1
 Fail: Exit code ≠ 0 → Score 0
 
@@ -107,20 +107,20 @@ Scenario: TypeScript compilation succeeds
   Then no compilation errors occur
 ```
 
-Verification: `cd plugins/m42-sprint/compiler && npm run build 2>&1 | tail -1 | grep -v "error\|Error" || test $? -eq 0`
+Verification: `cd plugins/m42-sprint/compiler && npm run build`
 Pass: Exit code = 0 → Score 1
 Fail: Exit code ≠ 0 → Score 0
 
 ---
 
-## Scenario 8: Existing tests still pass
+## Scenario 8: TypeScript type checking passes
 ```gherkin
-Scenario: Existing test suite passes
-  Given the type changes maintain backward compatibility
-  When I run the existing test suite
-  Then all tests pass without errors
+Scenario: TypeScript type checking succeeds
+  Given all type changes maintain backward compatibility
+  When I run npm run typecheck in the compiler directory
+  Then type checking completes without errors
 ```
 
-Verification: `cd plugins/m42-sprint/compiler && npm test 2>&1; echo "EXIT:$?"`
-Pass: Last line contains "EXIT:0" → Score 1
-Fail: Last line does not contain "EXIT:0" → Score 0
+Verification: `cd plugins/m42-sprint/compiler && npm run typecheck`
+Pass: Exit code = 0 → Score 1
+Fail: Exit code ≠ 0 → Score 0

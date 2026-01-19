@@ -209,6 +209,10 @@ async function compile(config) {
     const stats = calculateStats(compiledPhases);
     // Create current pointer (start at first phase)
     const current = initializeCurrentPointer(compiledPhases);
+    // Compile orchestration config from workflow
+    const orchestration = compileOrchestration(mainWorkflow.definition);
+    // Compile prompts config from sprint
+    const prompts = compilePrompts(sprintDef);
     // Build compiled progress
     const progress = {
         'sprint-id': sprintId,
@@ -216,7 +220,13 @@ async function compile(config) {
         phases: compiledPhases,
         current,
         stats,
-        'parallel-tasks': []
+        'parallel-tasks': [],
+        // Add orchestration if enabled in workflow
+        ...(orchestration && { orchestration }),
+        // Add step-queue if orchestration is enabled
+        ...(orchestration?.enabled && { 'step-queue': [] }),
+        // Add prompts if specified in sprint
+        ...(prompts && { prompts })
     };
     // Validate compiled progress
     const progressErrors = (0, validate_js_1.validateCompiledProgress)(progress);
@@ -322,6 +332,35 @@ function mergePerIterationHooks(workflowHooks, sprintOverrides) {
         }
         return hook;
     });
+}
+/**
+ * Compile orchestration configuration from workflow definition
+ *
+ * @param workflow - The workflow definition
+ * @returns Compiled orchestration config with defaults applied, or undefined if not enabled
+ */
+function compileOrchestration(workflow) {
+    if (!workflow.orchestration) {
+        return undefined;
+    }
+    return {
+        enabled: workflow.orchestration.enabled ?? false,
+        prompt: workflow.orchestration.prompt,
+        insertStrategy: workflow.orchestration.insertStrategy ?? 'after-current',
+        autoApprove: workflow.orchestration.autoApprove ?? false
+    };
+}
+/**
+ * Compile prompts configuration from sprint definition
+ *
+ * @param sprint - The sprint definition
+ * @returns Compiled prompts config, or undefined if not specified
+ */
+function compilePrompts(sprint) {
+    if (!sprint.prompts) {
+        return undefined;
+    }
+    return { ...sprint.prompts };
 }
 /**
  * Compile Ralph mode PROGRESS.yaml

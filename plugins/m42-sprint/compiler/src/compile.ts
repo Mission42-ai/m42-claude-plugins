@@ -21,7 +21,9 @@ import type {
   TemplateContext,
   LoadedWorkflow,
   PerIterationHook,
-  RalphConfig
+  RalphConfig,
+  OrchestrationConfig,
+  SprintPrompts
 } from './types.js';
 import { loadWorkflow, resolveWorkflowRefs } from './resolve-workflows.js';
 import { expandForEach, compileSimplePhase } from './expand-foreach.js';
@@ -236,6 +238,12 @@ export async function compile(config: CompilerConfig): Promise<CompilerResult> {
   // Create current pointer (start at first phase)
   const current = initializeCurrentPointer(compiledPhases);
 
+  // Compile orchestration config from workflow
+  const orchestration = compileOrchestration(mainWorkflow.definition);
+
+  // Compile prompts config from sprint
+  const prompts = compilePrompts(sprintDef);
+
   // Build compiled progress
   const progress: CompiledProgress = {
     'sprint-id': sprintId,
@@ -243,7 +251,13 @@ export async function compile(config: CompilerConfig): Promise<CompilerResult> {
     phases: compiledPhases,
     current,
     stats,
-    'parallel-tasks': []
+    'parallel-tasks': [],
+    // Add orchestration if enabled in workflow
+    ...(orchestration && { orchestration }),
+    // Add step-queue if orchestration is enabled
+    ...(orchestration?.enabled && { 'step-queue': [] }),
+    // Add prompts if specified in sprint
+    ...(prompts && { prompts })
   };
 
   // Validate compiled progress
@@ -367,6 +381,43 @@ function mergePerIterationHooks(
     }
     return hook;
   });
+}
+
+/**
+ * Compile orchestration configuration from workflow definition
+ *
+ * @param workflow - The workflow definition
+ * @returns Compiled orchestration config with defaults applied, or undefined if not enabled
+ */
+function compileOrchestration(
+  workflow: WorkflowDefinition
+): OrchestrationConfig | undefined {
+  if (!workflow.orchestration) {
+    return undefined;
+  }
+
+  return {
+    enabled: workflow.orchestration.enabled ?? false,
+    prompt: workflow.orchestration.prompt,
+    insertStrategy: workflow.orchestration.insertStrategy ?? 'after-current',
+    autoApprove: workflow.orchestration.autoApprove ?? false
+  };
+}
+
+/**
+ * Compile prompts configuration from sprint definition
+ *
+ * @param sprint - The sprint definition
+ * @returns Compiled prompts config, or undefined if not specified
+ */
+function compilePrompts(
+  sprint: SprintDefinition
+): SprintPrompts | undefined {
+  if (!sprint.prompts) {
+    return undefined;
+  }
+
+  return { ...sprint.prompts };
 }
 
 /**

@@ -3,6 +3,8 @@
 # Build Sprint Prompt - Hierarchical Workflow Navigation
 # Generates prompt for the current position in the workflow hierarchy
 # Outputs prompt to stdout for use by sprint-loop.sh
+#
+# Supports configurable prompts via SPRINT.yaml prompts: section
 
 set -euo pipefail
 
@@ -24,6 +26,93 @@ if ! command -v yq &> /dev/null; then
   echo "Error: yq is required" >&2
   exit 1
 fi
+
+# =============================================================================
+# Configurable Prompts Support
+# =============================================================================
+
+# Default prompt templates (used when SPRINT.yaml doesn't specify custom ones)
+DEFAULT_HEADER='# Sprint Workflow Execution
+Sprint: {{sprint-id}} | Iteration: {{iteration}}'
+
+DEFAULT_POSITION='## Current Position
+- Phase: **{{phase.id}}** ({{phase.index}}/{{phase.total}})
+- Step: **{{step.id}}** ({{step.index}}/{{step.total}})
+- Sub-Phase: **{{sub-phase.id}}** ({{sub-phase.index}}/{{sub-phase.total}})'
+
+DEFAULT_POSITION_SIMPLE='## Current Position
+- Phase: **{{phase.id}}** ({{phase.index}}/{{phase.total}})'
+
+DEFAULT_RETRY_WARNING='## Warning: RETRY ATTEMPT {{retry-count}}
+This task previously failed. Please review the error and try a different approach.
+
+Previous error: {{error}}'
+
+DEFAULT_INSTRUCTIONS='## Instructions
+
+1. Execute this sub-phase task
+2. Commit your changes when the task is done
+3. **EXIT immediately** - do NOT continue to next task'
+
+DEFAULT_RESULT_REPORTING='## Result Reporting (IMPORTANT)
+
+Do NOT modify PROGRESS.yaml directly. The sprint loop handles all state updates.
+Report your result as JSON in your final output:
+
+**On Success:**
+```json
+{"status": "completed", "summary": "Brief description of what was accomplished"}
+```
+
+**On Failure:**
+```json
+{"status": "failed", "summary": "What was attempted", "error": "What went wrong"}
+```
+
+**If Human Needed:**
+```json
+{"status": "needs-human", "summary": "What was done so far", "humanNeeded": {"reason": "Why human is needed", "details": "Additional context"}}
+```'
+
+# Loads prompt template from SPRINT.yaml or uses default
+# Args: $1 = key (e.g., "header"), $2 = default value
+load_prompt_template() {
+  local key="$1"
+  local default="$2"
+  local sprint_yaml="$SPRINT_DIR/SPRINT.yaml"
+
+  if [[ -f "$sprint_yaml" ]]; then
+    local custom
+    custom=$(yq -r ".prompts.\"$key\" // \"\"" "$sprint_yaml" 2>/dev/null || echo "")
+    if [[ -n "$custom" && "$custom" != "null" ]]; then
+      echo "$custom"
+      return
+    fi
+  fi
+  echo "$default"
+}
+
+# Replaces template variables in prompt text
+# Uses global variables set by the main script
+substitute_variables() {
+  local template="$1"
+
+  # Replace core variables using sed
+  echo "$template" \
+    | sed "s|{{sprint-id}}|${SPRINT_ID:-}|g" \
+    | sed "s|{{iteration}}|${ITERATION:-1}|g" \
+    | sed "s|{{phase.id}}|${PHASE_ID:-}|g" \
+    | sed "s|{{phase.index}}|$((PHASE_IDX + 1))|g" \
+    | sed "s|{{phase.total}}|${TOTAL_PHASES:-0}|g" \
+    | sed "s|{{step.id}}|${STEP_ID:-}|g" \
+    | sed "s|{{step.index}}|$((${STEP_IDX:-0} + 1))|g" \
+    | sed "s|{{step.total}}|${TOTAL_STEPS:-0}|g" \
+    | sed "s|{{sub-phase.id}}|${SUB_PHASE_ID:-}|g" \
+    | sed "s|{{sub-phase.index}}|$((${SUB_PHASE_IDX:-0} + 1))|g" \
+    | sed "s|{{sub-phase.total}}|${TOTAL_SUB_PHASES:-0}|g" \
+    | sed "s|{{retry-count}}|${RETRY_COUNT:-0}|g" \
+    | sed "s|{{error}}|${ERROR:-}|g"
+}
 
 # Build previous step context if available (passed via environment variables)
 PREV_CONTEXT=""
@@ -122,26 +211,23 @@ if [[ "$HAS_STEPS" != "null" ]]; then
     yq -i ".phases[$PHASE_IDX].status = \"in-progress\"" "$PROGRESS_FILE"
   fi
 
-  # Generate prompt for sub-phase within step
-  cat <<EOF
-# Sprint Workflow Execution
-Sprint: $SPRINT_ID | Iteration: $ITERATION
+  # Set variables for substitution
+  RETRY_COUNT="$SUB_PHASE_RETRY_COUNT"
+  ERROR="$SUB_PHASE_ERROR"
 
-## Current Position
-- Phase: **$PHASE_ID** ($((PHASE_IDX + 1))/$TOTAL_PHASES)
-- Step: **$STEP_ID** ($((STEP_IDX + 1))/$TOTAL_STEPS)
-- Sub-Phase: **$SUB_PHASE_ID** ($((SUB_PHASE_IDX + 1))/$TOTAL_SUB_PHASES)
-EOF
+  # Generate prompt for sub-phase within step using configurable templates
+  HEADER_TEMPLATE=$(load_prompt_template "header" "$DEFAULT_HEADER")
+  substitute_variables "$HEADER_TEMPLATE"
+  echo ""
+
+  POSITION_TEMPLATE=$(load_prompt_template "position" "$DEFAULT_POSITION")
+  substitute_variables "$POSITION_TEMPLATE"
 
   # Add retry information if this is a retry attempt
   if [[ "$SUB_PHASE_RETRY_COUNT" -gt 0 ]]; then
-    cat <<EOF
-
-## ⚠️ RETRY ATTEMPT $SUB_PHASE_RETRY_COUNT
-This task previously failed. Please review the error and try a different approach.
-
-Previous error: $SUB_PHASE_ERROR
-EOF
+    echo ""
+    RETRY_TEMPLATE=$(load_prompt_template "retry-warning" "$DEFAULT_RETRY_WARNING")
+    substitute_variables "$RETRY_TEMPLATE"
   fi
 
   cat <<EOF
@@ -152,38 +238,23 @@ $STEP_PROMPT
 ## Your Task: $SUB_PHASE_ID
 
 $SUB_PHASE_PROMPT
+EOF
 
-## Instructions
+  INSTRUCTIONS_TEMPLATE=$(load_prompt_template "instructions" "$DEFAULT_INSTRUCTIONS")
+  echo ""
+  substitute_variables "$INSTRUCTIONS_TEMPLATE"
 
-1. Execute this sub-phase task
-2. Commit your changes when the task is done
-3. **EXIT immediately** - do NOT continue to next task
+  cat <<EOF
 
 ## Files
 - Progress: $PROGRESS_FILE
 - Sprint: $SPRINT_DIR/SPRINT.yaml
 $PREV_CONTEXT
-
-## Result Reporting (IMPORTANT)
-
-Do NOT modify PROGRESS.yaml directly. The sprint loop handles all state updates.
-Report your result as JSON in your final output:
-
-**On Success:**
-\`\`\`json
-{"status": "completed", "summary": "Brief description of what was accomplished"}
-\`\`\`
-
-**On Failure:**
-\`\`\`json
-{"status": "failed", "summary": "What was attempted", "error": "What went wrong"}
-\`\`\`
-
-**If Human Needed:**
-\`\`\`json
-{"status": "needs-human", "summary": "What was done so far", "humanNeeded": {"reason": "Why human is needed", "details": "Additional context"}}
-\`\`\`
 EOF
+
+  RESULT_TEMPLATE=$(load_prompt_template "result-reporting" "$DEFAULT_RESULT_REPORTING")
+  echo ""
+  substitute_variables "$RESULT_TEMPLATE"
 
 else
   # Simple phase (no steps)
@@ -218,23 +289,29 @@ else
     yq -i ".phases[$PHASE_IDX].status = \"in-progress\"" "$PROGRESS_FILE"
   fi
 
-  cat <<EOF
-# Sprint Workflow Execution
-Sprint: $SPRINT_ID | Iteration: $ITERATION
+  # Set variables for substitution (simple phase has no step/sub-phase)
+  RETRY_COUNT="$PHASE_RETRY_COUNT"
+  ERROR="$PHASE_ERROR"
+  STEP_ID=""
+  STEP_IDX=0
+  TOTAL_STEPS=0
+  SUB_PHASE_ID=""
+  SUB_PHASE_IDX=0
+  TOTAL_SUB_PHASES=0
 
-## Current Position
-- Phase: **$PHASE_ID** ($((PHASE_IDX + 1))/$TOTAL_PHASES)
-EOF
+  # Generate prompt for simple phase using configurable templates
+  HEADER_TEMPLATE=$(load_prompt_template "header" "$DEFAULT_HEADER")
+  substitute_variables "$HEADER_TEMPLATE"
+  echo ""
+
+  POSITION_TEMPLATE=$(load_prompt_template "position" "$DEFAULT_POSITION_SIMPLE")
+  substitute_variables "$POSITION_TEMPLATE"
 
   # Add retry information if this is a retry attempt
   if [[ "$PHASE_RETRY_COUNT" -gt 0 ]]; then
-    cat <<EOF
-
-## ⚠️ RETRY ATTEMPT $PHASE_RETRY_COUNT
-This task previously failed. Please review the error and try a different approach.
-
-Previous error: $PHASE_ERROR
-EOF
+    echo ""
+    RETRY_TEMPLATE=$(load_prompt_template "retry-warning" "$DEFAULT_RETRY_WARNING")
+    substitute_variables "$RETRY_TEMPLATE"
   fi
 
   cat <<EOF
@@ -242,38 +319,30 @@ EOF
 ## Your Task
 
 $PHASE_PROMPT
+EOF
 
-## Instructions
+  # For simple phases, adjust instructions to say "phase" instead of "sub-phase"
+  DEFAULT_INSTRUCTIONS_SIMPLE='## Instructions
 
 1. Execute this phase
 2. Commit your changes when the task is done
-3. **EXIT immediately** - do NOT continue to next task
+3. **EXIT immediately** - do NOT continue to next task'
+
+  INSTRUCTIONS_TEMPLATE=$(load_prompt_template "instructions" "$DEFAULT_INSTRUCTIONS_SIMPLE")
+  echo ""
+  substitute_variables "$INSTRUCTIONS_TEMPLATE"
+
+  cat <<EOF
 
 ## Files
 - Progress: $PROGRESS_FILE
 - Sprint: $SPRINT_DIR/SPRINT.yaml
 $PREV_CONTEXT
-
-## Result Reporting (IMPORTANT)
-
-Do NOT modify PROGRESS.yaml directly. The sprint loop handles all state updates.
-Report your result as JSON in your final output:
-
-**On Success:**
-\`\`\`json
-{"status": "completed", "summary": "Brief description of what was accomplished"}
-\`\`\`
-
-**On Failure:**
-\`\`\`json
-{"status": "failed", "summary": "What was attempted", "error": "What went wrong"}
-\`\`\`
-
-**If Human Needed:**
-\`\`\`json
-{"status": "needs-human", "summary": "What was done so far", "humanNeeded": {"reason": "Why human is needed", "details": "Additional context"}}
-\`\`\`
 EOF
+
+  RESULT_TEMPLATE=$(load_prompt_template "result-reporting" "$DEFAULT_RESULT_REPORTING")
+  echo ""
+  substitute_variables "$RESULT_TEMPLATE"
 fi
 
 # Include context files if they exist

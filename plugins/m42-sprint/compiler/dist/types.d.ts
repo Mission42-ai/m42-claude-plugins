@@ -75,6 +75,52 @@ export interface RalphExitInfo {
     'final-summary'?: string;
 }
 /**
+ * Orchestration configuration for dynamic step injection
+ * Enables Claude to propose new steps during execution
+ */
+export interface OrchestrationConfig {
+    /** Enable dynamic step injection */
+    enabled: boolean;
+    /** Custom orchestration prompt (optional) */
+    prompt?: string;
+    /** Where to insert proposed steps */
+    insertStrategy: 'after-current' | 'end-of-phase' | 'custom';
+    /** If true, steps are inserted without orchestration iteration */
+    autoApprove: boolean;
+}
+/**
+ * A step proposed by Claude via JSON result
+ * Part of the proposedSteps array in agent output
+ */
+export interface ProposedStep {
+    /** The task prompt for the proposed step */
+    prompt: string;
+    /** Why this step is needed */
+    reasoning?: string;
+    /** Urgency/importance of this step */
+    priority?: 'low' | 'medium' | 'high' | 'critical';
+    /** Suggested insertion point */
+    insertAfter?: string;
+}
+/**
+ * A queued step waiting for orchestration in PROGRESS.yaml
+ * Created when agent proposes steps via proposedSteps JSON
+ */
+export interface StepQueueItem {
+    /** Unique identifier for this queue item */
+    id: string;
+    /** The task prompt */
+    prompt: string;
+    /** Which step proposed this (step ID) */
+    proposedBy: string;
+    /** When proposed (ISO timestamp) */
+    proposedAt: string;
+    /** Why this step was proposed */
+    reasoning?: string;
+    /** Priority level */
+    priority: 'low' | 'medium' | 'high' | 'critical';
+}
+/**
  * A step in the sprint (formerly called "feature")
  */
 export interface SprintStep {
@@ -127,6 +173,24 @@ export interface SprintDefinition {
     'per-iteration-hooks'?: Record<string, {
         enabled: boolean;
     }>;
+    /** Custom prompt templates for runtime */
+    prompts?: SprintPrompts;
+}
+/**
+ * Customizable runtime prompt templates for sprint execution
+ * Allows SPRINT.yaml to override default prompts from build-sprint-prompt.sh
+ */
+export interface SprintPrompts {
+    /** Header shown at top of each prompt */
+    header?: string;
+    /** Position indicator (phase/step/sub-phase) */
+    position?: string;
+    /** Warning shown on retry attempts */
+    'retry-warning'?: string;
+    /** Instructions section */
+    instructions?: string;
+    /** Result reporting format instructions */
+    'result-reporting'?: string;
 }
 /**
  * A phase within a workflow
@@ -163,6 +227,8 @@ export interface WorkflowDefinition {
     'reflection-prompt'?: string;
     /** Per-iteration hooks for Ralph mode */
     'per-iteration-hooks'?: PerIterationHook[];
+    /** Orchestration configuration for dynamic step injection */
+    orchestration?: OrchestrationConfig;
 }
 /**
  * A parallel task running in the background
@@ -319,6 +385,12 @@ export interface CompiledProgress {
     ralph?: RalphConfig;
     /** Ralph mode exit information */
     'ralph-exit'?: RalphExitInfo;
+    /** Orchestration configuration for dynamic step injection */
+    orchestration?: OrchestrationConfig;
+    /** Queue of proposed steps awaiting orchestration */
+    'step-queue'?: StepQueueItem[];
+    /** Custom prompt templates for runtime */
+    prompts?: SprintPrompts;
 }
 /**
  * Context for template variable substitution
