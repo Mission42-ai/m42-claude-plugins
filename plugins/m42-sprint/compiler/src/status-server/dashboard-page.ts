@@ -31,6 +31,7 @@ ${getDashboardStyles()}
 <body>
   <div class="container">
     ${generateHeader(activeSprint)}
+    ${generateFiltersSection()}
     ${generateMetricsSection(metrics, activeSprint)}
     ${generateSprintTable(sprints)}
   </div>
@@ -61,6 +62,27 @@ function generateNavigationBar(): string {
         </a>
       </div>
     </nav>`;
+}
+
+/**
+ * Generate the worktree filter section
+ */
+function generateFiltersSection(): string {
+  return `
+    <section class="filters-section">
+      <div class="filters-container">
+        <div class="filter-group">
+          <label for="worktree-filter" class="filter-label">Worktree:</label>
+          <select id="worktree-filter" class="filter-select">
+            <option value="all">All Worktrees</option>
+            <!-- Options populated dynamically via JavaScript -->
+          </select>
+        </div>
+        <div class="filter-info" id="filter-info">
+          <!-- Shows current filter context -->
+        </div>
+      </div>
+    </section>`;
 }
 
 /**
@@ -172,10 +194,15 @@ function generateSprintRow(sprint: SprintSummary): string {
     : '<span class="not-started">Not started</span>';
   const durationDisplay = sprint.elapsed || '--';
 
+  // Worktree data for filtering (extract from path if available)
+  // Sprint paths are like: /path/to/worktree/.claude/sprints/sprint-id
+  const worktreeName = extractWorktreeName(sprint.path);
+
   return `
-    <tr class="sprint-row" data-sprint-id="${escapeHtml(sprint.sprintId)}">
+    <tr class="sprint-row" data-sprint-id="${escapeHtml(sprint.sprintId)}" data-worktree="${escapeHtml(worktreeName)}">
       <td class="sprint-id-cell">
         <a href="/sprint/${escapeHtml(sprint.sprintId)}" class="sprint-link">${escapeHtml(sprint.sprintId)}</a>
+        ${worktreeName !== 'main' ? `<span class="worktree-badge">${escapeHtml(worktreeName)}</span>` : ''}
       </td>
       <td class="status-cell">
         <span class="status-badge ${statusClass}">${statusLabel}</span>
@@ -186,6 +213,22 @@ function generateSprintRow(sprint: SprintSummary): string {
         <span class="steps-progress">${sprint.completedSteps}/${sprint.totalSteps}</span>
       </td>
     </tr>`;
+}
+
+/**
+ * Extract worktree name from sprint path
+ * Defaults to 'main' if cannot determine
+ */
+function extractWorktreeName(sprintPath: string): string {
+  // Path pattern: /path/to/worktree-name/.claude/sprints/sprint-id
+  // or: /path/to/repo/.claude/sprints/sprint-id (main worktree)
+  const parts = sprintPath.split('/.claude/sprints/');
+  if (parts.length > 0) {
+    const worktreeRoot = parts[0];
+    const basename = worktreeRoot.split('/').pop() || 'main';
+    return basename;
+  }
+  return 'main';
 }
 
 /**
@@ -408,6 +451,73 @@ function getDashboardStyles(): string {
 
     .docs-link {
       color: var(--text-secondary);
+    }
+
+    /* Filters Section */
+    .filters-section {
+      margin-bottom: 16px;
+    }
+
+    .filters-container {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .filter-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+    }
+
+    .filter-select {
+      background-color: var(--bg-tertiary);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-family: var(--font-mono);
+      cursor: pointer;
+      min-width: 180px;
+    }
+
+    .filter-select:hover {
+      border-color: var(--text-muted);
+    }
+
+    .filter-select:focus {
+      outline: none;
+      border-color: var(--accent-blue);
+    }
+
+    .filter-info {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .filter-info .branch-name {
+      color: var(--accent-purple);
+    }
+
+    /* Worktree badge in sprint row */
+    .worktree-badge {
+      display: inline-block;
+      margin-left: 8px;
+      padding: 1px 6px;
+      background-color: rgba(163, 113, 247, 0.15);
+      color: var(--accent-purple);
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 500;
+      vertical-align: middle;
     }
 
     /* Metrics Section */
@@ -660,11 +770,91 @@ function getDashboardScript(): string {
       let page = 1;
       const pageSize = 20;
       let loading = false;
+      let currentWorktreeFilter = 'all';
+      let worktreesData = [];
 
       // Initialize
       document.addEventListener('DOMContentLoaded', function() {
         initLoadMore();
+        initWorktreeFilter();
       });
+
+      // Initialize worktree filter
+      async function initWorktreeFilter() {
+        const filterSelect = document.getElementById('worktree-filter');
+        const filterInfo = document.getElementById('filter-info');
+        if (!filterSelect) return;
+
+        try {
+          // Fetch worktrees data
+          const response = await fetch('/api/worktrees');
+          if (!response.ok) throw new Error('Failed to fetch worktrees');
+
+          const data = await response.json();
+          worktreesData = data.worktrees || [];
+
+          // Populate dropdown options
+          if (worktreesData.length > 0) {
+            // Clear existing options except "All"
+            filterSelect.innerHTML = '<option value="all">All Worktrees (' + worktreesData.length + ')</option>';
+
+            for (const wt of worktreesData) {
+              const option = document.createElement('option');
+              option.value = wt.name;
+              const sprintCount = (wt.sprints || []).length;
+              const activeMarker = wt.activeSprint ? ' *' : '';
+              option.textContent = wt.name + ' (' + wt.branch + ')' + activeMarker + ' - ' + sprintCount + ' sprints';
+              filterSelect.appendChild(option);
+            }
+
+            // Show server worktree context
+            if (data.serverWorktree && filterInfo) {
+              filterInfo.innerHTML = 'Server: <span class="branch-name">' +
+                escapeHtml(data.serverWorktree.name) + '</span> (' +
+                escapeHtml(data.serverWorktree.branch) + ')';
+            }
+          } else {
+            filterSelect.style.display = 'none';
+          }
+
+          // Add change listener
+          filterSelect.addEventListener('change', function() {
+            currentWorktreeFilter = this.value;
+            applyWorktreeFilter();
+          });
+        } catch (err) {
+          console.error('Error loading worktrees:', err);
+          filterSelect.style.display = 'none';
+        }
+      }
+
+      // Apply the worktree filter to the sprint table
+      function applyWorktreeFilter() {
+        const rows = document.querySelectorAll('.sprint-row');
+        let visibleCount = 0;
+
+        for (const row of rows) {
+          const rowWorktree = row.dataset.worktree || 'main';
+
+          if (currentWorktreeFilter === 'all' || rowWorktree === currentWorktreeFilter) {
+            row.style.display = '';
+            visibleCount++;
+          } else {
+            row.style.display = 'none';
+          }
+        }
+
+        // Update filter info with count
+        const filterInfo = document.getElementById('filter-info');
+        if (filterInfo) {
+          const serverInfo = filterInfo.innerHTML.split('<br>')[0];
+          if (currentWorktreeFilter === 'all') {
+            filterInfo.innerHTML = serverInfo;
+          } else {
+            filterInfo.innerHTML = serverInfo + '<br>Showing ' + visibleCount + ' sprints';
+          }
+        }
+      }
 
       // Load More functionality
       function initLoadMore() {
@@ -716,9 +906,23 @@ function getDashboardScript(): string {
           row.className = 'sprint-row';
           row.dataset.sprintId = sprint.sprintId;
 
+          // Extract worktree name from path
+          const worktreeName = extractWorktreeName(sprint.path || '');
+          row.dataset.worktree = worktreeName;
+
+          // Check if this row should be visible based on current filter
+          if (currentWorktreeFilter !== 'all' && worktreeName !== currentWorktreeFilter) {
+            row.style.display = 'none';
+          }
+
+          const worktreeBadge = worktreeName !== 'main'
+            ? '<span class="worktree-badge">' + escapeHtml(worktreeName) + '</span>'
+            : '';
+
           row.innerHTML =
             '<td class="sprint-id-cell">' +
               '<a href="/sprint/' + escapeHtml(sprint.sprintId) + '" class="sprint-link">' + escapeHtml(sprint.sprintId) + '</a>' +
+              worktreeBadge +
             '</td>' +
             '<td class="status-cell">' +
               '<span class="status-badge ' + getStatusClass(sprint.status) + '">' + getStatusLabel(sprint.status) + '</span>' +
@@ -731,6 +935,18 @@ function getDashboardScript(): string {
 
           tbody.appendChild(row);
         }
+      }
+
+      // Extract worktree name from sprint path
+      function extractWorktreeName(sprintPath) {
+        if (!sprintPath) return 'main';
+        const parts = sprintPath.split('/.claude/sprints/');
+        if (parts.length > 0) {
+          const worktreeRoot = parts[0];
+          const basename = worktreeRoot.split('/').pop() || 'main';
+          return basename;
+        }
+        return 'main';
       }
 
       function getStatusClass(status) {
