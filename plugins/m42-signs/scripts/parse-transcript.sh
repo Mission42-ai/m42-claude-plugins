@@ -1,6 +1,12 @@
 #!/bin/bash
 set -euo pipefail
 
+# DEPRECATED: This script is no longer used by /m42-signs:extract
+# The extraction command now uses LLM-based analysis which provides
+# much richer learnings from assistant reasoning, not just tool errors.
+#
+# Kept for reference - shows jq patterns for parsing transcripts.
+#
 # Parse Claude Code session transcript for tool errors
 # Correlates tool_use with tool_result to extract error context
 #

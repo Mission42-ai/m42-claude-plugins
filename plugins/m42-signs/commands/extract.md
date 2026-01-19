@@ -1,241 +1,320 @@
 ---
-allowed-tools: Bash(test:*, mkdir:*, ls:*, find:*), Read(*), Write(*), Edit(*), Glob(*)
-argument-hint: "<session-id|path> [--dry-run] [--confidence-min <level>] [--auto-approve]"
-description: Extract learnings from session transcript to backlog
+allowed-tools: Bash(test:*, mkdir:*, ls:*, find:*, wc:*), Read(*), Write(*), Edit(*), Glob(*), Grep(*)
+argument-hint: "<transcript-path> [--dry-run] [--focus <area>]"
+description: Extract learnings from session transcript using LLM analysis
 model: sonnet
 ---
 
-# Extract Learnings from Session
+# Extract Learnings from Session Transcript
 
-Extract learning signs from a Claude Code session transcript. Analyzes errors, detects retry patterns, infers target CLAUDE.md files, and writes proposed learnings to the backlog.
+Analyze a Claude Code session transcript comprehensively to extract **signs** - contextual learnings that help future agents work more effectively in this codebase.
+
+## Philosophy
+
+Signs are NOT just error fixes. They capture:
+- **Architectural insights** discovered during implementation
+- **Project conventions** that aren't obvious from code alone
+- **Pitfalls and gotchas** that could trip up future agents
+- **Effective strategies** that worked well
+- **File relationships** and component interactions
+- **Domain knowledge** specific to this project
+
+The goal: A future agent reading the target CLAUDE.md should be more effective at similar tasks.
 
 ## Preflight Checks
 
-1. Check if scripts directory exists:
-   !`test -d plugins/m42-signs/scripts && echo "EXISTS" || echo "NOT_EXISTS"`
+1. Check if learnings directory exists:
+   !`test -d .claude/learnings && echo "EXISTS" || echo "NOT_EXISTS"`
 
-2. Check if parse-transcript.sh exists:
-   !`test -f plugins/m42-signs/scripts/parse-transcript.sh && echo "EXISTS" || echo "NOT_EXISTS"`
+2. List existing CLAUDE.md files for target inference:
+   !`find . -name "CLAUDE.md" -not -path "*/node_modules/*" -not -path "*/.git/*" 2>/dev/null | head -20`
 
-3. Check if find-retry-patterns.sh exists:
-   !`test -f plugins/m42-signs/scripts/find-retry-patterns.sh && echo "EXISTS" || echo "NOT_EXISTS"`
+## Arguments
 
-4. Check if infer-target.sh exists:
-   !`test -f plugins/m42-signs/scripts/infer-target.sh && echo "EXISTS" || echo "NOT_EXISTS"`
+Parse `$ARGUMENTS` for:
+- **Transcript path** (required): Path to `.jsonl` transcript file
+- `--dry-run`: Preview learnings without writing to backlog
+- `--focus <area>`: Focus extraction on specific area (e.g., "api", "testing", "build")
 
-## Context
+## Transcript Schema
 
-Parse `$ARGUMENTS` to determine:
-- Session identifier (first non-flag argument): Either session ID or file path
-- `--dry-run`: Preview what would be extracted without writing to backlog
-- `--confidence-min <level>`: Filter to only include patterns with confidence >= level (low, medium, high)
-- `--auto-approve`: Automatically set status to "approved" for high-confidence learnings
+Each line in a `.jsonl` transcript is one of these message types:
 
-### Session File Resolution
-
-The argument can be:
-1. **File path** (contains `/` or ends in `.jsonl`): Use directly
-2. **Session ID**: Find in `~/.claude/projects/` using encoded project path
-
-For session IDs, the file location follows this pattern:
-```bash
-PROJECT_PATH=$(pwd | sed 's|/|-|g')
-SESSION_DIR="$HOME/.claude/projects/$PROJECT_PATH"
-SESSION_FILE="$SESSION_DIR/$SESSION_ID.jsonl"
+### system/init
+Session metadata - tells you what project, tools available, model used:
+```json
+{"type": "system", "subtype": "init", "cwd": "/path/to/project", "model": "claude-...", "tools": ["Bash", "Read", ...]}
 ```
 
-If exact match not found, try partial ID matching with find/glob.
-
-## Task Instructions
-
-### 1. Parse Arguments
-
-Extract from `$ARGUMENTS`:
-- First non-flag argument: session ID or file path
-- Check for `--dry-run` flag
-- Check for `--confidence-min` followed by level (low/medium/high)
-- Check for `--auto-approve` flag
-
-### 2. Resolve Session File
-
-**If argument contains `/` or ends in `.jsonl`**:
-- Treat as direct file path
-- Verify file exists
-
-**If argument is a session ID**:
-- Compute encoded project path: `$(pwd | sed 's|/|-|g')`
-- Build path: `~/.claude/projects/$PROJECT_PATH/$SESSION_ID.jsonl`
-- If exact file not found, try:
-  - Glob pattern: `~/.claude/projects/*/$SESSION_ID.jsonl`
-  - Partial match: `find ~/.claude/projects/ -name "$SESSION_ID*" -type f`
-
-**If session file not found**:
-- Output clear error: "Session file not found: <attempted paths>"
-- Suggest: "Use `ls ~/.claude/projects/$(pwd | sed 's|/|-|g')/` to see available sessions"
-
-### 3. Parse Transcript for Errors
-
-Run the parse-transcript.sh script to extract errors:
-```bash
-plugins/m42-signs/scripts/parse-transcript.sh "$SESSION_FILE"
+### assistant
+Claude's responses - **PRIMARY SOURCE OF LEARNINGS**. Contains reasoning and tool calls:
+```json
+{
+  "type": "assistant",
+  "message": {
+    "content": [
+      {"type": "text", "text": "Let me analyze this... I notice that..."},
+      {"type": "tool_use", "id": "toolu_xxx", "name": "Read", "input": {"file_path": "..."}}
+    ]
+  }
+}
 ```
 
-This returns JSON array of errors with tool info.
+**Key insight**: The `text` blocks contain Claude's reasoning - architectural decisions, problem-solving strategies, discoveries about the codebase.
 
-**If parsing fails** (malformed JSONL):
-- Output graceful error: "Failed to parse transcript: invalid JSONL format"
-- Include specific line that failed if available
-
-**If no errors found**:
-- Output: "No errors found in session - nothing to extract"
-- Exit successfully (this is not a failure state)
-
-### 4. Find Retry Patterns
-
-Run the find-retry-patterns.sh script to detect error→success sequences:
-```bash
-plugins/m42-signs/scripts/find-retry-patterns.sh "$SESSION_FILE"
+### user
+User input OR tool results. Tool results show what happened:
+```json
+{
+  "type": "user",
+  "message": {
+    "content": [
+      {"type": "tool_result", "tool_use_id": "toolu_xxx", "content": "...", "is_error": false}
+    ]
+  }
+}
 ```
 
-This returns JSON with:
-- `session_id`: Session identifier
-- `analyzed_at`: Timestamp
-- `patterns[]`: Array of detected patterns with confidence scores
-- `summary`: Counts by tool, pattern type, and confidence
+Errors have `"is_error": true` - but successful operations often contain MORE valuable learnings.
 
-**If no retry patterns found** but errors exist:
-- Output: "Errors found but no retry patterns detected - manual review needed"
-- Optionally list the errors for manual inspection
+### result
+Session end with stats (can ignore for learning extraction).
 
-### 5. Filter by Confidence (if --confidence-min)
+## Learning Types Taxonomy
 
-If `--confidence-min` was specified, filter patterns:
-- `low`: Include all patterns (low, medium, high)
-- `medium`: Include medium and high only
-- `high`: Include high only
+Extract learnings across ALL these categories:
 
-### 6. Infer Target CLAUDE.md for Each Pattern
+### 1. Architectural Patterns
+- How components relate to each other
+- Why certain design decisions were made
+- Module boundaries and responsibilities
+- Data flow patterns
 
-For each pattern, extract file paths from the input and run infer-target.sh:
+**Example**: "The compiler has three phases: parse → validate → emit. Validation must complete before emit because emit relies on validated AST nodes."
+
+### 2. Project Conventions
+- Naming patterns not obvious from code
+- File organization rules
+- Code style beyond linting
+- Commit/PR conventions
+
+**Example**: "All API handlers follow the pattern: parse request → validate → execute → format response. Validation errors return 400, execution errors return 500."
+
+### 3. Pitfalls & Gotchas
+- Things that look right but fail
+- Edge cases that aren't obvious
+- Common mistakes and how to avoid them
+- Subtle bugs discovered
+
+**Example**: "When making TypeScript interface fields optional, ALL consumers must add null checks or the build fails with TS18048."
+
+### 4. Effective Strategies
+- Approaches that worked well
+- Debugging techniques for this codebase
+- Testing strategies
+- Refactoring patterns
+
+**Example**: "To understand workflow compilation, read the types first (types.ts), then the main flow (compile.ts), then validation (validate.ts)."
+
+### 5. File Relationships
+- Which files work together
+- Import/dependency patterns
+- Files that must change together
+- Entry points and their consumers
+
+**Example**: "Changes to WorkflowDefinition in types.ts require updates to: validate.ts (validation), compile.ts (compilation), and all status-server consumers."
+
+### 6. API & Library Patterns
+- How to correctly use project APIs
+- External library gotchas
+- Configuration patterns
+- Integration points
+
+**Example**: "yq requires shell variable expansion with single quotes: `yq '.key['"$VAR"']'` not `yq '.key[$VAR]'`"
+
+### 7. Build & Test Patterns
+- Build commands and their order
+- Test organization and naming
+- CI/CD considerations
+- Environment requirements
+
+**Example**: "Always run `npm run build` in plugins/m42-sprint/compiler after TypeScript changes - the sprint loop uses compiled JS."
+
+### 8. Domain Knowledge
+- Business logic rules
+- Terminology definitions
+- Constraints and invariants
+- User-facing behavior
+
+**Example**: "Ralph Mode is iteration-based, not phase-based. It requires a 'goal' field and generates PROGRESS.yaml dynamically."
+
+## Extraction Process
+
+### Step 1: Read and Parse Transcript
+
+Read the transcript file. For large transcripts (>25k tokens), process in chunks using offset/limit.
+
 ```bash
-plugins/m42-signs/scripts/infer-target.sh "$FILE_PATH1" "$FILE_PATH2"
+wc -l "$TRANSCRIPT_PATH"  # Check line count
 ```
 
-Extract paths from:
-- Bash: `command` field (look for file paths in command)
-- Read/Write/Edit: `file_path` or `path` field
-- Glob/Grep: `path` field or inferred from pattern
+### Step 2: Identify Learning-Worthy Moments
 
-If no paths can be extracted, default to `CLAUDE.md` (project root).
+Scan for these patterns in the transcript:
 
-### 7. Generate Learning Entries
+**In assistant text blocks**:
+- Explanations of how something works
+- Discoveries ("I notice...", "I see that...", "This means...")
+- Decisions ("I'll use X because...", "The right approach is...")
+- Corrections ("Actually...", "I need to...", "This should be...")
+- Patterns ("The pattern here is...", "This follows...")
 
-For each pattern, create a learning entry:
+**In tool sequences**:
+- Error → investigation → resolution sequences
+- Multiple file reads to understand a concept
+- Iterative refinement of an approach
+- Build/test failures and their fixes
+
+**In successful operations**:
+- Complex commands that worked
+- Multi-step processes that succeeded
+- Integration patterns that connected correctly
+
+### Step 3: Extract Learnings
+
+For each learning-worthy moment, extract:
+
+1. **What was learned** - The insight or pattern
+2. **Why it matters** - How it helps future agents
+3. **Where it applies** - Which area of the codebase
+4. **Confidence level** - How certain and reusable
+
+### Step 4: Assign Target CLAUDE.md
+
+Match each learning to the most specific applicable CLAUDE.md:
+
+| Learning Scope | Target |
+|---------------|--------|
+| Single file/directory | `path/to/dir/CLAUDE.md` |
+| Feature area | `feature-area/CLAUDE.md` |
+| Plugin/package | `plugin-name/CLAUDE.md` |
+| Project-wide | `./CLAUDE.md` (root) |
+
+If target CLAUDE.md doesn't exist, suggest creating it.
+
+### Step 5: Rate Confidence
+
+| Level | Criteria |
+|-------|----------|
+| `high` | Clear pattern, explicitly verified, highly reusable |
+| `medium` | Good insight, reasonable evidence, somewhat reusable |
+| `low` | Possible pattern, limited evidence, context-specific |
+
+### Step 6: Format as Backlog Entries
 
 ```yaml
-- id: <generated-kebab-case-id>
-  status: pending  # or "approved" if --auto-approve and high confidence
-  title: <Generated title from pattern type and tool>
+- id: kebab-case-unique-id
+  status: pending
+  title: Short descriptive title (imperative mood)
   problem: |
-    <Error message and context>
+    What situation or challenge does this address?
+    What might a future agent struggle with?
   solution: |
-    <What changed from failed to success>
-  target: <inferred CLAUDE.md path>
-  confidence: <low|medium|high>
+    What's the key insight or approach?
+    How should a future agent handle this?
+  target: path/to/CLAUDE.md
+  confidence: high|medium|low
   source:
-    tool: <tool name>
-    command: <failed input summary>
-    error: <error message excerpt>
+    tool: Primary tool involved (if any)
+    context: Brief context of discovery
 ```
 
-**ID Generation**:
-```bash
-ID=$(echo "$TITLE" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -dc 'a-z0-9-' | cut -c1-50)
-```
+## Output Format
 
-**Title Generation** based on pattern_type:
-- `command_syntax`: "Fix [tool] command syntax"
-- `file_path`: "Correct file path for [tool]"
-- `command_fix`: "Fix [tool] command"
-- `pattern_fix`: "Fix [tool] search pattern"
-- `file_operation`: "Handle [tool] file operation"
-- Default: "Fix [tool] usage"
+### Dry Run Mode (--dry-run)
 
-### 8. Handle --dry-run Mode
-
-If `--dry-run` is set:
-- Show all proposed learnings in formatted table
-- Do NOT write to backlog
-- Output: "Dry run complete - no changes written"
-
-### 9. Write to Backlog
-
-If NOT `--dry-run`:
-
-1. Ensure directory exists:
-   ```bash
-   mkdir -p .claude/learnings
-   ```
-
-2. If backlog.yaml doesn't exist, create with template:
-   ```yaml
-   version: 1
-   extracted-from: null
-   extracted-at: null
-
-   learnings: []
-   ```
-
-3. Read existing backlog.yaml
-
-4. Update metadata:
-   - `extracted-from`: session ID or file path
-   - `extracted-at`: current ISO timestamp
-
-5. Append new learnings to the `learnings:` array
-
-6. Write updated backlog.yaml
-
-### 10. Output Summary
-
-Display extraction results:
+Display proposed learnings without writing:
 
 ```
-## Extraction Summary
+## Extraction Preview
 
-Session: <session-id>
-Analyzed at: <timestamp>
+Transcript: <path>
+Lines analyzed: <count>
 
-### Errors Found: <count>
-### Retry Patterns: <count>
+### Proposed Learnings (<count>)
 
-| ID | Confidence | Tool | Target |
-|----|------------|------|--------|
-| <id> | <confidence> | <tool> | <target> |
-...
+#### 1. <title> [<confidence>]
+**Target**: <target-path>
+**Problem**: <brief problem>
+**Solution**: <brief solution>
 
-Written <count> learnings to .claude/learnings/backlog.yaml
+#### 2. ...
 
-Next: Review with /m42-signs:review
+---
+Dry run complete - no changes written.
+Run without --dry-run to save to backlog.
 ```
+
+### Normal Mode
+
+Write to backlog and show summary:
+
+```
+## Extraction Complete
+
+Transcript: <path>
+Lines analyzed: <count>
+
+### Learnings Extracted: <count>
+
+| # | Title | Confidence | Target |
+|---|-------|------------|--------|
+| 1 | <title> | <confidence> | <target> |
+| 2 | ... | ... | ... |
+
+Written to: .claude/learnings/backlog.yaml
+
+### Next Steps
+- Review learnings: `/m42-signs:review`
+- Check status: `/m42-signs:status`
+```
+
+## Quality Guidelines
+
+### DO Extract
+- Insights that would save future agents time
+- Patterns that aren't obvious from code alone
+- Gotchas that caused real problems
+- Strategies that worked effectively
+- Relationships between components
+
+### DON'T Extract
+- Generic programming knowledge (e.g., "use async/await")
+- One-time typos or simple mistakes
+- Context-specific decisions that won't recur
+- Obvious patterns already documented in code
+- Duplicate of existing signs in target CLAUDE.md
+
+### Good Sign Characteristics
+- **Actionable**: Reader knows what to do
+- **Specific**: Applies to this codebase/context
+- **Reusable**: Helps with similar future tasks
+- **Concise**: Easy to scan and understand
 
 ## Edge Cases
 
 | Scenario | Handling |
 |----------|----------|
-| No errors found | Output "No learnings to extract" and exit cleanly |
-| Session file not found | Clear error with search suggestions |
-| Malformed JSONL | Graceful failure with specific error details |
-| No retry patterns | Report errors exist but no patterns detected |
-| Backlog doesn't exist | Create with template structure |
-| Empty patterns after filtering | Report filter removed all patterns |
+| Transcript too large | Process in chunks with offset/limit |
+| No learning-worthy content | Report "No significant learnings found" |
+| Focus area specified | Prioritize learnings in that area |
+| Target CLAUDE.md missing | Note in output, suggest creation |
+| Duplicate learning | Skip if similar sign exists in target |
 
 ## Success Criteria
 
-- Session file is correctly resolved (by ID or path)
-- parse-transcript.sh, find-retry-patterns.sh, and infer-target.sh are called correctly
-- Proposed learnings have valid structure matching backlog schema
-- For `--dry-run`: Only preview shown, no files modified
-- For normal mode: Backlog updated with new learnings
-- Summary table clearly shows extracted learnings
-- User directed to `/m42-signs:review` for next steps
+- Every significant insight in the transcript is considered
+- Learnings are categorized by type and targeted appropriately
+- Confidence levels reflect actual certainty
+- Output is actionable for the review step
+- Signs will meaningfully help future agents

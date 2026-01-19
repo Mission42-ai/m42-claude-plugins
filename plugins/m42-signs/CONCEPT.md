@@ -115,29 +115,32 @@ Each line is a JSON object:
 | `user` | User input or tool_result (includes `is_error` flag) |
 | `result` | Final outcome with stats |
 
-### Error Detection Patterns
+### LLM-Based Extraction (v2)
 
-```bash
-# Find all tool errors
-jq 'select(.type=="user") | .content[]? | select(.is_error==true)' transcript.jsonl
+Signs are NOT just error fixes. The extraction uses LLM analysis to identify:
 
-# Correlate failed tool calls with their inputs
-jq -s '
-  [.[] | select(.type=="assistant" or .type=="user")] |
-  group_by(.message.content[0].id // .content[0].tool_use_id) |
-  .[] | select(length == 2) |
-  {
-    tool: .[0].message.content[0].name,
-    input: .[0].message.content[0].input,
-    is_error: .[1].content[0].is_error,
-    result: .[1].content[0].content
-  } | select(.is_error == true)
-' transcript.jsonl
-```
+| Learning Type | What to Look For |
+|---------------|------------------|
+| **Architectural Patterns** | How components relate, design decisions, data flow |
+| **Project Conventions** | Naming patterns, file organization, style rules |
+| **Pitfalls & Gotchas** | Things that look right but fail, edge cases |
+| **Effective Strategies** | Debugging techniques, testing approaches |
+| **File Relationships** | Which files change together, dependencies |
+| **API & Library Patterns** | Correct usage, configuration, integration |
+| **Build & Test Patterns** | Commands, order, CI/CD considerations |
+| **Domain Knowledge** | Business logic, terminology, constraints |
+
+The extraction focuses on **assistant reasoning** in transcript `text` blocks, looking for:
+- Discoveries: "I notice that...", "This shows that..."
+- Decisions: "I'll use X because...", "The right approach is..."
+- Corrections: "Actually...", "The issue is..."
+- Explanations: "This works because...", "The relationship is..."
+
+See [transcript-format.md](./skills/managing-signs/references/transcript-format.md) for detailed patterns.
 
 ### m42-sprint Integration
 
-Add a workflow step that receives the session transcript and extracts learnings:
+Add a workflow step that extracts learnings after development:
 
 ```yaml
 # In sprint workflow
@@ -148,29 +151,14 @@ phases:
 
   - id: extract-learnings
     prompt: |
-      ## Learning Extraction
+      Run /m42-signs:extract on the development transcripts.
 
-      Analyze the provided session transcript for learnings.
-
-      ### Task
-      1. Find tool errors (is_error: true in tool results)
-      2. Identify retry patterns (same operation failed then succeeded)
-      3. Extract what changed between failure and success
-      4. Write learnings to .claude/learnings/backlog.yaml
-
-      ### Output Format
-      Each learning needs:
-      - id: kebab-case identifier
-      - title: short description
-      - problem: what went wrong
-      - solution: how to fix/avoid
-      - target: path to CLAUDE.md where this belongs
-      - confidence: low | medium | high
-
-      ### Only extract learnings that are:
-      - Reusable (not one-off fixes)
-      - Actionable (clear solution)
-      - Scoped (belongs to a specific folder/CLAUDE.md)
+      Focus on learnings that will help future agents:
+      - Architectural insights discovered
+      - Project conventions learned
+      - Pitfalls encountered and solved
+      - File relationships identified
+      - Effective strategies used
 ```
 
 ---
@@ -343,8 +331,10 @@ plugins/m42-signs/
 │           └── claude-md-format.md
 │
 ├── scripts/
-│   ├── parse-transcript.sh       # Extract errors from JSONL
-│   └── validate-backlog.sh
+│   ├── validate-backlog.sh       # Validate backlog YAML structure
+│   ├── parse-transcript.sh       # (deprecated) jq-based error extraction
+│   ├── find-retry-patterns.sh    # (deprecated) jq-based retry detection
+│   └── infer-target.sh           # (deprecated) target CLAUDE.md inference
 │
 └── assets/
     └── backlog-template.yaml
@@ -363,12 +353,12 @@ plugins/m42-signs/
 - [x] /signs list command
 - [x] /signs status command
 
-### Phase 2: Extraction
-- [x] Transcript parsing logic
-- [x] /signs extract command
-- [x] Error pattern detection
-- [x] Retry pattern identification
+### Phase 2: Extraction (v2 - LLM-Based)
+- [x] Transcript format documentation
+- [x] /signs extract command (LLM-based comprehensive analysis)
+- [x] Learning types taxonomy (8 categories)
 - [x] Target CLAUDE.md inference
+- [x] Confidence scoring based on reusability
 
 ### Phase 3: Review & Apply
 - [x] /signs review command (interactive)

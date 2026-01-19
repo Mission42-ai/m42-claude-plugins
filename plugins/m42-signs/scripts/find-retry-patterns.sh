@@ -1,6 +1,12 @@
 #!/bin/bash
 set -euo pipefail
 
+# DEPRECATED: This script is no longer used by /m42-signs:extract
+# The extraction command now uses LLM-based analysis which provides
+# much richer learnings including architectural insights, not just retry patterns.
+#
+# Kept for reference - shows complex jq patterns for correlating events.
+#
 # Find retry patterns in Claude Code session transcripts
 # Detects error -> retry -> success sequences and extracts what changed
 #
