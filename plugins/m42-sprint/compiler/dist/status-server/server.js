@@ -321,6 +321,9 @@ class StatusServer extends events_1.EventEmitter {
             case '/api/metrics':
                 this.handleMetricsApiRequest(res);
                 break;
+            case '/api/worktrees':
+                this.handleWorktreesApiRequest(res);
+                break;
             default:
                 // Handle dynamic routes
                 if (sprintDetailMatch) {
@@ -503,6 +506,104 @@ class StatusServer extends events_1.EventEmitter {
             res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
                 error: 'Failed to calculate metrics',
+                message: error instanceof Error ? error.message : String(error),
+            }));
+        }
+    }
+    /**
+     * Handle GET /api/worktrees request
+     * Returns list of all worktrees in the repository with their active sprints
+     *
+     * Response format:
+     * {
+     *   worktrees: [{
+     *     name: string,        // "main" or worktree directory name
+     *     branch: string,      // Current git branch
+     *     commit: string,      // Current commit SHA (abbreviated)
+     *     isMain: boolean,     // Whether this is the main worktree
+     *     root: string,        // Absolute path to worktree root
+     *     sprints: [{          // Sprints in this worktree (newest first)
+     *       sprintId: string,
+     *       status: string,
+     *       startedAt: string | null,
+     *       ...SprintSummary fields
+     *     }]
+     *   }],
+     *   total: number,         // Total number of worktrees
+     *   serverWorktree: {...}  // This server's worktree context
+     * }
+     */
+    handleWorktreesApiRequest(res) {
+        try {
+            // List all worktrees in the repository
+            const worktreeList = (0, worktree_js_1.listWorktrees)(this.config.sprintDir);
+            if (!worktreeList) {
+                // Not in a git repository - return just this sprint's worktree
+                res.writeHead(200, {
+                    'Content-Type': 'application/json',
+                    'Cache-Control': 'no-cache',
+                });
+                res.end(JSON.stringify({
+                    worktrees: [],
+                    total: 0,
+                    error: 'Not in a git repository',
+                }, null, 2));
+                return;
+            }
+            // For each worktree, scan for sprints
+            const worktreesWithSprints = worktreeList.worktrees.map((worktree) => {
+                const sprintsDir = path.join(worktree.root, '.claude', 'sprints');
+                let sprints = [];
+                try {
+                    if (fs.existsSync(sprintsDir) && fs.statSync(sprintsDir).isDirectory()) {
+                        const scanner = new sprint_scanner_js_1.SprintScanner(sprintsDir, { includeWorktreeInfo: false });
+                        sprints = scanner.scan();
+                    }
+                }
+                catch {
+                    // Skip inaccessible directories
+                }
+                return {
+                    name: worktree.isMain ? 'main' : worktree.name,
+                    branch: worktree.branch,
+                    commit: worktree.commit,
+                    isMain: worktree.isMain,
+                    root: worktree.root,
+                    sprints,
+                    activeSprint: sprints.find(s => s.status === 'in-progress') || null,
+                };
+            });
+            // Sort worktrees: main first, then by name
+            worktreesWithSprints.sort((a, b) => {
+                if (a.isMain && !b.isMain)
+                    return -1;
+                if (!a.isMain && b.isMain)
+                    return 1;
+                return a.name.localeCompare(b.name);
+            });
+            // Build response
+            const response = {
+                worktrees: worktreesWithSprints,
+                total: worktreesWithSprints.length,
+            };
+            // Include server's worktree context
+            if (this.worktreeInfo) {
+                response.serverWorktree = {
+                    name: this.worktreeInfo.isMain ? 'main' : this.worktreeInfo.name,
+                    branch: this.worktreeInfo.branch,
+                    isMain: this.worktreeInfo.isMain,
+                };
+            }
+            res.writeHead(200, {
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-cache',
+            });
+            res.end(JSON.stringify(response, null, 2));
+        }
+        catch (error) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                error: 'Failed to list worktrees',
                 message: error instanceof Error ? error.message : String(error),
             }));
         }

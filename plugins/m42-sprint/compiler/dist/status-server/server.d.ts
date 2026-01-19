@@ -93,6 +93,30 @@ export declare class StatusServer extends EventEmitter {
      */
     private handleMetricsApiRequest;
     /**
+     * Handle GET /api/worktrees request
+     * Returns list of all worktrees in the repository with their active sprints
+     *
+     * Response format:
+     * {
+     *   worktrees: [{
+     *     name: string,        // "main" or worktree directory name
+     *     branch: string,      // Current git branch
+     *     commit: string,      // Current commit SHA (abbreviated)
+     *     isMain: boolean,     // Whether this is the main worktree
+     *     root: string,        // Absolute path to worktree root
+     *     sprints: [{          // Sprints in this worktree (newest first)
+     *       sprintId: string,
+     *       status: string,
+     *       startedAt: string | null,
+     *       ...SprintSummary fields
+     *     }]
+     *   }],
+     *   total: number,         // Total number of worktrees
+     *   serverWorktree: {...}  // This server's worktree context
+     * }
+     */
+    private handleWorktreesApiRequest;
+    /**
      * Handle SSE connection
      */
     private handleSSERequest;
