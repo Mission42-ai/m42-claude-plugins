@@ -200,8 +200,10 @@ test('START: sets startedAt timestamp', () => {
   const result = transition(state, event, context);
 
   assert(result.nextState.status === 'in-progress', 'Must be in-progress');
-  assert('startedAt' in result.nextState, 'Must have startedAt');
-  assert(typeof result.nextState.startedAt === 'string', 'startedAt must be string');
+  if (result.nextState.status === 'in-progress') {
+    assert('startedAt' in result.nextState, 'Must have startedAt');
+    assert(typeof result.nextState.startedAt === 'string', 'startedAt must be string');
+  }
 });
 
 test('START: initializes iteration to 1', () => {
@@ -212,7 +214,9 @@ test('START: initializes iteration to 1', () => {
   const result = transition(state, event, context);
 
   assert(result.nextState.status === 'in-progress', 'Must be in-progress');
-  assertEqual(result.nextState.iteration, 1, 'Iteration should start at 1');
+  if (result.nextState.status === 'in-progress') {
+    assertEqual(result.nextState.iteration, 1, 'Iteration should start at 1');
+  }
 });
 
 test('START: no-op if already in-progress', () => {
@@ -251,8 +255,9 @@ test('PHASE_COMPLETE: advances to next phase when more phases exist', () => {
   const result = transition(state, event, context);
 
   assertEqual(result.nextState.status, 'in-progress', 'Should remain in-progress');
-  assert(result.nextState.status === 'in-progress', 'Type guard');
-  assertEqual(result.nextState.current.phase, 1, 'Should advance to phase 1');
+  if (result.nextState.status === 'in-progress') {
+    assertEqual(result.nextState.current.phase, 1, 'Should advance to phase 1');
+  }
 });
 
 test('PHASE_COMPLETE: transitions to completed when no more phases', () => {
@@ -298,8 +303,9 @@ test('PHASE_COMPLETE: advances sub-phase when more sub-phases exist', () => {
   const result = transition(state, event, context);
 
   assertEqual(result.nextState.status, 'in-progress', 'Should remain in-progress');
-  assert(result.nextState.status === 'in-progress', 'Type guard');
-  assertEqual(result.nextState.current['sub-phase'], 1, 'Should advance to sub-phase 1');
+  if (result.nextState.status === 'in-progress') {
+    assertEqual(result.nextState.current['sub-phase'], 1, 'Should advance to sub-phase 1');
+  }
 });
 
 test('PHASE_COMPLETE: advances step when no more sub-phases', () => {
@@ -315,9 +321,10 @@ test('PHASE_COMPLETE: advances step when no more sub-phases', () => {
   const result = transition(state, event, context);
 
   assertEqual(result.nextState.status, 'in-progress', 'Should remain in-progress');
-  assert(result.nextState.status === 'in-progress', 'Type guard');
-  assertEqual(result.nextState.current.step, 1, 'Should advance to step 1');
-  assertEqual(result.nextState.current['sub-phase'], 0, 'Should reset sub-phase to 0');
+  if (result.nextState.status === 'in-progress') {
+    assertEqual(result.nextState.current.step, 1, 'Should advance to step 1');
+    assertEqual(result.nextState.current['sub-phase'], 0, 'Should reset sub-phase to 0');
+  }
 });
 
 test('PHASE_COMPLETE: returns SPAWN_CLAUDE when advancing', () => {
@@ -348,7 +355,9 @@ test('PHASE_COMPLETE: increments iteration', () => {
   const result = transition(state, event, context);
 
   assert(result.nextState.status === 'in-progress', 'Must be in-progress');
-  assertEqual(result.nextState.iteration, 4, 'Iteration should increment');
+  if (result.nextState.status === 'in-progress') {
+    assertEqual(result.nextState.iteration, 4, 'Iteration should increment');
+  }
 });
 
 // ============================================================================
@@ -401,9 +410,10 @@ test('PHASE_FAILED: blocked state includes error details', () => {
   const result = transition(state, event, context);
 
   assertEqual(result.nextState.status, 'blocked', 'Should be blocked');
-  assert(result.nextState.status === 'blocked', 'Type guard');
-  assertEqual(result.nextState.error, 'Something broke', 'Should include error message');
-  assertEqual(result.nextState.failedPhase, 'phase-0', 'Should include failed phase');
+  if (result.nextState.status === 'blocked') {
+    assertEqual(result.nextState.error, 'Something broke', 'Should include error message');
+    assertEqual(result.nextState.failedPhase, 'phase-0', 'Should include failed phase');
+  }
 });
 
 test('PHASE_FAILED: blocked state returns WRITE_PROGRESS', () => {
@@ -470,7 +480,9 @@ test('PAUSE: preserves current pointer in pausedAt', () => {
   const result = transition(state, event, context);
 
   assert(result.nextState.status === 'paused', 'Must be paused');
-  assertDeepEqual(result.nextState.pausedAt, { phase: 1, step: 2, 'sub-phase': 3 }, 'Should preserve pointer');
+  if (result.nextState.status === 'paused') {
+    assertDeepEqual(result.nextState.pausedAt, { phase: 1, step: 2, 'sub-phase': 3 }, 'Should preserve pointer');
+  }
 });
 
 test('PAUSE: stores pause reason', () => {
@@ -486,7 +498,9 @@ test('PAUSE: stores pause reason', () => {
   const result = transition(state, event, context);
 
   assert(result.nextState.status === 'paused', 'Must be paused');
-  assertEqual(result.nextState.pauseReason, 'Meeting time', 'Should store reason');
+  if (result.nextState.status === 'paused') {
+    assertEqual(result.nextState.pauseReason, 'Meeting time', 'Should store reason');
+  }
 });
 
 test('PAUSE: returns WRITE_PROGRESS action', () => {
@@ -536,7 +550,9 @@ test('RESUME: restores current pointer from pausedAt', () => {
   const result = transition(state, event, context);
 
   assert(result.nextState.status === 'in-progress', 'Must be in-progress');
-  assertDeepEqual(result.nextState.current, { phase: 2, step: 3, 'sub-phase': 1 }, 'Should restore pointer');
+  if (result.nextState.status === 'in-progress') {
+    assertDeepEqual(result.nextState.current, { phase: 2, step: 3, 'sub-phase': 1 }, 'Should restore pointer');
+  }
 });
 
 test('RESUME: returns SPAWN_CLAUDE action', () => {
@@ -655,8 +671,11 @@ test('PROPOSE_STEPS: generates unique IDs for queued steps', () => {
   const result = transition(state, event, context);
 
   const queue = result.context['step-queue'];
-  assert(queue !== undefined && queue.length === 2, 'Should have 2 items');
-  assert(queue[0].id !== queue[1].id, 'IDs should be unique');
+  assert(queue !== undefined, 'Should have step-queue');
+  if (queue) {
+    assert(queue.length === 2, 'Should have 2 items');
+    assert(queue[0].id !== queue[1].id, 'IDs should be unique');
+  }
 });
 
 // ============================================================================
@@ -693,7 +712,9 @@ test('MAX_ITERATIONS_REACHED: includes appropriate error message', () => {
   const result = transition(state, event, context);
 
   assert(result.nextState.status === 'blocked', 'Must be blocked');
-  assert(result.nextState.error.includes('iteration'), 'Error should mention iterations');
+  if (result.nextState.status === 'blocked') {
+    assert(result.nextState.error.includes('iteration'), 'Error should mention iterations');
+  }
 });
 
 // ============================================================================
@@ -730,8 +751,10 @@ test('HUMAN_NEEDED: stores reason and details', () => {
   const result = transition(state, event, context);
 
   assert(result.nextState.status === 'needs-human', 'Must be needs-human');
-  assertEqual(result.nextState.reason, 'Clarification', 'Should store reason');
-  assertEqual(result.nextState.details, 'Please advise on X', 'Should store details');
+  if (result.nextState.status === 'needs-human') {
+    assertEqual(result.nextState.reason, 'Clarification', 'Should store reason');
+    assertEqual(result.nextState.details, 'Please advise on X', 'Should store details');
+  }
 });
 
 // ============================================================================
