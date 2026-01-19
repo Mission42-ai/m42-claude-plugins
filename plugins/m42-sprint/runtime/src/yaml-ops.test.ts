@@ -49,13 +49,6 @@ function assertEqual<T>(actual: T, expected: T, message?: string): void {
   }
 }
 
-function assertDeepEqual<T>(actual: T, expected: T, message?: string): void {
-  const actualStr = JSON.stringify(actual, null, 2);
-  const expectedStr = JSON.stringify(expected, null, 2);
-  if (actualStr !== expectedStr) {
-    throw new Error(message ?? `Expected:\n${expectedStr}\n\nGot:\n${actualStr}`);
-  }
-}
 
 function assertThrows(fn: () => void, messagePattern: string | RegExp): void {
   let threw = false;
@@ -75,23 +68,6 @@ function assertThrows(fn: () => void, messagePattern: string | RegExp): void {
   }
 }
 
-async function assertThrowsAsync(fn: () => Promise<void>, messagePattern: string | RegExp): Promise<void> {
-  let threw = false;
-  let errorMessage = '';
-  try {
-    await fn();
-  } catch (error) {
-    threw = true;
-    errorMessage = error instanceof Error ? error.message : String(error);
-  }
-  if (!threw) {
-    throw new Error(`Expected function to throw, but it did not`);
-  }
-  const pattern = typeof messagePattern === 'string' ? new RegExp(messagePattern, 'i') : messagePattern;
-  if (!pattern.test(errorMessage)) {
-    throw new Error(`Expected error message to match ${pattern}, got: ${errorMessage}`);
-  }
-}
 
 // ============================================================================
 // Test Fixtures

@@ -164,8 +164,7 @@ export function readProgress(filePath: string): CompiledProgress {
   }
 
   // Parse YAML (throws on invalid syntax)
-  const parsed = yaml.load(content) as CompiledProgress;
-  return parsed;
+  return yaml.load(content) as CompiledProgress;
 }
 
 /**
