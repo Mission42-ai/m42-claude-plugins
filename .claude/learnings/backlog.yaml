@@ -1,38 +1,45 @@
 version: 1
 extracted-from: .claude/sprints/2026-01-18_m42-sprint-refactor/transcripts/iteration-5.jsonl
 extracted-at: "2026-01-19T09:47:47Z"
+reviewed-at: "2026-01-19T10:48:00Z"
+reviewed-by: ralph-iteration-22
 
 learnings:
-  - id: fix-read-tool-file-size-handling
-    status: pending
-    title: Fix Read tool file size handling
+  - id: handle-large-files-with-read-tool
+    status: applied
+    applied-at: "2026-01-19T10:50:00Z"
+    applied-in-iteration: 23
+    title: Handle large files with Read tool using offset/limit or alternatives
     problem: |
-      Attempted to read a large file (sprint-loop.sh, 25127 tokens) without using offset/limit parameters.
-      Error: "File content exceeds maximum allowed tokens (25000). Please use offset and limit parameters to read specific portions of the file, or use the GrepTool to search for specific content."
+      Reading large files without offset/limit parameters causes token limit errors:
+      - Files >25k tokens: "File content exceeds maximum allowed tokens (25000)"
+      - Files >40k tokens: Requires more conservative approach
 
-      This error occurred multiple times:
-      - iteration-3: 25035 tokens, resolved with offset=690, limit=150
-      - iteration-5: 25127 tokens, resolved with offset=1, limit=200
-      - iteration-11: 26016 tokens, resolved with offset=1100, limit=100
+      This occurred across multiple iterations with files like:
+      - sprint-loop.sh (25-26k tokens)
+      - page.ts (40k tokens)
     solution: |
-      Always use offset and limit parameters when reading large files:
-      - Use offset to skip to the relevant section
-      - Use limit to control how many lines to read
-      - Consider using Grep tool for searching specific content instead of reading entire file
+      When encountering large files, use these strategies:
 
-      Examples of successful reads:
-      - offset: 1, limit: 200 (read from beginning)
-      - offset: 690, limit: 150 (read from middle section)
-      - offset: 1100, limit: 100 (read from specific section)
+      1. Use offset and limit parameters to read specific sections:
+         - offset: 1, limit: 200 (read from beginning)
+         - offset: 690, limit: 150 (read middle section)
+         - For very large files (>40k), start with limit: 500 or less
+
+      2. Use Grep tool instead for searching specific content
+
+      3. Read smaller, related files first (e.g., read implement-feature.md instead of sprint-loop.sh when exploring patterns)
+
+      4. If you only need specific sections, use offset to skip to relevant parts
     target: /home/konstantin/projects/CLAUDE.md
     confidence: high
     source:
       tool: Read
-      command: file_path=/home/konstantin/projects/m42-claude-plugins/plugins/m42-sprint/scripts/sprint-loop.sh
-      error: File content exceeds maximum allowed tokens (25000)
-      instances: 3
+      command: Multiple large file reads without offset/limit
+      error: File content exceeds maximum allowed tokens
+      instances: 5
   - id: fix-read-file-path-for-status-server
-    status: pending
+    status: rejected
     title: Fix Read file path for status server
     problem: |
       Attempted to read non-existent file: routes.ts
@@ -51,8 +58,9 @@ learnings:
       tool: Read
       command: file_path=/home/konstantin/projects/m42-claude-plugins/plugins/m42-sprint/compiler/src/status-server/routes.ts
       error: "<tool_use_error>File does not exist.</tool_use_error>"
+    rejection-reason: Too specific - one-time filename mistake, not a generalizable pattern
   - id: handle-read-tool-large-file-with-offset-limit
-    status: pending
+    status: rejected
     title: Handle Read tool large file with offset/limit
     problem: |
       Attempted to read a large file without using offset/limit parameters.
@@ -72,8 +80,9 @@ learnings:
       tool: Read
       command: file_path=/home/konstantin/projects/m42-claude-plugins/plugins/m42-sprint/scripts/sprint-loop.sh
       error: File content (26016 tokens) exceeds maximum allowed tokens (25000)
+    rejection-reason: Consolidated into handle-large-files-with-read-tool
   - id: handle-read-tool-large-file-with-limit
-    status: pending
+    status: rejected
     title: Handle Read tool large file with limit
     problem: |
       Attempted to read a very large file (page.ts, 40540 tokens) without using offset/limit parameters.
@@ -94,3 +103,4 @@ learnings:
       tool: Read
       command: file_path=/home/konstantin/projects/m42-claude-plugins/plugins/m42-sprint/compiler/src/status-server/page.ts
       error: File content (40540 tokens) exceeds maximum allowed tokens (25000)
+    rejection-reason: Consolidated into handle-large-files-with-read-tool
