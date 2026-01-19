@@ -483,6 +483,102 @@ function calculateElapsed(startedAt: string, completedAt: string): string {
 }
 
 // ============================================================================
+// Internal Helpers
+// ============================================================================
+
+/**
+ * Creates a no-op transition result (unchanged state, no actions).
+ */
+function createNoOp(state: SprintState): TransitionResult {
+  return { nextState: state, actions: [], context: {} };
+}
+
+/**
+ * Handles completion events (PHASE_COMPLETE, STEP_COMPLETE, GOAL_COMPLETE).
+ * Advances pointer or transitions to completed state.
+ */
+function handleCompletion(
+  state: SprintState & { status: 'in-progress' },
+  context: CompiledProgress,
+  summary: string,
+  now: string
+): TransitionResult {
+  const { nextPointer, hasMore } = advancePointer(state.current, context);
+
+  if (hasMore) {
+    // Advance to next phase/step/sub-phase
+    const updatedContext = { ...context, current: nextPointer };
+    return {
+      nextState: {
+        status: 'in-progress',
+        current: nextPointer,
+        iteration: state.iteration + 1,
+        startedAt: state.startedAt,
+      },
+      actions: [
+        { type: 'WRITE_PROGRESS' },
+        {
+          type: 'SPAWN_CLAUDE',
+          prompt: getCurrentPrompt(updatedContext),
+          phaseId: getCurrentPhaseId(updatedContext),
+          onComplete: 'PHASE_COMPLETE',
+        },
+      ],
+      context: {},
+    };
+  }
+
+  // Sprint completed
+  const elapsed = calculateElapsed(state.startedAt, now);
+  return {
+    nextState: {
+      status: 'completed',
+      summary,
+      completedAt: now,
+      elapsed,
+    },
+    actions: [{ type: 'WRITE_PROGRESS' }],
+    context: {},
+  };
+}
+
+/**
+ * Handles failure events (PHASE_FAILED, STEP_FAILED).
+ * Either schedules retry or transitions to blocked state.
+ */
+function handleFailure(
+  state: SprintState,
+  context: CompiledProgress,
+  event: { error: string; category: ErrorCategory; phaseId?: string; stepId?: string },
+  now: string
+): TransitionResult {
+  const failedId = event.phaseId ?? event.stepId ?? '';
+  const isRetryable = guards.isRetryable(state, context, event as SprintEvent);
+
+  if (isRetryable) {
+    // Schedule retry, stay in current state
+    const delayMs = calculateBackoff(context);
+    return {
+      nextState: state,
+      actions: [{ type: 'SCHEDULE_RETRY', phaseId: failedId, delayMs }],
+      context: {},
+    };
+  }
+
+  // Transition to blocked
+  return {
+    nextState: {
+      status: 'blocked',
+      error: event.error,
+      failedPhase: failedId,
+      blockedAt: now,
+    },
+    actions: [{ type: 'WRITE_PROGRESS' }],
+    context: {},
+  };
+}
+
+// ============================================================================
 // Transition Function
 // ============================================================================
 
@@ -501,194 +597,112 @@ export function transition(
 ): TransitionResult {
   const now = new Date().toISOString();
 
-  // Helper for no-op transitions
-  const noOp = (): TransitionResult => ({
-    nextState: state,
-    actions: [],
-    context: {},
-  });
-
   switch (event.type) {
     // ========================================================================
     // START Event
     // ========================================================================
     case 'START': {
-      // Only valid from not-started
       if (state.status !== 'not-started') {
-        return noOp();
+        return createNoOp(state);
       }
 
-      const newState: SprintState = {
-        status: 'in-progress',
-        current: context.current,
-        iteration: 1,
-        startedAt: now,
-      };
-
-      const actions: SprintAction[] = [
-        {
-          type: 'SPAWN_CLAUDE',
-          prompt: getCurrentPrompt(context),
-          phaseId: getCurrentPhaseId(context),
-          onComplete: 'PHASE_COMPLETE',
+      return {
+        nextState: {
+          status: 'in-progress',
+          current: context.current,
+          iteration: 1,
+          startedAt: now,
         },
-      ];
-
-      return { nextState: newState, actions, context: {} };
+        actions: [
+          {
+            type: 'SPAWN_CLAUDE',
+            prompt: getCurrentPrompt(context),
+            phaseId: getCurrentPhaseId(context),
+            onComplete: 'PHASE_COMPLETE',
+          },
+        ],
+        context: {},
+      };
     }
 
     // ========================================================================
     // PHASE_COMPLETE Event
     // ========================================================================
     case 'PHASE_COMPLETE': {
-      // Only valid from in-progress
       if (state.status !== 'in-progress') {
-        return noOp();
+        return createNoOp(state);
       }
-
-      const { nextPointer, hasMore } = advancePointer(state.current, context);
-
-      if (hasMore) {
-        // Advance to next phase
-        const newState: SprintState = {
-          status: 'in-progress',
-          current: nextPointer,
-          iteration: state.iteration + 1,
-          startedAt: state.startedAt,
-        };
-
-        // Build context with updated pointer for getting next prompt
-        const updatedContext = { ...context, current: nextPointer };
-
-        const actions: SprintAction[] = [
-          { type: 'WRITE_PROGRESS' },
-          {
-            type: 'SPAWN_CLAUDE',
-            prompt: getCurrentPrompt(updatedContext),
-            phaseId: getCurrentPhaseId(updatedContext),
-            onComplete: 'PHASE_COMPLETE',
-          },
-        ];
-
-        return { nextState: newState, actions, context: {} };
-      } else {
-        // Sprint completed
-        const completedAt = now;
-        const elapsed = calculateElapsed(state.startedAt, completedAt);
-
-        const newState: SprintState = {
-          status: 'completed',
-          summary: event.summary,
-          completedAt,
-          elapsed,
-        };
-
-        const actions: SprintAction[] = [{ type: 'WRITE_PROGRESS' }];
-
-        return { nextState: newState, actions, context: {} };
-      }
+      return handleCompletion(state, context, event.summary, now);
     }
 
     // ========================================================================
     // PHASE_FAILED Event
     // ========================================================================
     case 'PHASE_FAILED': {
-      // Only valid from in-progress
       if (state.status !== 'in-progress') {
-        return noOp();
+        return createNoOp(state);
       }
-
-      // Check if error is retryable
-      const isRetryable = guards.isRetryable(state, context, event);
-
-      if (isRetryable) {
-        // Schedule retry, stay in-progress
-        const delayMs = calculateBackoff(context);
-
-        const actions: SprintAction[] = [
-          { type: 'SCHEDULE_RETRY', phaseId: event.phaseId, delayMs },
-        ];
-
-        return { nextState: state, actions, context: {} };
-      } else {
-        // Transition to blocked
-        const newState: SprintState = {
-          status: 'blocked',
-          error: event.error,
-          failedPhase: event.phaseId,
-          blockedAt: now,
-        };
-
-        const actions: SprintAction[] = [{ type: 'WRITE_PROGRESS' }];
-
-        return { nextState: newState, actions, context: {} };
-      }
+      return handleFailure(state, context, event, now);
     }
 
     // ========================================================================
     // PAUSE Event
     // ========================================================================
     case 'PAUSE': {
-      // Only valid from in-progress
       if (state.status !== 'in-progress') {
-        return noOp();
+        return createNoOp(state);
       }
 
-      const newState: SprintState = {
-        status: 'paused',
-        pausedAt: state.current,
-        pauseReason: event.reason,
+      return {
+        nextState: {
+          status: 'paused',
+          pausedAt: state.current,
+          pauseReason: event.reason,
+        },
+        actions: [{ type: 'WRITE_PROGRESS' }],
+        context: {},
       };
-
-      const actions: SprintAction[] = [{ type: 'WRITE_PROGRESS' }];
-
-      return { nextState: newState, actions, context: {} };
     }
 
     // ========================================================================
     // RESUME Event
     // ========================================================================
     case 'RESUME': {
-      // Only valid from paused
       if (state.status !== 'paused') {
-        return noOp();
+        return createNoOp(state);
       }
 
-      // Build context with restored pointer for getting current prompt
       const restoredContext = { ...context, current: state.pausedAt };
 
-      const newState: SprintState = {
-        status: 'in-progress',
-        current: state.pausedAt,
-        iteration: 1, // Resume starts a new iteration sequence
-        startedAt: now,
-      };
-
-      const actions: SprintAction[] = [
-        {
-          type: 'SPAWN_CLAUDE',
-          prompt: getCurrentPrompt(restoredContext),
-          phaseId: getCurrentPhaseId(restoredContext),
-          onComplete: 'PHASE_COMPLETE',
+      return {
+        nextState: {
+          status: 'in-progress',
+          current: state.pausedAt,
+          iteration: 1, // Resume starts a new iteration sequence
+          startedAt: now,
         },
-      ];
-
-      return { nextState: newState, actions, context: {} };
+        actions: [
+          {
+            type: 'SPAWN_CLAUDE',
+            prompt: getCurrentPrompt(restoredContext),
+            phaseId: getCurrentPhaseId(restoredContext),
+            onComplete: 'PHASE_COMPLETE',
+          },
+        ],
+        context: {},
+      };
     }
 
     // ========================================================================
     // PROPOSE_STEPS Event
     // ========================================================================
     case 'PROPOSE_STEPS': {
-      // Only valid from in-progress
       if (state.status !== 'in-progress') {
-        return noOp();
+        return createNoOp(state);
       }
 
-      // Check if orchestration is enabled
-      const orchestrationEnabled = guards.orchestrationEnabled(state, context, event);
-      if (!orchestrationEnabled) {
-        return noOp();
+      if (!guards.orchestrationEnabled(state, context, event)) {
+        return createNoOp(state);
       }
 
       const autoApprove = guards.autoApproveEnabled(state, context, event);
@@ -738,156 +752,82 @@ export function transition(
     // MAX_ITERATIONS_REACHED Event
     // ========================================================================
     case 'MAX_ITERATIONS_REACHED': {
-      // Only valid from in-progress
       if (state.status !== 'in-progress') {
-        return noOp();
+        return createNoOp(state);
       }
 
-      const newState: SprintState = {
-        status: 'blocked',
-        error: `Maximum iteration limit reached (iteration ${state.iteration})`,
-        failedPhase: getCurrentPhaseId(context),
-        blockedAt: now,
+      return {
+        nextState: {
+          status: 'blocked',
+          error: `Maximum iteration limit reached (iteration ${state.iteration})`,
+          failedPhase: getCurrentPhaseId(context),
+          blockedAt: now,
+        },
+        actions: [{ type: 'WRITE_PROGRESS' }],
+        context: {},
       };
-
-      const actions: SprintAction[] = [{ type: 'WRITE_PROGRESS' }];
-
-      return { nextState: newState, actions, context: {} };
     }
 
     // ========================================================================
     // HUMAN_NEEDED Event
     // ========================================================================
     case 'HUMAN_NEEDED': {
-      // Only valid from in-progress
       if (state.status !== 'in-progress') {
-        return noOp();
+        return createNoOp(state);
       }
 
-      const newState: SprintState = {
-        status: 'needs-human',
-        reason: event.reason,
-        details: event.details,
+      return {
+        nextState: {
+          status: 'needs-human',
+          reason: event.reason,
+          details: event.details,
+        },
+        actions: [{ type: 'WRITE_PROGRESS' }],
+        context: {},
       };
-
-      const actions: SprintAction[] = [{ type: 'WRITE_PROGRESS' }];
-
-      return { nextState: newState, actions, context: {} };
     }
 
     // ========================================================================
     // TICK Event (no-op)
     // ========================================================================
     case 'TICK': {
-      return noOp();
+      return createNoOp(state);
     }
 
     // ========================================================================
     // STEP_COMPLETE Event
     // ========================================================================
     case 'STEP_COMPLETE': {
-      // Treat like PHASE_COMPLETE for now
       if (state.status !== 'in-progress') {
-        return noOp();
+        return createNoOp(state);
       }
-
-      const { nextPointer, hasMore } = advancePointer(state.current, context);
-
-      if (hasMore) {
-        const newState: SprintState = {
-          status: 'in-progress',
-          current: nextPointer,
-          iteration: state.iteration + 1,
-          startedAt: state.startedAt,
-        };
-
-        const updatedContext = { ...context, current: nextPointer };
-
-        const actions: SprintAction[] = [
-          { type: 'WRITE_PROGRESS' },
-          {
-            type: 'SPAWN_CLAUDE',
-            prompt: getCurrentPrompt(updatedContext),
-            phaseId: getCurrentPhaseId(updatedContext),
-            onComplete: 'PHASE_COMPLETE',
-          },
-        ];
-
-        return { nextState: newState, actions, context: {} };
-      } else {
-        const completedAt = now;
-        const elapsed = calculateElapsed(state.startedAt, completedAt);
-
-        const newState: SprintState = {
-          status: 'completed',
-          summary: event.summary,
-          completedAt,
-          elapsed,
-        };
-
-        const actions: SprintAction[] = [{ type: 'WRITE_PROGRESS' }];
-
-        return { nextState: newState, actions, context: {} };
-      }
+      return handleCompletion(state, context, event.summary, now);
     }
 
     // ========================================================================
     // STEP_FAILED Event
     // ========================================================================
     case 'STEP_FAILED': {
-      // Treat like PHASE_FAILED
       if (state.status !== 'in-progress') {
-        return noOp();
+        return createNoOp(state);
       }
-
-      const isRetryable = guards.isRetryable(state, context, event);
-
-      if (isRetryable) {
-        const delayMs = calculateBackoff(context);
-        const actions: SprintAction[] = [
-          { type: 'SCHEDULE_RETRY', phaseId: event.stepId, delayMs },
-        ];
-        return { nextState: state, actions, context: {} };
-      } else {
-        const newState: SprintState = {
-          status: 'blocked',
-          error: event.error,
-          failedPhase: event.stepId,
-          blockedAt: now,
-        };
-        const actions: SprintAction[] = [{ type: 'WRITE_PROGRESS' }];
-        return { nextState: newState, actions, context: {} };
-      }
+      return handleFailure(state, context, event, now);
     }
 
     // ========================================================================
     // GOAL_COMPLETE Event
     // ========================================================================
     case 'GOAL_COMPLETE': {
-      // Only valid from in-progress
       if (state.status !== 'in-progress') {
-        return noOp();
+        return createNoOp(state);
       }
-
-      const completedAt = now;
-      const elapsed = calculateElapsed(state.startedAt, completedAt);
-
-      const newState: SprintState = {
-        status: 'completed',
-        summary: event.summary,
-        completedAt,
-        elapsed,
-      };
-
-      const actions: SprintAction[] = [{ type: 'WRITE_PROGRESS' }];
-
-      return { nextState: newState, actions, context: {} };
+      return handleCompletion(state, context, event.summary, now);
     }
 
     // Exhaustive check - TypeScript will error if any event type is missed
     default: {
       const _exhaustive: never = event;
-      return noOp();
+      return createNoOp(state);
     }
   }
 }
