@@ -7,8 +7,153 @@
 // ============================================================================
 
 export type PhaseStatus = 'pending' | 'in-progress' | 'completed' | 'blocked' | 'skipped' | 'failed';
+
+/**
+ * @deprecated Use SprintState discriminated union instead for type-safe state handling.
+ * This type is kept for backwards compatibility with existing code.
+ */
 export type SprintStatus = 'not-started' | 'in-progress' | 'completed' | 'blocked' | 'paused' | 'needs-human';
 export type ParallelTaskStatus = 'spawned' | 'running' | 'completed' | 'failed';
+
+// ============================================================================
+// XState-Inspired Discriminated Unions (Type-Safe State Machine)
+// ============================================================================
+
+/**
+ * Discriminated union for sprint state - provides type-safe state access.
+ * Each state variant has its own specific required fields.
+ */
+export type SprintState =
+  | { status: 'not-started' }
+  | {
+      status: 'in-progress';
+      current: CurrentPointer;
+      iteration: number;
+      startedAt: string;
+    }
+  | {
+      status: 'paused';
+      pausedAt: CurrentPointer;
+      pauseReason: string;
+    }
+  | {
+      status: 'blocked';
+      error: string;
+      failedPhase: string;
+      blockedAt: string;
+    }
+  | {
+      status: 'needs-human';
+      reason: string;
+      details?: string;
+    }
+  | {
+      status: 'completed';
+      summary?: string;
+      completedAt: string;
+      elapsed: string;
+    };
+
+/**
+ * Discriminated union for sprint events - enables exhaustive switch handling.
+ * Each event type has its specific required payload fields.
+ */
+export type SprintEvent =
+  | { type: 'START' }
+  | { type: 'TICK' }
+  | { type: 'MAX_ITERATIONS_REACHED' }
+  | { type: 'PHASE_COMPLETE'; summary: string; phaseId: string }
+  | { type: 'PHASE_FAILED'; error: string; category: ErrorCategory; phaseId: string }
+  | { type: 'STEP_COMPLETE'; summary: string; stepId: string }
+  | { type: 'STEP_FAILED'; error: string; category: ErrorCategory; stepId: string }
+  | { type: 'PROPOSE_STEPS'; steps: ProposedStep[]; proposedBy: string }
+  | { type: 'PAUSE'; reason: string }
+  | { type: 'RESUME' }
+  | { type: 'HUMAN_NEEDED'; reason: string; details?: string }
+  | { type: 'GOAL_COMPLETE'; summary: string };
+
+/**
+ * Discriminated union for sprint actions - describes side effects without executing them.
+ * Actions are data that represent what should happen, not the execution itself.
+ */
+export type SprintAction =
+  | { type: 'LOG'; level: 'info' | 'warn' | 'error'; message: string }
+  | { type: 'SPAWN_CLAUDE'; prompt: string; phaseId: string; onComplete: SprintEvent['type'] }
+  | { type: 'WRITE_PROGRESS' }
+  | { type: 'UPDATE_STATS'; updates: Partial<SprintStats> }
+  | { type: 'EMIT_ACTIVITY'; activity: string; data: unknown }
+  | { type: 'SCHEDULE_RETRY'; phaseId: string; delayMs: number }
+  | { type: 'INSERT_STEP'; step: StepQueueItem; position: 'after-current' | 'end-of-phase' };
+
+/**
+ * Result of a state transition - combines next state, actions to execute, and context updates.
+ */
+export interface TransitionResult {
+  /** The next state after the transition */
+  nextState: SprintState;
+  /** Actions to execute as side effects */
+  actions: SprintAction[];
+  /** Partial updates to apply to CompiledProgress context */
+  context: Partial<CompiledProgress>;
+}
+
+/**
+ * Type alias for guard functions used in conditional transitions.
+ */
+export type GuardFn = (
+  state: SprintState,
+  context: CompiledProgress,
+  event: SprintEvent
+) => boolean;
+
+/**
+ * Guard functions object - provides reusable condition checks for transitions.
+ */
+export const guards: Record<string, GuardFn> = {
+  /** Check if there are more phases to process */
+  hasMorePhases: (_state: SprintState, ctx: CompiledProgress, _event: SprintEvent): boolean => {
+    return ctx.current.phase < (ctx.phases?.length ?? 0) - 1;
+  },
+
+  /** Check if there are more steps within the current phase */
+  hasMoreSteps: (_state: SprintState, ctx: CompiledProgress, _event: SprintEvent): boolean => {
+    if (ctx.current.step === null) return false;
+    const phase = ctx.phases?.[ctx.current.phase];
+    if (!phase?.steps) return false;
+    return ctx.current.step < phase.steps.length - 1;
+  },
+
+  /** Check if there are more sub-phases within the current step */
+  hasMoreSubPhases: (_state: SprintState, ctx: CompiledProgress, _event: SprintEvent): boolean => {
+    if (ctx.current.step === null || ctx.current['sub-phase'] === null) return false;
+    const phase = ctx.phases?.[ctx.current.phase];
+    const step = phase?.steps?.[ctx.current.step];
+    if (!step?.phases) return false;
+    return ctx.current['sub-phase'] < step.phases.length - 1;
+  },
+
+  /** Check if the error is retryable based on retry configuration */
+  isRetryable: (_state: SprintState, ctx: CompiledProgress, event: SprintEvent): boolean => {
+    if (event.type !== 'PHASE_FAILED' && event.type !== 'STEP_FAILED') return false;
+    if (!ctx.retry?.retryOn) return false;
+    return ctx.retry.retryOn.includes(event.category);
+  },
+
+  /** Check if there are steps in the step queue */
+  hasStepQueue: (_state: SprintState, ctx: CompiledProgress, _event: SprintEvent): boolean => {
+    return (ctx['step-queue']?.length ?? 0) > 0;
+  },
+
+  /** Check if orchestration is enabled */
+  orchestrationEnabled: (_state: SprintState, ctx: CompiledProgress, _event: SprintEvent): boolean => {
+    return ctx.orchestration?.enabled === true;
+  },
+
+  /** Check if auto-approve is enabled for orchestration */
+  autoApproveEnabled: (_state: SprintState, ctx: CompiledProgress, _event: SprintEvent): boolean => {
+    return ctx.orchestration?.autoApprove === true;
+  },
+};
 
 // ============================================================================
 // Ralph Mode Types
@@ -440,6 +585,8 @@ export interface CompiledProgress {
   'step-queue'?: StepQueueItem[];
   /** Custom prompt templates for runtime */
   prompts?: SprintPrompts;
+  /** Retry configuration for error recovery */
+  retry?: RetryConfig;
 }
 
 // ============================================================================

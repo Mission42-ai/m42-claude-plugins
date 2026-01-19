@@ -2,8 +2,137 @@
  * TypeScript interfaces for the Sprint Workflow System
  */
 export type PhaseStatus = 'pending' | 'in-progress' | 'completed' | 'blocked' | 'skipped' | 'failed';
+/**
+ * @deprecated Use SprintState discriminated union instead for type-safe state handling.
+ * This type is kept for backwards compatibility with existing code.
+ */
 export type SprintStatus = 'not-started' | 'in-progress' | 'completed' | 'blocked' | 'paused' | 'needs-human';
 export type ParallelTaskStatus = 'spawned' | 'running' | 'completed' | 'failed';
+/**
+ * Discriminated union for sprint state - provides type-safe state access.
+ * Each state variant has its own specific required fields.
+ */
+export type SprintState = {
+    status: 'not-started';
+} | {
+    status: 'in-progress';
+    current: CurrentPointer;
+    iteration: number;
+    startedAt: string;
+} | {
+    status: 'paused';
+    pausedAt: CurrentPointer;
+    pauseReason: string;
+} | {
+    status: 'blocked';
+    error: string;
+    failedPhase: string;
+    blockedAt: string;
+} | {
+    status: 'needs-human';
+    reason: string;
+    details?: string;
+} | {
+    status: 'completed';
+    summary?: string;
+    completedAt: string;
+    elapsed: string;
+};
+/**
+ * Discriminated union for sprint events - enables exhaustive switch handling.
+ * Each event type has its specific required payload fields.
+ */
+export type SprintEvent = {
+    type: 'START';
+} | {
+    type: 'TICK';
+} | {
+    type: 'MAX_ITERATIONS_REACHED';
+} | {
+    type: 'PHASE_COMPLETE';
+    summary: string;
+    phaseId: string;
+} | {
+    type: 'PHASE_FAILED';
+    error: string;
+    category: ErrorCategory;
+    phaseId: string;
+} | {
+    type: 'STEP_COMPLETE';
+    summary: string;
+    stepId: string;
+} | {
+    type: 'STEP_FAILED';
+    error: string;
+    category: ErrorCategory;
+    stepId: string;
+} | {
+    type: 'PROPOSE_STEPS';
+    steps: ProposedStep[];
+    proposedBy: string;
+} | {
+    type: 'PAUSE';
+    reason: string;
+} | {
+    type: 'RESUME';
+} | {
+    type: 'HUMAN_NEEDED';
+    reason: string;
+    details?: string;
+} | {
+    type: 'GOAL_COMPLETE';
+    summary: string;
+};
+/**
+ * Discriminated union for sprint actions - describes side effects without executing them.
+ * Actions are data that represent what should happen, not the execution itself.
+ */
+export type SprintAction = {
+    type: 'LOG';
+    level: 'info' | 'warn' | 'error';
+    message: string;
+} | {
+    type: 'SPAWN_CLAUDE';
+    prompt: string;
+    phaseId: string;
+    onComplete: SprintEvent['type'];
+} | {
+    type: 'WRITE_PROGRESS';
+} | {
+    type: 'UPDATE_STATS';
+    updates: Partial<SprintStats>;
+} | {
+    type: 'EMIT_ACTIVITY';
+    activity: string;
+    data: unknown;
+} | {
+    type: 'SCHEDULE_RETRY';
+    phaseId: string;
+    delayMs: number;
+} | {
+    type: 'INSERT_STEP';
+    step: StepQueueItem;
+    position: 'after-current' | 'end-of-phase';
+};
+/**
+ * Result of a state transition - combines next state, actions to execute, and context updates.
+ */
+export interface TransitionResult {
+    /** The next state after the transition */
+    nextState: SprintState;
+    /** Actions to execute as side effects */
+    actions: SprintAction[];
+    /** Partial updates to apply to CompiledProgress context */
+    context: Partial<CompiledProgress>;
+}
+/**
+ * Type alias for guard functions used in conditional transitions.
+ */
+export type GuardFn = (state: SprintState, context: CompiledProgress, event: SprintEvent) => boolean;
+/**
+ * Guard functions object - provides reusable condition checks for transitions.
+ */
+export declare const guards: Record<string, GuardFn>;
 /**
  * Per-iteration hook configuration for Ralph mode
  * Hooks run deterministically each iteration (e.g., learning extraction)
@@ -391,6 +520,8 @@ export interface CompiledProgress {
     'step-queue'?: StepQueueItem[];
     /** Custom prompt templates for runtime */
     prompts?: SprintPrompts;
+    /** Retry configuration for error recovery */
+    retry?: RetryConfig;
 }
 /**
  * Context for template variable substitution
