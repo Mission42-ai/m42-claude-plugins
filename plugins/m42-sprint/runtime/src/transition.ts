@@ -324,6 +324,22 @@ export function getCurrentSubPhase(progress: CompiledProgress): CompiledPhase | 
 }
 
 /**
+ * Create the initial pointer for a given phase index.
+ * Determines step/sub-phase based on phase structure.
+ */
+function createPointerForPhase(phaseIndex: number, context: CompiledProgress): CurrentPointer {
+  const phase = context.phases?.[phaseIndex];
+  const hasSteps = phase?.steps && phase.steps.length > 0;
+  const hasSubPhases = hasSteps && phase.steps![0].phases && phase.steps![0].phases.length > 0;
+
+  return {
+    phase: phaseIndex,
+    step: hasSteps ? 0 : null,
+    'sub-phase': hasSubPhases ? 0 : null,
+  };
+}
+
+/**
  * Advance the pointer to the next position in the phase hierarchy.
  * Priority: sub-phase → step → phase
  */
@@ -332,8 +348,9 @@ export function advancePointer(
   context: CompiledProgress
 ): { nextPointer: CurrentPointer; hasMore: boolean } {
   const phase = context.phases?.[current.phase];
+  const canAdvancePhase = context.phases && current.phase < context.phases.length - 1;
 
-  // Check if we're in a step with sub-phases
+  // In a step with sub-phases
   if (current.step !== null && current['sub-phase'] !== null) {
     const step = phase?.steps?.[current.step];
     const subPhases = step?.phases;
@@ -346,7 +363,7 @@ export function advancePointer(
       };
     }
 
-    // Sub-phases exhausted, try to advance step
+    // Try to advance step (reset sub-phase to 0)
     const steps = phase?.steps;
     if (steps && current.step < steps.length - 1) {
       return {
@@ -355,26 +372,18 @@ export function advancePointer(
       };
     }
 
-    // Steps exhausted, try to advance phase
-    if (context.phases && current.phase < context.phases.length - 1) {
-      const nextPhase = context.phases[current.phase + 1];
-      const hasSteps = nextPhase?.steps && nextPhase.steps.length > 0;
-      const hasSubPhases = hasSteps && nextPhase.steps![0].phases && nextPhase.steps![0].phases.length > 0;
+    // Try to advance phase
+    if (canAdvancePhase) {
       return {
-        nextPointer: {
-          phase: current.phase + 1,
-          step: hasSteps ? 0 : null,
-          'sub-phase': hasSubPhases ? 0 : null,
-        },
+        nextPointer: createPointerForPhase(current.phase + 1, context),
         hasMore: true,
       };
     }
 
-    // No more phases
     return { nextPointer: current, hasMore: false };
   }
 
-  // Check if we're in a step without sub-phases (step is non-null, sub-phase is null)
+  // In a step without sub-phases
   if (current.step !== null) {
     const steps = phase?.steps;
     if (steps && current.step < steps.length - 1) {
@@ -384,16 +393,10 @@ export function advancePointer(
       };
     }
 
-    // Steps exhausted, try to advance phase
-    if (context.phases && current.phase < context.phases.length - 1) {
-      const nextPhase = context.phases[current.phase + 1];
-      const hasSteps = nextPhase?.steps && nextPhase.steps.length > 0;
+    // Try to advance phase
+    if (canAdvancePhase) {
       return {
-        nextPointer: {
-          phase: current.phase + 1,
-          step: hasSteps ? 0 : null,
-          'sub-phase': null,
-        },
+        nextPointer: createPointerForPhase(current.phase + 1, context),
         hasMore: true,
       };
     }
@@ -402,16 +405,9 @@ export function advancePointer(
   }
 
   // Simple phase without steps
-  if (context.phases && current.phase < context.phases.length - 1) {
-    const nextPhase = context.phases[current.phase + 1];
-    const hasSteps = nextPhase?.steps && nextPhase.steps.length > 0;
-    const hasSubPhases = hasSteps && nextPhase.steps![0].phases && nextPhase.steps![0].phases.length > 0;
+  if (canAdvancePhase) {
     return {
-      nextPointer: {
-        phase: current.phase + 1,
-        step: hasSteps ? 0 : null,
-        'sub-phase': hasSubPhases ? 0 : null,
-      },
+      nextPointer: createPointerForPhase(current.phase + 1, context),
       hasMore: true,
     };
   }
