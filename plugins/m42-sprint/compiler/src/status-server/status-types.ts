@@ -113,6 +113,24 @@ export interface SprintHeader {
 }
 
 /**
+ * Hook task status for display in Ralph mode
+ */
+export interface HookTaskStatus {
+  /** Hook identifier */
+  hookId: string;
+  /** Iteration number */
+  iteration: number;
+  /** Current status */
+  status: 'spawned' | 'running' | 'completed' | 'failed' | 'in-progress';
+  /** When spawned (ISO timestamp) */
+  spawnedAt?: string;
+  /** When completed (ISO timestamp) */
+  completedAt?: string;
+  /** Exit code if completed */
+  exitCode?: number;
+}
+
+/**
  * Complete status update sent to clients
  */
 export interface StatusUpdate {
@@ -122,6 +140,8 @@ export interface StatusUpdate {
   phaseTree: PhaseTreeNode[];
   /** Current task being executed (if any) */
   currentTask: CurrentTask | null;
+  /** Hook task statuses (Ralph mode) */
+  hookTasks?: HookTaskStatus[];
   /** Raw progress data for debugging */
   raw?: CompiledProgress;
 }

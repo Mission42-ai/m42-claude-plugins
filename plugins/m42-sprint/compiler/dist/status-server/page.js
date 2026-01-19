@@ -105,13 +105,33 @@ ${getStyles()}
 
     <div class="main">
       <aside class="sidebar">
-        <h2 class="sidebar-title">Phase Tree</h2>
+        <h2 class="sidebar-title" id="sidebar-title">Phase Tree</h2>
         <div class="phase-tree" id="phase-tree">
           <div class="loading">Loading...</div>
         </div>
       </aside>
 
       <main class="content">
+        <section class="goal-section" id="goal-section" style="display: none;">
+          <div class="goal-header">
+            <span class="goal-label">Goal</span>
+            <span class="goal-mode-badge">Ralph Mode</span>
+          </div>
+          <div class="goal-content" id="goal-content"></div>
+        </section>
+
+        <section class="hook-status-section" id="hook-status-section" style="display: none;">
+          <div class="section-header-row">
+            <h2 class="section-title">Hook Status</h2>
+            <div class="hook-status-controls">
+              <button class="collapse-btn" id="collapse-hooks-btn" title="Collapse/Expand">▼</button>
+            </div>
+          </div>
+          <div class="hook-status-content" id="hook-status-content">
+            <div class="hook-empty">No hooks configured</div>
+          </div>
+        </section>
+
         <section class="current-task" id="current-task-section">
           <h2 class="section-title">Current Task</h2>
           <div class="task-content" id="current-task">
@@ -941,6 +961,124 @@ function getStyles() {
       padding: 12px 16px 8px;
       border-bottom: 1px solid var(--border-color);
       background-color: var(--bg-secondary);
+    }
+
+    /* Goal Section (Ralph Mode) */
+    .goal-section {
+      flex-shrink: 0;
+      border-bottom: 1px solid var(--border-color);
+      background-color: var(--bg-secondary);
+    }
+
+    .goal-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px 8px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .goal-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-secondary);
+    }
+
+    .goal-mode-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 500;
+      background-color: rgba(163, 113, 247, 0.15);
+      color: var(--accent-purple);
+    }
+
+    .goal-content {
+      padding: 12px 16px;
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text-primary);
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    /* Hook Status Section (Ralph Mode) */
+    .hook-status-section {
+      flex-shrink: 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .hook-status-content {
+      padding: 8px 16px;
+      background-color: var(--bg-primary);
+      max-height: 150px;
+      overflow-y: auto;
+    }
+
+    .hook-status-content.collapsed {
+      display: none;
+    }
+
+    .hook-empty {
+      color: var(--text-muted);
+      font-style: italic;
+      font-size: 12px;
+    }
+
+    .hook-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 0;
+      font-size: 12px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .hook-item:last-child {
+      border-bottom: none;
+    }
+
+    .hook-icon {
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+    }
+
+    .hook-icon.spawned,
+    .hook-icon.running,
+    .hook-icon.in-progress { color: var(--accent-blue); }
+    .hook-icon.spawned::before,
+    .hook-icon.running::before,
+    .hook-icon.in-progress::before { content: '\\25CF'; animation: pulse 1.5s infinite; }
+
+    .hook-icon.completed { color: var(--accent-green); }
+    .hook-icon.completed::before { content: '\\2713'; }
+
+    .hook-icon.failed { color: var(--accent-red); }
+    .hook-icon.failed::before { content: '\\2717'; }
+
+    .hook-name {
+      flex: 1;
+      color: var(--text-primary);
+    }
+
+    .hook-iteration {
+      color: var(--text-muted);
+      font-size: 11px;
+    }
+
+    .hook-time {
+      color: var(--text-muted);
+      font-size: 10px;
     }
 
     /* Current Task */
@@ -2718,7 +2856,14 @@ function getScript() {
         shortcutsCloseBtn: document.getElementById('shortcuts-close-btn'),
         performanceMetricsSection: document.getElementById('performance-metrics-section'),
         performanceMetricsContent: document.getElementById('performance-metrics-content'),
-        collapseMetricsBtn: document.getElementById('collapse-metrics-btn')
+        collapseMetricsBtn: document.getElementById('collapse-metrics-btn'),
+        // Ralph mode elements
+        sidebarTitle: document.getElementById('sidebar-title'),
+        goalSection: document.getElementById('goal-section'),
+        goalContent: document.getElementById('goal-content'),
+        hookStatusSection: document.getElementById('hook-status-section'),
+        hookStatusContent: document.getElementById('hook-status-content'),
+        collapseHooksBtn: document.getElementById('collapse-hooks-btn')
       };
 
       // State
@@ -2745,6 +2890,10 @@ function getScript() {
       // Performance Metrics State
       let metricsCollapsed = false;
       let currentTimingData = null;
+
+      // Ralph Mode State
+      let hooksCollapsed = false;
+      let currentMode = 'standard';
 
       // Verbosity level ordering for filtering
       const VERBOSITY_ORDER = { minimal: 0, basic: 1, detailed: 2, verbose: 3 };
@@ -2930,10 +3079,27 @@ function getScript() {
         setupNotifications();
         setupKeyboardShortcuts();
         setupPerformanceMetrics();
+        setupHookStatusControls();
         // Update elapsed time every second
         setInterval(updateElapsedTimes, 1000);
         // Update relative times in activity panel
         setInterval(updateActivityRelativeTimes, 1000);
+      }
+
+      // Hook Status Controls Setup (Ralph Mode)
+      function setupHookStatusControls() {
+        if (elements.collapseHooksBtn) {
+          elements.collapseHooksBtn.addEventListener('click', function() {
+            hooksCollapsed = !hooksCollapsed;
+            if (hooksCollapsed) {
+              elements.hookStatusContent.classList.add('collapsed');
+              elements.collapseHooksBtn.textContent = '▶';
+            } else {
+              elements.hookStatusContent.classList.remove('collapsed');
+              elements.collapseHooksBtn.textContent = '▼';
+            }
+          });
+        }
       }
 
       // Log Viewer Setup
@@ -3927,8 +4093,101 @@ function getScript() {
         updatePhaseTree(update.phaseTree);
         updateCurrentTask(update.currentTask);
 
+        // Handle Ralph mode UI updates
+        updateRalphModeUI(update);
+
         // Refresh performance metrics on status updates
         fetchTimingData();
+      }
+
+      // Ralph Mode UI Updates
+      function updateRalphModeUI(update) {
+        var isRalphMode = update.header && update.header.mode === 'ralph';
+        currentMode = isRalphMode ? 'ralph' : 'standard';
+
+        // Update sidebar title based on mode
+        if (elements.sidebarTitle) {
+          elements.sidebarTitle.textContent = isRalphMode ? 'Tasks' : 'Phase Tree';
+        }
+
+        // Show/hide goal section
+        if (elements.goalSection && elements.goalContent) {
+          if (isRalphMode && update.header.goal) {
+            elements.goalSection.style.display = 'block';
+            elements.goalContent.textContent = update.header.goal;
+          } else {
+            elements.goalSection.style.display = 'none';
+          }
+        }
+
+        // Show/hide and update hook status section
+        if (elements.hookStatusSection && elements.hookStatusContent) {
+          if (isRalphMode && update.hookTasks && update.hookTasks.length > 0) {
+            elements.hookStatusSection.style.display = 'block';
+            renderHookStatus(update.hookTasks);
+          } else {
+            elements.hookStatusSection.style.display = 'none';
+          }
+        }
+
+        // For Ralph mode, current task section should show in-progress task from phaseTree
+        if (isRalphMode && update.phaseTree) {
+          var inProgressTask = update.phaseTree.find(function(t) { return t.status === 'in-progress'; });
+          if (inProgressTask) {
+            updateCurrentTask({
+              path: 'Task: ' + inProgressTask.id,
+              prompt: inProgressTask.label,
+              startedAt: inProgressTask.startedAt
+            });
+          }
+        }
+      }
+
+      // Render hook status items
+      function renderHookStatus(hookTasks) {
+        if (!hookTasks || hookTasks.length === 0) {
+          elements.hookStatusContent.innerHTML = '<div class="hook-empty">No hooks running</div>';
+          return;
+        }
+
+        // Show only the most recent 5 hooks
+        var recentHooks = hookTasks.slice(0, 5);
+        var html = recentHooks.map(function(hook) {
+          var statusClass = hook.status || 'spawned';
+          var timeDisplay = '';
+          if (hook.completedAt) {
+            timeDisplay = formatRelativeTime(hook.completedAt);
+          } else if (hook.spawnedAt) {
+            timeDisplay = 'Started ' + formatRelativeTime(hook.spawnedAt);
+          }
+
+          return '<div class="hook-item">' +
+            '<span class="hook-icon ' + statusClass + '"></span>' +
+            '<span class="hook-name">' + escapeHtml(hook.hookId) + '</span>' +
+            '<span class="hook-iteration">Iter ' + hook.iteration + '</span>' +
+            '<span class="hook-time">' + timeDisplay + '</span>' +
+            '</div>';
+        }).join('');
+
+        elements.hookStatusContent.innerHTML = html;
+      }
+
+      function formatRelativeTime(isoString) {
+        try {
+          var date = new Date(isoString);
+          var now = new Date();
+          var diffMs = now - date;
+          var diffSec = Math.floor(diffMs / 1000);
+
+          if (diffSec < 5) return 'just now';
+          if (diffSec < 60) return diffSec + 's ago';
+          var diffMin = Math.floor(diffSec / 60);
+          if (diffMin < 60) return diffMin + 'm ago';
+          var diffHour = Math.floor(diffMin / 60);
+          return diffHour + 'h ago';
+        } catch (e) {
+          return '';
+        }
       }
 
       function updateHeader(header) {

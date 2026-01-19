@@ -15,9 +15,10 @@ import type {
   PhaseTreeNode,
   LogEntry,
   LogEntryType,
+  HookTaskStatus,
 } from './status-types.js';
 
-import type { DynamicStep } from '../types.js';
+import type { DynamicStep, HookTask } from '../types.js';
 
 /**
  * Timing information passed to toStatusUpdate
@@ -537,6 +538,54 @@ export function generateDiffLogEntries(
 }
 
 // ============================================================================
+// Hook Task Transformation (Ralph Mode)
+// ============================================================================
+
+/**
+ * Transform HookTask array to HookTaskStatus array for UI display
+ * Groups by iteration and shows latest status for each hook
+ */
+export function transformHookTasks(hookTasks?: HookTask[]): HookTaskStatus[] {
+  if (!hookTasks || hookTasks.length === 0) {
+    return [];
+  }
+
+  // Get the most recent entries for each iteration/hook combination
+  const latestTasks = new Map<string, HookTask>();
+  for (const task of hookTasks) {
+    const key = `${task.iteration}-${task['hook-id']}`;
+    const existing = latestTasks.get(key);
+    // Keep the one with more complete status (completed > in-progress > spawned)
+    if (!existing || isMoreCompleteStatus(task.status, existing.status)) {
+      latestTasks.set(key, task);
+    }
+  }
+
+  // Convert to HookTaskStatus array, sorted by iteration desc
+  return Array.from(latestTasks.values())
+    .map(task => ({
+      hookId: task['hook-id'],
+      iteration: task.iteration,
+      status: task.status,
+      spawnedAt: task['spawned-at'],
+      completedAt: task['completed-at'],
+      exitCode: task['exit-code'],
+    }))
+    .sort((a, b) => b.iteration - a.iteration);
+}
+
+/**
+ * Helper to determine if a status is more complete than another
+ */
+function isMoreCompleteStatus(
+  a: HookTask['status'],
+  b: HookTask['status']
+): boolean {
+  const order = { spawned: 0, running: 1, 'in-progress': 1, completed: 2, failed: 2 };
+  return (order[a] || 0) > (order[b] || 0);
+}
+
+// ============================================================================
 // Main Transform Function
 // ============================================================================
 
@@ -604,6 +653,14 @@ export function toStatusUpdate(
     phaseTree,
     currentTask,
   };
+
+  // Add hook tasks for Ralph mode
+  if (isRalphMode) {
+    const hookTasks = (progress as unknown as { 'hook-tasks'?: HookTask[] })['hook-tasks'];
+    if (hookTasks && hookTasks.length > 0) {
+      update.hookTasks = transformHookTasks(hookTasks);
+    }
+  }
 
   // Optionally include raw progress data for debugging
   if (includeRaw) {
