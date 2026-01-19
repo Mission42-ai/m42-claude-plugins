@@ -194,6 +194,100 @@ else
 fi
 
 # =============================================================================
+# Worktree Detection Features
+# =============================================================================
+echo ""
+echo "=== Worktree Detection Features ==="
+
+WORKTREE_JS="$PLUGIN_DIR/compiler/dist/status-server/worktree.js"
+
+if [[ -f "$WORKTREE_JS" ]]; then
+  pass "Worktree module compiled"
+
+  # Test detectWorktree from main repo
+  WORKTREE_OUT=$(node -e "
+    const { detectWorktree } = require('$WORKTREE_JS');
+    const info = detectWorktree('.');
+    if (info && info.root && info.branch && typeof info.isMain === 'boolean') {
+      console.log('OK');
+    } else {
+      console.log('FAIL');
+    }
+  " 2>&1)
+  if [[ "$WORKTREE_OUT" == "OK" ]]; then
+    pass "detectWorktree returns valid info"
+  else
+    fail "detectWorktree failed: $WORKTREE_OUT"
+  fi
+
+  # Test listWorktrees
+  WORKTREE_OUT=$(node -e "
+    const { listWorktrees } = require('$WORKTREE_JS');
+    const list = listWorktrees('.');
+    if (list && Array.isArray(list.worktrees) && list.worktrees.length > 0) {
+      console.log('OK');
+    } else {
+      console.log('FAIL');
+    }
+  " 2>&1)
+  if [[ "$WORKTREE_OUT" == "OK" ]]; then
+    pass "listWorktrees returns worktree list"
+  else
+    fail "listWorktrees failed: $WORKTREE_OUT"
+  fi
+
+  # Test findSprintsAcrossWorktrees
+  WORKTREE_OUT=$(node -e "
+    const { findSprintsAcrossWorktrees } = require('$WORKTREE_JS');
+    const map = findSprintsAcrossWorktrees('.');
+    if (map && map instanceof Map && map.size > 0) {
+      console.log('OK');
+    } else {
+      console.log('FAIL');
+    }
+  " 2>&1)
+  if [[ "$WORKTREE_OUT" == "OK" ]]; then
+    pass "findSprintsAcrossWorktrees finds sprints"
+  else
+    fail "findSprintsAcrossWorktrees failed: $WORKTREE_OUT"
+  fi
+
+  # Test getWorktreeName
+  WORKTREE_OUT=$(node -e "
+    const { getWorktreeName } = require('$WORKTREE_JS');
+    const name = getWorktreeName('.');
+    if (name === 'main' || typeof name === 'string') {
+      console.log('OK');
+    } else {
+      console.log('FAIL');
+    }
+  " 2>&1)
+  if [[ "$WORKTREE_OUT" == "OK" ]]; then
+    pass "getWorktreeName returns worktree name"
+  else
+    fail "getWorktreeName failed: $WORKTREE_OUT"
+  fi
+
+  # Test isInWorktree
+  WORKTREE_OUT=$(node -e "
+    const { isInWorktree } = require('$WORKTREE_JS');
+    const result = isInWorktree('.');
+    if (typeof result === 'boolean') {
+      console.log('OK');
+    } else {
+      console.log('FAIL');
+    }
+  " 2>&1)
+  if [[ "$WORKTREE_OUT" == "OK" ]]; then
+    pass "isInWorktree returns boolean"
+  else
+    fail "isInWorktree failed: $WORKTREE_OUT"
+  fi
+else
+  echo "  (worktree module not compiled, skipping)"
+fi
+
+# =============================================================================
 # Status Server Features (if compiled)
 # =============================================================================
 echo ""
