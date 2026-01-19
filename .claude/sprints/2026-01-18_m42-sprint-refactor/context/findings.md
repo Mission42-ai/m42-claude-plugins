@@ -379,6 +379,98 @@ Result: VERIFICATION FAILED ✗
 
 ---
 
+## Iteration 5: Transaction-Safe YAML Updates
+
+**Focus**: Harden error handling with atomic YAML updates to prevent corruption on interrupts
+
+### Problem
+
+The sprint-loop.sh script made multiple sequential `yq -i` calls to update PROGRESS.yaml. If the script was interrupted (Ctrl+C, crash, system restart) between calls, the YAML file could be left in an inconsistent state:
+
+```bash
+# Example of vulnerable code pattern:
+yq -i "$base_path.status = \"completed\"" "$PROGRESS_FILE"
+# <-- Interrupt here leaves status=completed but no timestamp!
+yq -i "$base_path.\"started-at\" = \"$start_iso\"" "$PROGRESS_FILE"
+yq -i "$base_path.\"completed-at\" = \"$end_iso\"" "$PROGRESS_FILE"
+```
+
+### Solution Implemented
+
+**1. Atomic YAML Update Functions** (added to `sprint-loop.sh`):
+
+```bash
+# yaml_atomic_update - applies multiple yq expressions atomically
+# Combines expressions with pipe, writes to temp file, then atomic mv
+yaml_atomic_update() {
+  local expressions=("$@")
+  local combined_expr="${expressions[0]}"
+  for ((i=1; i<${#expressions[@]}; i++)); do
+    combined_expr="$combined_expr | ${expressions[i]}"
+  done
+  local temp_file="${PROGRESS_FILE}.tmp.$$"
+  yq -e "$combined_expr" "$PROGRESS_FILE" > "$temp_file"
+  mv "$temp_file" "$PROGRESS_FILE"  # Atomic on POSIX
+}
+
+# yaml_update - convenience wrapper for single expression
+yaml_update() {
+  yaml_atomic_update "$1"
+}
+```
+
+**2. Transaction Block Support** (for recovery):
+```bash
+yaml_transaction_start  # Creates backup
+# ... multiple atomic updates ...
+yaml_transaction_end    # Removes backup on success
+```
+
+**3. Refactored Critical Update Sites**:
+
+| Function | Before (vulnerable) | After (atomic) |
+|----------|---------------------|----------------|
+| `process_standard_result` completed | 3 `yq -i` calls | 1 `yaml_atomic_update` |
+| `process_standard_result` needs-human | 4 `yq -i` calls | 1 `yaml_atomic_update` |
+| `advance_pointer` | 2-7 `yq -i` calls | 1 `yaml_atomic_update` per branch |
+| `record_ralph_completion` | 5-6 `yq -i` calls | 1 `yaml_atomic_update` |
+| `process_ralph_result` dynamic steps | 2 `yq -i` per step | 1 `yaml_atomic_update` per step |
+
+### Why This Works
+
+1. **Write-to-temp-then-mv**: The temp file is written completely before renaming. The `mv` operation is atomic on POSIX filesystems when source and destination are on the same filesystem.
+
+2. **yq pipe expressions**: Multiple updates combined with `|` execute as a single yq invocation, producing one coherent output.
+
+3. **Same-directory temp files**: Using `${PROGRESS_FILE}.tmp.$$` ensures temp file is on the same filesystem as the target.
+
+### Testing
+
+```bash
+# Unit test verified:
+yaml_atomic_update \
+  ".status = \"in-progress\"" \
+  ".current.phase = 1" \
+  ".current.step = 0" \
+  ".stats.\"started-at\" = \"2026-01-19T12:00:00Z\""
+# All 4 updates applied atomically
+```
+
+### What This Prevents
+
+- Corrupted PROGRESS.yaml on Ctrl+C
+- Inconsistent state after system crashes
+- "completed" status with no `completed-at` timestamp
+- Pointer advanced but status not updated
+
+### Future Improvements (not done this iteration)
+
+1. **Wrap entire iteration in transaction block**: Use `yaml_transaction_start/end` around the full iteration for recovery
+2. **Add recovery on startup**: Check for `.backup` file and offer recovery
+3. **Add checksum validation**: Detect partial writes
+
+---
+
 ## Issue: Preflight Check Failed for Ralph Mode
 
 **Discovered**: During sprint launch

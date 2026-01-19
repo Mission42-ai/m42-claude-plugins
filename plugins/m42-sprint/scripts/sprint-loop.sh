@@ -184,6 +184,87 @@ cleanup_hook_config() {
 # Register cleanup trap for EXIT, INT, TERM signals
 trap cleanup_hook_config EXIT
 
+# =============================================================================
+# TRANSACTION-SAFE YAML UPDATES
+# Ensures atomic updates to PROGRESS.yaml to prevent corruption on interrupts
+# =============================================================================
+
+# Backup file for recovery
+PROGRESS_BACKUP="${PROGRESS_FILE}.backup"
+
+# Create a backup of PROGRESS.yaml before critical operations
+backup_progress() {
+  cp "$PROGRESS_FILE" "$PROGRESS_BACKUP"
+}
+
+# Restore from backup if available
+restore_progress() {
+  if [[ -f "$PROGRESS_BACKUP" ]]; then
+    mv "$PROGRESS_BACKUP" "$PROGRESS_FILE"
+    echo "Restored PROGRESS.yaml from backup" >&2
+    return 0
+  fi
+  return 1
+}
+
+# Atomic YAML update - applies multiple yq expressions atomically
+# Usage: yaml_atomic_update "expr1" "expr2" "expr3" ...
+# All expressions are combined with | and applied in a single yq call
+# Write to temp file then atomic rename to prevent partial writes
+yaml_atomic_update() {
+  local expressions=("$@")
+
+  if [[ ${#expressions[@]} -eq 0 ]]; then
+    return 0
+  fi
+
+  # Combine all expressions with pipe operator
+  local combined_expr="${expressions[0]}"
+  for ((i=1; i<${#expressions[@]}; i++)); do
+    combined_expr="$combined_expr | ${expressions[i]}"
+  done
+
+  # Create temp file in same directory (ensures same filesystem for atomic mv)
+  local temp_file="${PROGRESS_FILE}.tmp.$$"
+
+  # Apply all updates to temp file
+  if ! yq -e "$combined_expr" "$PROGRESS_FILE" > "$temp_file" 2>/dev/null; then
+    rm -f "$temp_file"
+    echo "Error: yaml_atomic_update failed" >&2
+    return 1
+  fi
+
+  # Atomic rename (mv is atomic on POSIX when src and dest are on same filesystem)
+  if ! mv "$temp_file" "$PROGRESS_FILE"; then
+    rm -f "$temp_file"
+    echo "Error: atomic rename failed" >&2
+    return 1
+  fi
+
+  return 0
+}
+
+# Convenience wrapper for single expression (still uses atomic pattern)
+yaml_update() {
+  yaml_atomic_update "$1"
+}
+
+# Transaction block - backup before, cleanup after
+# Usage:
+#   yaml_transaction_start
+#   yaml_atomic_update "..." "..."
+#   yaml_atomic_update "..."
+#   yaml_transaction_end   # removes backup on success
+# On failure/interrupt, backup remains for recovery
+yaml_transaction_start() {
+  backup_progress
+}
+
+yaml_transaction_end() {
+  # Transaction successful, remove backup
+  rm -f "$PROGRESS_BACKUP"
+}
+
 # Helper function to calculate elapsed time in HH:MM:SS format
 calculate_elapsed() {
   local started_at="$1"
@@ -574,15 +655,16 @@ process_standard_result() {
     fi
   fi
 
-  # Update PROGRESS.yaml based on status
+  # Update PROGRESS.yaml based on status (using atomic updates)
   case "$status" in
     completed)
       echo "Step completed: $summary"
 
-      # Mark current item as completed
-      yq -i "$base_path.status = \"completed\"" "$PROGRESS_FILE"
-      yq -i "$base_path.\"started-at\" = \"$start_iso\"" "$PROGRESS_FILE"
-      yq -i "$base_path.\"completed-at\" = \"$end_iso\"" "$PROGRESS_FILE"
+      # Mark current item as completed - atomic update for all 3 fields
+      yaml_atomic_update \
+        "$base_path.status = \"completed\"" \
+        "$base_path.\"started-at\" = \"$start_iso\"" \
+        "$base_path.\"completed-at\" = \"$end_iso\""
 
       # Advance the pointer
       advance_pointer "$phase_idx" "$step_idx" "$sub_phase_idx"
@@ -593,7 +675,7 @@ process_standard_result() {
       echo "Error: $error"
 
       # Store error, keep status as in-progress for retry
-      yq -i "$base_path.error = \"$error\"" "$PROGRESS_FILE"
+      yaml_update "$base_path.error = \"$error\""
 
       # Return non-zero to trigger retry handling
       return 1
@@ -602,10 +684,12 @@ process_standard_result() {
     needs-human)
       echo "Human intervention needed: $human_reason"
 
-      yq -i "$base_path.status = \"needs-human\"" "$PROGRESS_FILE"
-      yq -i ".status = \"needs-human\"" "$PROGRESS_FILE"
-      yq -i ".human-needed.reason = \"$human_reason\"" "$PROGRESS_FILE"
-      yq -i ".human-needed.details = \"$human_details\"" "$PROGRESS_FILE"
+      # Atomic update for needs-human state (4 related fields)
+      yaml_atomic_update \
+        "$base_path.status = \"needs-human\"" \
+        ".status = \"needs-human\"" \
+        ".\"human-needed\".reason = \"$human_reason\"" \
+        ".\"human-needed\".details = \"$human_details\""
 
       # Return special code for human intervention
       return 2
@@ -613,8 +697,9 @@ process_standard_result() {
 
     *)
       echo "Warning: Unknown status '$status', treating as completed"
-      yq -i "$base_path.status = \"completed\"" "$PROGRESS_FILE"
-      yq -i "$base_path.\"completed-at\" = \"$end_iso\"" "$PROGRESS_FILE"
+      yaml_atomic_update \
+        "$base_path.status = \"completed\"" \
+        "$base_path.\"completed-at\" = \"$end_iso\""
       advance_pointer "$phase_idx" "$step_idx" "$sub_phase_idx"
       ;;
   esac
@@ -623,6 +708,7 @@ process_standard_result() {
 }
 
 # Advance the current pointer to next phase/step/sub-phase
+# Uses atomic updates to ensure pointer and status changes are consistent
 advance_pointer() {
   local phase_idx="$1"
   local step_idx="$2"
@@ -640,46 +726,64 @@ advance_pointer() {
 
     if [[ "$next_sub" -ge "$total_sub_phases" ]]; then
       # All sub-phases done, move to next step
-      yq -i ".phases[$phase_idx].steps[$step_idx].status = \"completed\"" "$PROGRESS_FILE"
-
       local next_step=$((step_idx + 1))
       if [[ "$next_step" -ge "$total_steps" ]]; then
         # All steps done, move to next phase
-        yq -i ".phases[$phase_idx].status = \"completed\"" "$PROGRESS_FILE"
-
         local next_phase=$((phase_idx + 1))
-        yq -i ".current.phase = $next_phase" "$PROGRESS_FILE"
-        yq -i ".current.step = 0" "$PROGRESS_FILE"
-        yq -i '.current."sub-phase" = 0' "$PROGRESS_FILE"
 
         # Check if sprint is complete
         if [[ "$next_phase" -ge "$total_phases" ]]; then
-          yq -i '.status = "completed"' "$PROGRESS_FILE"
-          yq -i ".stats.\"completed-at\" = \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"" "$PROGRESS_FILE"
+          # Sprint complete - atomic update for step, phase, pointer, and sprint status
+          yaml_atomic_update \
+            ".phases[$phase_idx].steps[$step_idx].status = \"completed\"" \
+            ".phases[$phase_idx].status = \"completed\"" \
+            ".current.phase = $next_phase" \
+            ".current.step = 0" \
+            ".current.\"sub-phase\" = 0" \
+            ".status = \"completed\"" \
+            ".stats.\"completed-at\" = \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\""
+        else
+          # Move to next phase - atomic update for step, phase, and pointer
+          yaml_atomic_update \
+            ".phases[$phase_idx].steps[$step_idx].status = \"completed\"" \
+            ".phases[$phase_idx].status = \"completed\"" \
+            ".current.phase = $next_phase" \
+            ".current.step = 0" \
+            ".current.\"sub-phase\" = 0"
         fi
       else
-        # Move to next step
-        yq -i ".current.step = $next_step" "$PROGRESS_FILE"
-        yq -i '.current."sub-phase" = 0' "$PROGRESS_FILE"
+        # Move to next step - atomic update for step status and pointer
+        yaml_atomic_update \
+          ".phases[$phase_idx].steps[$step_idx].status = \"completed\"" \
+          ".current.step = $next_step" \
+          ".current.\"sub-phase\" = 0"
       fi
     else
       # Move to next sub-phase
-      yq -i ".current.\"sub-phase\" = $next_sub" "$PROGRESS_FILE"
+      yaml_update ".current.\"sub-phase\" = $next_sub"
     fi
   else
     # Simple phase (no steps)
     local total_phases=$(yq -r '.phases | length' "$PROGRESS_FILE")
     local next_phase=$((phase_idx + 1))
 
-    yq -i ".phases[$phase_idx].status = \"completed\"" "$PROGRESS_FILE"
-    yq -i ".current.phase = $next_phase" "$PROGRESS_FILE"
-    yq -i ".current.step = 0" "$PROGRESS_FILE"
-    yq -i '.current."sub-phase" = 0' "$PROGRESS_FILE"
-
     # Check if sprint is complete
     if [[ "$next_phase" -ge "$total_phases" ]]; then
-      yq -i '.status = "completed"' "$PROGRESS_FILE"
-      yq -i ".stats.\"completed-at\" = \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"" "$PROGRESS_FILE"
+      # Sprint complete - atomic update for phase status, pointer, and sprint status
+      yaml_atomic_update \
+        ".phases[$phase_idx].status = \"completed\"" \
+        ".current.phase = $next_phase" \
+        ".current.step = 0" \
+        ".current.\"sub-phase\" = 0" \
+        ".status = \"completed\"" \
+        ".stats.\"completed-at\" = \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\""
+    else
+      # Move to next phase - atomic update for phase status and pointer
+      yaml_atomic_update \
+        ".phases[$phase_idx].status = \"completed\"" \
+        ".current.phase = $next_phase" \
+        ".current.step = 0" \
+        ".current.\"sub-phase\" = 0"
     fi
   fi
 }
@@ -1042,11 +1146,14 @@ process_ralph_result() {
       # 1. Mark completed steps
       local completed_ids
       completed_ids=$(echo "$json_result" | jq -r '.completedStepIds // [] | .[]' 2>/dev/null)
+      local completed_at_ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
       for cid in $completed_ids; do
         echo "Marking step $cid as completed"
-        yq -i "(.dynamic-steps[] | select(.id == \"$cid\")).status = \"completed\"" "$PROGRESS_FILE"
-        yq -i "(.dynamic-steps[] | select(.id == \"$cid\")).\"completed-at\" = \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"" "$PROGRESS_FILE"
+        # Atomic update for status and timestamp
+        yaml_atomic_update \
+          "(.dynamic-steps[] | select(.id == \"$cid\")).status = \"completed\"" \
+          "(.dynamic-steps[] | select(.id == \"$cid\")).\"completed-at\" = \"$completed_at_ts\""
       done
 
       # 2. Process pending steps (complete replacement of pending order)
@@ -1101,10 +1208,13 @@ process_ralph_result() {
       # Mark any completed steps from this iteration
       local completed_ids
       completed_ids=$(echo "$json_result" | jq -r '.completedStepIds // [] | .[]' 2>/dev/null)
+      local completed_at_ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
       for cid in $completed_ids; do
-        yq -i "(.dynamic-steps[] | select(.id == \"$cid\")).status = \"completed\"" "$PROGRESS_FILE"
-        yq -i "(.dynamic-steps[] | select(.id == \"$cid\")).\"completed-at\" = \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"" "$PROGRESS_FILE"
+        # Atomic update for status and timestamp
+        yaml_atomic_update \
+          "(.dynamic-steps[] | select(.id == \"$cid\")).status = \"completed\"" \
+          "(.dynamic-steps[] | select(.id == \"$cid\")).\"completed-at\" = \"$completed_at_ts\""
       done
 
       # Special return code to signal goal completion
@@ -1118,9 +1228,11 @@ process_ralph_result() {
 
       echo "Human intervention needed: $human_reason"
 
-      yq -i '.status = "needs-human"' "$PROGRESS_FILE"
-      yq -i ".human-needed.reason = \"$human_reason\"" "$PROGRESS_FILE"
-      yq -i ".human-needed.details = \"$human_details\"" "$PROGRESS_FILE"
+      # Atomic update for needs-human state
+      yaml_atomic_update \
+        ".status = \"needs-human\"" \
+        ".\"human-needed\".reason = \"$human_reason\"" \
+        ".\"human-needed\".details = \"$human_details\""
 
       return 2
       ;;
@@ -1137,25 +1249,35 @@ process_ralph_result() {
 # =============================================================================
 
 # Record Ralph mode completion
+# Uses atomic update to ensure completion state is consistent
 record_ralph_completion() {
   local iteration="$1"
   local summary="$2"
   local completed_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-  # Update ralph-exit section
-  yq -i ".ralph-exit.\"detected-at\" = \"$completed_at\"" "$PROGRESS_FILE"
-  yq -i ".ralph-exit.iteration = $iteration" "$PROGRESS_FILE"
-  yq -i ".ralph-exit.\"final-summary\" = \"$summary\"" "$PROGRESS_FILE"
-
-  # Set sprint status
-  yq -i '.status = "completed"' "$PROGRESS_FILE"
-  yq -i ".stats.\"completed-at\" = \"$completed_at\"" "$PROGRESS_FILE"
-
-  # Calculate elapsed time
+  # Calculate elapsed time first (needs read before atomic write)
   local started_at=$(yq -r '.stats."started-at" // "null"' "$PROGRESS_FILE")
+  local elapsed=""
   if [[ "$started_at" != "null" ]]; then
-    local elapsed=$(calculate_elapsed "$started_at" "$completed_at")
-    yq -i ".stats.elapsed = \"$elapsed\"" "$PROGRESS_FILE"
+    elapsed=$(calculate_elapsed "$started_at" "$completed_at")
+  fi
+
+  # Atomic update for all completion state
+  if [[ -n "$elapsed" ]]; then
+    yaml_atomic_update \
+      ".ralph-exit.\"detected-at\" = \"$completed_at\"" \
+      ".ralph-exit.iteration = $iteration" \
+      ".ralph-exit.\"final-summary\" = \"$summary\"" \
+      ".status = \"completed\"" \
+      ".stats.\"completed-at\" = \"$completed_at\"" \
+      ".stats.elapsed = \"$elapsed\""
+  else
+    yaml_atomic_update \
+      ".ralph-exit.\"detected-at\" = \"$completed_at\"" \
+      ".ralph-exit.iteration = $iteration" \
+      ".ralph-exit.\"final-summary\" = \"$summary\"" \
+      ".status = \"completed\"" \
+      ".stats.\"completed-at\" = \"$completed_at\""
   fi
 
   echo ""
