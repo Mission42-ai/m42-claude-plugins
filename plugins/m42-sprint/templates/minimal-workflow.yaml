@@ -1,0 +1,14 @@
+# Minimal Workflow
+# Direct step execution without sub-phases
+#
+# This is the simplest workflow - just executes each step's prompt directly.
+# Use when you don't need planning, context gathering, or QA phases.
+
+name: Minimal Workflow
+description: Direct step execution without sub-phases
+
+phases:
+  - id: execute
+    for-each: step
+    prompt: |
+      {{step.prompt}}
