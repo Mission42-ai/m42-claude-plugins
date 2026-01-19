@@ -1,51 +1,68 @@
 # M42 Sprint Plugin - User Guide
 
-Complete guide to workflow-based sprint processing for Claude Code.
+Complete guide to sprint orchestration for Claude Code.
 
 ## Table of Contents
 
 1. [Overview](#overview)
 2. [Installation](#installation)
 3. [Quick Start](#quick-start)
-4. [Commands Reference](#commands-reference)
-5. [Workflow System](#workflow-system)
-6. [Workflow Patterns](#workflow-patterns)
+4. [Ralph Mode (Recommended)](#ralph-mode-recommended)
+5. [Workflow Mode](#workflow-mode)
+6. [Commands Reference](#commands-reference)
 7. [Configuration](#configuration)
-8. [Troubleshooting](#troubleshooting)
-9. [Migration from Task-Queue](#migration-from-task-queue)
+8. [Activity Logging & Hooks](#activity-logging--hooks)
+9. [Troubleshooting](#troubleshooting)
+10. [Best Practices](#best-practices)
 
 ---
 
 ## Overview
 
-M42 Sprint is a Claude Code plugin that enables workflow-based sprint processing. Steps are defined in SPRINT.yaml, compiled into hierarchical phases, and executed with fresh context per phase using the Ralph Loop pattern.
+M42 Sprint is a Claude Code plugin that enables autonomous sprint execution with fresh context per iteration. It supports two modes:
+
+- **Ralph Mode** (recommended): Goal-driven autonomous execution where Claude thinks deeply and shapes work dynamically
+- **Workflow Mode**: Structured step-based execution with predefined phases
 
 ### Key Concepts
 
-- **Sprint**: A container for related steps with shared workflow configuration
-- **Step**: A high-level work item defined by a prompt in SPRINT.yaml
-- **Workflow**: A reusable template that defines phases for processing steps
-- **Compilation**: Expands steps through workflows into hierarchical phases in PROGRESS.yaml
-- **Ralph Loop**: Fresh Claude context per phase (no context accumulation)
+- **Sprint**: A container for work with shared configuration and context
+- **Ralph Loop**: Fresh Claude context per iteration (no context accumulation)
+- **Goal** (Ralph mode): High-level objective Claude works toward autonomously
+- **Steps** (Workflow mode): Predefined work items processed through workflows
+- **Per-iteration hooks**: Deterministic background tasks that run after each iteration
 
 ### How It Works
 
 ```
-SPRINT.yaml (steps) + Workflow Templates → Compilation → PROGRESS.yaml (phases)
-                                                              ↓
-                                                        Sprint Loop
-                                                              ↓
-                                                   Fresh context per phase
+Ralph Mode:
+┌─────────────┐     ┌──────────────┐     ┌─────────────────┐
+│ SPRINT.yaml │ ──► │  Ralph Loop  │ ──► │ goal-complete   │
+│   (goal)    │     │  (iterates)  │     │    or pause     │
+└─────────────┘     └──────────────┘     └─────────────────┘
+                           │
+                           ▼
+                    Fresh context per iteration
+                    + optional per-iteration hooks
+
+Workflow Mode:
+┌─────────────┐     ┌──────────────┐     ┌─────────────────┐
+│ SPRINT.yaml │ ──► │   Compiler   │ ──► │ PROGRESS.yaml   │
+│  (steps)    │     │  (expands)   │     │   (phases)      │
+└─────────────┘     └──────────────┘     └─────────────────┘
+                                                │
+                                                ▼
+                                          Sprint Loop
 ```
 
-### When to Use Sprint
+### When to Use Each Mode
 
-| Good For | Not Good For |
-|----------|--------------|
-| Multi-step feature development | Single quick tasks |
-| Autonomous batch operations | Tasks needing human decisions |
-| Structured workflows with phases | Unclear requirements |
-| Consistent development process | Exploratory research |
+| Ralph Mode | Workflow Mode |
+|------------|---------------|
+| Complex features, open-ended goals | Well-defined tasks, routine work |
+| Research-heavy, exploratory work | Batched operations |
+| Goals where exact steps aren't known | Known phase sequences |
+| Tasks benefiting from reflection | Compliance workflows |
 
 ---
 
@@ -74,55 +91,207 @@ claude /help
 
 ## Quick Start
 
-### 1. Create a Sprint
+### Ralph Mode (Recommended)
+
+For goal-driven autonomous execution:
 
 ```bash
-/start-sprint auth-feature
+# 1. Create sprint with Ralph mode
+/start-sprint auth-feature --ralph
+
+# 2. Edit SPRINT.yaml to define your goal
+# (The command will tell you where the file is)
+
+# 3. Run it
+/run-sprint .claude/sprints/2026-01-19_auth-feature
+
+# 4. Watch progress
+/sprint-watch
 ```
 
-Creates:
-```
-.claude/sprints/2026-01-16_auth-feature/
-  SPRINT.yaml       # Workflow definition with steps
-  context/          # Context files for phases
-  artifacts/        # Sprint outputs
+**Example SPRINT.yaml for Ralph mode:**
+```yaml
+workflow: ralph
+
+goal: |
+  Build a complete JWT authentication system.
+
+  Requirements:
+  - Login and registration endpoints
+  - Token refresh mechanism
+  - Logout with token invalidation
+
+  Success criteria:
+  - All endpoints tested
+  - TypeScript compiles without errors
+  - All tests passing
+
+per-iteration-hooks:
+  learning:
+    enabled: true   # Extract learnings after each iteration
 ```
 
-### 2. Add Steps
+### Workflow Mode
+
+For structured step-by-step execution:
 
 ```bash
-# Add individual steps
+# 1. Create sprint
+/start-sprint auth-feature --workflow sprint-default
+
+# 2. Add steps
 /add-step "Implement user login endpoint with JWT authentication"
 /add-step "Add authentication middleware for protected routes"
 
-# Or import from GitHub issues
-/import-steps issues --label "sprint-ready"
-```
+# 3. Run (compiles and executes)
+/run-sprint .claude/sprints/2026-01-19_auth-feature
 
-### 3. Run the Sprint (Compiles and Executes)
-
-```bash
-/run-sprint .claude/sprints/2026-01-16_auth-feature
-```
-
-This:
-1. Compiles SPRINT.yaml + workflows into PROGRESS.yaml
-2. Launches the sprint loop in the background
-3. Processes each phase with fresh context
-
-### 4. Monitor Progress
-
-```bash
+# 4. Monitor
 /sprint-status
 ```
 
-### 5. Control Execution
+### Control Commands
 
 ```bash
-/pause-sprint    # Graceful pause after current phase
+/pause-sprint    # Graceful pause after current iteration
 /resume-sprint   # Resume paused sprint
 /stop-sprint     # Immediate stop
+/sprint-watch    # Open status dashboard
 ```
+
+---
+
+## Ralph Mode (Recommended)
+
+Ralph Mode is an autonomous goal-driven workflow where Claude thinks deeply and shapes work dynamically. Each iteration runs with fresh context, and Claude decides when the goal is complete.
+
+### How Ralph Mode Works
+
+1. **Define a goal** in SPRINT.yaml - describe what you want to achieve
+2. **Claude analyzes** the goal and creates implementation steps
+3. **Each iteration**: Claude executes a step with fresh context
+4. **Reflection**: When stuck, Claude reflects and adjusts approach
+5. **Completion**: Claude signals `goal-complete` when done
+
+### SPRINT.yaml Configuration
+
+```yaml
+workflow: ralph
+
+goal: |
+  Build a complete authentication system with JWT tokens.
+
+  Requirements:
+  - Registration and login endpoints
+  - Token refresh mechanism
+  - Logout with token invalidation
+
+  Success criteria:
+  - All endpoints tested and documented
+  - TypeScript compiles without errors
+  - All tests passing
+
+# Optional configuration
+ralph:
+  idle-threshold: 3      # Iterations without progress → reflection mode
+  min-iterations: 15     # Minimum iterations before goal-complete accepted
+
+# Per-iteration hooks (recommended)
+per-iteration-hooks:
+  learning:
+    enabled: true        # Extract learnings after each iteration
+```
+
+### Result Reporting
+
+Claude signals its state via JSON in each iteration:
+
+**Continue working:**
+```json
+{
+  "status": "continue",
+  "summary": "Implemented login endpoint",
+  "completedStepIds": ["step-0"],
+  "pendingSteps": [
+    {"id": "step-1", "prompt": "Add logout endpoint"},
+    {"id": null, "prompt": "Add token refresh (discovered need)"}
+  ]
+}
+```
+
+**Goal complete:**
+```json
+{
+  "status": "goal-complete",
+  "summary": "Completed final verification",
+  "goalCompleteSummary": "Implemented full JWT auth with registration, login, refresh, logout. All 12 tests passing."
+}
+```
+
+**Need human help:**
+```json
+{
+  "status": "needs-human",
+  "summary": "Blocked on database configuration",
+  "humanNeeded": {
+    "reason": "DATABASE_URL not configured",
+    "details": "The .env file is missing credentials. Please add and resume."
+  }
+}
+```
+
+### Best Practices for Ralph Mode
+
+1. **Write clear goals**: Include requirements and success criteria
+2. **Enable learning hooks**: Compounds knowledge across iterations
+3. **Set min-iterations appropriately**: Ensures deep work, not premature completion
+4. **Add context files**: Put relevant docs in `context/` directory
+
+For full Ralph Mode documentation, see [Ralph Mode Concepts](concepts/ralph-mode.md).
+
+---
+
+## Workflow Mode
+
+Workflow Mode uses predefined workflows to process steps through structured phases. Best for well-defined tasks with known phase sequences.
+
+### How Workflow Mode Works
+
+1. **Define steps** in SPRINT.yaml - your work items
+2. **Compiler expands** steps through workflow templates into PROGRESS.yaml
+3. **Sprint loop executes** each phase with fresh context
+4. **Completion**: When all phases are done
+
+### SPRINT.yaml Configuration
+
+```yaml
+workflow: sprint-default    # Reference to .claude/workflows/sprint-default.yaml
+
+steps:
+  - prompt: |
+      Implement user authentication with JWT.
+      Requirements:
+      - Login endpoint
+      - Token refresh
+      - Logout
+
+  - prompt: |
+      Add session management and remember-me functionality.
+
+  - prompt: |
+      Fix: Password reset emails not sending.
+    workflow: bugfix-workflow  # Optional: use different workflow for this step
+```
+
+### Available Workflows
+
+| Workflow | Phases | Best For |
+|----------|--------|----------|
+| `sprint-default` | prepare → development (per step) → qa → deploy | Full sprints |
+| `feature-standard` | planning → implement → test → document | Individual features |
+| `bugfix-workflow` | diagnose → fix → verify | Bug fixes |
+
+For detailed workflow information, see the [Workflow System](#workflow-system) section below.
 
 ---
 
@@ -130,17 +299,22 @@ This:
 
 ### Sprint Lifecycle
 
-#### `/start-sprint <name>`
+#### `/start-sprint <name> [--ralph | --workflow <name>]`
 
 Initialize a new sprint directory.
 
 **Arguments:**
 - `<name>` - Sprint identifier (alphanumeric, hyphens allowed)
+- `--ralph` - Create Ralph mode sprint (recommended)
+- `--workflow <name>` - Create workflow mode sprint with specified workflow
 
-**Example:**
+**Examples:**
 ```bash
-/start-sprint auth-improvements
-# Creates: .claude/sprints/2026-01-16_auth-improvements/
+/start-sprint auth-feature --ralph
+# Creates Ralph mode sprint
+
+/start-sprint bug-batch --workflow bugfix-workflow
+# Creates workflow mode sprint
 ```
 
 #### `/run-sprint <directory> [options]`
@@ -709,58 +883,44 @@ cat .claude/sprints/my-sprint/PROGRESS.yaml
 /run-sprint .claude/sprints/my-sprint
 ```
 
----
+### Ralph Mode: Loop never exits
 
-## Migration from Task-Queue
+**Symptom:** Ralph mode keeps running indefinitely
 
-If you used the old task-queue system, here's what changed:
+**Check:**
+1. Goal might be too vague - add measurable success criteria
+2. `min-iterations` threshold might not be reached yet
 
-### Old System (Task-Queue)
+**Fix:**
+```bash
+# Check current iteration count vs min-iterations
+/sprint-status
 
-- Tasks had types: `implement-issue`, `refactor`, `update-docs`, `custom`
-- Task definitions went directly in PROGRESS.yaml queue array
-- No workflows - each task type had built-in behavior
-- Commands: `/add-task`, `/import-tasks`
+# Make goal more specific with clear completion criteria
+# Edit SPRINT.yaml goal to include "Success criteria:"
+```
 
-### New System (Workflow-Based)
+### Ralph Mode: goal-complete ignored
 
-- Steps are simple prompts in SPRINT.yaml
-- Workflows define phases each step goes through
-- PROGRESS.yaml is compiled from SPRINT.yaml + workflows
-- Commands: `/add-step`, `/import-steps`
+**Symptom:** Claude reports goal-complete but sprint continues
 
-### Migration Steps
+**Cause:** `ralph.min-iterations` threshold not reached
 
-1. **Create new sprint:**
-   ```bash
-   /start-sprint migrated-sprint
-   ```
+**Fix:**
+Either wait for threshold or adjust in SPRINT.yaml:
+```yaml
+ralph:
+  min-iterations: 10    # Reduce if appropriate
+```
 
-2. **Convert tasks to steps in SPRINT.yaml:**
+### Ralph Mode: JSON result not parsed
 
-   Old task:
-   ```yaml
-   - id: implement-issue-42
-     type: implement-issue
-     issue-number: 42
-   ```
+**Symptom:** "No JSON result found" in sprint output
 
-   New step:
-   ```yaml
-   - prompt: |
-       Implement GitHub issue #42
-       [paste issue title and body here]
-   ```
+**Cause:** Claude's JSON result wasn't in proper code block format
 
-3. **Choose appropriate workflow:**
-   - `sprint-default` for general development
-   - `bugfix-workflow` for bug fixes
-   - Create custom workflows as needed
-
-4. **Run with compilation:**
-   ```bash
-   /run-sprint .claude/sprints/YYYY-MM-DD_migrated-sprint
-   ```
+**Fix:**
+This is usually transient. The loop will retry. If persistent, check that the sprint prompt template includes JSON format instructions.
 
 ---
 
@@ -848,19 +1008,35 @@ You can also run sprints without automatic activity logging by using the `--no-s
 
 ## Best Practices
 
+### Ralph Mode
+
+1. **Write clear goals**: Include requirements, constraints, and measurable success criteria
+2. **Enable learning hooks**: Compounds knowledge across iterations
+3. **Set min-iterations appropriately**: Ensures deep work (15-30 is typical)
+4. **Add context files**: Put relevant docs in `context/` directory
+5. **Trust Ralph's judgment**: The system is designed for autonomous operation
+6. **Review at milestones**: Check `/sprint-status` periodically, not constantly
+
+### Workflow Mode
+
 1. **Keep sprints focused**: 3-7 steps per sprint
 2. **Write clear step prompts**: Include requirements and acceptance criteria
 3. **Use appropriate workflows**: Match workflow to work type
 4. **Preview before running**: Use `--dry-run` to verify compilation
-5. **Monitor progress**: Check `/sprint-status` periodically
-6. **Trust the loop**: Default unlimited iterations - loop exits on completion or error status
-7. **Use workflow overrides**: Mix workflows within a sprint when needed
-8. **Recompile after changes**: Use `--recompile` after adding steps
+5. **Recompile after changes**: Use `--recompile` after adding steps
+6. **Use workflow overrides**: Mix workflows within a sprint when needed
+
+### General
+
+1. **Monitor with `/sprint-watch`**: Real-time dashboard is better than polling
+2. **Trust the loop**: Default unlimited iterations - loop exits on completion or error status
+3. **One sprint at a time**: (Worktree support for parallel sprints coming soon)
 
 ---
 
 ## Getting Help
 
 - `/help` - Show plugin commands and usage
+- [Ralph Mode Concepts](concepts/ralph-mode.md) - Deep dive into autonomous mode
+- [Troubleshooting Guide](troubleshooting/common-issues.md) - Common issues and solutions
 - GitHub Issues: Report bugs and request features
-- README.md: Technical reference and architecture
