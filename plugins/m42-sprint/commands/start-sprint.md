@@ -69,7 +69,6 @@ Create the sprint directory with the naming convention `YYYY-MM-DD_<sprint-name>
   - SPRINT.yaml
   - context/       (for research, notes, cached context)
   - artifacts/     (for outputs, deliverables)
-  - patterns/      (optional: sprint-specific patterns)
 ```
 
 Note: PROGRESS.yaml is NOT created here - it will be compiled from SPRINT.yaml when running `/run-sprint`.
@@ -145,7 +144,6 @@ Replace placeholders with actual values:
 Create the following subdirectories:
 - `context/` - For sprint context files, research notes, cached context
 - `artifacts/` - For sprint outputs and deliverables
-- `patterns/` - (Optional) For sprint-specific execution patterns
 
 ### Step 4: Output Success Message
 
@@ -164,7 +162,7 @@ Created files:
 Ralph Mode Features:
   - Autonomous goal-driven execution
   - Deep thinking with dynamic task shaping
-  - Pattern-based execution for quality consistency
+  - Consistent execution via workflow templates
   - Per-iteration learning extraction (if enabled)
 
 Next steps:

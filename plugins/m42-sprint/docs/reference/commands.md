@@ -56,8 +56,7 @@ Initialize a new sprint directory with either **Ralph mode** (autonomous goal-dr
 .claude/sprints/YYYY-MM-DD_<sprint-name>/
 ├── SPRINT.yaml     # Sprint configuration (mode-dependent)
 ├── context/        # Context files and cached research
-├── artifacts/      # Sprint outputs and deliverables
-└── patterns/       # (Optional) Sprint-specific execution patterns
+└── artifacts/      # Sprint outputs and deliverables
 ```
 
 **Examples:**
@@ -81,7 +80,7 @@ Location: .claude/sprints/2026-01-15_feature-auth/
 Ralph Mode Features:
   - Autonomous goal-driven execution
   - Deep thinking with dynamic task shaping
-  - Pattern-based execution for quality consistency
+  - Consistent execution via workflow templates
   - Per-iteration learning extraction (if enabled)
 
 Next steps:
@@ -89,11 +88,7 @@ Next steps:
   2. (Optional) Add context files to context/ directory
   3. Run /run-sprint to execute
 
-Available patterns for Ralph to invoke:
-  - implement-feature (TDD implementation)
-  - fix-bug (debug and fix with regression test)
-  - refactor (safe refactoring with test preservation)
-  - document (documentation updates)
+Tip: Define clear success criteria in your goal for consistent execution.
 ```
 
 **Output (Workflow Mode):**
