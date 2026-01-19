@@ -53,6 +53,7 @@ const timing_tracker_js_1 = require("./timing-tracker.js");
 const sprint_scanner_js_1 = require("./sprint-scanner.js");
 const metrics_aggregator_js_1 = require("./metrics-aggregator.js");
 const dashboard_page_js_1 = require("./dashboard-page.js");
+const worktree_js_1 = require("./worktree.js");
 /**
  * Default configuration values
  */
@@ -80,6 +81,8 @@ class StatusServer extends events_1.EventEmitter {
     progressFilePath;
     activityFilePath;
     isReady = false;
+    /** Worktree context for this server instance (detected on startup) */
+    worktreeInfo = null;
     constructor(config) {
         super();
         this.config = {
@@ -100,6 +103,8 @@ class StatusServer extends events_1.EventEmitter {
         if (!fs.existsSync(this.progressFilePath)) {
             throw new Error(`PROGRESS.yaml not found: ${this.progressFilePath}`);
         }
+        // Detect worktree context for this server instance
+        this.worktreeInfo = (0, worktree_js_1.detectWorktree)(this.config.sprintDir);
         // Create HTTP server
         this.server = http.createServer((req, res) => this.handleRequest(req, res));
         // Set up file watcher
@@ -430,11 +435,16 @@ class StatusServer extends events_1.EventEmitter {
     /**
      * Handle GET /api/sprints request
      * Returns list of sprints with optional pagination
+     * Query params:
+     *   - page: Page number (default: 1)
+     *   - limit: Items per page (default: 20)
+     *   - includeWorktree: Include worktree info (default: false)
      */
     handleSprintsApiRequest(res, params) {
         try {
             const sprintsDir = this.getSprintsDir();
-            const scanner = new sprint_scanner_js_1.SprintScanner(sprintsDir);
+            const includeWorktreeInfo = params.get('includeWorktree') === 'true';
+            const scanner = new sprint_scanner_js_1.SprintScanner(sprintsDir, { includeWorktreeInfo });
             const allSprints = scanner.scan();
             // Parse pagination parameters
             const page = parseInt(params.get('page') || '1', 10);
@@ -442,17 +452,27 @@ class StatusServer extends events_1.EventEmitter {
             const offset = (page - 1) * limit;
             // Apply pagination
             const sprints = allSprints.slice(offset, offset + limit);
-            res.writeHead(200, {
-                'Content-Type': 'application/json',
-                'Cache-Control': 'no-cache',
-            });
-            res.end(JSON.stringify({
+            // Build response with optional server worktree context
+            const response = {
                 sprints,
                 total: allSprints.length,
                 page,
                 limit,
                 hasMore: offset + limit < allSprints.length,
-            }, null, 2));
+            };
+            // Include server's worktree context for client awareness
+            if (this.worktreeInfo) {
+                response.serverWorktree = {
+                    name: this.worktreeInfo.isMain ? 'main' : this.worktreeInfo.name,
+                    branch: this.worktreeInfo.branch,
+                    isMain: this.worktreeInfo.isMain,
+                };
+            }
+            res.writeHead(200, {
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-cache',
+            });
+            res.end(JSON.stringify(response, null, 2));
         }
         catch (error) {
             res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -516,17 +536,29 @@ class StatusServer extends events_1.EventEmitter {
     }
     /**
      * Handle JSON API request
+     * Returns current sprint status with optional worktree context
      */
     handleAPIRequest(res) {
         try {
             const progress = this.loadProgress();
             const timingInfo = this.getTimingInfo(progress);
             const statusUpdate = (0, transforms_js_1.toStatusUpdate)(progress, true, timingInfo);
+            // Extend response with worktree context for parallel execution awareness
+            const response = { ...statusUpdate };
+            if (this.worktreeInfo) {
+                response.worktree = {
+                    name: this.worktreeInfo.isMain ? 'main' : this.worktreeInfo.name,
+                    branch: this.worktreeInfo.branch,
+                    commit: this.worktreeInfo.commit,
+                    isMain: this.worktreeInfo.isMain,
+                    root: this.worktreeInfo.root,
+                };
+            }
             res.writeHead(200, {
                 'Content-Type': 'application/json',
                 'Cache-Control': 'no-cache',
             });
-            res.end(JSON.stringify(statusUpdate, null, 2));
+            res.end(JSON.stringify(response, null, 2));
         }
         catch (error) {
             res.writeHead(500, { 'Content-Type': 'application/json' });

@@ -29,6 +29,8 @@ export declare class StatusServer extends EventEmitter {
     private progressFilePath;
     private activityFilePath;
     private isReady;
+    /** Worktree context for this server instance (detected on startup) */
+    private worktreeInfo;
     constructor(config: ServerConfig);
     /**
      * Start the HTTP server and file watcher
@@ -79,6 +81,10 @@ export declare class StatusServer extends EventEmitter {
     /**
      * Handle GET /api/sprints request
      * Returns list of sprints with optional pagination
+     * Query params:
+     *   - page: Page number (default: 1)
+     *   - limit: Items per page (default: 20)
+     *   - includeWorktree: Include worktree info (default: false)
      */
     private handleSprintsApiRequest;
     /**
@@ -92,6 +98,7 @@ export declare class StatusServer extends EventEmitter {
     private handleSSERequest;
     /**
      * Handle JSON API request
+     * Returns current sprint status with optional worktree context
      */
     private handleAPIRequest;
     /**
