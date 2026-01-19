@@ -1805,11 +1805,332 @@ fi
 yq -i ".stats.\"max-iterations\" = $MAX_ITERATIONS" "$PROGRESS_FILE"
 
 # =============================================================================
-# STANDARD LOOP FUNCTION
+# ORCHESTRATION FUNCTIONS
 # =============================================================================
 
-# Standard Loop - Hierarchical phase-based workflow execution
-run_standard_loop() {
+# Extract proposedSteps from Claude's JSON result
+# Returns empty array [] if not present or invalid
+extract_proposed_steps() {
+  local transcript_file="$1"
+  local json_result
+  json_result=$(extract_json_result "$transcript_file")
+
+  if [[ -z "$json_result" ]]; then
+    echo "[]"
+    return
+  fi
+
+  # Extract proposedSteps array, default to empty
+  local proposed
+  proposed=$(echo "$json_result" | jq -c '.proposedSteps // []' 2>/dev/null)
+
+  if [[ -z "$proposed" ]] || [[ "$proposed" == "null" ]]; then
+    echo "[]"
+  else
+    echo "$proposed"
+  fi
+}
+
+# Add proposed steps to step-queue in PROGRESS.yaml
+# Args: proposed_json (JSON array), proposed_by (step ID that proposed these)
+add_to_step_queue() {
+  local proposed_json="$1"
+  local proposed_by="$2"
+  local timestamp
+  timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+  # Validate JSON array
+  if [[ "$proposed_json" == "[]" ]] || [[ -z "$proposed_json" ]]; then
+    return 0
+  fi
+
+  # Initialize step-queue if not exists
+  local queue_exists
+  queue_exists=$(yq -r '."step-queue" // "null"' "$PROGRESS_FILE")
+  if [[ "$queue_exists" == "null" ]]; then
+    yq -i '."step-queue" = []' "$PROGRESS_FILE"
+  fi
+
+  # Get next queue ID
+  local max_id
+  max_id=$(yq -r '."step-queue" // [] | .[].id | select(. != null) | ltrimstr("proposed-")' "$PROGRESS_FILE" 2>/dev/null | sort -rn | head -1)
+  local next_id=$((${max_id:-0} + 1))
+
+  # Parse each proposed step and add to queue
+  # Using process substitution to avoid subshell variable scope issues
+  while IFS= read -r step; do
+    [[ -z "$step" ]] && continue
+
+    local prompt priority reasoning
+    prompt=$(echo "$step" | jq -r '.prompt // ""')
+    priority=$(echo "$step" | jq -r '.priority // "medium"')
+    reasoning=$(echo "$step" | jq -r '.reasoning // ""')
+
+    if [[ -z "$prompt" ]]; then
+      continue
+    fi
+
+    # Escape special characters for YAML
+    prompt=$(echo "$prompt" | sed 's/"/\\"/g')
+    reasoning=$(echo "$reasoning" | sed 's/"/\\"/g')
+
+    yq -i ".[\"step-queue\"] += [{
+      \"id\": \"proposed-$next_id\",
+      \"prompt\": \"$prompt\",
+      \"proposedBy\": \"$proposed_by\",
+      \"proposedAt\": \"$timestamp\",
+      \"priority\": \"$priority\",
+      \"reasoning\": \"$reasoning\"
+    }]" "$PROGRESS_FILE"
+    next_id=$((next_id + 1))
+  done < <(echo "$proposed_json" | jq -c '.[]' 2>/dev/null)
+
+  echo "Added $(echo "$proposed_json" | jq 'length') step(s) to step-queue"
+}
+
+# Check if orchestration should run
+# Returns 0 (true) if step-queue not empty AND orchestration.enabled
+should_run_orchestration() {
+  # Check if orchestration is enabled (from PROGRESS.yaml or SPRINT.yaml)
+  local enabled
+  enabled=$(yq -r '.orchestration.enabled // false' "$PROGRESS_FILE")
+  if [[ "$enabled" != "true" ]]; then
+    return 1
+  fi
+
+  # Check if step-queue has items
+  local queue_count
+  queue_count=$(yq -r '."step-queue" // [] | length' "$PROGRESS_FILE")
+  if [[ "$queue_count" -eq 0 ]]; then
+    return 1
+  fi
+
+  return 0
+}
+
+# Insert a step at specified position in phases array
+# Args: step_data (JSON), position (after-current|end-of-phase), phase_idx, step_idx
+insert_step_at_position() {
+  local step_prompt="$1"
+  local position="$2"
+  local phase_idx="$3"
+  local step_idx="$4"
+
+  local timestamp
+  timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+  # Generate unique step ID
+  local new_step_id="inserted-$(date +%s)-$RANDOM"
+
+  # Escape prompt for YAML
+  step_prompt=$(echo "$step_prompt" | sed 's/"/\\"/g')
+
+  case "$position" in
+    after-current)
+      # Insert as next sub-phase within current step
+      local current_sub
+      current_sub=$(yq -r '.current."sub-phase" // 0' "$PROGRESS_FILE")
+      local insert_at=$((current_sub + 1))
+
+      # Insert new sub-phase at position
+      yq -i ".phases[$phase_idx].steps[$step_idx].phases |= (
+        .[:$insert_at] + [{
+          \"id\": \"$new_step_id\",
+          \"prompt\": \"$step_prompt\",
+          \"status\": \"pending\",
+          \"inserted-at\": \"$timestamp\"
+        }] + .[$insert_at:]
+      )" "$PROGRESS_FILE"
+      echo "Inserted step $new_step_id after current position"
+      ;;
+    end-of-phase)
+      # Append to end of current step's phases array
+      yq -i ".phases[$phase_idx].steps[$step_idx].phases += [{
+        \"id\": \"$new_step_id\",
+        \"prompt\": \"$step_prompt\",
+        \"status\": \"pending\",
+        \"inserted-at\": \"$timestamp\"
+      }]" "$PROGRESS_FILE"
+      echo "Inserted step $new_step_id at end of phase"
+      ;;
+    *)
+      # Default to end-of-phase
+      yq -i ".phases[$phase_idx].steps[$step_idx].phases += [{
+        \"id\": \"$new_step_id\",
+        \"prompt\": \"$step_prompt\",
+        \"status\": \"pending\",
+        \"inserted-at\": \"$timestamp\"
+      }]" "$PROGRESS_FILE"
+      echo "Inserted step $new_step_id at end of phase (default)"
+      ;;
+  esac
+}
+
+# Run orchestration iteration to process step-queue
+# Reads queue, builds prompt, executes Claude for decisions, processes results
+run_orchestration_iteration() {
+  echo ""
+  echo "=== Running Orchestration ==="
+
+  # Read step-queue from PROGRESS.yaml
+  local queue_json
+  queue_json=$(yq -o=json '."step-queue" // []' "$PROGRESS_FILE")
+
+  if [[ "$queue_json" == "[]" ]]; then
+    echo "Step queue is empty, skipping orchestration"
+    return 0
+  fi
+
+  local queue_count
+  queue_count=$(echo "$queue_json" | jq 'length')
+  echo "Processing $queue_count proposed step(s)"
+
+  # Get current position for context
+  local phase_idx step_idx
+  phase_idx=$(yq -r '.current.phase // 0' "$PROGRESS_FILE")
+  step_idx=$(yq -r '.current.step // 0' "$PROGRESS_FILE")
+
+  # Get current phase/step context
+  local current_phase_id current_step_id
+  current_phase_id=$(yq -r ".phases[$phase_idx].id // \"phase-$phase_idx\"" "$PROGRESS_FILE")
+  current_step_id=$(yq -r ".phases[$phase_idx].steps[$step_idx].id // \"step-$step_idx\"" "$PROGRESS_FILE")
+
+  # Build orchestration prompt inline
+  local orchestration_prompt
+  orchestration_prompt=$(cat <<EOF
+# Orchestration Decision Required
+
+You are reviewing proposed steps from the sprint execution.
+
+## Current Position
+- Phase: $current_phase_id
+- Step: $current_step_id
+
+## Proposed Steps to Review
+$queue_json
+
+## Your Task
+For each proposed step, decide:
+1. **insert**: Add the step to the sprint (provide position: after-current or end-of-phase)
+2. **reject**: Do not add the step (provide reasoning)
+3. **defer**: Keep in queue for later review
+
+## Response Format
+Respond with JSON:
+\`\`\`json
+{
+  "decisions": [
+    {"id": "proposed-1", "action": "insert", "position": "after-current"},
+    {"id": "proposed-2", "action": "reject", "reasoning": "Already covered by existing step"},
+    {"id": "proposed-3", "action": "defer"}
+  ]
+}
+\`\`\`
+EOF
+)
+
+  # Execute Claude for orchestration decisions
+  local orchestration_transcript="$SPRINT_DIR/transcripts/orchestration-$(date +%s).jsonl"
+  mkdir -p "$SPRINT_DIR/transcripts"
+
+  echo "Invoking Claude for orchestration decisions..."
+  claude -p "$orchestration_prompt" \
+    --dangerously-skip-permissions \
+    --output-format stream-json \
+    > "$orchestration_transcript" 2>&1
+  local exit_code=$?
+
+  if [[ "$exit_code" -ne 0 ]]; then
+    echo "Warning: Orchestration Claude call failed with exit code $exit_code"
+    return 1
+  fi
+
+  # Extract decisions from result
+  local orchestration_result
+  orchestration_result=$(extract_json_result "$orchestration_transcript")
+
+  if [[ -z "$orchestration_result" ]]; then
+    echo "Warning: No valid JSON result from orchestration"
+    return 1
+  fi
+
+  # Process each decision
+  local decisions
+  decisions=$(echo "$orchestration_result" | jq -c '.decisions // []')
+
+  while IFS= read -r decision; do
+    [[ -z "$decision" ]] && continue
+
+    local step_id action position
+    step_id=$(echo "$decision" | jq -r '.id')
+    action=$(echo "$decision" | jq -r '.action')
+    position=$(echo "$decision" | jq -r '.position // "end-of-phase"')
+
+    # Get the prompt for this step from queue
+    local step_prompt
+    step_prompt=$(yq -r ".[\"step-queue\"][] | select(.id == \"$step_id\") | .prompt" "$PROGRESS_FILE")
+
+    case "$action" in
+      insert)
+        echo "Inserting step $step_id at position: $position"
+        insert_step_at_position "$step_prompt" "$position" "$phase_idx" "$step_idx"
+        # Remove from queue
+        yq -i "del(.[\"step-queue\"][] | select(.id == \"$step_id\"))" "$PROGRESS_FILE"
+        ;;
+      reject)
+        echo "Rejecting step $step_id"
+        # Remove from queue
+        yq -i "del(.[\"step-queue\"][] | select(.id == \"$step_id\"))" "$PROGRESS_FILE"
+        ;;
+      defer)
+        echo "Deferring step $step_id"
+        # Keep in queue - no action needed
+        ;;
+      *)
+        echo "Unknown action '$action' for step $step_id, deferring"
+        ;;
+    esac
+  done < <(echo "$decisions" | jq -c '.[]' 2>/dev/null)
+
+  echo "Orchestration complete"
+  return 0
+}
+
+# Process proposed steps with auto-approve mode
+# Directly inserts steps without orchestration call
+process_auto_approve() {
+  local insert_strategy
+  insert_strategy=$(yq -r '.orchestration.insertStrategy // "end-of-phase"' "$PROGRESS_FILE")
+
+  local phase_idx step_idx
+  phase_idx=$(yq -r '.current.phase // 0' "$PROGRESS_FILE")
+  step_idx=$(yq -r '.current.step // 0' "$PROGRESS_FILE")
+
+  echo "Auto-approving queued steps with strategy: $insert_strategy"
+
+  # Process each step in queue
+  local queue_items
+  queue_items=$(yq -o=json '."step-queue" // []' "$PROGRESS_FILE")
+
+  while IFS= read -r item; do
+    [[ -z "$item" ]] && continue
+
+    local step_id step_prompt
+    step_id=$(echo "$item" | jq -r '.id')
+    step_prompt=$(echo "$item" | jq -r '.prompt')
+
+    insert_step_at_position "$step_prompt" "$insert_strategy" "$phase_idx" "$step_idx"
+    # Remove from queue
+    yq -i "del(.[\"step-queue\"][] | select(.id == \"$step_id\"))" "$PROGRESS_FILE"
+  done < <(echo "$queue_items" | jq -c '.[]' 2>/dev/null)
+}
+
+# =============================================================================
+# UNIFIED LOOP FUNCTION
+# =============================================================================
+
+# Unified Loop - Hierarchical phase-based workflow execution with orchestration support
+run_loop() {
   echo "============================================================"
   echo "SPRINT LOOP STARTING (Hierarchical Workflow)"
   echo "============================================================"
@@ -2002,6 +2323,33 @@ run_standard_loop() {
       ;;
   esac
 
+  # Extract and process proposedSteps from result (orchestration support)
+  # Only process if step completed successfully (RESULT_CODE == 0)
+  if [[ "$RESULT_CODE" -eq 0 ]]; then
+    # Get step ID for proposedBy tracking
+    local step_id
+    step_id=$(yq -r ".phases[$PREV_PHASE_IDX].steps[$PREV_STEP_IDX].id // \"step-$PREV_STEP_IDX\"" "$PROGRESS_FILE")
+
+    # Extract proposedSteps from transcript
+    local proposed_steps
+    proposed_steps=$(extract_proposed_steps "$TRANSCRIPT_FILE")
+
+    # Add to step-queue if any proposed
+    if [[ "$proposed_steps" != "[]" ]] && [[ -n "$proposed_steps" ]]; then
+      add_to_step_queue "$proposed_steps" "$step_id"
+
+      # Check if orchestration should run
+      if should_run_orchestration; then
+        # Check auto-approve mode
+        if [[ "$(yq -r '.orchestration.autoApprove // false' "$PROGRESS_FILE")" == "true" ]]; then
+          process_auto_approve
+        else
+          run_orchestration_iteration
+        fi
+      fi
+    fi
+  fi
+
   # Update elapsed times for any completed phases
   # Read current pointer to know which phases to check
   CURR_PHASE=$(yq -r '.current.phase // 0' "$PROGRESS_FILE")
@@ -2107,6 +2455,10 @@ exit 1
 SPRINT_MODE=$(yq -r '.mode // "standard"' "$PROGRESS_FILE")
 
 case "$SPRINT_MODE" in
-  "ralph") run_ralph_loop ;;
-  *) run_standard_loop ;;
+  "ralph")
+    run_ralph_loop
+    ;;
+  *)
+    run_loop
+    ;;
 esac
