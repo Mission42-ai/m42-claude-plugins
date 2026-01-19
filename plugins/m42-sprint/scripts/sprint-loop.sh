@@ -873,6 +873,32 @@ process_ralph_result() {
       ;;
 
     goal-complete)
+      # Check min-iterations threshold before allowing goal-complete
+      local min_iterations
+      min_iterations=$(yq -r '.ralph."min-iterations" // 0' "$PROGRESS_FILE")
+
+      if [[ "$min_iterations" -gt 0 ]] && [[ "$iteration" -lt "$min_iterations" ]]; then
+        echo "Goal-complete requested at iteration $iteration, but min-iterations is $min_iterations"
+        echo "Continuing execution until threshold is reached..."
+
+        # Record the premature goal-complete attempt for context
+        yaml_update ".ralph.\"goal-complete-attempted-at\" = $iteration"
+
+        # Mark any completed steps from this iteration (same as below)
+        local completed_ids
+        completed_ids=$(echo "$json_result" | jq -r '.completedStepIds // [] | .[]' 2>/dev/null)
+        local completed_at_ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+        for cid in $completed_ids; do
+          yaml_atomic_update \
+            "(.dynamic-steps[] | select(.id == \"$cid\")).status = \"completed\"" \
+            "(.dynamic-steps[] | select(.id == \"$cid\")).\"completed-at\" = \"$completed_at_ts\""
+        done
+
+        # Return 0 to continue (agent will get another iteration)
+        return 0
+      fi
+
       echo "Goal complete: $goal_summary"
 
       # Mark any completed steps from this iteration

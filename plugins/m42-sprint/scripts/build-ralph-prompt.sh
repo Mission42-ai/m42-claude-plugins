@@ -36,6 +36,10 @@ fi
 # Read goal from PROGRESS.yaml
 GOAL=$(yq -r '.goal // "No goal defined"' "$PROGRESS_FILE")
 
+# Read Ralph mode settings
+MIN_ITERATIONS=$(yq -r '.ralph."min-iterations" // 0' "$PROGRESS_FILE")
+GOAL_COMPLETE_ATTEMPTED=$(yq -r '.ralph."goal-complete-attempted-at" // "null"' "$PROGRESS_FILE")
+
 # Read workflow file path and optional prompts
 WORKFLOW_FILE=$(yq -r '.workflow-file // ""' "$PROGRESS_FILE")
 GOAL_PROMPT=""
@@ -406,6 +410,26 @@ EOF
 ## Reflection Guidelines
 $REFLECTION_PROMPT
 EOF
+    fi
+
+    # Show min-iterations context if configured
+    if [[ "$MIN_ITERATIONS" -gt 0 ]] && [[ "$ITERATION" -lt "$MIN_ITERATIONS" ]]; then
+      cat <<EOF
+
+## Min-Iterations Threshold
+This sprint has a minimum iterations threshold of **$MIN_ITERATIONS**.
+Current iteration: $ITERATION
+
+The goal-complete status will not be accepted until iteration $MIN_ITERATIONS is reached.
+This ensures deep, thoughtful work rather than premature completion.
+EOF
+      if [[ "$GOAL_COMPLETE_ATTEMPTED" != "null" ]]; then
+        cat <<EOF
+
+Note: Goal-complete was already attempted in iteration $GOAL_COMPLETE_ATTEMPTED but was deferred.
+Use this time to refine, verify, or find improvements you might have missed.
+EOF
+      fi
     fi
 
     cat <<EOF
