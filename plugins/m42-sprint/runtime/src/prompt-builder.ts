@@ -534,27 +534,9 @@ export function buildParallelPrompt(
   parts.push('2. This runs in background - focus on completing this specific task');
   parts.push('3. Commit changes when done');
 
-  // Result reporting
+  // Result reporting (reuse default template)
   parts.push('');
-  parts.push(`## Result Reporting (IMPORTANT)
-
-Do NOT modify PROGRESS.yaml directly. The sprint loop handles all state updates.
-Report your result as JSON in your final output:
-
-**On Success:**
-\`\`\`json
-{"status": "completed", "summary": "Brief description of what was accomplished"}
-\`\`\`
-
-**On Failure:**
-\`\`\`json
-{"status": "failed", "summary": "What was attempted", "error": "What went wrong"}
-\`\`\`
-
-**If Human Needed:**
-\`\`\`json
-{"status": "needs-human", "summary": "What was done so far", "humanNeeded": {"reason": "Why human is needed", "details": "Additional context"}}
-\`\`\``);
+  parts.push(DEFAULT_PROMPTS['result-reporting']);
 
   return parts.join('\n');
 }
