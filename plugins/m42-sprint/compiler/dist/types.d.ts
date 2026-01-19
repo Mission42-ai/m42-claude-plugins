@@ -8,6 +8,10 @@ export type PhaseStatus = 'pending' | 'in-progress' | 'completed' | 'blocked' | 
  */
 export type SprintStatus = 'not-started' | 'in-progress' | 'completed' | 'blocked' | 'paused' | 'needs-human';
 export type ParallelTaskStatus = 'spawned' | 'running' | 'completed' | 'failed';
+/** Log severity levels for LOG actions */
+export type LogLevel = 'info' | 'warn' | 'error';
+/** Step insertion position strategies */
+export type InsertPosition = 'after-current' | 'end-of-phase';
 /**
  * Discriminated union for sprint state - provides type-safe state access.
  * Each state variant has its own specific required fields.
@@ -89,7 +93,7 @@ export type SprintEvent = {
  */
 export type SprintAction = {
     type: 'LOG';
-    level: 'info' | 'warn' | 'error';
+    level: LogLevel;
     message: string;
 } | {
     type: 'SPAWN_CLAUDE';
@@ -112,7 +116,7 @@ export type SprintAction = {
 } | {
     type: 'INSERT_STEP';
     step: StepQueueItem;
-    position: 'after-current' | 'end-of-phase';
+    position: InsertPosition;
 };
 /**
  * Result of a state transition - combines next state, actions to execute, and context updates.
