@@ -177,11 +177,12 @@ Next steps:
   2. (Optional) Add context files to context/ directory
   3. Run `/run-sprint .claude/sprints/YYYY-MM-DD_<sprint-name>`
 
-Available patterns for Ralph to invoke:
-  - implement-feature (TDD implementation)
-  - fix-bug (debug and fix with regression test)
-  - refactor (safe refactoring with test preservation)
-  - document (documentation updates)
+Ralph Mode Features:
+  - Goal-driven autonomous execution with fresh context per iteration
+  - Dynamic step creation and reprioritization
+  - JSON result reporting for progress tracking
+  - Per-iteration learning extraction (via m42-signs)
+  - Minimum iterations threshold to ensure deep work
 ```
 
 #### For Workflow Mode:

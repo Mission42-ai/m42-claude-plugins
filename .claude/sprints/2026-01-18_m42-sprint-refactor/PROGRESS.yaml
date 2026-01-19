@@ -1,0 +1,395 @@
+sprint-id: 2026-01-18_m42-sprint-refactor
+status: in-progress
+mode: ralph
+goal: |
+  Refactor and harden the m42-sprint plugin to realize the vision in /sprints/2026-01-18_m42-sprint-refactor/CLAUDE.md
+
+  ## The Vision (Read First)
+  CLAUDE.md contains the full vision. Key points:
+
+  - **Scale intelligence, not limit it** - Every decision should multiply capability
+  - **Freedom + Patterns** - Ralph thinks deeply and shapes work; patterns ensure consistent execution
+  - **Deep work** - Each iteration is thoughtful, not rushed
+  - **Compound improvement** - Learnings make the system smarter over time
+
+  ## What Needs to Happen
+
+  ### 1. Solid Foundations
+  The plugin needs to be reliable before it can be powerful:
+  - Sprints shouldn't fail unexpectedly
+  - When things go wrong, we need to understand why
+  - State should be recoverable
+  - The architecture should support future growth
+
+  ### 2. The Freedom + Patterns Model
+  The core insight we haven't fully realized:
+  - Ralph should genuinely be free to think and shape work
+  - But when Ralph decides to EXECUTE something, patterns ensure quality
+  - How this works is for you to discover - the vision describes WHAT, not HOW
+
+  ### 3. Worktree Foundation
+  Enable scaling to parallel execution:
+  - Multiple sprints running in different worktrees
+  - Status server that can track them all
+  - Isolation so they don't interfere
+
+  ### 4. Developer Experience
+  Make it a joy to use:
+  - Clear errors with actionable guidance
+  - Good documentation
+  - Commands that work intuitively
+
+  ### 5. Learning Integration
+  The m42-signs integration should work seamlessly:
+  - Deep work generates meaningful learnings
+  - Learnings compound and improve future sprints
+
+  ## Known Issues to Address
+  - Sprint loop error handling is fragile
+  - /start-sprint command doesn't know about Ralph mode
+  - Status server isn't worktree-aware
+  - Documentation is scattered
+  - Testing coverage has gaps
+
+  ## Approach
+  Think deeply. One thoughtful iteration at a time.
+  - Understand before changing
+  - Test before and after
+  - Document discoveries in context/
+  - Roll back what doesn't work
+  - The vision is the guide, not a prescription
+
+  ## Success
+  - The plugin is reliable and trustworthy
+  - Ralph has genuine freedom within the system
+  - Patterns ensure consistent quality execution
+  - The architecture supports future scaling
+  - Others can understand and build on this
+dynamic-steps:
+  - id: review-feedback
+    prompt: Read and understand operator feedback in context/operator-feedback-round2.md. Acknowledge each point and create a plan to address them.
+    status: completed
+    added-at: "2026-01-19T05:30:00Z"
+    added-in-iteration: 16
+    completed-at: "2026-01-19T09:36:54Z"
+  - id: remove-hardcoded-patterns
+    prompt: Remove the hardcoded patterns from plugins/m42-sprint/patterns/ and update sprint-loop.sh to not use them. Document the decision.
+    status: completed
+    added-at: "2026-01-19T05:30:00Z"
+    added-in-iteration: 16
+    completed-at: "2026-01-19T09:42:44Z"
+  - id: study-gherkin-workflow
+    prompt: Study .claude/sprints/2026-01-17_plugin-enhancements/SPRINT.yaml deeply. Understand how workflow templates work. Document the patterns.
+    status: completed
+    added-at: "2026-01-19T05:30:00Z"
+    added-in-iteration: 16
+    completed-at: "2026-01-19T09:44:55Z"
+  - id: implement-min-iterations
+    prompt: Add min-iterations feature to Ralph mode. Update sprint-loop.sh to check this threshold before allowing goal-complete.
+    status: completed
+    added-at: "2026-01-19T05:30:00Z"
+    added-in-iteration: 16
+    completed-at: "2026-01-19T09:46:42Z"
+  - id: complete-status-ui
+    prompt: 'Complete the Ralph mode UI in status server page.ts: sidebar title, task rendering, goal display, hook status.'
+    status: completed
+    added-at: "2026-01-19T05:30:00Z"
+    added-in-iteration: 16
+    completed-at: "2026-01-19T09:51:11Z"
+  - id: step-1
+    prompt: 'Implement transaction-safe YAML with recovery: wrap iteration in transaction block, add recovery on startup for .backup files, add checksum validation.'
+    status: completed
+    added-at: "2026-01-19T09:36:54Z"
+    added-in-iteration: 1
+    completed-at: "2026-01-19T10:10:10Z"
+  - id: step-2
+    prompt: Test all sprint features in real execution. Run a test sprint using the new code to verify reliability.
+    status: completed
+    added-at: "2026-01-19T09:36:54Z"
+    added-in-iteration: 1
+    completed-at: "2026-01-19T10:10:10Z"
+  - id: step-3
+    prompt: Update and consolidate documentation. Ensure all docs are consistent and complete.
+    status: completed
+    added-at: "2026-01-19T09:36:54Z"
+    added-in-iteration: 1
+    completed-at: "2026-01-19T10:10:10Z"
+  - id: step-1
+    prompt: Update USER-GUIDE.md to cover Ralph mode and remove outdated task-queue migration content.
+    status: completed
+    added-at: "2026-01-19T10:04:09Z"
+    added-in-iteration: 8
+    completed-at: "2026-01-19T10:10:10Z"
+  - id: step-2
+    prompt: Update README.md to highlight Ralph mode in quick start section.
+    status: completed
+    added-at: "2026-01-19T10:04:09Z"
+    added-in-iteration: 8
+    completed-at: "2026-01-19T10:10:10Z"
+  - id: step-1
+    prompt: Update docs/getting-started/quick-start.md to include Ralph mode example alongside workflow mode.
+    status: completed
+    added-at: "2026-01-19T10:07:07Z"
+    added-in-iteration: 9
+    completed-at: "2026-01-19T10:10:10Z"
+hook-tasks:
+  - iteration: 1
+    hook-id: learning
+    status: completed
+    spawned-at: "2026-01-18T23:41:59Z"
+    completed-at: "2026-01-19T09:36:14Z"
+    exit-code: 0
+  - iteration: 2
+    hook-id: learning
+    status: completed
+    spawned-at: "2026-01-18T23:45:58Z"
+    completed-at: "2026-01-19T09:38:14Z"
+    exit-code: 0
+  - iteration: 3
+    hook-id: learning
+    status: completed
+    spawned-at: "2026-01-18T23:49:47Z"
+    completed-at: "2026-01-19T09:43:27Z"
+    exit-code: 0
+  - iteration: 4
+    hook-id: learning
+    status: completed
+    spawned-at: "2026-01-18T23:50:36Z"
+    completed-at: "2026-01-19T09:45:48Z"
+    exit-code: 0
+  - iteration: 5
+    hook-id: learning
+    status: completed
+    spawned-at: "2026-01-18T23:51:28Z"
+    completed-at: "2026-01-19T09:48:36Z"
+    exit-code: 0
+  - iteration: 1
+    hook-id: learning
+    status: completed
+    spawned-at: "2026-01-18T23:53:15Z"
+    completed-at: "2026-01-19T09:36:14Z"
+    exit-code: 0
+  - iteration: 2
+    hook-id: learning
+    status: completed
+    spawned-at: "2026-01-18T23:54:58Z"
+    completed-at: "2026-01-19T09:38:14Z"
+    exit-code: 0
+  - iteration: 3
+    hook-id: learning
+    status: completed
+    spawned-at: "2026-01-18T23:56:35Z"
+    completed-at: "2026-01-19T09:43:27Z"
+    exit-code: 0
+  - iteration: 4
+    hook-id: learning
+    status: completed
+    spawned-at: "2026-01-18T23:57:36Z"
+    completed-at: "2026-01-19T09:45:48Z"
+    exit-code: 0
+  - iteration: 5
+    hook-id: learning
+    status: completed
+    spawned-at: "2026-01-18T23:58:49Z"
+    completed-at: "2026-01-19T09:48:36Z"
+    exit-code: 0
+  - iteration: 6
+    hook-id: learning
+    status: completed
+    spawned-at: "2026-01-18T23:59:31Z"
+    completed-at: "2026-01-19T09:51:55Z"
+    exit-code: 0
+  - iteration: 1
+    hook-id: learning
+    status: completed
+    spawned-at: "2026-01-19T00:00:27Z"
+    completed-at: "2026-01-19T09:36:14Z"
+    exit-code: 0
+  - iteration: 2
+    hook-id: learning
+    status: completed
+    spawned-at: "2026-01-19T00:04:08Z"
+    completed-at: "2026-01-19T09:38:14Z"
+    exit-code: 0
+  - iteration: 3
+    hook-id: learning
+    status: completed
+    spawned-at: "2026-01-19T00:08:44Z"
+    completed-at: "2026-01-19T09:43:27Z"
+    exit-code: 0
+  - iteration: 4
+    hook-id: learning
+    status: completed
+    spawned-at: "2026-01-19T00:13:56Z"
+    completed-at: "2026-01-19T09:45:48Z"
+    exit-code: 0
+  - iteration: 5
+    hook-id: learning
+    status: completed
+    spawned-at: "2026-01-19T00:18:32Z"
+    completed-at: "2026-01-19T09:48:36Z"
+    exit-code: 0
+  - iteration: 6
+    hook-id: learning
+    status: completed
+    spawned-at: "2026-01-19T00:23:08Z"
+    completed-at: "2026-01-19T09:51:55Z"
+    exit-code: 0
+  - iteration: 7
+    hook-id: learning
+    status: completed
+    spawned-at: "2026-01-19T00:26:59Z"
+    completed-at: "2026-01-19T09:55:36Z"
+    exit-code: 0
+  - iteration: 8
+    hook-id: learning
+    status: completed
+    spawned-at: "2026-01-19T00:30:50Z"
+    completed-at: "2026-01-19T10:00:42Z"
+    exit-code: 0
+  - iteration: 9
+    hook-id: learning
+    status: completed
+    spawned-at: "2026-01-19T00:32:26Z"
+    completed-at: "2026-01-19T10:05:02Z"
+    exit-code: 0
+  - iteration: 10
+    hook-id: learning
+    status: completed
+    spawned-at: "2026-01-19T00:34:20Z"
+    completed-at: "2026-01-19T10:07:49Z"
+    exit-code: 0
+  - iteration: 11
+    hook-id: learning
+    status: completed
+    spawned-at: "2026-01-19T00:37:26Z"
+    completed-at: "2026-01-19T10:10:37Z"
+    exit-code: 0
+  - iteration: 12
+    hook-id: learning
+    status: completed
+    spawned-at: "2026-01-19T00:39:59Z"
+    completed-at: "2026-01-19T00:40:48Z"
+    exit-code: 0
+  - iteration: 13
+    hook-id: learning
+    status: completed
+    spawned-at: "2026-01-19T00:44:31Z"
+    completed-at: "2026-01-19T00:45:20Z"
+    exit-code: 0
+  - iteration: 14
+    hook-id: learning
+    status: completed
+    spawned-at: "2026-01-19T00:47:22Z"
+    completed-at: "2026-01-19T00:47:56Z"
+    exit-code: 0
+  - iteration: 15
+    hook-id: learning
+    status: completed
+    spawned-at: "2026-01-19T00:49:10Z"
+    completed-at: "2026-01-19T00:50:04Z"
+    exit-code: 0
+  - iteration: 1
+    hook-id: learning
+    status: completed
+    spawned-at: "2026-01-19T09:35:22Z"
+    completed-at: "2026-01-19T09:36:14Z"
+    exit-code: 0
+  - iteration: 2
+    hook-id: learning
+    status: completed
+    spawned-at: "2026-01-19T09:36:56Z"
+    completed-at: "2026-01-19T09:38:14Z"
+    exit-code: 0
+  - iteration: 3
+    hook-id: learning
+    status: completed
+    spawned-at: "2026-01-19T09:42:47Z"
+    completed-at: "2026-01-19T09:43:27Z"
+    exit-code: 0
+  - iteration: 4
+    hook-id: learning
+    status: completed
+    spawned-at: "2026-01-19T09:44:57Z"
+    completed-at: "2026-01-19T09:45:48Z"
+    exit-code: 0
+  - iteration: 5
+    hook-id: learning
+    status: completed
+    spawned-at: "2026-01-19T09:46:44Z"
+    completed-at: "2026-01-19T09:48:36Z"
+    exit-code: 0
+  - iteration: 6
+    hook-id: learning
+    status: completed
+    spawned-at: "2026-01-19T09:51:14Z"
+    completed-at: "2026-01-19T09:51:55Z"
+    exit-code: 0
+  - iteration: 7
+    hook-id: learning
+    status: completed
+    spawned-at: "2026-01-19T09:54:54Z"
+    completed-at: "2026-01-19T09:55:36Z"
+    exit-code: 0
+  - iteration: 8
+    hook-id: learning
+    status: completed
+    spawned-at: "2026-01-19T09:59:53Z"
+    completed-at: "2026-01-19T10:00:42Z"
+    exit-code: 0
+  - iteration: 9
+    hook-id: learning
+    status: completed
+    spawned-at: "2026-01-19T10:04:11Z"
+    completed-at: "2026-01-19T10:05:02Z"
+    exit-code: 0
+  - iteration: 10
+    hook-id: learning
+    status: completed
+    spawned-at: "2026-01-19T10:07:09Z"
+    completed-at: "2026-01-19T10:07:49Z"
+    exit-code: 0
+  - iteration: 11
+    hook-id: learning
+    status: completed
+    spawned-at: "2026-01-19T10:10:11Z"
+    completed-at: "2026-01-19T10:10:37Z"
+    exit-code: 0
+per-iteration-hooks:
+  - id: learning
+    prompt: |
+      /m42-signs:extract $ITERATION_TRANSCRIPT
+    parallel: true
+    enabled: true
+ralph:
+  idle-threshold: 3
+  min-iterations: 30
+ralph-exit:
+  detected-at: "2026-01-19T00:50:33Z"
+  iteration: 15
+  final-summary: |-
+    The m42-sprint refactoring sprint has been completed. Over 15 iterations, the sprint accomplished:
+
+    **Pattern Layer**: Implemented complete mechanism for Ralph to invoke quality execution patterns (implement-feature, fix-bug, refactor, document) with verification commands and result context.
+
+    **Worktree Awareness**: Built full foundation for parallel sprint execution including worktree detection module, /api/worktrees endpoint, dashboard filtering, and worktree context in all APIs.
+
+    **Infrastructure Hardening**: Added transaction-safe YAML updates, fixed critical bugs in pattern verification (exit code capture, yq boolean handling), and created 8-case test suite.
+
+    **Documentation**: Created patterns concepts doc, comprehensive API reference, updated commands reference with Ralph mode, and organized docs index.
+
+    **Commands**: Updated /start-sprint with Ralph mode template generation and guidance.
+
+    **Impact**: ~4,100 lines of code added across 30 files, 16 atomic commits, and learning extraction after each iteration. The vision of 'Freedom + Patterns' is now architecturally realized - Ralph has freedom to think while patterns ensure consistent quality execution.
+current:
+  phase: 0
+  step: null
+  sub-phase: null
+stats:
+  started-at: "2026-01-18T23:41:58Z"
+  total-phases: 0
+  completed-phases: 0
+  current-iteration: 11
+  max-iterations: 1000000
+  completed-at: "2026-01-19T00:50:33Z"
+  elapsed: 01:08:35
