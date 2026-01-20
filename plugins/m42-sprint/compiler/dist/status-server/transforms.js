@@ -10,6 +10,7 @@ exports.calculateElapsed = calculateElapsed;
 exports.countRalphTasks = countRalphTasks;
 exports.countPhases = countPhases;
 exports.calculateProgressPercent = calculateProgressPercent;
+exports.countTotalSteps = countTotalSteps;
 exports.buildPhaseTree = buildPhaseTree;
 exports.buildRalphTaskTree = buildRalphTaskTree;
 exports.extractCurrentTask = extractCurrentTask;
@@ -138,6 +139,24 @@ function calculateProgressPercent(progress) {
     if (total === 0)
         return 0;
     return Math.round((completed / total) * 100);
+}
+/**
+ * Count total steps (leaf-level phases) for "Step X of Y" display
+ * Returns the total number of leaf-level phases (sub-phases) across all steps
+ */
+function countTotalSteps(progress) {
+    let total = 0;
+    for (const topPhase of progress.phases ?? []) {
+        if (topPhase.steps) {
+            for (const step of topPhase.steps) {
+                total += step.phases.length;
+            }
+        }
+        else {
+            total++; // Simple phase counts as 1
+        }
+    }
+    return total;
 }
 // ============================================================================
 // Phase Tree Building
@@ -580,6 +599,11 @@ function toStatusUpdate(progress, includeRaw = false, timingInfo) {
             header.estimatedCompletionTime = timingInfo.estimatedCompletionTime;
         }
     }
+    // Add step progress info for "Step X of Y" display
+    const totalSteps = countTotalSteps(progress);
+    header.totalSteps = totalSteps;
+    // currentStep is 1-indexed: completed + 1 (for display "Step 3 of 5")
+    header.currentStep = progress.status === 'in-progress' ? completed + 1 : completed;
     // Build the phase/task tree based on mode
     const phaseTree = isRalphMode ? buildRalphTaskTree(progress) : buildPhaseTree(progress);
     // Extract current task (only for standard mode - Ralph mode is goal-driven)

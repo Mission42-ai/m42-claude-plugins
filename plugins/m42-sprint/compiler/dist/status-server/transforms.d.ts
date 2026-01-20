@@ -47,6 +47,11 @@ export declare function countPhases(progress: CompiledProgress): {
  */
 export declare function calculateProgressPercent(progress: CompiledProgress): number;
 /**
+ * Count total steps (leaf-level phases) for "Step X of Y" display
+ * Returns the total number of leaf-level phases (sub-phases) across all steps
+ */
+export declare function countTotalSteps(progress: CompiledProgress): number;
+/**
  * Build the complete phase tree from CompiledProgress
  * Uses the current pointer to infer step statuses when they haven't been
  * explicitly updated by the runtime (fixes BUG-001)
