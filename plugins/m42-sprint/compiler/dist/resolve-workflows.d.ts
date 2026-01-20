@@ -13,6 +13,8 @@ import type { WorkflowDefinition, LoadedWorkflow, CompilerError } from './types.
  * @returns Loaded workflow or null if not found or failed to parse
  */
 export declare function loadWorkflow(name: string, workflowsDir: string, errors?: CompilerError[]): LoadedWorkflow | null;
+/** Maximum allowed workflow nesting depth */
+export declare const MAX_WORKFLOW_DEPTH = 5;
 /**
  * Resolve all workflow references recursively
  *
@@ -20,9 +22,10 @@ export declare function loadWorkflow(name: string, workflowsDir: string, errors?
  * @param workflowsDir - Directory containing workflow files
  * @param visited - Set of already visited workflow names (for cycle detection)
  * @param errors - Array to collect errors
+ * @param depth - Current nesting depth (default 0)
  * @returns Map of workflow name to loaded workflow
  */
-export declare function resolveWorkflowRefs(workflow: WorkflowDefinition, workflowsDir: string, visited?: Set<string>, errors?: CompilerError[]): Map<string, LoadedWorkflow>;
+export declare function resolveWorkflowRefs(workflow: WorkflowDefinition, workflowsDir: string, visited?: Set<string>, errors?: CompilerError[], depth?: number): Map<string, LoadedWorkflow>;
 /**
  * Get all workflow files in a directory
  *

@@ -198,6 +198,12 @@ async function compile(config) {
             const expandedPhase = (0, expand_foreach_js_1.expandForEach)(phase, sprintDef.steps ?? [], config.workflowsDir, defaultStepWorkflow, context, errors);
             compiledPhases.push(expandedPhase);
         }
+        else if (phase.workflow && !phase['for-each']) {
+            // Expand workflow reference (no for-each) - inline the referenced workflow's phases
+            // Start at depth 1 since main workflow is at depth 0
+            const expandedPhases = expandWorkflowReference(phase, config.workflowsDir, context, errors, new Set([sprintDef.workflow]), 1);
+            compiledPhases.push(...expandedPhases);
+        }
         else {
             // Simple phase with prompt
             const simplePhase = (0, expand_foreach_js_1.compileSimplePhase)(phase, context);
@@ -253,6 +259,81 @@ async function compile(config) {
         errors,
         warnings
     };
+}
+/**
+ * Expand a workflow reference phase into inline phases
+ *
+ * @param phase - The phase with workflow reference (no for-each)
+ * @param workflowsDir - Directory containing workflow files
+ * @param context - Template context
+ * @param errors - Error accumulator
+ * @param visited - Set of visited workflows for cycle detection
+ * @param depth - Current nesting depth
+ * @returns Array of compiled phases from the referenced workflow
+ */
+function expandWorkflowReference(phase, workflowsDir, context, errors, visited, depth) {
+    if (!phase.workflow) {
+        return [];
+    }
+    // Check for cycles
+    if (visited.has(phase.workflow)) {
+        const cyclePath = Array.from(visited).concat(phase.workflow);
+        errors.push({
+            code: 'CYCLE_DETECTED',
+            message: `Circular workflow reference detected: ${cyclePath.join(' → ')}`,
+            path: `phases[${phase.id}].workflow`,
+            details: { cycle: cyclePath }
+        });
+        return [];
+    }
+    // Check max depth
+    if (depth >= resolve_workflows_js_1.MAX_WORKFLOW_DEPTH) {
+        errors.push({
+            code: 'MAX_DEPTH_EXCEEDED',
+            message: `Workflow nesting depth exceeded maximum of ${resolve_workflows_js_1.MAX_WORKFLOW_DEPTH}`,
+            path: `phases[${phase.id}].workflow`,
+            details: { depth: depth + 1, maxDepth: resolve_workflows_js_1.MAX_WORKFLOW_DEPTH }
+        });
+        return [];
+    }
+    // Load the referenced workflow
+    const loaded = (0, resolve_workflows_js_1.loadWorkflow)(phase.workflow, workflowsDir, errors);
+    if (!loaded) {
+        return [];
+    }
+    const referencedWorkflow = loaded.definition;
+    const expandedPhases = [];
+    // Add to visited for cycle detection in nested refs
+    const newVisited = new Set(visited);
+    newVisited.add(phase.workflow);
+    // Expand each phase from the referenced workflow with ID prefixing
+    for (const refPhase of referencedWorkflow.phases ?? []) {
+        const prefixedId = `${phase.id}-${refPhase.id}`;
+        if (refPhase.workflow && !refPhase['for-each']) {
+            // Nested workflow reference - recurse with prefixed ID
+            const nestedPhase = { id: prefixedId, workflow: refPhase.workflow };
+            const nestedPhases = expandWorkflowReference(nestedPhase, workflowsDir, context, errors, newVisited, depth + 1);
+            expandedPhases.push(...nestedPhases);
+        }
+        else if (refPhase.prompt) {
+            // Simple phase with prompt - prefix the ID
+            const phaseContext = {
+                ...context,
+                phase: {
+                    id: prefixedId,
+                    index: expandedPhases.length
+                }
+            };
+            const prompt = (0, expand_foreach_js_1.substituteTemplateVars)(refPhase.prompt, phaseContext);
+            expandedPhases.push({
+                id: prefixedId,
+                status: 'pending',
+                prompt,
+                'wait-for-parallel': refPhase['wait-for-parallel']
+            });
+        }
+    }
+    return expandedPhases;
 }
 /**
  * Generate a sprint ID from the directory name
