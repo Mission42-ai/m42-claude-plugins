@@ -4639,8 +4639,10 @@ function getScript(): string {
 
         const html = filtered.map(function(event) {
           const icon = getToolIcon(event.tool);
-          const relTime = formatRelativeTime(event.ts);
-          const absTime = new Date(event.ts).toLocaleString();
+          const eventDate = new Date(event.ts);
+          // Format as HH:MM:SS for compact display
+          const timeStr = eventDate.toLocaleTimeString('en-US', { hour12: false });
+          const fullDateTime = eventDate.toLocaleString();
 
           let desc = '';
           if (event.file) {
@@ -4655,7 +4657,7 @@ function getScript(): string {
           }
 
           return '<div class="activity-entry">' +
-            '<span class="activity-time" title="' + escapeHtml(absTime) + '">' + escapeHtml(relTime) + '</span>' +
+            '<span class="activity-time" title="' + escapeHtml(fullDateTime) + '">' + escapeHtml(timeStr) + '</span>' +
             '<span class="activity-icon">' + icon + '</span>' +
             '<span class="activity-tool">' + escapeHtml(event.tool) + '</span>' +
             '<span class="activity-desc">' + desc + '</span>' +

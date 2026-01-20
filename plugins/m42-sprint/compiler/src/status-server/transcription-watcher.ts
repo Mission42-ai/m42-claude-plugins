@@ -216,6 +216,8 @@ export class TranscriptionWatcher extends EventEmitter {
     try {
       const stats = fs.statSync(filePath);
       const lastPosition = this.filePositions.get(filePath) ?? 0;
+      // Use file modification time as base timestamp for events
+      const fileTimestamp = stats.mtime.toISOString();
 
       // Check for truncation
       if (stats.size < lastPosition) {
@@ -243,7 +245,7 @@ export class TranscriptionWatcher extends EventEmitter {
 
         for (const line of lines) {
           if (line.trim()) {
-            this.parseLine(line);
+            this.parseLine(line, fileTimestamp);
           }
         }
 
@@ -259,7 +261,7 @@ export class TranscriptionWatcher extends EventEmitter {
   /**
    * Parse a single NDJSON line and emit activity if it's a tool use
    */
-  private parseLine(line: string): void {
+  private parseLine(line: string, timestamp: string): void {
     try {
       const event = JSON.parse(line);
 
@@ -289,7 +291,7 @@ export class TranscriptionWatcher extends EventEmitter {
         const input = toolUse.input || {};
 
         const activityEvent: ActivityEvent = {
-          ts: new Date().toISOString(),
+          ts: timestamp,
           type: 'tool',
           tool: toolName,
           level: getToolVerbosityLevel(toolName),
