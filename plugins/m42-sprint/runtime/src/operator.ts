@@ -1,15 +1,18 @@
 /**
  * Operator Module - Operator Request System
  *
- * RED PHASE STUB: This file contains type definitions and function stubs.
- * The implementation will be added in the GREEN phase.
- *
  * This module handles:
  * - Processing pending operator requests
  * - Executing operator decisions (approve/reject/defer/backlog)
  * - Loading operator prompts from skills
  * - Creating context for operator decision making
  */
+
+import * as fs from 'fs';
+import * as path from 'path';
+import * as yaml from 'js-yaml';
+
+import { addBacklogItem, type BacklogItem } from './backlog.js';
 
 // ============================================================================
 // Types - Operator Request (from agent)
@@ -157,7 +160,39 @@ export interface OperatorConfig {
 }
 
 // ============================================================================
-// Function Stubs (RED Phase - Not Implemented)
+// Constants
+// ============================================================================
+
+const DEFAULT_OPERATOR_SKILL = 'sprint-operator';
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+/**
+ * Find skill path in common locations
+ */
+function findSkillPath(skillName: string): string | null {
+  const locations = [
+    // Plugin skills directory
+    path.join(process.cwd(), 'plugins/m42-sprint/skills', skillName, 'skill.md'),
+    // Current directory skills
+    path.join(process.cwd(), 'skills', skillName, 'skill.md'),
+    // .claude/skills directory
+    path.join(process.cwd(), '.claude/skills', skillName, 'skill.md'),
+  ];
+
+  for (const location of locations) {
+    if (fs.existsSync(location)) {
+      return location;
+    }
+  }
+
+  return null;
+}
+
+// ============================================================================
+// Functions
 // ============================================================================
 
 /**
@@ -167,14 +202,85 @@ export interface OperatorConfig {
  * @param config - Operator configuration
  * @param sprintDir - Sprint directory path
  * @returns Promise resolving to OperatorResponse
- * @throws Error - Not implemented (RED phase)
  */
 export async function processOperatorRequests(
-  _requests: QueuedRequest[],
-  _config: OperatorConfig,
+  requests: QueuedRequest[],
+  config: OperatorConfig,
   _sprintDir: string
 ): Promise<OperatorResponse> {
-  throw new Error('Not implemented: processOperatorRequests (RED phase)');
+  // Filter to only pending requests
+  const pendingRequests = requests.filter((r) => r.status === 'pending');
+
+  if (pendingRequests.length === 0) {
+    return {
+      decisions: [],
+      operatorLog: 'No pending requests to process',
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  // Load operator prompt
+  const operatorPrompt = await loadOperatorPrompt(config);
+
+  // For now, create auto-decisions based on priority
+  // In a full implementation, this would invoke Claude with the operator prompt
+  const decisions: OperatorDecision[] = pendingRequests.map((request) => {
+    // Critical security issues should be approved
+    if (request.priority === 'critical' && request.type === 'security') {
+      return {
+        requestId: request.id,
+        decision: 'approve' as const,
+        reasoning: 'Critical security issue - must be addressed immediately',
+        injection: {
+          position: { type: 'after-current' as const },
+          prompt: `Fix the security issue: ${request.title}\n\n${request.description}`,
+          idPrefix: `fix-${request.id}`,
+        },
+      };
+    }
+
+    // High priority bugs should be approved
+    if (request.priority === 'high' && request.type === 'bug') {
+      return {
+        requestId: request.id,
+        decision: 'approve' as const,
+        reasoning: 'High priority bug - should be fixed before proceeding',
+        injection: {
+          position: { type: 'after-current' as const },
+          prompt: `Fix the bug: ${request.title}\n\n${request.description}`,
+          idPrefix: `fix-${request.id}`,
+        },
+      };
+    }
+
+    // Low priority items go to backlog
+    if (request.priority === 'low') {
+      return {
+        requestId: request.id,
+        decision: 'backlog' as const,
+        reasoning: 'Low priority - added to backlog for human review',
+        backlogEntry: {
+          category: request.type === 'docs' ? 'documentation' : 'tech-debt',
+          suggestedPriority: 'low',
+          notes: `Discovered during sprint execution. ${request.description}`,
+        },
+      };
+    }
+
+    // Medium priority gets deferred to end of phase
+    return {
+      requestId: request.id,
+      decision: 'defer' as const,
+      reasoning: 'Medium priority - will review at end of current phase',
+      deferredUntil: 'end-of-phase' as const,
+    };
+  });
+
+  return {
+    decisions,
+    operatorLog: `Processed ${pendingRequests.length} pending requests. Operator prompt loaded: ${operatorPrompt.length > 0 ? 'yes' : 'no'}`,
+    timestamp: new Date().toISOString(),
+  };
 }
 
 /**
@@ -183,14 +289,62 @@ export async function processOperatorRequests(
  * @param decision - The decision to execute
  * @param request - The original request
  * @param sprintDir - Sprint directory path
- * @throws Error - Not implemented (RED phase)
  */
 export async function executeOperatorDecision(
-  _decision: OperatorDecision,
-  _request: QueuedRequest,
-  _sprintDir: string
+  decision: OperatorDecision,
+  request: QueuedRequest,
+  sprintDir: string
 ): Promise<void> {
-  throw new Error('Not implemented: executeOperatorDecision (RED phase)');
+  const decidedAt = new Date().toISOString();
+
+  switch (decision.decision) {
+    case 'approve':
+      request.status = 'approved';
+      request['decided-at'] = decidedAt;
+      request.decision = decision;
+      // Injection happens in the caller (loop.ts) since it needs access to PROGRESS.yaml
+      break;
+
+    case 'reject':
+      request.status = 'rejected';
+      request['decided-at'] = decidedAt;
+      request['rejection-reason'] = decision.rejectionReason || decision.reasoning;
+      request.decision = decision;
+      break;
+
+    case 'defer':
+      request.status = 'deferred';
+      request['decided-at'] = decidedAt;
+      request['deferred-until'] = decision.deferredUntil;
+      request.decision = decision;
+      break;
+
+    case 'backlog':
+      request.status = 'backlog';
+      request['decided-at'] = decidedAt;
+      request.decision = decision;
+
+      // Create backlog entry
+      if (decision.backlogEntry) {
+        const backlogItem: BacklogItem = {
+          id: request.id,
+          title: request.title,
+          description: request.description,
+          category: decision.backlogEntry.category,
+          'suggested-priority': decision.backlogEntry.suggestedPriority,
+          'operator-notes': decision.backlogEntry.notes,
+          source: {
+            'request-id': request.id,
+            'discovered-in': request['discovered-in'],
+            'discovered-at': request['created-at'],
+          },
+          'created-at': decidedAt,
+          status: 'pending-review',
+        };
+        addBacklogItem(sprintDir, backlogItem);
+      }
+      break;
+  }
 }
 
 /**
@@ -198,10 +352,64 @@ export async function executeOperatorDecision(
  *
  * @param config - Operator configuration
  * @returns Promise resolving to the operator prompt string
- * @throws Error - Not implemented (RED phase)
  */
-export async function loadOperatorPrompt(_config: OperatorConfig): Promise<string> {
-  throw new Error('Not implemented: loadOperatorPrompt (RED phase)');
+export async function loadOperatorPrompt(config: OperatorConfig): Promise<string> {
+  // If custom prompt provided, use it directly
+  if (config.prompt) {
+    return config.prompt;
+  }
+
+  // Load from skill file
+  const skillName = config.skill || DEFAULT_OPERATOR_SKILL;
+  const skillPath = findSkillPath(skillName);
+
+  if (!skillPath) {
+    // Return default inline prompt if skill file not found
+    return getDefaultOperatorPrompt();
+  }
+
+  return fs.readFileSync(skillPath, 'utf8');
+}
+
+/**
+ * Get the default operator prompt (inline fallback)
+ */
+function getDefaultOperatorPrompt(): string {
+  return `# Sprint Operator
+
+You are the sprint operator responsible for reviewing discovered issues
+and deciding how to handle them.
+
+## Your Responsibilities
+
+1. **Triage**: Assess each request's urgency and relevance
+2. **Decide**: Choose appropriate action (approve/reject/defer/backlog)
+3. **Reason**: Always explain your decision clearly
+4. **Place**: If approving, determine optimal injection point
+
+## Decision Guidelines
+
+### Approve when:
+- Issue blocks current sprint progress
+- Fix is small and well-defined
+- Directly related to sprint goals
+
+### Reject when:
+- Request is invalid or duplicate
+- Already addressed elsewhere
+- Not actually an issue
+
+### Defer when:
+- Valid but not urgent
+- Can wait until later in sprint
+- Dependencies not yet ready
+
+### Backlog when:
+- Valid but out of scope for sprint
+- Needs human review/discussion
+- Significant scope or architectural impact
+- "Nice to have" improvements
+`;
 }
 
 /**
@@ -210,11 +418,37 @@ export async function loadOperatorPrompt(_config: OperatorConfig): Promise<strin
  * @param request - The request to create context for
  * @param sprintDir - Sprint directory path
  * @returns Context object for operator
- * @throws Error - Not implemented (RED phase)
  */
 export function createOperatorContext(
-  _request: QueuedRequest,
-  _sprintDir: string
+  request: QueuedRequest,
+  sprintDir: string
 ): Record<string, unknown> {
-  throw new Error('Not implemented: createOperatorContext (RED phase)');
+  // Read sprint progress to get goals and current state
+  const progressPath = path.join(sprintDir, 'PROGRESS.yaml');
+  let progress: Record<string, unknown> = {};
+
+  if (fs.existsSync(progressPath)) {
+    const content = fs.readFileSync(progressPath, 'utf8');
+    progress = yaml.load(content) as Record<string, unknown>;
+  }
+
+  return {
+    request: {
+      id: request.id,
+      title: request.title,
+      description: request.description,
+      priority: request.priority,
+      type: request.type,
+      discoveredIn: request['discovered-in'],
+      createdAt: request['created-at'],
+      context: request.context,
+    },
+    sprint: {
+      id: progress['sprint-id'],
+      status: progress.status,
+      currentPhase: progress.current,
+      totalPhases: (progress.stats as Record<string, unknown>)?.['total-phases'],
+      completedPhases: (progress.stats as Record<string, unknown>)?.['completed-phases'],
+    },
+  };
 }
