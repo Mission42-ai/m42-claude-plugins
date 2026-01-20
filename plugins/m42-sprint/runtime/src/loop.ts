@@ -471,10 +471,10 @@ export async function runLoop(
     const prompt = currentSubPhase?.prompt ?? currentStep?.prompt ?? currentPhase?.prompt ?? '';
     const phaseId = currentSubPhase?.id ?? currentStep?.id ?? currentPhase?.id ?? '';
 
-    // Create logs directory if it doesn't exist
-    const logsDir = path.join(sprintDir, 'logs');
-    if (!fs.existsSync(logsDir)) {
-      fs.mkdirSync(logsDir, { recursive: true });
+    // Create transcriptions directory for full NDJSON transcripts
+    const transcriptionsDir = path.join(sprintDir, 'transcriptions');
+    if (!fs.existsSync(transcriptionsDir)) {
+      fs.mkdirSync(transcriptionsDir, { recursive: true });
     }
 
     // Generate unique log file path including phase/step/sub-phase indices
@@ -498,7 +498,7 @@ export async function runLoop(
       logBaseName = `phase-${phaseIdx}_${sanitizedId}`;
     }
     const logFileName = `${logBaseName}.log`;
-    const outputFile = path.join(logsDir, logFileName);
+    const outputFile = path.join(transcriptionsDir, logFileName);
 
     // BUG-001 FIX: Mark current step/sub-phase as in-progress before execution
     if (currentPhase) {
