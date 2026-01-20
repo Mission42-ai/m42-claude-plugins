@@ -21,11 +21,12 @@ claude plugins add m42-signs
 
 **Optional tools** (for automated extraction):
 ```bash
+# Check jq (required for transcript parsing and large transcript preprocessing)
+jq --version
+# Install: brew install jq (macOS) or apt-get install jq (Ubuntu/Debian)
+
 # Check yq (required for YAML processing)
 yq --version
-
-# Check jq (required for transcript parsing)
-jq --version
 ```
 
 ---
@@ -147,6 +148,7 @@ This is the **Learning Loop** - failures become wisdom that prevents future mist
 |------------|------|
 | Add signs faster | [Add Sign Manually](how-to/add-sign-manually.md) |
 | Extract from sessions | [Extract from Session](how-to/extract-from-session.md) |
+| Handle large transcripts | [Handle Large Transcripts](how-to/handle-large-transcripts.md) |
 | Set up automated extraction | [Integrate with Sprint](how-to/integrate-with-sprint.md) |
 | See all commands | [Commands Reference](reference/commands.md) |
 
@@ -162,6 +164,7 @@ This is the **Learning Loop** - failures become wisdom that prevents future mist
 
 # Extract from sessions
 /m42-signs:extract <session-id>   # Extract from transcript
+/m42-signs:extract <file> --parallel  # Large transcripts with parallel processing
 
 # Review and apply
 /m42-signs:review       # Review pending signs
