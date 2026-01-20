@@ -4751,16 +4751,6 @@ function getScript(): string {
         return Math.floor(diff / 3600) + 'h ago';
       }
 
-      function truncatePath(filePath, maxLength) {
-        maxLength = maxLength || 40;
-        if (!filePath || filePath.length <= maxLength) return filePath;
-        const parts = filePath.split('/');
-        const fileName = parts.pop();
-        const remaining = maxLength - fileName.length - 3;
-        if (remaining <= 0) return '...' + fileName.slice(-(maxLength - 3));
-        return filePath.slice(0, remaining) + '...' + fileName;
-      }
-
       function renderLiveActivity() {
         // Filter by verbosity
         const filtered = liveActivityLog.filter(function(event) {
