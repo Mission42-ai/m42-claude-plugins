@@ -173,18 +173,17 @@ current:
 To find what's currently executing:
 
 ```bash
-# Get current phase index
-yq '.current.phase' PROGRESS.yaml
+# Check current sprint status
+/sprint-status
 
-# Get current phase object
-yq '.phases[.current.phase]' PROGRESS.yaml
-
-# For for-each phases, get current step
-yq '.phases[.current.phase].steps[.current.step]' PROGRESS.yaml
-
-# Get current sub-phase prompt
-yq '.phases[.current.phase].steps[.current.step].phases[.current."sub-phase"].prompt' PROGRESS.yaml
+# Or view raw PROGRESS.yaml
+cat PROGRESS.yaml | grep -A5 'current:'
 ```
+
+The TypeScript runtime uses a pointer-based system to track position:
+- `current.phase`: Index into top-level `phases[]` (0-based)
+- `current.step`: Index into `steps[]` within a for-each phase (null for simple phases)
+- `current.sub-phase`: Index into step's `phases[]` (null for simple steps)
 
 ## Field Reference
 

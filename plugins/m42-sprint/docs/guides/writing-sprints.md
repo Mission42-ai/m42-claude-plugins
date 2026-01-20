@@ -549,9 +549,9 @@ If a sprint gets stuck:
 - [ ] **Context files**: Added if needed for research/decisions
 - [ ] **Validation**: SPRINT.yaml is valid YAML
 
-Run a quick syntax check:
+Run a quick syntax check using dry-run (compiler will report any YAML errors):
 ```bash
-yq . .claude/sprints/my-sprint/SPRINT.yaml > /dev/null && echo "Valid YAML"
+/run-sprint .claude/sprints/my-sprint --dry-run
 ```
 
 ## See Also

@@ -507,11 +507,11 @@ phases:
 ### Validate YAML Syntax
 
 ```bash
-# Quick syntax check
-yq . .claude/workflows/my-workflow.yaml > /dev/null && echo "Valid YAML"
+# Quick syntax check - Node.js will report YAML errors during compilation
+cat .claude/workflows/my-workflow.yaml
 
 # Pretty-print to inspect
-yq -C . .claude/workflows/my-workflow.yaml
+cat .claude/workflows/my-workflow.yaml
 ```
 
 ### Test Compilation
@@ -528,13 +528,11 @@ steps:
   - "Test step two"
 EOF
 
-# Compile (from project root)
-npm run compile -- .claude/sprints/test-workflow
-# or
-npx tsx plugins/m42-sprint/compiler/src/cli.ts .claude/sprints/test-workflow
+# Compile using dry-run (doesn't start execution)
+/run-sprint .claude/sprints/test-workflow --dry-run
 
 # Inspect result
-yq -C . .claude/sprints/test-workflow/PROGRESS.yaml
+cat .claude/sprints/test-workflow/PROGRESS.yaml
 ```
 
 ### Verify Phase Structure
@@ -542,11 +540,11 @@ yq -C . .claude/sprints/test-workflow/PROGRESS.yaml
 Check that phases expanded correctly:
 
 ```bash
-# List all phase IDs
-yq '.phases[].id' .claude/sprints/test-workflow/PROGRESS.yaml
+# View all phase IDs in PROGRESS.yaml
+cat .claude/sprints/test-workflow/PROGRESS.yaml | grep 'id:'
 
-# Count phases per step
-yq '.phases[] | select(.steps) | .steps | length' .claude/sprints/test-workflow/PROGRESS.yaml
+# Or use /sprint-status for formatted view
+/sprint-status .claude/sprints/test-workflow
 ```
 
 ### Dry Run
@@ -554,11 +552,11 @@ yq '.phases[] | select(.steps) | .steps | length' .claude/sprints/test-workflow/
 Test without actually executing:
 
 ```bash
-# Use sprint-next to see what would run
-/sprint-next .claude/sprints/test-workflow
+# Use dry-run flag to compile without executing
+/run-sprint .claude/sprints/test-workflow --dry-run
 
-# Or manually inspect current pointer
-yq '.current' .claude/sprints/test-workflow/PROGRESS.yaml
+# Check what would run next
+/sprint-status .claude/sprints/test-workflow
 ```
 
 ## Validation Rules

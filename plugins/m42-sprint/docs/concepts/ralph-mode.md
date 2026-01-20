@@ -350,16 +350,18 @@ stats:
 
 ## Sprint Loop Detection
 
-The sprint loop automatically detects Ralph Mode and switches execution:
+The TypeScript runtime automatically detects Ralph Mode and switches execution:
 
-```bash
-MODE=$(yq -r '.mode // "standard"' "$PROGRESS_FILE")
+```typescript
+// The TypeScript runtime reads mode from PROGRESS.yaml
+const progress = await readProgress(progressFile);
+const mode = progress.mode ?? 'standard';
 
-if [[ "$MODE" == "ralph" ]]; then
-  run_ralph_loop    # Autonomous goal-driven execution
-else
-  run_standard_loop # Phase-based execution
-fi
+if (mode === 'ralph') {
+  await runRalphLoop(sprintDir, options);  // Autonomous goal-driven execution
+} else {
+  await runStandardLoop(sprintDir, options);  // Phase-based execution
+}
 ```
 
 ---

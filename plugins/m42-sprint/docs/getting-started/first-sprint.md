@@ -8,27 +8,6 @@ A complete 15-minute walkthrough of the M42 Sprint system. You'll create a sprin
 
 Before starting, ensure you have these tools installed.
 
-### yq (YAML Processor)
-
-M42 Sprint uses `yq` extensively for YAML manipulation.
-
-```bash
-# Check installation
-yq --version
-# Expected: yq (https://github.com/mikefarah/yq/) version v4.x
-```
-
-**Install if missing:**
-
-| Platform | Command |
-|----------|---------|
-| macOS | `brew install yq` |
-| Ubuntu/Debian | `sudo snap install yq` or `sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 && sudo chmod +x /usr/local/bin/yq` |
-| Windows | `choco install yq` or download from [releases](https://github.com/mikefarah/yq/releases) |
-| Other Linux | Download binary from [releases](https://github.com/mikefarah/yq/releases) |
-
-**Important:** The `yq` we use is **Mike Farah's yq** (Go version), NOT the Python `yq`. Verify with `yq --version` - it should mention `https://github.com/mikefarah/yq/`.
-
 ### Node.js (JavaScript Runtime)
 
 The compiler is written in TypeScript and requires Node.js.
@@ -506,24 +485,6 @@ These logs contain the full Claude output for each phase.
 
 ## Troubleshooting
 
-### "yq: command not found"
-
-**Cause:** yq is not installed or not in PATH.
-
-**Solution:**
-```bash
-# macOS
-brew install yq
-
-# Linux - direct download
-sudo wget -qO /usr/local/bin/yq \
-  https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
-sudo chmod +x /usr/local/bin/yq
-
-# Verify
-yq --version
-```
-
 ### "node: command not found"
 
 **Cause:** Node.js is not installed.
@@ -562,11 +523,11 @@ ls .claude/workflows/
 **Diagnosis:**
 ```bash
 # Check current state
-yq '.current' .claude/sprints/*/PROGRESS.yaml
-yq '.status' .claude/sprints/*/PROGRESS.yaml
+/sprint-status
 
-# Check for errors
-yq '.phases[].error' .claude/sprints/*/PROGRESS.yaml
+# Or inspect PROGRESS.yaml directly
+cat .claude/sprints/*/PROGRESS.yaml | grep -A5 'current:'
+cat .claude/sprints/*/PROGRESS.yaml | grep 'status:'
 ```
 
 **Solution:**
@@ -588,18 +549,14 @@ tail -50 .claude/sprints/*/logs/*.log
 
 **Check:**
 ```bash
-yq '.phases[] | select(.status == "blocked")' .claude/sprints/*/PROGRESS.yaml
+# Check for blocked phases
+cat .claude/sprints/*/PROGRESS.yaml | grep -B5 'status: blocked'
 ```
 
 Look for `human-needed` field with `reason` and `details`.
 
-**Solution:** Resolve the issue described, then:
+**Solution:** Resolve the issue described, then manually edit PROGRESS.yaml to set the status to `in-progress` and the blocked phase to `pending`, then:
 ```bash
-# Reset status to in-progress
-yq -i '.status = "in-progress"' .claude/sprints/*/PROGRESS.yaml
-yq -i '(.phases[] | select(.status == "blocked")).status = "pending"' .claude/sprints/*/PROGRESS.yaml
-
-# Resume
 /resume-sprint
 ```
 
@@ -609,8 +566,8 @@ yq -i '(.phases[] | select(.status == "blocked")).status = "pending"' .claude/sp
 
 **Diagnosis:**
 ```bash
-# Validate YAML syntax
-yq '.' .claude/sprints/*/SPRINT.yaml
+# Check YAML syntax by viewing the file
+cat .claude/sprints/*/SPRINT.yaml
 
 # Common issues:
 # - Unquoted colons in prompts
@@ -671,8 +628,8 @@ http://localhost:3100             # Live status page
 /stop-sprint                      # Immediate stop
 
 # Debugging
-yq '.current' PROGRESS.yaml       # Current position
-yq '.status' PROGRESS.yaml        # Sprint status
+/sprint-status                    # Current position and status
+cat PROGRESS.yaml                 # Raw view of execution state
 tail -50 logs/*.log               # Recent log output
 ```
 
