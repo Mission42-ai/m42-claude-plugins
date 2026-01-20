@@ -1,0 +1,228 @@
+name: Bug Hunt (Discovery)
+description: |
+  Alias for bughunt-discovery workflow.
+
+  ## Two-Sprint Bug Hunting Process
+
+  This workflow implements Sprint 1 (Discovery). It will:
+  1. Run all bug hunting methods (static analysis, tests, manual, UI)
+  2. Document all bugs found
+  3. Prioritize bugs by severity
+  4. Generate Sprint 2 (Fixing) SPRINT.yaml in artifacts/fixing-sprint/
+
+  After this sprint completes, run the fixing sprint:
+    /run-sprint [this-sprint]/artifacts/fixing-sprint
+
+  ## Available Workflows
+
+  - **bughunt-discovery** (or bughunt-full): Sprint 1 - Find and catalog bugs
+  - **bughunt-fixing**: Sprint 2 - Fix each bug with TDD cycle
+  - **bughunt-fix**: Per-bug workflow (used by bughunt-fixing)
+
+# This workflow mirrors bughunt-discovery exactly
+# Use either "bughunt-full" or "bughunt-discovery" in your SPRINT.yaml
+
+phases:
+  - id: setup
+    prompt: |
+      ## Bug Hunt Setup
+
+      Initialize bug hunting session for {{sprint.name}}.
+
+      First, read SPRINT.yaml to get the target information. The first step's
+      prompt contains:
+      - Target plugin/component path
+      - Test commands available
+      - Run commands to exercise
+      - Focus areas to explore
+
+      Store this information in context/_target.md for reference by later phases.
+
+      Create tracking file: artifacts/bugs-discovered.md with header:
+      ```markdown
+      # Bug Discovery Log
+
+      **Target**: [plugin path]
+      **Date**: [current date]
+      **Status**: In Progress
+
+      ## Bugs Found
+
+      | ID | Severity | Feature | Summary | Method |
+      |----|----------|---------|---------|--------|
+      ```
+
+  - id: static-analysis
+    prompt: |
+      ## Method 1: Static Analysis
+
+      Run static analysis to find potential bugs:
+
+      1. **TypeScript Check**: Run `npm run typecheck` or `tsc --noEmit`
+         - Document any type errors as bugs
+      2. **Linting**: Run `npm run lint` if available
+         - Document lint errors that indicate real issues
+      3. **Code Review**: Scan for common bug patterns:
+         - Unchecked null/undefined access
+         - Missing error handling
+         - Race conditions in async code
+         - Hardcoded values that should be configurable
+
+      For each issue found, add a row to artifacts/bugs-discovered.md:
+      ```markdown
+      | BUG-XXX | severity | feature | brief summary | static-analysis |
+      ```
+
+      Then document full details in a section below the table.
+
+  - id: run-existing-tests
+    prompt: |
+      ## Method 2: Run Existing Tests
+
+      Execute the test suites and analyze failures:
+
+      1. Run `npm test` in relevant package directories
+      2. For each failing test:
+         - Is it a real bug or a flaky/outdated test?
+         - What feature does it test?
+         - What's the failure message?
+
+      Add real bugs to artifacts/bugs-discovered.md table and details section.
+
+  - id: explore-features
+    prompt: |
+      ## Method 3: Manual Feature Exploration
+
+      Systematically exercise plugin features:
+
+      ### Process
+      1. List all plugin commands and features
+      2. Execute each feature with:
+         - Normal inputs (happy path)
+         - Edge cases (empty, very large, special characters)
+         - Invalid inputs (error handling)
+      3. Document any unexpected behavior, errors, or crashes
+
+      ### For Each Bug Found
+      Add to artifacts/bugs-discovered.md with:
+      - Bug ID (BUG-001, BUG-002, etc.)
+      - Severity (critical/high/medium/low)
+      - Feature affected
+      - Brief summary
+      - Discovery method
+
+      In the details section include:
+      - Steps to reproduce
+      - Expected vs actual behavior
+      - Any error messages or stack traces
+
+  - id: browser-testing
+    prompt: |
+      ## Method 4: Browser/UI Testing (if applicable)
+
+      If the plugin has web interfaces (status dashboard, etc.):
+
+      1. Use Playwright MCP tools to interact with UI
+      2. Test user flows end-to-end
+      3. Check for:
+         - UI rendering issues
+         - Broken interactions
+         - Console errors
+         - Network failures
+
+      Add any UI bugs to artifacts/bugs-discovered.md.
+
+      Skip this phase if no UI exists for this plugin.
+
+  - id: prioritize
+    prompt: |
+      ## Prioritize Bugs
+
+      Review all discovered bugs in artifacts/bugs-discovered.md.
+
+      Create artifacts/bug-priority.md with:
+      1. **Critical** - Must fix (crashes, data loss, security)
+      2. **High** - Should fix (broken features, bad UX)
+      3. **Medium** - Nice to fix (edge cases, minor issues)
+      4. **Low** - Can defer (cosmetic, rare scenarios)
+
+      Include:
+      - Recommended fix order
+      - Dependencies between bugs (if any)
+      - Estimated complexity per bug
+
+  - id: generate-fixing-sprint
+    prompt: |
+      ## Generate Fixing Sprint
+
+      Create a new SPRINT.yaml for the fixing phase.
+
+      Read artifacts/bugs-discovered.md and artifacts/bug-priority.md.
+
+      Generate file: artifacts/fixing-sprint/SPRINT.yaml
+
+      ```yaml
+      # Auto-generated Bug Fixing Sprint
+      # Generated from: {{sprint.id}}
+
+      workflow: bughunt-fixing
+
+      steps:
+        # One step per bug, in priority order
+        - prompt: |
+            BUG-001: [Title]
+
+            **Severity**: [critical/high/medium/low]
+            **Feature**: [affected feature]
+
+            **Repro Steps**:
+            1. [step 1]
+            2. [step 2]
+
+            **Expected**: [what should happen]
+            **Actual**: [what happens instead]
+
+            **Notes**: [any additional context]
+
+        # ... repeat for each bug
+
+      # Sprint metadata
+      sprint-id: {{sprint.id}}-fixing
+      name: {{sprint.name}}-fixing
+      created: [current timestamp]
+      parent-sprint: {{sprint.id}}
+      ```
+
+      Also create the directory structure:
+      ```bash
+      mkdir -p artifacts/fixing-sprint/context
+      mkdir -p artifacts/fixing-sprint/artifacts
+      ```
+
+      Copy relevant context:
+      - cp artifacts/bugs-discovered.md artifacts/fixing-sprint/context/
+      - cp artifacts/bug-priority.md artifacts/fixing-sprint/context/
+
+  - id: summary
+    prompt: |
+      ## Discovery Summary
+
+      Create artifacts/discovery-summary.md with:
+      - Total bugs found by severity
+      - Bugs by discovery method
+      - Bugs by feature area
+      - Overall plugin health assessment
+
+      Output next steps:
+      ```
+      Discovery complete!
+
+      Found X bugs: Y critical, Z high, ...
+
+      Next: Run the fixing sprint:
+        /run-sprint [sprint-path]/artifacts/fixing-sprint
+
+      Or copy to sprints directory:
+        cp -r artifacts/fixing-sprint .claude/sprints/YYYY-MM-DD_[name]-fixing
+        /run-sprint .claude/sprints/YYYY-MM-DD_[name]-fixing
+      ```

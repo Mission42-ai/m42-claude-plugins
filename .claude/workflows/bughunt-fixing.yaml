@@ -1,0 +1,79 @@
+name: Bug Hunt Fixing
+description: |
+  Sprint 2 of 2: Fix all discovered bugs using TDD cycle.
+  Each step is a bug from the discovery sprint.
+
+phases:
+  - id: preflight
+    prompt: |
+      ## Fixing Sprint Preflight
+
+      Prepare for bug fixing session.
+
+      1. Read context/bugs-discovered.md to understand all bugs
+      2. Read context/bug-priority.md for fix order
+      3. Verify build passes before starting fixes
+      4. Create artifacts/fix-log.md to track progress:
+
+      ```markdown
+      # Bug Fix Log
+
+      **Sprint**: {{sprint.name}}
+      **Parent Sprint**: [from SPRINT.yaml parent-sprint]
+      **Started**: [current timestamp]
+
+      ## Progress
+
+      | Bug ID | Status | Test Added | Fix Commit |
+      |--------|--------|------------|------------|
+      ```
+
+  - id: fix-bugs
+    for-each: step
+    workflow: bughunt-fix
+
+  - id: regression-check
+    prompt: |
+      ## Final Regression Check
+
+      Run comprehensive verification:
+
+      1. Run full test suite for the plugin
+      2. Verify all new tests pass
+      3. Check for any regressions introduced
+      4. Run typecheck and lint
+
+      If any issues found, document in artifacts/regression-issues.md.
+
+  - id: summary
+    prompt: |
+      ## Fixing Sprint Summary
+
+      Create artifacts/fixing-summary.md with:
+      - Total bugs fixed
+      - Tests added (list files)
+      - Any bugs that couldn't be fixed (with reasons)
+      - Overall improvement assessment
+
+      Update artifacts/fix-log.md with final status.
+
+      If all bugs are fixed and tests pass:
+      1. Stage all changes: `git add -A`
+      2. Create commit:
+         ```
+         fix({{sprint.name}}): address bugs from systematic bug hunt
+
+         Bugs fixed:
+         - BUG-001: [summary]
+         - BUG-002: [summary]
+         ...
+
+         Tests added:
+         - [test file 1]
+         - [test file 2]
+         ...
+
+         Discovery sprint: [parent-sprint-id]
+         ```
+
+      Output completion message with commit hash.

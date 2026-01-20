@@ -1,0 +1,74 @@
+name: Bug Fix Cycle
+description: TDD-style bug fix workflow - RED, GREEN, REFACTOR, VERIFY
+
+phases:
+  - id: analyze
+    prompt: |
+      ## Bug Analysis: {{step.prompt}}
+
+      Parse the bug description and identify:
+      1. Root cause location (file, function, line)
+      2. Conditions that trigger the bug
+      3. What a proper test should verify
+
+      Create: artifacts/{{step.id}}-analysis.md
+
+  - id: red
+    prompt: |
+      ## RED Phase: Create Failing Test
+
+      Bug: {{step.prompt}}
+
+      Create a test that:
+      1. Reproduces the bug conditions
+      2. FAILS with current code (demonstrating the bug exists)
+      3. Will PASS once the bug is fixed
+
+      Test location: Follow project conventions (co-located with source)
+      Test name: Should clearly describe the bug being caught
+
+      Run the test and VERIFY it fails. Include test output in your response.
+
+      If test passes (bug not reproducible), document why and skip to verify phase.
+
+  - id: green
+    prompt: |
+      ## GREEN Phase: Fix the Bug
+
+      Bug: {{step.prompt}}
+
+      Implement the minimal fix to make the failing test pass:
+      1. Make the smallest change that fixes the bug
+      2. Don't refactor or improve unrelated code
+      3. Run the test and verify it passes
+      4. Run full test suite to check for regressions
+
+      Include test output showing the fix works.
+
+  - id: refactor
+    prompt: |
+      ## REFACTOR Phase: Clean Up
+
+      Review the fix for {{step.prompt}}:
+      1. Is the fix clean and maintainable?
+      2. Any code duplication introduced?
+      3. Does it follow project patterns?
+      4. Any related code that should be updated?
+
+      Apply any necessary cleanup while keeping tests green.
+
+  - id: verify
+    prompt: |
+      ## VERIFY Phase: Comprehensive Check
+
+      Final verification for {{step.prompt}}:
+      1. Run full test suite
+      2. Manually verify the original repro steps no longer trigger the bug
+      3. Check for edge cases
+      4. Update artifacts/bugs-discovered.md with status: FIXED
+
+      Document the fix in artifacts/{{step.id}}-fix-summary.md:
+      - Root cause
+      - Solution implemented
+      - Tests added
+      - Any follow-up items

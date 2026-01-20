@@ -10,3 +10,6 @@
 # Sprint execution outputs (generated per-run)
 .claude/sprints/*/logs/
 .claude/sprints/*/transcripts/
+
+# Dependencies
+node_modules/
