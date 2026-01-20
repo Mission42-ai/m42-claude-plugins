@@ -116,6 +116,8 @@ export interface SprintHeader {
   totalSteps?: number;
   /** Current step number (1-indexed for display) */
   currentStep?: number;
+  /** Whether the sprint is stale (in-progress but inactive > 15 min) */
+  isStale?: boolean;
 }
 
 /**

@@ -6,7 +6,7 @@ export type PhaseStatus = 'pending' | 'in-progress' | 'completed' | 'blocked' | 
  * @deprecated Use SprintState discriminated union instead for type-safe state handling.
  * This type is kept for backwards compatibility with existing code.
  */
-export type SprintStatus = 'not-started' | 'in-progress' | 'completed' | 'blocked' | 'paused' | 'needs-human';
+export type SprintStatus = 'not-started' | 'in-progress' | 'completed' | 'blocked' | 'paused' | 'needs-human' | 'interrupted';
 export type ParallelTaskStatus = 'spawned' | 'running' | 'completed' | 'failed';
 /** Log severity levels for LOG actions */
 export type LogLevel = 'info' | 'warn' | 'error';

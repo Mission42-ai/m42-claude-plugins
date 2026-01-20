@@ -7,13 +7,14 @@
  * 3. Resume rejects non-resumable sprints (completed, etc.)
  * 4. Resume returns appropriate success/error responses
  *
- * RED Phase: All tests should FAIL until implementation is complete.
+ * GREEN Phase: Tests should PASS now that implementation is complete.
  */
 
 import * as http from 'http';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
+import { StatusServer } from './server.js';
 
 // Simple test runner (consistent with project patterns)
 let testsPassed = 0;
@@ -128,7 +129,7 @@ function makeRequest(
 test('server.ts should have /api/sprint/:id/resume route', async () => {
   // Read the server.ts source code
   const distDir = __dirname;
-  const srcDir = distDir.replace(/[/\\]dist[/\\]?$/, '/src');
+  const srcDir = distDir.replace(/[/\\]dist[/\\]/, '/src/');
   const srcPath = path.join(srcDir, 'server.ts');
 
   let sourceCode = '';
@@ -152,7 +153,7 @@ test('server.ts should have /api/sprint/:id/resume route', async () => {
 test('resume endpoint should create signal file', async () => {
   // Read the server.ts source code
   const distDir = __dirname;
-  const srcDir = distDir.replace(/[/\\]dist[/\\]?$/, '/src');
+  const srcDir = distDir.replace(/[/\\]dist[/\\]/, '/src/');
   const srcPath = path.join(srcDir, 'server.ts');
 
   let sourceCode = '';
@@ -177,22 +178,20 @@ test('resume endpoint should create signal file', async () => {
 // ============================================================================
 
 test('POST /api/sprint/:id/resume should return 200 for interrupted sprint', async () => {
-  const { StatusServer } = await import('./server.js');
-
   const testDir = createTestSprintDir();
+  const port = 3500 + Math.floor(Math.random() * 100);
   try {
     // Create progress with interrupted status
     createProgressYaml(testDir, 'interrupted');
 
     const server = new StatusServer({
       sprintDir: testDir,
-      port: 0, // Let OS assign port
+      port,
       host: 'localhost',
     });
 
     await server.start();
-    const url = server.getUrl();
-    const port = parseInt(url.split(':')[2], 10);
+    await server.waitForReady();
 
     try {
       // Make POST request to resume endpoint
@@ -221,22 +220,20 @@ test('POST /api/sprint/:id/resume should return 200 for interrupted sprint', asy
 });
 
 test('POST /api/sprint/:id/resume should return 400 for completed sprint', async () => {
-  const { StatusServer } = await import('./server.js');
-
   const testDir = createTestSprintDir();
+  const port = 3600 + Math.floor(Math.random() * 100);
   try {
     // Create progress with completed status
     createProgressYaml(testDir, 'completed');
 
     const server = new StatusServer({
       sprintDir: testDir,
-      port: 0,
+      port,
       host: 'localhost',
     });
 
     await server.start();
-    const url = server.getUrl();
-    const port = parseInt(url.split(':')[2], 10);
+    await server.waitForReady();
 
     try {
       // Make POST request to resume endpoint
@@ -265,22 +262,20 @@ test('POST /api/sprint/:id/resume should return 400 for completed sprint', async
 });
 
 test('resume should create .resume-requested signal file', async () => {
-  const { StatusServer } = await import('./server.js');
-
   const testDir = createTestSprintDir();
+  const port = 3700 + Math.floor(Math.random() * 100);
   try {
     // Create progress with interrupted status
     createProgressYaml(testDir, 'interrupted');
 
     const server = new StatusServer({
       sprintDir: testDir,
-      port: 0,
+      port,
       host: 'localhost',
     });
 
     await server.start();
-    const url = server.getUrl();
-    const port = parseInt(url.split(':')[2], 10);
+    await server.waitForReady();
 
     try {
       // Make POST request to resume endpoint
@@ -302,21 +297,19 @@ test('resume should create .resume-requested signal file', async () => {
 });
 
 test('GET /api/sprint/:id/resume should return 405 Method Not Allowed', async () => {
-  const { StatusServer } = await import('./server.js');
-
   const testDir = createTestSprintDir();
+  const port = 3800 + Math.floor(Math.random() * 100);
   try {
     createProgressYaml(testDir, 'interrupted');
 
     const server = new StatusServer({
       sprintDir: testDir,
-      port: 0,
+      port,
       host: 'localhost',
     });
 
     await server.start();
-    const url = server.getUrl();
-    const port = parseInt(url.split(':')[2], 10);
+    await server.waitForReady();
 
     try {
       // Make GET request (should be rejected)

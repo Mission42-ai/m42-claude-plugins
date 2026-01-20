@@ -36,7 +36,7 @@ import {
 } from './executor.js';
 
 // Import from claude-runner module
-import { runClaude as defaultRunClaude } from './claude-runner.js';
+import { runClaude as defaultRunClaude, SPRINT_RESULT_SCHEMA } from './claude-runner.js';
 import type { ClaudeResult, ClaudeRunOptions } from './claude-runner.js';
 
 // Import from worktree module
@@ -105,9 +105,15 @@ const defaultLoopDeps: LoopDependencies = {
 // Constants
 // ============================================================================
 
-const TERMINAL_STATES = ['completed', 'blocked', 'paused', 'needs-human'] as const;
+const TERMINAL_STATES = ['completed', 'blocked', 'paused', 'needs-human', 'interrupted'] as const;
 const PAUSE_FILENAME = 'PAUSE';
 const PROGRESS_FILENAME = 'PROGRESS.yaml';
+
+/** Flag to track if signal handlers have been set up */
+let signalHandlersSetup = false;
+
+/** Reference to current progress for signal handlers */
+let currentProgressRef: { progress: CompiledProgress; progressPath: string } | null = null;
 
 // ============================================================================
 // Helper Functions
@@ -133,6 +139,46 @@ export function isTerminalState(state: SprintState): boolean {
 function checkPauseSignal(sprintDir: string): boolean {
   const pausePath = path.join(sprintDir, PAUSE_FILENAME);
   return fs.existsSync(pausePath);
+}
+
+/**
+ * Write last-activity heartbeat timestamp to progress
+ */
+function writeHeartbeat(progress: CompiledProgress): void {
+  (progress as unknown as { 'last-activity': string })['last-activity'] = new Date().toISOString();
+}
+
+/**
+ * Mark sprint as interrupted and write to disk
+ */
+async function markAsInterrupted(signal: string): Promise<void> {
+  if (!currentProgressRef) return;
+
+  const { progress, progressPath } = currentProgressRef;
+  progress.status = 'interrupted' as CompiledProgress['status'];
+  (progress as unknown as { 'interrupted-at': string })['interrupted-at'] = new Date().toISOString();
+  (progress as unknown as { 'interrupted-signal': string })['interrupted-signal'] = signal;
+
+  // Write synchronously since we're exiting
+  const content = yaml.dump(progress, { lineWidth: -1, noRefs: true, quotingType: '"' });
+  fs.writeFileSync(progressPath, content, 'utf-8');
+}
+
+/**
+ * Set up signal handlers for graceful shutdown
+ */
+function setupSignalHandlers(): void {
+  if (signalHandlersSetup) return;
+  signalHandlersSetup = true;
+
+  const handler = async (signal: string): Promise<void> => {
+    console.log(`\n[loop] Received ${signal}, marking sprint as interrupted...`);
+    await markAsInterrupted(signal);
+    process.exit(0);
+  };
+
+  process.on('SIGTERM', () => handler('SIGTERM'));
+  process.on('SIGINT', () => handler('SIGINT'));
 }
 
 /**
@@ -392,6 +438,10 @@ export async function runLoop(
   // 2. Load progress
   const progress = readProgress(progressPath);
 
+  // Set up signal handlers for graceful shutdown
+  setupSignalHandlers();
+  currentProgressRef = { progress, progressPath };
+
   // 3. Restore state from progress
   let state = restoreStateFromProgress(progress);
 
@@ -458,6 +508,10 @@ export async function runLoop(
     }
 
     iterations++;
+
+    // Write last-activity heartbeat timestamp
+    writeHeartbeat(progress);
+    await writeProgressAtomic(progressPath, progress);
 
     if (verbose) {
       console.log(`[loop] Iteration ${iterations}: executing phase`);
@@ -535,10 +589,12 @@ export async function runLoop(
     const workingDir = progress.worktree?.['working-dir'] ?? getProjectRoot(sprintDir);
 
     // Execute SPAWN_CLAUDE action directly
+    // Use --json-schema to enforce validated structured output
     const spawnResult = await deps.runClaude({
       prompt,
       cwd: workingDir,
       outputFile,
+      jsonSchema: SPRINT_RESULT_SCHEMA,
     });
 
     // BUG-002 FIX: Compare-and-swap - check if file was modified during execution

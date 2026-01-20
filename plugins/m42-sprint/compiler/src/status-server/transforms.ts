@@ -693,6 +693,31 @@ function isMoreCompleteStatus(
 }
 
 // ============================================================================
+// Staleness Detection
+// ============================================================================
+
+/** Staleness threshold: 15 minutes in milliseconds */
+const STALE_THRESHOLD_MS = 15 * 60 * 1000;
+
+/**
+ * Check if a sprint is stale based on last-activity timestamp.
+ * A sprint is stale if it's in-progress but the last-activity was > 15 minutes ago.
+ */
+export function isSprintStale(progress: CompiledProgress): boolean {
+  if (progress.status !== 'in-progress') {
+    return false;
+  }
+
+  const lastActivity = (progress as unknown as { 'last-activity'?: string })['last-activity'];
+  if (!lastActivity) {
+    return false;
+  }
+
+  const elapsed = Date.now() - new Date(lastActivity).getTime();
+  return elapsed > STALE_THRESHOLD_MS;
+}
+
+// ============================================================================
 // Main Transform Function
 // ============================================================================
 
@@ -754,6 +779,9 @@ export function toStatusUpdate(
   header.totalSteps = totalSteps;
   // currentStep is 1-indexed: completed + 1 (for display "Step 3 of 5")
   header.currentStep = progress.status === 'in-progress' ? completed + 1 : completed;
+
+  // Add staleness detection
+  header.isStale = isSprintStale(progress);
 
   // Build the phase/task tree based on mode
   const phaseTree = isRalphMode ? buildRalphTaskTree(progress) : buildPhaseTree(progress);

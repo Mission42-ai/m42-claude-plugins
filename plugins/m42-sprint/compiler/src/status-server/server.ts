@@ -353,7 +353,9 @@ export class StatusServer extends EventEmitter {
     const skipMatch = url.match(/^\/api\/skip\/(.+)$/);
     const retryMatch = url.match(/^\/api\/retry\/(.+)$/);
     const forceRetryMatch = url.match(/^\/api\/force-retry\/(.+)$/);
-    const isPhaseActionEndpoint = skipMatch || retryMatch || forceRetryMatch;
+    // Check for sprint resume endpoint: /api/sprint/:id/resume
+    const sprintResumeMatch = url.match(/^\/api\/sprint\/([^/]+)\/resume$/);
+    const isPhaseActionEndpoint = skipMatch || retryMatch || forceRetryMatch || sprintResumeMatch;
 
     // Allow POST for control endpoints and phase action endpoints, GET for everything else
     if (isControlEndpoint || isPhaseActionEndpoint) {
@@ -384,6 +386,12 @@ export class StatusServer extends EventEmitter {
     if (forceRetryMatch) {
       const phaseId = decodeURIComponent(forceRetryMatch[1]);
       this.handleForceRetryRequest(res, phaseId);
+      return;
+    }
+
+    if (sprintResumeMatch) {
+      const sprintId = decodeURIComponent(sprintResumeMatch[1]);
+      this.handleSprintResumeRequest(req, res, sprintId);
       return;
     }
 
@@ -1053,6 +1061,55 @@ export class StatusServer extends EventEmitter {
       res.end(JSON.stringify({
         success: false,
         action: 'stop',
+        error: error instanceof Error ? error.message : String(error),
+      }));
+    }
+  }
+
+  /**
+   * Handle POST /api/sprint/:id/resume request
+   * Creates .resume-requested signal file for stale or interrupted sprints
+   */
+  private handleSprintResumeRequest(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    sprintId: string
+  ): void {
+    try {
+      const progress = this.loadProgress();
+
+      // Only allow resuming interrupted or stale (in-progress with old last-activity) sprints
+      const isInterrupted = progress.status === 'interrupted';
+      const lastActivity = (progress as unknown as { 'last-activity'?: string })['last-activity'];
+      const isStale = progress.status === 'in-progress' && lastActivity &&
+        (Date.now() - new Date(lastActivity).getTime() > 15 * 60 * 1000);
+
+      if (!isInterrupted && !isStale) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: false,
+          action: 'resume',
+          error: `Cannot resume - sprint status is "${progress.status}" and is not stale`,
+        }));
+        return;
+      }
+
+      // Create resume signal file
+      const signalPath = path.join(this.config.sprintDir, SIGNAL_FILES.RESUME);
+      fs.writeFileSync(signalPath, new Date().toISOString());
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        action: 'resume',
+        sprintId,
+        message: 'Resume requested - sprint will be restarted',
+      }));
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: false,
+        action: 'resume',
         error: error instanceof Error ? error.message : String(error),
       }));
     }
