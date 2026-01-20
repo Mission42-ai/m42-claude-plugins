@@ -1,0 +1,4710 @@
+sprint-id: 2026-01-19_m42-signs-large-transcript-handling
+status: in-progress
+phases:
+  - id: preflight
+    status: completed
+    prompt: >
+      Create comprehensive sprint context for TDD-based plugin development.
+
+
+      ## Your Task
+
+      Analyze the sprint scope and prepare shared context for all development phases.
+
+
+      ## Step 1: Create Sprint Branch
+
+      ```bash
+
+      git checkout -b sprint/2026-01-19_m42-signs-large-transcript-handling 2>/dev/null || git checkout sprint/2026-01-19_m42-signs-large-transcript-handling
+
+      ```
+
+
+      ## Step 2: Analyze Sprint Scope
+
+      Read SPRINT.yaml to understand:
+
+      - All steps and their relationships
+
+      - Overall sprint goal
+
+      - Technical requirements
+
+      - Dependencies between steps
+
+
+      ## Step 3: Research Project Context
+
+      Investigate the codebase to understand:
+
+      - Project architecture and structure
+
+      - Existing patterns and conventions
+
+      - Test frameworks and patterns used
+
+      - Build/test/lint commands
+
+      - Documentation structure
+
+
+      ## Step 4: Documentation Inventory
+
+      Catalog existing documentation that may need updates:
+
+      ```bash
+
+      # Find all documentation files
+
+      find . -name "*.md" -type f | grep -E "(README|docs/|GUIDE|REFERENCE)" | head -50
+
+      ```
+
+
+      Create a documentation map showing what exists and may need updates.
+
+
+      ## Step 5: Generate Shared Context
+
+      Create: context/_shared-context.md
+
+
+      ```markdown
+
+      # Shared Sprint Context
+
+
+      ## Project Architecture
+
+      [High-level architecture overview relevant to this sprint]
+
+
+      ## Test Patterns
+
+      - Test framework: [framework used]
+
+      - Test file location: [where tests live]
+
+      - Test naming: [naming conventions]
+
+      - Mocking patterns: [how mocks are done]
+
+
+      ## Key Patterns
+
+      - [Pattern 1]: [Where and how it's used]
+
+      - [Pattern 2]: [Where and how it's used]
+
+
+      ## Commands
+
+      - Build: `[build command]`
+
+      - Test: `[test command]`
+
+      - Test (watch): `[watch command if available]`
+
+      - Lint: `[lint command]`
+
+      - TypeCheck: `[typecheck command]`
+
+
+      ## Documentation Structure
+
+      - User Guide: [path or "does not exist"]
+
+      - Getting Started: [path or "does not exist"]
+
+      - Reference: [path or "does not exist"]
+
+      - API Docs: [path or "does not exist"]
+
+
+      ## Dependencies
+
+      ### Internal Modules
+
+      - [Module]: [Purpose]
+
+
+      ### External Packages
+
+      - [Package]: [Usage]
+
+      ```
+
+
+      ## Step 6: Generate Sprint Plan
+
+      Create: context/sprint-plan.md
+
+
+      ```markdown
+
+      # Sprint Plan: 2026-01-19_m42-signs-large-transcript-handling
+
+
+      ## Goal
+
+      [One paragraph describing what this sprint accomplishes]
+
+
+      ## TDD Approach
+
+      Each step follows: RED → GREEN → REFACTOR → QA
+
+
+      ## Success Criteria
+
+      - [ ] All gherkin scenarios pass (100% score)
+
+      - [ ] All unit tests pass
+
+      - [ ] Build passes
+
+      - [ ] Documentation updated
+
+
+      ## Step Breakdown
+
+
+      ### Step 0: [Step title]
+
+      **Scope**: [What this step does]
+
+      **Tests to Write**: [Key test cases]
+
+      **Files**: [Expected files to create/modify]
+
+      **Docs Impact**: [Documentation that may need updates]
+
+
+      [Continue for all steps]
+
+
+      ## Documentation Update Plan
+
+      | Doc | Status | Updates Needed |
+
+      |-----|--------|----------------|
+
+      | User Guide | [exists/new] | [description] |
+
+      | Getting Started | [exists/new] | [description] |
+
+      | Reference | [exists/new] | [description] |
+
+      ```
+
+
+      ## Output
+
+      - Sprint branch created
+
+      - context/_shared-context.md with project patterns
+
+      - context/sprint-plan.md with TDD plan
+
+      - Commit preflight artifacts:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        ```bash
+        git add context/
+        git commit -m "preflight: add shared context and TDD sprint plan"
+        ```
+    started-at: "2026-01-19T23:42:37Z"
+    completed-at: "2026-01-19T23:45:55Z"
+    elapsed: 00:03:18
+  - id: development
+    status: in-progress
+    steps:
+      - id: step-0
+        prompt: |
+          Create preprocessing scripts for m42-signs plugin to handle large transcripts.
+
+          Create these 3 bash scripts in plugins/m42-signs/scripts/:
+
+          1. extract-reasoning.sh - Extract assistant text blocks using jq
+          2. transcript-summary.sh - Generate quick stats (line count, errors, tool sequence)
+          3. find-learning-lines.sh - Pattern-match high-value reasoning lines
+
+          All scripts should:
+          - Use jq for JSON processing
+          - Check for jq availability with clear error
+          - Follow the patterns in parse-transcript.sh (deprecated reference)
+          - Be executable (chmod +x)
+
+          See context/plan.md for detailed implementation specs.
+        status: completed
+        phases:
+          - id: red
+            status: completed
+            prompt: |
+              Write tests and gherkin scenarios BEFORE any implementation.
+
+              ## Your Task
+              Create preprocessing scripts for m42-signs plugin to handle large transcripts.
+
+              Create these 3 bash scripts in plugins/m42-signs/scripts/:
+
+              1. extract-reasoning.sh - Extract assistant text blocks using jq
+              2. transcript-summary.sh - Generate quick stats (line count, errors, tool sequence)
+              3. find-learning-lines.sh - Pattern-match high-value reasoning lines
+
+              All scripts should:
+              - Use jq for JSON processing
+              - Check for jq availability with clear error
+              - Follow the patterns in parse-transcript.sh (deprecated reference)
+              - Be executable (chmod +x)
+
+              See context/plan.md for detailed implementation specs.
+
+
+              ## Shared Context
+              Read: context/_shared-context.md (project patterns, test patterns, commands)
+              Read: context/sprint-plan.md (how this step fits in the sprint)
+
+              ## TDD Rule: RED Phase
+              In this phase, you ONLY write tests. No implementation code.
+              Tests should FAIL when run (because implementation doesn't exist yet).
+
+              ## Instructions
+
+              ### Part 1: Write Gherkin Scenarios (4-8 scenarios)
+              Create scenarios that define the expected behavior:
+
+              ```gherkin
+              Scenario: [Descriptive name]
+                Given [precondition or context]
+                When [action taken]
+                Then [expected outcome]
+
+              Verification: `[shell command that exits 0 on success, non-zero on failure]`
+              Pass: Exit code = 0 → Score 1
+              Fail: Exit code ≠ 0 → Score 0
+              ```
+
+              ### Part 2: Write Unit Tests
+              Create test files that exercise the expected functionality:
+
+              1. Determine test file location (from _shared-context.md patterns)
+              2. Write test cases that match gherkin scenarios
+              3. Include edge cases and error handling tests
+              4. Tests should be runnable but FAIL (code doesn't exist)
+
+              ## Test File Template
+              ```typescript
+              // Filename follows project convention from _shared-context.md
+              import { describe, it, expect } from '[test-framework]';
+
+              describe('[Feature under test]', () => {
+                describe('[Scenario group]', () => {
+                  it('should [expected behavior from gherkin]', () => {
+                    // Arrange - Given
+                    // Act - When
+                    // Assert - Then
+                  });
+
+                  it('should [another expected behavior]', () => {
+                    // ...
+                  });
+                });
+
+                describe('edge cases', () => {
+                  it('should handle [edge case]', () => {
+                    // ...
+                  });
+                });
+
+                describe('error handling', () => {
+                  it('should throw when [error condition]', () => {
+                    // ...
+                  });
+                });
+              });
+              ```
+
+              ## Output
+              Create: artifacts/step-0-gherkin.md
+
+              ```markdown
+              # Gherkin Scenarios: step-0
+
+              ## Step Task
+              Create preprocessing scripts for m42-signs plugin to handle large transcripts.
+
+              Create these 3 bash scripts in plugins/m42-signs/scripts/:
+
+              1. extract-reasoning.sh - Extract assistant text blocks using jq
+              2. transcript-summary.sh - Generate quick stats (line count, errors, tool sequence)
+              3. find-learning-lines.sh - Pattern-match high-value reasoning lines
+
+              All scripts should:
+              - Use jq for JSON processing
+              - Check for jq availability with clear error
+              - Follow the patterns in parse-transcript.sh (deprecated reference)
+              - Be executable (chmod +x)
+
+              See context/plan.md for detailed implementation specs.
+
+
+              ## Success Criteria
+              All scenarios must pass (score = 1) for the step to be complete.
+              Total scenarios: [N]
+              Required score: [N]/[N]
+
+              ---
+
+              ## Scenario 1: [Name]
+              [Full gherkin with verification]
+
+              ---
+
+              ## Scenario 2: [Name]
+              [Continue for 4-8 scenarios]
+
+              ---
+
+              ## Unit Test Coverage
+              | Test File | Test Cases | Scenarios Covered |
+              |-----------|------------|-------------------|
+              | [path] | [count] | 1, 2, 3 |
+
+              ## RED Phase Verification
+              Tests are expected to FAIL at this point:
+              \`\`\`bash
+              npm test -- --testPathPattern="[pattern]"
+              # Expected: FAIL (no implementation yet)
+              \`\`\`
+              ```
+
+              ## Commit (Tests Only)
+              ```bash
+              git add [test files] artifacts/step-0-gherkin.md
+              git commit -m "test(step-0): add failing tests [RED]"
+              ```
+
+              ## Important
+              - Do NOT write any implementation code in this phase
+              - Tests SHOULD fail - that's the point of RED
+              - Each gherkin scenario should have corresponding unit test(s)
+            started-at: "2026-01-19T23:45:58Z"
+            completed-at: "2026-01-19T23:48:47Z"
+            elapsed: 00:02:49
+          - id: context
+            status: completed
+            prompt: |
+              Gather step-specific context for implementation.
+
+              ## Your Task
+              Create preprocessing scripts for m42-signs plugin to handle large transcripts.
+
+              Create these 3 bash scripts in plugins/m42-signs/scripts/:
+
+              1. extract-reasoning.sh - Extract assistant text blocks using jq
+              2. transcript-summary.sh - Generate quick stats (line count, errors, tool sequence)
+              3. find-learning-lines.sh - Pattern-match high-value reasoning lines
+
+              All scripts should:
+              - Use jq for JSON processing
+              - Check for jq availability with clear error
+              - Follow the patterns in parse-transcript.sh (deprecated reference)
+              - Be executable (chmod +x)
+
+              See context/plan.md for detailed implementation specs.
+
+
+              ## Shared Context
+              Read: context/_shared-context.md (project-wide patterns)
+              Read: artifacts/step-0-gherkin.md (scenarios to implement)
+
+              ## Instructions
+              Research the specific code areas this step will touch:
+
+              1. **Related Existing Code**
+                 - Find similar implementations to follow as patterns
+                 - Identify modules to import from
+                 - Note interfaces/types to implement or extend
+
+              2. **Dependencies**
+                 - Internal module imports needed
+                 - External packages needed
+                 - Version constraints
+
+              3. **Integration Points**
+                 - How will this code be called/used?
+                 - What modules will import from this?
+                 - Existing tests to reference
+
+              4. **Patterns for Implementation**
+                 - Error handling patterns
+                 - Naming conventions
+                 - File organization
+
+              ## Output
+              Create: context/step-0-context.md
+
+              ```markdown
+              # Step Context: step-0
+
+              ## Task
+              Create preprocessing scripts for m42-signs plugin to handle large transcripts.
+
+              Create these 3 bash scripts in plugins/m42-signs/scripts/:
+
+              1. extract-reasoning.sh - Extract assistant text blocks using jq
+              2. transcript-summary.sh - Generate quick stats (line count, errors, tool sequence)
+              3. find-learning-lines.sh - Pattern-match high-value reasoning lines
+
+              All scripts should:
+              - Use jq for JSON processing
+              - Check for jq availability with clear error
+              - Follow the patterns in parse-transcript.sh (deprecated reference)
+              - Be executable (chmod +x)
+
+              See context/plan.md for detailed implementation specs.
+
+
+              ## Implementation Plan
+              Based on gherkin scenarios, implement in this order:
+              1. [First thing to implement]
+              2. [Second thing]
+              ...
+
+              ## Related Code Patterns
+
+              ### Pattern from: [path]
+              \`\`\`typescript
+              // Key pattern to follow
+              [relevant code snippet]
+              \`\`\`
+
+              ## Required Imports
+              ### Internal
+              - `[module]`: [what to import]
+
+              ### External
+              - `[package]`: [what to import]
+
+              ## Types/Interfaces to Use
+              \`\`\`typescript
+              // From [source]
+              interface [Name] {
+                [relevant fields]
+              }
+              \`\`\`
+
+              ## Integration Points
+              - Called by: [consumers]
+              - Calls: [dependencies]
+
+              ## Files to Create/Modify
+              | File | Action | Purpose |
+              |------|--------|---------|
+              | [path] | Create | [purpose] |
+              | [path] | Modify | [changes] |
+              ```
+
+              ## Commit
+              ```bash
+              git add context/step-0-context.md
+              git commit -m "context(step-0): gather implementation context"
+              ```
+            started-at: "2026-01-19T23:48:51Z"
+            completed-at: "2026-01-19T23:50:18Z"
+            elapsed: 00:01:27
+          - id: green
+            status: completed
+            prompt: |
+              Implement MINIMAL code to make tests pass.
+
+              ## Your Task
+              Create preprocessing scripts for m42-signs plugin to handle large transcripts.
+
+              Create these 3 bash scripts in plugins/m42-signs/scripts/:
+
+              1. extract-reasoning.sh - Extract assistant text blocks using jq
+              2. transcript-summary.sh - Generate quick stats (line count, errors, tool sequence)
+              3. find-learning-lines.sh - Pattern-match high-value reasoning lines
+
+              All scripts should:
+              - Use jq for JSON processing
+              - Check for jq availability with clear error
+              - Follow the patterns in parse-transcript.sh (deprecated reference)
+              - Be executable (chmod +x)
+
+              See context/plan.md for detailed implementation specs.
+
+
+              ## TDD Rule: GREEN Phase
+              Write the simplest code that makes tests pass. No more, no less.
+              "Make it work" - not beautiful, just working.
+
+              ## MUST READ BEFORE IMPLEMENTING
+              Read in order:
+              1. context/_shared-context.md (project patterns)
+              2. artifacts/step-0-gherkin.md (scenarios to satisfy)
+              3. context/step-0-context.md (specific patterns, imports)
+
+              ## Implementation Rules
+
+              ### Follow the Tests
+              Your implementation MUST satisfy:
+              - ALL gherkin scenario verifications
+              - ALL unit tests written in RED phase
+
+              ### Minimal Implementation
+              - Write the simplest code that passes tests
+              - Don't add features not covered by tests
+              - Don't optimize prematurely
+              - Don't add "nice to have" abstractions
+
+              ### Follow the Context
+              - Use patterns from context file
+              - Import from specified modules
+              - Follow naming conventions
+
+              ### Run Tests Frequently
+              ```bash
+              # Run tests as you implement
+              npm test -- --testPathPattern="[pattern]" --watch
+              ```
+
+              ## Commits
+              Make atomic commits for logical units:
+              ```bash
+              git add [files]
+              git commit -m "feat(step-0): [what now works] [GREEN]"
+              ```
+
+              ## Success Criteria
+              Before marking complete:
+              - [ ] All unit tests pass
+              - [ ] All gherkin verifications should pass
+              - [ ] No TypeScript errors
+              - [ ] Code follows context patterns
+
+              ## Run Final Test
+              ```bash
+              npm test -- --testPathPattern="[pattern]"
+              # Expected: PASS (all tests green)
+              ```
+
+              ## Important
+              - Tests MUST pass before moving to REFACTOR
+              - Don't refactor yet - that's the next phase
+              - "Quick and dirty" is OK - we'll clean up next
+            started-at: "2026-01-19T23:50:21Z"
+            completed-at: "2026-01-19T23:52:46Z"
+            elapsed: 00:02:25
+          - id: refactor
+            status: completed
+            prompt: |
+              Refactor implementation while keeping tests green.
+
+              ## Your Task
+              Create preprocessing scripts for m42-signs plugin to handle large transcripts.
+
+              Create these 3 bash scripts in plugins/m42-signs/scripts/:
+
+              1. extract-reasoning.sh - Extract assistant text blocks using jq
+              2. transcript-summary.sh - Generate quick stats (line count, errors, tool sequence)
+              3. find-learning-lines.sh - Pattern-match high-value reasoning lines
+
+              All scripts should:
+              - Use jq for JSON processing
+              - Check for jq availability with clear error
+              - Follow the patterns in parse-transcript.sh (deprecated reference)
+              - Be executable (chmod +x)
+
+              See context/plan.md for detailed implementation specs.
+
+
+              ## TDD Rule: REFACTOR Phase
+              "Make it right" - improve code quality without changing behavior.
+              Tests MUST stay green throughout refactoring.
+
+              ## Context
+              Read: context/step-0-context.md (target patterns)
+              Read: artifacts/step-0-gherkin.md (scenarios that must stay passing)
+
+              ## Refactoring Checklist
+
+              ### Code Quality
+              - [ ] Remove any duplication
+              - [ ] Improve naming (variables, functions, files)
+              - [ ] Extract helper functions if beneficial
+              - [ ] Simplify complex conditionals
+              - [ ] Add necessary type annotations
+
+              ### Pattern Conformance
+              - [ ] Follows project conventions from context
+              - [ ] Error handling matches patterns
+              - [ ] File organization matches patterns
+
+              ### Clean Code
+              - [ ] Remove dead code
+              - [ ] Remove console.log/debug statements
+              - [ ] Fix any linting issues
+              - [ ] Add JSDoc for public APIs only
+
+              ## Refactoring Rules
+
+              ### Run Tests After Each Change
+              ```bash
+              npm test -- --testPathPattern="[pattern]"
+              ```
+              If tests fail, REVERT the change immediately.
+
+              ### Small Steps
+              - One refactoring at a time
+              - Commit after each successful refactoring
+              - Don't refactor multiple things at once
+
+              ### Don't Change Behavior
+              - No new features
+              - No API changes (unless fixing test file imports)
+              - Same inputs → same outputs
+
+              ## Commits
+              ```bash
+              git add [files]
+              git commit -m "refactor(step-0): [improvement made]"
+              ```
+
+              ## Lint and Type Check
+              ```bash
+              npm run lint -- [files]
+              npm run typecheck
+              ```
+
+              Fix any issues found.
+
+              ## Final Verification
+              ```bash
+              npm test -- --testPathPattern="[pattern]"
+              npm run lint
+              npm run typecheck
+              ```
+
+              All must pass before completing this phase.
+            started-at: "2026-01-19T23:52:49Z"
+            completed-at: "2026-01-19T23:55:02Z"
+            elapsed: 00:02:13
+          - id: qa
+            status: completed
+            prompt: |
+              Verify implementation against gherkin scenarios.
+
+              ## Context
+              Read: artifacts/step-0-gherkin.md (scenarios with verification commands)
+
+              ## Step 1: Run Unit Tests
+              ```bash
+              npm test -- --testPathPattern="[pattern]"
+              ```
+
+              Record results: total tests, passed, failed.
+
+              ## Step 2: Run Each Gherkin Verification
+
+              For EACH scenario in the gherkin file:
+              1. Run the verification command
+              2. Record result: 1 (pass) or 0 (fail)
+              3. If fail, capture error output
+
+              ## Step 3: Calculate Score
+
+              Score = (passed scenarios) / (total scenarios)
+              - Score = 1.0 (all pass) → PASS
+              - Score < 1.0 (any fail) → FAIL
+
+              ## Step 4: Generate QA Report
+
+              Create: artifacts/step-0-qa-report.md
+
+              ```markdown
+              # QA Report: step-0
+
+              ## Summary
+              - Gherkin Scenarios: [N] total, [N] passed, [N] failed
+              - Gherkin Score: [X]/[N] = [percentage]%
+              - Unit Tests: [N] total, [N] passed, [N] failed
+
+              ## Unit Test Results
+              \`\`\`
+              [test output]
+              \`\`\`
+
+              ## Gherkin Verification Results
+
+              | # | Scenario | Result | Details |
+              |---|----------|--------|---------|
+              | 1 | [Name] | PASS/FAIL | [output] |
+              | 2 | [Name] | PASS/FAIL | [output] |
+              ...
+
+              ## Detailed Results
+
+              ### Scenario 1: [Name]
+              **Verification**: `[command]`
+              **Exit Code**: [0 or N]
+              **Output**:
+              \`\`\`
+              [actual output]
+              \`\`\`
+              **Result**: PASS / FAIL
+
+              [Continue for all scenarios]
+
+              ## TDD Cycle Summary
+              | Phase | Status |
+              |-------|--------|
+              | RED (tests) | ✓ Completed |
+              | GREEN (implement) | ✓ Completed |
+              | REFACTOR | ✓ Completed |
+              | QA (verify) | PASS/FAIL |
+
+              ## Issues Found
+              [If any failures, describe each issue]
+
+              ## Status: PASS / FAIL
+              ```
+
+              ## Step 5: Handle Outcome
+
+              ### If ALL pass (Score = 100%):
+              ```bash
+              git add artifacts/step-0-qa-report.md
+              git commit -m "qa(step-0): all scenarios passed"
+              ```
+
+              ### If ANY fail (Score < 100%):
+              Inject fix phases:
+
+              ```bash
+              PROGRESS_FILE=$(find .claude/sprints -name "PROGRESS.yaml" -type f 2>/dev/null | head -1)
+
+              yq -i '
+                (.phases[] | select(.steps) | .steps[] | select(.status == "in-progress") | .phases) +=
+                [
+                  {
+                    "id": "fix",
+                    "status": "pending",
+                    "prompt": "Fix failing scenarios for step-0.\n\nRead: artifacts/step-0-qa-report.md\n\n1. Review each FAIL scenario\n2. Fix implementation to pass\n3. Run verification to confirm\n4. Run unit tests to ensure no regression\n5. Commit fixes"
+                  },
+                  {
+                    "id": "reverify",
+                    "status": "pending",
+                    "prompt": "Re-verify all scenarios after fixes.\n\nRun ALL verifications from artifacts/step-0-gherkin.md\nRun ALL unit tests.\n\nIf ALL pass: Update QA report with PASS status.\nIf ANY fail: Inject another fix phase."
+                  }
+                ]
+              ' "$PROGRESS_FILE"
+
+              yq -i '
+                (.. | select(.id == "qa" and .status == "in-progress")) |=
+                (.status = "failed" | .error = "QA failed - fix phase injected")
+              ' "$PROGRESS_FILE"
+              ```
+            started-at: "2026-01-19T23:55:05Z"
+            completed-at: "2026-01-20T00:00:32Z"
+            elapsed: 00:05:27
+          - id: verify
+            status: completed
+            prompt: |
+              Final integration verification for the step.
+
+              ## Your Task
+              Create preprocessing scripts for m42-signs plugin to handle large transcripts.
+
+              Create these 3 bash scripts in plugins/m42-signs/scripts/:
+
+              1. extract-reasoning.sh - Extract assistant text blocks using jq
+              2. transcript-summary.sh - Generate quick stats (line count, errors, tool sequence)
+              3. find-learning-lines.sh - Pattern-match high-value reasoning lines
+
+              All scripts should:
+              - Use jq for JSON processing
+              - Check for jq availability with clear error
+              - Follow the patterns in parse-transcript.sh (deprecated reference)
+              - Be executable (chmod +x)
+
+              See context/plan.md for detailed implementation specs.
+
+
+              ## Context
+              Read: context/_shared-context.md (build commands)
+              Read: artifacts/step-0-qa-report.md (should show PASS)
+
+              ## Step 1: Full Test Suite
+              Run all tests (not just this step's tests):
+              ```bash
+              npm test
+              ```
+
+              Verify no regressions in other tests.
+
+              ## Step 2: Build Verification
+              ```bash
+              npm run build
+              npm run typecheck
+              npm run lint
+              ```
+
+              ## Step 3: Integration Check
+              - Check imports resolve correctly
+              - Verify no circular dependencies
+              - Ensure types are compatible
+
+              ## Step 4: Final Commit
+              ```bash
+              git add -A
+              git status
+              git diff --cached --quiet || git commit -m "verify(step-0): integration verified"
+              ```
+
+              ## Step Complete
+              The TDD cycle for this step is complete:
+              - ✓ RED: Tests written first
+              - ✓ GREEN: Minimal implementation
+              - ✓ REFACTOR: Code cleaned up
+              - ✓ QA: All scenarios pass
+              - ✓ VERIFY: Integration confirmed
+            started-at: "2026-01-20T00:00:35Z"
+            completed-at: "2026-01-20T00:01:44Z"
+            elapsed: 00:01:09
+      - id: step-1
+        prompt: |
+          Create chunk-analyzer subagent for parallel transcript analysis.
+
+          Create: plugins/m42-signs/agents/chunk-analyzer.md
+
+          Subagent spec:
+          - name: chunk-analyzer
+          - description: Analyze preprocessed transcript chunk for learning extraction
+          - tools: Read, Bash
+          - model: sonnet
+          - color: cyan (research/analysis)
+
+          The subagent should analyze preprocessed reasoning chunks and extract
+          learnings in backlog YAML format.
+
+          See context/plan.md for full subagent definition.
+        status: completed
+        phases:
+          - id: red
+            status: completed
+            prompt: |
+              Write tests and gherkin scenarios BEFORE any implementation.
+
+              ## Your Task
+              Create chunk-analyzer subagent for parallel transcript analysis.
+
+              Create: plugins/m42-signs/agents/chunk-analyzer.md
+
+              Subagent spec:
+              - name: chunk-analyzer
+              - description: Analyze preprocessed transcript chunk for learning extraction
+              - tools: Read, Bash
+              - model: sonnet
+              - color: cyan (research/analysis)
+
+              The subagent should analyze preprocessed reasoning chunks and extract
+              learnings in backlog YAML format.
+
+              See context/plan.md for full subagent definition.
+
+
+              ## Shared Context
+              Read: context/_shared-context.md (project patterns, test patterns, commands)
+              Read: context/sprint-plan.md (how this step fits in the sprint)
+
+              ## TDD Rule: RED Phase
+              In this phase, you ONLY write tests. No implementation code.
+              Tests should FAIL when run (because implementation doesn't exist yet).
+
+              ## Instructions
+
+              ### Part 1: Write Gherkin Scenarios (4-8 scenarios)
+              Create scenarios that define the expected behavior:
+
+              ```gherkin
+              Scenario: [Descriptive name]
+                Given [precondition or context]
+                When [action taken]
+                Then [expected outcome]
+
+              Verification: `[shell command that exits 0 on success, non-zero on failure]`
+              Pass: Exit code = 0 → Score 1
+              Fail: Exit code ≠ 0 → Score 0
+              ```
+
+              ### Part 2: Write Unit Tests
+              Create test files that exercise the expected functionality:
+
+              1. Determine test file location (from _shared-context.md patterns)
+              2. Write test cases that match gherkin scenarios
+              3. Include edge cases and error handling tests
+              4. Tests should be runnable but FAIL (code doesn't exist)
+
+              ## Test File Template
+              ```typescript
+              // Filename follows project convention from _shared-context.md
+              import { describe, it, expect } from '[test-framework]';
+
+              describe('[Feature under test]', () => {
+                describe('[Scenario group]', () => {
+                  it('should [expected behavior from gherkin]', () => {
+                    // Arrange - Given
+                    // Act - When
+                    // Assert - Then
+                  });
+
+                  it('should [another expected behavior]', () => {
+                    // ...
+                  });
+                });
+
+                describe('edge cases', () => {
+                  it('should handle [edge case]', () => {
+                    // ...
+                  });
+                });
+
+                describe('error handling', () => {
+                  it('should throw when [error condition]', () => {
+                    // ...
+                  });
+                });
+              });
+              ```
+
+              ## Output
+              Create: artifacts/step-1-gherkin.md
+
+              ```markdown
+              # Gherkin Scenarios: step-1
+
+              ## Step Task
+              Create chunk-analyzer subagent for parallel transcript analysis.
+
+              Create: plugins/m42-signs/agents/chunk-analyzer.md
+
+              Subagent spec:
+              - name: chunk-analyzer
+              - description: Analyze preprocessed transcript chunk for learning extraction
+              - tools: Read, Bash
+              - model: sonnet
+              - color: cyan (research/analysis)
+
+              The subagent should analyze preprocessed reasoning chunks and extract
+              learnings in backlog YAML format.
+
+              See context/plan.md for full subagent definition.
+
+
+              ## Success Criteria
+              All scenarios must pass (score = 1) for the step to be complete.
+              Total scenarios: [N]
+              Required score: [N]/[N]
+
+              ---
+
+              ## Scenario 1: [Name]
+              [Full gherkin with verification]
+
+              ---
+
+              ## Scenario 2: [Name]
+              [Continue for 4-8 scenarios]
+
+              ---
+
+              ## Unit Test Coverage
+              | Test File | Test Cases | Scenarios Covered |
+              |-----------|------------|-------------------|
+              | [path] | [count] | 1, 2, 3 |
+
+              ## RED Phase Verification
+              Tests are expected to FAIL at this point:
+              \`\`\`bash
+              npm test -- --testPathPattern="[pattern]"
+              # Expected: FAIL (no implementation yet)
+              \`\`\`
+              ```
+
+              ## Commit (Tests Only)
+              ```bash
+              git add [test files] artifacts/step-1-gherkin.md
+              git commit -m "test(step-1): add failing tests [RED]"
+              ```
+
+              ## Important
+              - Do NOT write any implementation code in this phase
+              - Tests SHOULD fail - that's the point of RED
+              - Each gherkin scenario should have corresponding unit test(s)
+            started-at: "2026-01-20T00:01:48Z"
+            completed-at: "2026-01-20T00:03:43Z"
+            elapsed: 00:01:55
+          - id: context
+            status: completed
+            prompt: |
+              Gather step-specific context for implementation.
+
+              ## Your Task
+              Create chunk-analyzer subagent for parallel transcript analysis.
+
+              Create: plugins/m42-signs/agents/chunk-analyzer.md
+
+              Subagent spec:
+              - name: chunk-analyzer
+              - description: Analyze preprocessed transcript chunk for learning extraction
+              - tools: Read, Bash
+              - model: sonnet
+              - color: cyan (research/analysis)
+
+              The subagent should analyze preprocessed reasoning chunks and extract
+              learnings in backlog YAML format.
+
+              See context/plan.md for full subagent definition.
+
+
+              ## Shared Context
+              Read: context/_shared-context.md (project-wide patterns)
+              Read: artifacts/step-1-gherkin.md (scenarios to implement)
+
+              ## Instructions
+              Research the specific code areas this step will touch:
+
+              1. **Related Existing Code**
+                 - Find similar implementations to follow as patterns
+                 - Identify modules to import from
+                 - Note interfaces/types to implement or extend
+
+              2. **Dependencies**
+                 - Internal module imports needed
+                 - External packages needed
+                 - Version constraints
+
+              3. **Integration Points**
+                 - How will this code be called/used?
+                 - What modules will import from this?
+                 - Existing tests to reference
+
+              4. **Patterns for Implementation**
+                 - Error handling patterns
+                 - Naming conventions
+                 - File organization
+
+              ## Output
+              Create: context/step-1-context.md
+
+              ```markdown
+              # Step Context: step-1
+
+              ## Task
+              Create chunk-analyzer subagent for parallel transcript analysis.
+
+              Create: plugins/m42-signs/agents/chunk-analyzer.md
+
+              Subagent spec:
+              - name: chunk-analyzer
+              - description: Analyze preprocessed transcript chunk for learning extraction
+              - tools: Read, Bash
+              - model: sonnet
+              - color: cyan (research/analysis)
+
+              The subagent should analyze preprocessed reasoning chunks and extract
+              learnings in backlog YAML format.
+
+              See context/plan.md for full subagent definition.
+
+
+              ## Implementation Plan
+              Based on gherkin scenarios, implement in this order:
+              1. [First thing to implement]
+              2. [Second thing]
+              ...
+
+              ## Related Code Patterns
+
+              ### Pattern from: [path]
+              \`\`\`typescript
+              // Key pattern to follow
+              [relevant code snippet]
+              \`\`\`
+
+              ## Required Imports
+              ### Internal
+              - `[module]`: [what to import]
+
+              ### External
+              - `[package]`: [what to import]
+
+              ## Types/Interfaces to Use
+              \`\`\`typescript
+              // From [source]
+              interface [Name] {
+                [relevant fields]
+              }
+              \`\`\`
+
+              ## Integration Points
+              - Called by: [consumers]
+              - Calls: [dependencies]
+
+              ## Files to Create/Modify
+              | File | Action | Purpose |
+              |------|--------|---------|
+              | [path] | Create | [purpose] |
+              | [path] | Modify | [changes] |
+              ```
+
+              ## Commit
+              ```bash
+              git add context/step-1-context.md
+              git commit -m "context(step-1): gather implementation context"
+              ```
+            started-at: "2026-01-20T00:03:47Z"
+            completed-at: "2026-01-20T00:05:17Z"
+            elapsed: 00:01:30
+          - id: green
+            status: completed
+            prompt: |
+              Implement MINIMAL code to make tests pass.
+
+              ## Your Task
+              Create chunk-analyzer subagent for parallel transcript analysis.
+
+              Create: plugins/m42-signs/agents/chunk-analyzer.md
+
+              Subagent spec:
+              - name: chunk-analyzer
+              - description: Analyze preprocessed transcript chunk for learning extraction
+              - tools: Read, Bash
+              - model: sonnet
+              - color: cyan (research/analysis)
+
+              The subagent should analyze preprocessed reasoning chunks and extract
+              learnings in backlog YAML format.
+
+              See context/plan.md for full subagent definition.
+
+
+              ## TDD Rule: GREEN Phase
+              Write the simplest code that makes tests pass. No more, no less.
+              "Make it work" - not beautiful, just working.
+
+              ## MUST READ BEFORE IMPLEMENTING
+              Read in order:
+              1. context/_shared-context.md (project patterns)
+              2. artifacts/step-1-gherkin.md (scenarios to satisfy)
+              3. context/step-1-context.md (specific patterns, imports)
+
+              ## Implementation Rules
+
+              ### Follow the Tests
+              Your implementation MUST satisfy:
+              - ALL gherkin scenario verifications
+              - ALL unit tests written in RED phase
+
+              ### Minimal Implementation
+              - Write the simplest code that passes tests
+              - Don't add features not covered by tests
+              - Don't optimize prematurely
+              - Don't add "nice to have" abstractions
+
+              ### Follow the Context
+              - Use patterns from context file
+              - Import from specified modules
+              - Follow naming conventions
+
+              ### Run Tests Frequently
+              ```bash
+              # Run tests as you implement
+              npm test -- --testPathPattern="[pattern]" --watch
+              ```
+
+              ## Commits
+              Make atomic commits for logical units:
+              ```bash
+              git add [files]
+              git commit -m "feat(step-1): [what now works] [GREEN]"
+              ```
+
+              ## Success Criteria
+              Before marking complete:
+              - [ ] All unit tests pass
+              - [ ] All gherkin verifications should pass
+              - [ ] No TypeScript errors
+              - [ ] Code follows context patterns
+
+              ## Run Final Test
+              ```bash
+              npm test -- --testPathPattern="[pattern]"
+              # Expected: PASS (all tests green)
+              ```
+
+              ## Important
+              - Tests MUST pass before moving to REFACTOR
+              - Don't refactor yet - that's the next phase
+              - "Quick and dirty" is OK - we'll clean up next
+            started-at: "2026-01-20T00:05:21Z"
+            completed-at: "2026-01-20T00:06:41Z"
+            elapsed: 00:01:20
+          - id: refactor
+            status: completed
+            prompt: |
+              Refactor implementation while keeping tests green.
+
+              ## Your Task
+              Create chunk-analyzer subagent for parallel transcript analysis.
+
+              Create: plugins/m42-signs/agents/chunk-analyzer.md
+
+              Subagent spec:
+              - name: chunk-analyzer
+              - description: Analyze preprocessed transcript chunk for learning extraction
+              - tools: Read, Bash
+              - model: sonnet
+              - color: cyan (research/analysis)
+
+              The subagent should analyze preprocessed reasoning chunks and extract
+              learnings in backlog YAML format.
+
+              See context/plan.md for full subagent definition.
+
+
+              ## TDD Rule: REFACTOR Phase
+              "Make it right" - improve code quality without changing behavior.
+              Tests MUST stay green throughout refactoring.
+
+              ## Context
+              Read: context/step-1-context.md (target patterns)
+              Read: artifacts/step-1-gherkin.md (scenarios that must stay passing)
+
+              ## Refactoring Checklist
+
+              ### Code Quality
+              - [ ] Remove any duplication
+              - [ ] Improve naming (variables, functions, files)
+              - [ ] Extract helper functions if beneficial
+              - [ ] Simplify complex conditionals
+              - [ ] Add necessary type annotations
+
+              ### Pattern Conformance
+              - [ ] Follows project conventions from context
+              - [ ] Error handling matches patterns
+              - [ ] File organization matches patterns
+
+              ### Clean Code
+              - [ ] Remove dead code
+              - [ ] Remove console.log/debug statements
+              - [ ] Fix any linting issues
+              - [ ] Add JSDoc for public APIs only
+
+              ## Refactoring Rules
+
+              ### Run Tests After Each Change
+              ```bash
+              npm test -- --testPathPattern="[pattern]"
+              ```
+              If tests fail, REVERT the change immediately.
+
+              ### Small Steps
+              - One refactoring at a time
+              - Commit after each successful refactoring
+              - Don't refactor multiple things at once
+
+              ### Don't Change Behavior
+              - No new features
+              - No API changes (unless fixing test file imports)
+              - Same inputs → same outputs
+
+              ## Commits
+              ```bash
+              git add [files]
+              git commit -m "refactor(step-1): [improvement made]"
+              ```
+
+              ## Lint and Type Check
+              ```bash
+              npm run lint -- [files]
+              npm run typecheck
+              ```
+
+              Fix any issues found.
+
+              ## Final Verification
+              ```bash
+              npm test -- --testPathPattern="[pattern]"
+              npm run lint
+              npm run typecheck
+              ```
+
+              All must pass before completing this phase.
+            started-at: "2026-01-20T00:06:45Z"
+            completed-at: "2026-01-20T00:09:00Z"
+            elapsed: 00:02:15
+          - id: qa
+            status: completed
+            prompt: |
+              Verify implementation against gherkin scenarios.
+
+              ## Context
+              Read: artifacts/step-1-gherkin.md (scenarios with verification commands)
+
+              ## Step 1: Run Unit Tests
+              ```bash
+              npm test -- --testPathPattern="[pattern]"
+              ```
+
+              Record results: total tests, passed, failed.
+
+              ## Step 2: Run Each Gherkin Verification
+
+              For EACH scenario in the gherkin file:
+              1. Run the verification command
+              2. Record result: 1 (pass) or 0 (fail)
+              3. If fail, capture error output
+
+              ## Step 3: Calculate Score
+
+              Score = (passed scenarios) / (total scenarios)
+              - Score = 1.0 (all pass) → PASS
+              - Score < 1.0 (any fail) → FAIL
+
+              ## Step 4: Generate QA Report
+
+              Create: artifacts/step-1-qa-report.md
+
+              ```markdown
+              # QA Report: step-1
+
+              ## Summary
+              - Gherkin Scenarios: [N] total, [N] passed, [N] failed
+              - Gherkin Score: [X]/[N] = [percentage]%
+              - Unit Tests: [N] total, [N] passed, [N] failed
+
+              ## Unit Test Results
+              \`\`\`
+              [test output]
+              \`\`\`
+
+              ## Gherkin Verification Results
+
+              | # | Scenario | Result | Details |
+              |---|----------|--------|---------|
+              | 1 | [Name] | PASS/FAIL | [output] |
+              | 2 | [Name] | PASS/FAIL | [output] |
+              ...
+
+              ## Detailed Results
+
+              ### Scenario 1: [Name]
+              **Verification**: `[command]`
+              **Exit Code**: [0 or N]
+              **Output**:
+              \`\`\`
+              [actual output]
+              \`\`\`
+              **Result**: PASS / FAIL
+
+              [Continue for all scenarios]
+
+              ## TDD Cycle Summary
+              | Phase | Status |
+              |-------|--------|
+              | RED (tests) | ✓ Completed |
+              | GREEN (implement) | ✓ Completed |
+              | REFACTOR | ✓ Completed |
+              | QA (verify) | PASS/FAIL |
+
+              ## Issues Found
+              [If any failures, describe each issue]
+
+              ## Status: PASS / FAIL
+              ```
+
+              ## Step 5: Handle Outcome
+
+              ### If ALL pass (Score = 100%):
+              ```bash
+              git add artifacts/step-1-qa-report.md
+              git commit -m "qa(step-1): all scenarios passed"
+              ```
+
+              ### If ANY fail (Score < 100%):
+              Inject fix phases:
+
+              ```bash
+              PROGRESS_FILE=$(find .claude/sprints -name "PROGRESS.yaml" -type f 2>/dev/null | head -1)
+
+              yq -i '
+                (.phases[] | select(.steps) | .steps[] | select(.status == "in-progress") | .phases) +=
+                [
+                  {
+                    "id": "fix",
+                    "status": "pending",
+                    "prompt": "Fix failing scenarios for step-1.\n\nRead: artifacts/step-1-qa-report.md\n\n1. Review each FAIL scenario\n2. Fix implementation to pass\n3. Run verification to confirm\n4. Run unit tests to ensure no regression\n5. Commit fixes"
+                  },
+                  {
+                    "id": "reverify",
+                    "status": "pending",
+                    "prompt": "Re-verify all scenarios after fixes.\n\nRun ALL verifications from artifacts/step-1-gherkin.md\nRun ALL unit tests.\n\nIf ALL pass: Update QA report with PASS status.\nIf ANY fail: Inject another fix phase."
+                  }
+                ]
+              ' "$PROGRESS_FILE"
+
+              yq -i '
+                (.. | select(.id == "qa" and .status == "in-progress")) |=
+                (.status = "failed" | .error = "QA failed - fix phase injected")
+              ' "$PROGRESS_FILE"
+              ```
+            started-at: "2026-01-20T00:09:04Z"
+            completed-at: "2026-01-20T00:10:13Z"
+            elapsed: 00:01:09
+          - id: verify
+            status: completed
+            prompt: |
+              Final integration verification for the step.
+
+              ## Your Task
+              Create chunk-analyzer subagent for parallel transcript analysis.
+
+              Create: plugins/m42-signs/agents/chunk-analyzer.md
+
+              Subagent spec:
+              - name: chunk-analyzer
+              - description: Analyze preprocessed transcript chunk for learning extraction
+              - tools: Read, Bash
+              - model: sonnet
+              - color: cyan (research/analysis)
+
+              The subagent should analyze preprocessed reasoning chunks and extract
+              learnings in backlog YAML format.
+
+              See context/plan.md for full subagent definition.
+
+
+              ## Context
+              Read: context/_shared-context.md (build commands)
+              Read: artifacts/step-1-qa-report.md (should show PASS)
+
+              ## Step 1: Full Test Suite
+              Run all tests (not just this step's tests):
+              ```bash
+              npm test
+              ```
+
+              Verify no regressions in other tests.
+
+              ## Step 2: Build Verification
+              ```bash
+              npm run build
+              npm run typecheck
+              npm run lint
+              ```
+
+              ## Step 3: Integration Check
+              - Check imports resolve correctly
+              - Verify no circular dependencies
+              - Ensure types are compatible
+
+              ## Step 4: Final Commit
+              ```bash
+              git add -A
+              git status
+              git diff --cached --quiet || git commit -m "verify(step-1): integration verified"
+              ```
+
+              ## Step Complete
+              The TDD cycle for this step is complete:
+              - ✓ RED: Tests written first
+              - ✓ GREEN: Minimal implementation
+              - ✓ REFACTOR: Code cleaned up
+              - ✓ QA: All scenarios pass
+              - ✓ VERIFY: Integration confirmed
+            started-at: "2026-01-20T00:10:18Z"
+            completed-at: "2026-01-20T00:11:59Z"
+            elapsed: 00:01:41
+      - id: step-2
+        prompt: |
+          Enhance extract.md command with large transcript handling workflow.
+
+          Modify: plugins/m42-signs/commands/extract.md
+
+          Add:
+          1. Size detection in preflight checks (after line 30)
+          2. New arguments: --preprocess-only, --parallel
+          3. Large Transcript Handling section with preprocessing workflow
+          4. Instructions for using chunk-analyzer subagent
+
+          The command should automatically detect large transcripts (>100 lines or >500KB)
+          and activate preprocessing mode.
+
+          See context/plan.md for exact changes.
+        status: completed
+        phases:
+          - id: red
+            status: completed
+            prompt: |
+              Write tests and gherkin scenarios BEFORE any implementation.
+
+              ## Your Task
+              Enhance extract.md command with large transcript handling workflow.
+
+              Modify: plugins/m42-signs/commands/extract.md
+
+              Add:
+              1. Size detection in preflight checks (after line 30)
+              2. New arguments: --preprocess-only, --parallel
+              3. Large Transcript Handling section with preprocessing workflow
+              4. Instructions for using chunk-analyzer subagent
+
+              The command should automatically detect large transcripts (>100 lines or >500KB)
+              and activate preprocessing mode.
+
+              See context/plan.md for exact changes.
+
+
+              ## Shared Context
+              Read: context/_shared-context.md (project patterns, test patterns, commands)
+              Read: context/sprint-plan.md (how this step fits in the sprint)
+
+              ## TDD Rule: RED Phase
+              In this phase, you ONLY write tests. No implementation code.
+              Tests should FAIL when run (because implementation doesn't exist yet).
+
+              ## Instructions
+
+              ### Part 1: Write Gherkin Scenarios (4-8 scenarios)
+              Create scenarios that define the expected behavior:
+
+              ```gherkin
+              Scenario: [Descriptive name]
+                Given [precondition or context]
+                When [action taken]
+                Then [expected outcome]
+
+              Verification: `[shell command that exits 0 on success, non-zero on failure]`
+              Pass: Exit code = 0 → Score 1
+              Fail: Exit code ≠ 0 → Score 0
+              ```
+
+              ### Part 2: Write Unit Tests
+              Create test files that exercise the expected functionality:
+
+              1. Determine test file location (from _shared-context.md patterns)
+              2. Write test cases that match gherkin scenarios
+              3. Include edge cases and error handling tests
+              4. Tests should be runnable but FAIL (code doesn't exist)
+
+              ## Test File Template
+              ```typescript
+              // Filename follows project convention from _shared-context.md
+              import { describe, it, expect } from '[test-framework]';
+
+              describe('[Feature under test]', () => {
+                describe('[Scenario group]', () => {
+                  it('should [expected behavior from gherkin]', () => {
+                    // Arrange - Given
+                    // Act - When
+                    // Assert - Then
+                  });
+
+                  it('should [another expected behavior]', () => {
+                    // ...
+                  });
+                });
+
+                describe('edge cases', () => {
+                  it('should handle [edge case]', () => {
+                    // ...
+                  });
+                });
+
+                describe('error handling', () => {
+                  it('should throw when [error condition]', () => {
+                    // ...
+                  });
+                });
+              });
+              ```
+
+              ## Output
+              Create: artifacts/step-2-gherkin.md
+
+              ```markdown
+              # Gherkin Scenarios: step-2
+
+              ## Step Task
+              Enhance extract.md command with large transcript handling workflow.
+
+              Modify: plugins/m42-signs/commands/extract.md
+
+              Add:
+              1. Size detection in preflight checks (after line 30)
+              2. New arguments: --preprocess-only, --parallel
+              3. Large Transcript Handling section with preprocessing workflow
+              4. Instructions for using chunk-analyzer subagent
+
+              The command should automatically detect large transcripts (>100 lines or >500KB)
+              and activate preprocessing mode.
+
+              See context/plan.md for exact changes.
+
+
+              ## Success Criteria
+              All scenarios must pass (score = 1) for the step to be complete.
+              Total scenarios: [N]
+              Required score: [N]/[N]
+
+              ---
+
+              ## Scenario 1: [Name]
+              [Full gherkin with verification]
+
+              ---
+
+              ## Scenario 2: [Name]
+              [Continue for 4-8 scenarios]
+
+              ---
+
+              ## Unit Test Coverage
+              | Test File | Test Cases | Scenarios Covered |
+              |-----------|------------|-------------------|
+              | [path] | [count] | 1, 2, 3 |
+
+              ## RED Phase Verification
+              Tests are expected to FAIL at this point:
+              \`\`\`bash
+              npm test -- --testPathPattern="[pattern]"
+              # Expected: FAIL (no implementation yet)
+              \`\`\`
+              ```
+
+              ## Commit (Tests Only)
+              ```bash
+              git add [test files] artifacts/step-2-gherkin.md
+              git commit -m "test(step-2): add failing tests [RED]"
+              ```
+
+              ## Important
+              - Do NOT write any implementation code in this phase
+              - Tests SHOULD fail - that's the point of RED
+              - Each gherkin scenario should have corresponding unit test(s)
+            started-at: "2026-01-20T00:12:03Z"
+            completed-at: "2026-01-20T00:14:30Z"
+            elapsed: 00:02:27
+          - id: context
+            status: completed
+            prompt: |
+              Gather step-specific context for implementation.
+
+              ## Your Task
+              Enhance extract.md command with large transcript handling workflow.
+
+              Modify: plugins/m42-signs/commands/extract.md
+
+              Add:
+              1. Size detection in preflight checks (after line 30)
+              2. New arguments: --preprocess-only, --parallel
+              3. Large Transcript Handling section with preprocessing workflow
+              4. Instructions for using chunk-analyzer subagent
+
+              The command should automatically detect large transcripts (>100 lines or >500KB)
+              and activate preprocessing mode.
+
+              See context/plan.md for exact changes.
+
+
+              ## Shared Context
+              Read: context/_shared-context.md (project-wide patterns)
+              Read: artifacts/step-2-gherkin.md (scenarios to implement)
+
+              ## Instructions
+              Research the specific code areas this step will touch:
+
+              1. **Related Existing Code**
+                 - Find similar implementations to follow as patterns
+                 - Identify modules to import from
+                 - Note interfaces/types to implement or extend
+
+              2. **Dependencies**
+                 - Internal module imports needed
+                 - External packages needed
+                 - Version constraints
+
+              3. **Integration Points**
+                 - How will this code be called/used?
+                 - What modules will import from this?
+                 - Existing tests to reference
+
+              4. **Patterns for Implementation**
+                 - Error handling patterns
+                 - Naming conventions
+                 - File organization
+
+              ## Output
+              Create: context/step-2-context.md
+
+              ```markdown
+              # Step Context: step-2
+
+              ## Task
+              Enhance extract.md command with large transcript handling workflow.
+
+              Modify: plugins/m42-signs/commands/extract.md
+
+              Add:
+              1. Size detection in preflight checks (after line 30)
+              2. New arguments: --preprocess-only, --parallel
+              3. Large Transcript Handling section with preprocessing workflow
+              4. Instructions for using chunk-analyzer subagent
+
+              The command should automatically detect large transcripts (>100 lines or >500KB)
+              and activate preprocessing mode.
+
+              See context/plan.md for exact changes.
+
+
+              ## Implementation Plan
+              Based on gherkin scenarios, implement in this order:
+              1. [First thing to implement]
+              2. [Second thing]
+              ...
+
+              ## Related Code Patterns
+
+              ### Pattern from: [path]
+              \`\`\`typescript
+              // Key pattern to follow
+              [relevant code snippet]
+              \`\`\`
+
+              ## Required Imports
+              ### Internal
+              - `[module]`: [what to import]
+
+              ### External
+              - `[package]`: [what to import]
+
+              ## Types/Interfaces to Use
+              \`\`\`typescript
+              // From [source]
+              interface [Name] {
+                [relevant fields]
+              }
+              \`\`\`
+
+              ## Integration Points
+              - Called by: [consumers]
+              - Calls: [dependencies]
+
+              ## Files to Create/Modify
+              | File | Action | Purpose |
+              |------|--------|---------|
+              | [path] | Create | [purpose] |
+              | [path] | Modify | [changes] |
+              ```
+
+              ## Commit
+              ```bash
+              git add context/step-2-context.md
+              git commit -m "context(step-2): gather implementation context"
+              ```
+            started-at: "2026-01-20T00:14:34Z"
+            completed-at: "2026-01-20T00:15:44Z"
+            elapsed: 00:01:10
+          - id: green
+            status: completed
+            prompt: |
+              Implement MINIMAL code to make tests pass.
+
+              ## Your Task
+              Enhance extract.md command with large transcript handling workflow.
+
+              Modify: plugins/m42-signs/commands/extract.md
+
+              Add:
+              1. Size detection in preflight checks (after line 30)
+              2. New arguments: --preprocess-only, --parallel
+              3. Large Transcript Handling section with preprocessing workflow
+              4. Instructions for using chunk-analyzer subagent
+
+              The command should automatically detect large transcripts (>100 lines or >500KB)
+              and activate preprocessing mode.
+
+              See context/plan.md for exact changes.
+
+
+              ## TDD Rule: GREEN Phase
+              Write the simplest code that makes tests pass. No more, no less.
+              "Make it work" - not beautiful, just working.
+
+              ## MUST READ BEFORE IMPLEMENTING
+              Read in order:
+              1. context/_shared-context.md (project patterns)
+              2. artifacts/step-2-gherkin.md (scenarios to satisfy)
+              3. context/step-2-context.md (specific patterns, imports)
+
+              ## Implementation Rules
+
+              ### Follow the Tests
+              Your implementation MUST satisfy:
+              - ALL gherkin scenario verifications
+              - ALL unit tests written in RED phase
+
+              ### Minimal Implementation
+              - Write the simplest code that passes tests
+              - Don't add features not covered by tests
+              - Don't optimize prematurely
+              - Don't add "nice to have" abstractions
+
+              ### Follow the Context
+              - Use patterns from context file
+              - Import from specified modules
+              - Follow naming conventions
+
+              ### Run Tests Frequently
+              ```bash
+              # Run tests as you implement
+              npm test -- --testPathPattern="[pattern]" --watch
+              ```
+
+              ## Commits
+              Make atomic commits for logical units:
+              ```bash
+              git add [files]
+              git commit -m "feat(step-2): [what now works] [GREEN]"
+              ```
+
+              ## Success Criteria
+              Before marking complete:
+              - [ ] All unit tests pass
+              - [ ] All gherkin verifications should pass
+              - [ ] No TypeScript errors
+              - [ ] Code follows context patterns
+
+              ## Run Final Test
+              ```bash
+              npm test -- --testPathPattern="[pattern]"
+              # Expected: PASS (all tests green)
+              ```
+
+              ## Important
+              - Tests MUST pass before moving to REFACTOR
+              - Don't refactor yet - that's the next phase
+              - "Quick and dirty" is OK - we'll clean up next
+            started-at: "2026-01-20T00:15:47Z"
+            completed-at: "2026-01-20T00:17:28Z"
+            elapsed: 00:01:41
+          - id: refactor
+            status: completed
+            prompt: |
+              Refactor implementation while keeping tests green.
+
+              ## Your Task
+              Enhance extract.md command with large transcript handling workflow.
+
+              Modify: plugins/m42-signs/commands/extract.md
+
+              Add:
+              1. Size detection in preflight checks (after line 30)
+              2. New arguments: --preprocess-only, --parallel
+              3. Large Transcript Handling section with preprocessing workflow
+              4. Instructions for using chunk-analyzer subagent
+
+              The command should automatically detect large transcripts (>100 lines or >500KB)
+              and activate preprocessing mode.
+
+              See context/plan.md for exact changes.
+
+
+              ## TDD Rule: REFACTOR Phase
+              "Make it right" - improve code quality without changing behavior.
+              Tests MUST stay green throughout refactoring.
+
+              ## Context
+              Read: context/step-2-context.md (target patterns)
+              Read: artifacts/step-2-gherkin.md (scenarios that must stay passing)
+
+              ## Refactoring Checklist
+
+              ### Code Quality
+              - [ ] Remove any duplication
+              - [ ] Improve naming (variables, functions, files)
+              - [ ] Extract helper functions if beneficial
+              - [ ] Simplify complex conditionals
+              - [ ] Add necessary type annotations
+
+              ### Pattern Conformance
+              - [ ] Follows project conventions from context
+              - [ ] Error handling matches patterns
+              - [ ] File organization matches patterns
+
+              ### Clean Code
+              - [ ] Remove dead code
+              - [ ] Remove console.log/debug statements
+              - [ ] Fix any linting issues
+              - [ ] Add JSDoc for public APIs only
+
+              ## Refactoring Rules
+
+              ### Run Tests After Each Change
+              ```bash
+              npm test -- --testPathPattern="[pattern]"
+              ```
+              If tests fail, REVERT the change immediately.
+
+              ### Small Steps
+              - One refactoring at a time
+              - Commit after each successful refactoring
+              - Don't refactor multiple things at once
+
+              ### Don't Change Behavior
+              - No new features
+              - No API changes (unless fixing test file imports)
+              - Same inputs → same outputs
+
+              ## Commits
+              ```bash
+              git add [files]
+              git commit -m "refactor(step-2): [improvement made]"
+              ```
+
+              ## Lint and Type Check
+              ```bash
+              npm run lint -- [files]
+              npm run typecheck
+              ```
+
+              Fix any issues found.
+
+              ## Final Verification
+              ```bash
+              npm test -- --testPathPattern="[pattern]"
+              npm run lint
+              npm run typecheck
+              ```
+
+              All must pass before completing this phase.
+            started-at: "2026-01-20T00:17:32Z"
+            completed-at: "2026-01-20T00:19:24Z"
+            elapsed: 00:01:52
+          - id: qa
+            status: completed
+            prompt: |
+              Verify implementation against gherkin scenarios.
+
+              ## Context
+              Read: artifacts/step-2-gherkin.md (scenarios with verification commands)
+
+              ## Step 1: Run Unit Tests
+              ```bash
+              npm test -- --testPathPattern="[pattern]"
+              ```
+
+              Record results: total tests, passed, failed.
+
+              ## Step 2: Run Each Gherkin Verification
+
+              For EACH scenario in the gherkin file:
+              1. Run the verification command
+              2. Record result: 1 (pass) or 0 (fail)
+              3. If fail, capture error output
+
+              ## Step 3: Calculate Score
+
+              Score = (passed scenarios) / (total scenarios)
+              - Score = 1.0 (all pass) → PASS
+              - Score < 1.0 (any fail) → FAIL
+
+              ## Step 4: Generate QA Report
+
+              Create: artifacts/step-2-qa-report.md
+
+              ```markdown
+              # QA Report: step-2
+
+              ## Summary
+              - Gherkin Scenarios: [N] total, [N] passed, [N] failed
+              - Gherkin Score: [X]/[N] = [percentage]%
+              - Unit Tests: [N] total, [N] passed, [N] failed
+
+              ## Unit Test Results
+              \`\`\`
+              [test output]
+              \`\`\`
+
+              ## Gherkin Verification Results
+
+              | # | Scenario | Result | Details |
+              |---|----------|--------|---------|
+              | 1 | [Name] | PASS/FAIL | [output] |
+              | 2 | [Name] | PASS/FAIL | [output] |
+              ...
+
+              ## Detailed Results
+
+              ### Scenario 1: [Name]
+              **Verification**: `[command]`
+              **Exit Code**: [0 or N]
+              **Output**:
+              \`\`\`
+              [actual output]
+              \`\`\`
+              **Result**: PASS / FAIL
+
+              [Continue for all scenarios]
+
+              ## TDD Cycle Summary
+              | Phase | Status |
+              |-------|--------|
+              | RED (tests) | ✓ Completed |
+              | GREEN (implement) | ✓ Completed |
+              | REFACTOR | ✓ Completed |
+              | QA (verify) | PASS/FAIL |
+
+              ## Issues Found
+              [If any failures, describe each issue]
+
+              ## Status: PASS / FAIL
+              ```
+
+              ## Step 5: Handle Outcome
+
+              ### If ALL pass (Score = 100%):
+              ```bash
+              git add artifacts/step-2-qa-report.md
+              git commit -m "qa(step-2): all scenarios passed"
+              ```
+
+              ### If ANY fail (Score < 100%):
+              Inject fix phases:
+
+              ```bash
+              PROGRESS_FILE=$(find .claude/sprints -name "PROGRESS.yaml" -type f 2>/dev/null | head -1)
+
+              yq -i '
+                (.phases[] | select(.steps) | .steps[] | select(.status == "in-progress") | .phases) +=
+                [
+                  {
+                    "id": "fix",
+                    "status": "pending",
+                    "prompt": "Fix failing scenarios for step-2.\n\nRead: artifacts/step-2-qa-report.md\n\n1. Review each FAIL scenario\n2. Fix implementation to pass\n3. Run verification to confirm\n4. Run unit tests to ensure no regression\n5. Commit fixes"
+                  },
+                  {
+                    "id": "reverify",
+                    "status": "pending",
+                    "prompt": "Re-verify all scenarios after fixes.\n\nRun ALL verifications from artifacts/step-2-gherkin.md\nRun ALL unit tests.\n\nIf ALL pass: Update QA report with PASS status.\nIf ANY fail: Inject another fix phase."
+                  }
+                ]
+              ' "$PROGRESS_FILE"
+
+              yq -i '
+                (.. | select(.id == "qa" and .status == "in-progress")) |=
+                (.status = "failed" | .error = "QA failed - fix phase injected")
+              ' "$PROGRESS_FILE"
+              ```
+            started-at: "2026-01-20T00:19:29Z"
+            completed-at: "2026-01-20T00:20:41Z"
+            elapsed: 00:01:12
+          - id: verify
+            status: completed
+            prompt: |
+              Final integration verification for the step.
+
+              ## Your Task
+              Enhance extract.md command with large transcript handling workflow.
+
+              Modify: plugins/m42-signs/commands/extract.md
+
+              Add:
+              1. Size detection in preflight checks (after line 30)
+              2. New arguments: --preprocess-only, --parallel
+              3. Large Transcript Handling section with preprocessing workflow
+              4. Instructions for using chunk-analyzer subagent
+
+              The command should automatically detect large transcripts (>100 lines or >500KB)
+              and activate preprocessing mode.
+
+              See context/plan.md for exact changes.
+
+
+              ## Context
+              Read: context/_shared-context.md (build commands)
+              Read: artifacts/step-2-qa-report.md (should show PASS)
+
+              ## Step 1: Full Test Suite
+              Run all tests (not just this step's tests):
+              ```bash
+              npm test
+              ```
+
+              Verify no regressions in other tests.
+
+              ## Step 2: Build Verification
+              ```bash
+              npm run build
+              npm run typecheck
+              npm run lint
+              ```
+
+              ## Step 3: Integration Check
+              - Check imports resolve correctly
+              - Verify no circular dependencies
+              - Ensure types are compatible
+
+              ## Step 4: Final Commit
+              ```bash
+              git add -A
+              git status
+              git diff --cached --quiet || git commit -m "verify(step-2): integration verified"
+              ```
+
+              ## Step Complete
+              The TDD cycle for this step is complete:
+              - ✓ RED: Tests written first
+              - ✓ GREEN: Minimal implementation
+              - ✓ REFACTOR: Code cleaned up
+              - ✓ QA: All scenarios pass
+              - ✓ VERIFY: Integration confirmed
+            started-at: "2026-01-20T00:20:45Z"
+            completed-at: "2026-01-20T00:23:39Z"
+            elapsed: 00:02:54
+      - id: step-3
+        prompt: |
+          Create documentation for large transcript handling.
+
+          Create: plugins/m42-signs/docs/how-to/handle-large-transcripts.md
+
+          Document:
+          - Automatic preprocessing activation
+          - Manual preprocessing workflow
+          - When to use --parallel flag
+          - Size thresholds table
+          - Artifacts generated
+
+          Follow AI-ready documentation principles (frontmatter, keywords, structure).
+        status: completed
+        phases:
+          - id: red
+            status: completed
+            prompt: |
+              Write tests and gherkin scenarios BEFORE any implementation.
+
+              ## Your Task
+              Create documentation for large transcript handling.
+
+              Create: plugins/m42-signs/docs/how-to/handle-large-transcripts.md
+
+              Document:
+              - Automatic preprocessing activation
+              - Manual preprocessing workflow
+              - When to use --parallel flag
+              - Size thresholds table
+              - Artifacts generated
+
+              Follow AI-ready documentation principles (frontmatter, keywords, structure).
+
+
+              ## Shared Context
+              Read: context/_shared-context.md (project patterns, test patterns, commands)
+              Read: context/sprint-plan.md (how this step fits in the sprint)
+
+              ## TDD Rule: RED Phase
+              In this phase, you ONLY write tests. No implementation code.
+              Tests should FAIL when run (because implementation doesn't exist yet).
+
+              ## Instructions
+
+              ### Part 1: Write Gherkin Scenarios (4-8 scenarios)
+              Create scenarios that define the expected behavior:
+
+              ```gherkin
+              Scenario: [Descriptive name]
+                Given [precondition or context]
+                When [action taken]
+                Then [expected outcome]
+
+              Verification: `[shell command that exits 0 on success, non-zero on failure]`
+              Pass: Exit code = 0 → Score 1
+              Fail: Exit code ≠ 0 → Score 0
+              ```
+
+              ### Part 2: Write Unit Tests
+              Create test files that exercise the expected functionality:
+
+              1. Determine test file location (from _shared-context.md patterns)
+              2. Write test cases that match gherkin scenarios
+              3. Include edge cases and error handling tests
+              4. Tests should be runnable but FAIL (code doesn't exist)
+
+              ## Test File Template
+              ```typescript
+              // Filename follows project convention from _shared-context.md
+              import { describe, it, expect } from '[test-framework]';
+
+              describe('[Feature under test]', () => {
+                describe('[Scenario group]', () => {
+                  it('should [expected behavior from gherkin]', () => {
+                    // Arrange - Given
+                    // Act - When
+                    // Assert - Then
+                  });
+
+                  it('should [another expected behavior]', () => {
+                    // ...
+                  });
+                });
+
+                describe('edge cases', () => {
+                  it('should handle [edge case]', () => {
+                    // ...
+                  });
+                });
+
+                describe('error handling', () => {
+                  it('should throw when [error condition]', () => {
+                    // ...
+                  });
+                });
+              });
+              ```
+
+              ## Output
+              Create: artifacts/step-3-gherkin.md
+
+              ```markdown
+              # Gherkin Scenarios: step-3
+
+              ## Step Task
+              Create documentation for large transcript handling.
+
+              Create: plugins/m42-signs/docs/how-to/handle-large-transcripts.md
+
+              Document:
+              - Automatic preprocessing activation
+              - Manual preprocessing workflow
+              - When to use --parallel flag
+              - Size thresholds table
+              - Artifacts generated
+
+              Follow AI-ready documentation principles (frontmatter, keywords, structure).
+
+
+              ## Success Criteria
+              All scenarios must pass (score = 1) for the step to be complete.
+              Total scenarios: [N]
+              Required score: [N]/[N]
+
+              ---
+
+              ## Scenario 1: [Name]
+              [Full gherkin with verification]
+
+              ---
+
+              ## Scenario 2: [Name]
+              [Continue for 4-8 scenarios]
+
+              ---
+
+              ## Unit Test Coverage
+              | Test File | Test Cases | Scenarios Covered |
+              |-----------|------------|-------------------|
+              | [path] | [count] | 1, 2, 3 |
+
+              ## RED Phase Verification
+              Tests are expected to FAIL at this point:
+              \`\`\`bash
+              npm test -- --testPathPattern="[pattern]"
+              # Expected: FAIL (no implementation yet)
+              \`\`\`
+              ```
+
+              ## Commit (Tests Only)
+              ```bash
+              git add [test files] artifacts/step-3-gherkin.md
+              git commit -m "test(step-3): add failing tests [RED]"
+              ```
+
+              ## Important
+              - Do NOT write any implementation code in this phase
+              - Tests SHOULD fail - that's the point of RED
+              - Each gherkin scenario should have corresponding unit test(s)
+            started-at: "2026-01-20T00:23:43Z"
+            completed-at: "2026-01-20T00:25:20Z"
+            elapsed: 00:01:37
+          - id: context
+            status: completed
+            prompt: |
+              Gather step-specific context for implementation.
+
+              ## Your Task
+              Create documentation for large transcript handling.
+
+              Create: plugins/m42-signs/docs/how-to/handle-large-transcripts.md
+
+              Document:
+              - Automatic preprocessing activation
+              - Manual preprocessing workflow
+              - When to use --parallel flag
+              - Size thresholds table
+              - Artifacts generated
+
+              Follow AI-ready documentation principles (frontmatter, keywords, structure).
+
+
+              ## Shared Context
+              Read: context/_shared-context.md (project-wide patterns)
+              Read: artifacts/step-3-gherkin.md (scenarios to implement)
+
+              ## Instructions
+              Research the specific code areas this step will touch:
+
+              1. **Related Existing Code**
+                 - Find similar implementations to follow as patterns
+                 - Identify modules to import from
+                 - Note interfaces/types to implement or extend
+
+              2. **Dependencies**
+                 - Internal module imports needed
+                 - External packages needed
+                 - Version constraints
+
+              3. **Integration Points**
+                 - How will this code be called/used?
+                 - What modules will import from this?
+                 - Existing tests to reference
+
+              4. **Patterns for Implementation**
+                 - Error handling patterns
+                 - Naming conventions
+                 - File organization
+
+              ## Output
+              Create: context/step-3-context.md
+
+              ```markdown
+              # Step Context: step-3
+
+              ## Task
+              Create documentation for large transcript handling.
+
+              Create: plugins/m42-signs/docs/how-to/handle-large-transcripts.md
+
+              Document:
+              - Automatic preprocessing activation
+              - Manual preprocessing workflow
+              - When to use --parallel flag
+              - Size thresholds table
+              - Artifacts generated
+
+              Follow AI-ready documentation principles (frontmatter, keywords, structure).
+
+
+              ## Implementation Plan
+              Based on gherkin scenarios, implement in this order:
+              1. [First thing to implement]
+              2. [Second thing]
+              ...
+
+              ## Related Code Patterns
+
+              ### Pattern from: [path]
+              \`\`\`typescript
+              // Key pattern to follow
+              [relevant code snippet]
+              \`\`\`
+
+              ## Required Imports
+              ### Internal
+              - `[module]`: [what to import]
+
+              ### External
+              - `[package]`: [what to import]
+
+              ## Types/Interfaces to Use
+              \`\`\`typescript
+              // From [source]
+              interface [Name] {
+                [relevant fields]
+              }
+              \`\`\`
+
+              ## Integration Points
+              - Called by: [consumers]
+              - Calls: [dependencies]
+
+              ## Files to Create/Modify
+              | File | Action | Purpose |
+              |------|--------|---------|
+              | [path] | Create | [purpose] |
+              | [path] | Modify | [changes] |
+              ```
+
+              ## Commit
+              ```bash
+              git add context/step-3-context.md
+              git commit -m "context(step-3): gather implementation context"
+              ```
+            started-at: "2026-01-20T00:25:24Z"
+            completed-at: "2026-01-20T00:26:38Z"
+            elapsed: 00:01:14
+          - id: green
+            status: completed
+            prompt: |
+              Implement MINIMAL code to make tests pass.
+
+              ## Your Task
+              Create documentation for large transcript handling.
+
+              Create: plugins/m42-signs/docs/how-to/handle-large-transcripts.md
+
+              Document:
+              - Automatic preprocessing activation
+              - Manual preprocessing workflow
+              - When to use --parallel flag
+              - Size thresholds table
+              - Artifacts generated
+
+              Follow AI-ready documentation principles (frontmatter, keywords, structure).
+
+
+              ## TDD Rule: GREEN Phase
+              Write the simplest code that makes tests pass. No more, no less.
+              "Make it work" - not beautiful, just working.
+
+              ## MUST READ BEFORE IMPLEMENTING
+              Read in order:
+              1. context/_shared-context.md (project patterns)
+              2. artifacts/step-3-gherkin.md (scenarios to satisfy)
+              3. context/step-3-context.md (specific patterns, imports)
+
+              ## Implementation Rules
+
+              ### Follow the Tests
+              Your implementation MUST satisfy:
+              - ALL gherkin scenario verifications
+              - ALL unit tests written in RED phase
+
+              ### Minimal Implementation
+              - Write the simplest code that passes tests
+              - Don't add features not covered by tests
+              - Don't optimize prematurely
+              - Don't add "nice to have" abstractions
+
+              ### Follow the Context
+              - Use patterns from context file
+              - Import from specified modules
+              - Follow naming conventions
+
+              ### Run Tests Frequently
+              ```bash
+              # Run tests as you implement
+              npm test -- --testPathPattern="[pattern]" --watch
+              ```
+
+              ## Commits
+              Make atomic commits for logical units:
+              ```bash
+              git add [files]
+              git commit -m "feat(step-3): [what now works] [GREEN]"
+              ```
+
+              ## Success Criteria
+              Before marking complete:
+              - [ ] All unit tests pass
+              - [ ] All gherkin verifications should pass
+              - [ ] No TypeScript errors
+              - [ ] Code follows context patterns
+
+              ## Run Final Test
+              ```bash
+              npm test -- --testPathPattern="[pattern]"
+              # Expected: PASS (all tests green)
+              ```
+
+              ## Important
+              - Tests MUST pass before moving to REFACTOR
+              - Don't refactor yet - that's the next phase
+              - "Quick and dirty" is OK - we'll clean up next
+            started-at: "2026-01-20T00:26:42Z"
+            completed-at: "2026-01-20T00:29:32Z"
+            elapsed: 00:02:50
+          - id: refactor
+            status: completed
+            prompt: |
+              Refactor implementation while keeping tests green.
+
+              ## Your Task
+              Create documentation for large transcript handling.
+
+              Create: plugins/m42-signs/docs/how-to/handle-large-transcripts.md
+
+              Document:
+              - Automatic preprocessing activation
+              - Manual preprocessing workflow
+              - When to use --parallel flag
+              - Size thresholds table
+              - Artifacts generated
+
+              Follow AI-ready documentation principles (frontmatter, keywords, structure).
+
+
+              ## TDD Rule: REFACTOR Phase
+              "Make it right" - improve code quality without changing behavior.
+              Tests MUST stay green throughout refactoring.
+
+              ## Context
+              Read: context/step-3-context.md (target patterns)
+              Read: artifacts/step-3-gherkin.md (scenarios that must stay passing)
+
+              ## Refactoring Checklist
+
+              ### Code Quality
+              - [ ] Remove any duplication
+              - [ ] Improve naming (variables, functions, files)
+              - [ ] Extract helper functions if beneficial
+              - [ ] Simplify complex conditionals
+              - [ ] Add necessary type annotations
+
+              ### Pattern Conformance
+              - [ ] Follows project conventions from context
+              - [ ] Error handling matches patterns
+              - [ ] File organization matches patterns
+
+              ### Clean Code
+              - [ ] Remove dead code
+              - [ ] Remove console.log/debug statements
+              - [ ] Fix any linting issues
+              - [ ] Add JSDoc for public APIs only
+
+              ## Refactoring Rules
+
+              ### Run Tests After Each Change
+              ```bash
+              npm test -- --testPathPattern="[pattern]"
+              ```
+              If tests fail, REVERT the change immediately.
+
+              ### Small Steps
+              - One refactoring at a time
+              - Commit after each successful refactoring
+              - Don't refactor multiple things at once
+
+              ### Don't Change Behavior
+              - No new features
+              - No API changes (unless fixing test file imports)
+              - Same inputs → same outputs
+
+              ## Commits
+              ```bash
+              git add [files]
+              git commit -m "refactor(step-3): [improvement made]"
+              ```
+
+              ## Lint and Type Check
+              ```bash
+              npm run lint -- [files]
+              npm run typecheck
+              ```
+
+              Fix any issues found.
+
+              ## Final Verification
+              ```bash
+              npm test -- --testPathPattern="[pattern]"
+              npm run lint
+              npm run typecheck
+              ```
+
+              All must pass before completing this phase.
+            started-at: "2026-01-20T00:29:36Z"
+            completed-at: "2026-01-20T00:32:19Z"
+            elapsed: 00:02:43
+          - id: qa
+            status: completed
+            prompt: |
+              Verify implementation against gherkin scenarios.
+
+              ## Context
+              Read: artifacts/step-3-gherkin.md (scenarios with verification commands)
+
+              ## Step 1: Run Unit Tests
+              ```bash
+              npm test -- --testPathPattern="[pattern]"
+              ```
+
+              Record results: total tests, passed, failed.
+
+              ## Step 2: Run Each Gherkin Verification
+
+              For EACH scenario in the gherkin file:
+              1. Run the verification command
+              2. Record result: 1 (pass) or 0 (fail)
+              3. If fail, capture error output
+
+              ## Step 3: Calculate Score
+
+              Score = (passed scenarios) / (total scenarios)
+              - Score = 1.0 (all pass) → PASS
+              - Score < 1.0 (any fail) → FAIL
+
+              ## Step 4: Generate QA Report
+
+              Create: artifacts/step-3-qa-report.md
+
+              ```markdown
+              # QA Report: step-3
+
+              ## Summary
+              - Gherkin Scenarios: [N] total, [N] passed, [N] failed
+              - Gherkin Score: [X]/[N] = [percentage]%
+              - Unit Tests: [N] total, [N] passed, [N] failed
+
+              ## Unit Test Results
+              \`\`\`
+              [test output]
+              \`\`\`
+
+              ## Gherkin Verification Results
+
+              | # | Scenario | Result | Details |
+              |---|----------|--------|---------|
+              | 1 | [Name] | PASS/FAIL | [output] |
+              | 2 | [Name] | PASS/FAIL | [output] |
+              ...
+
+              ## Detailed Results
+
+              ### Scenario 1: [Name]
+              **Verification**: `[command]`
+              **Exit Code**: [0 or N]
+              **Output**:
+              \`\`\`
+              [actual output]
+              \`\`\`
+              **Result**: PASS / FAIL
+
+              [Continue for all scenarios]
+
+              ## TDD Cycle Summary
+              | Phase | Status |
+              |-------|--------|
+              | RED (tests) | ✓ Completed |
+              | GREEN (implement) | ✓ Completed |
+              | REFACTOR | ✓ Completed |
+              | QA (verify) | PASS/FAIL |
+
+              ## Issues Found
+              [If any failures, describe each issue]
+
+              ## Status: PASS / FAIL
+              ```
+
+              ## Step 5: Handle Outcome
+
+              ### If ALL pass (Score = 100%):
+              ```bash
+              git add artifacts/step-3-qa-report.md
+              git commit -m "qa(step-3): all scenarios passed"
+              ```
+
+              ### If ANY fail (Score < 100%):
+              Inject fix phases:
+
+              ```bash
+              PROGRESS_FILE=$(find .claude/sprints -name "PROGRESS.yaml" -type f 2>/dev/null | head -1)
+
+              yq -i '
+                (.phases[] | select(.steps) | .steps[] | select(.status == "in-progress") | .phases) +=
+                [
+                  {
+                    "id": "fix",
+                    "status": "pending",
+                    "prompt": "Fix failing scenarios for step-3.\n\nRead: artifacts/step-3-qa-report.md\n\n1. Review each FAIL scenario\n2. Fix implementation to pass\n3. Run verification to confirm\n4. Run unit tests to ensure no regression\n5. Commit fixes"
+                  },
+                  {
+                    "id": "reverify",
+                    "status": "pending",
+                    "prompt": "Re-verify all scenarios after fixes.\n\nRun ALL verifications from artifacts/step-3-gherkin.md\nRun ALL unit tests.\n\nIf ALL pass: Update QA report with PASS status.\nIf ANY fail: Inject another fix phase."
+                  }
+                ]
+              ' "$PROGRESS_FILE"
+
+              yq -i '
+                (.. | select(.id == "qa" and .status == "in-progress")) |=
+                (.status = "failed" | .error = "QA failed - fix phase injected")
+              ' "$PROGRESS_FILE"
+              ```
+            started-at: "2026-01-20T00:32:23Z"
+            completed-at: "2026-01-20T00:33:40Z"
+            elapsed: 00:01:17
+          - id: verify
+            status: completed
+            prompt: |
+              Final integration verification for the step.
+
+              ## Your Task
+              Create documentation for large transcript handling.
+
+              Create: plugins/m42-signs/docs/how-to/handle-large-transcripts.md
+
+              Document:
+              - Automatic preprocessing activation
+              - Manual preprocessing workflow
+              - When to use --parallel flag
+              - Size thresholds table
+              - Artifacts generated
+
+              Follow AI-ready documentation principles (frontmatter, keywords, structure).
+
+
+              ## Context
+              Read: context/_shared-context.md (build commands)
+              Read: artifacts/step-3-qa-report.md (should show PASS)
+
+              ## Step 1: Full Test Suite
+              Run all tests (not just this step's tests):
+              ```bash
+              npm test
+              ```
+
+              Verify no regressions in other tests.
+
+              ## Step 2: Build Verification
+              ```bash
+              npm run build
+              npm run typecheck
+              npm run lint
+              ```
+
+              ## Step 3: Integration Check
+              - Check imports resolve correctly
+              - Verify no circular dependencies
+              - Ensure types are compatible
+
+              ## Step 4: Final Commit
+              ```bash
+              git add -A
+              git status
+              git diff --cached --quiet || git commit -m "verify(step-3): integration verified"
+              ```
+
+              ## Step Complete
+              The TDD cycle for this step is complete:
+              - ✓ RED: Tests written first
+              - ✓ GREEN: Minimal implementation
+              - ✓ REFACTOR: Code cleaned up
+              - ✓ QA: All scenarios pass
+              - ✓ VERIFY: Integration confirmed
+            started-at: "2026-01-20T00:33:44Z"
+            completed-at: "2026-01-20T00:34:59Z"
+            elapsed: 00:01:15
+      - id: step-4
+        prompt: |
+          Test the complete large transcript handling workflow.
+
+          Test using the actual large transcript:
+          .claude/sprints/2026-01-18_ralph-mode-implementation/transcripts/development-step-0-execute.jsonl
+
+          Verify:
+          1. All 3 scripts execute without errors
+          2. Scripts reduce file size as expected
+          3. Extract command detects large transcript
+          4. Preprocessing artifacts are created
+          5. Full extraction completes successfully
+
+          Fix any issues discovered during testing.
+        status: in-progress
+        phases:
+          - id: red
+            status: completed
+            prompt: |
+              Write tests and gherkin scenarios BEFORE any implementation.
+
+              ## Your Task
+              Test the complete large transcript handling workflow.
+
+              Test using the actual large transcript:
+              .claude/sprints/2026-01-18_ralph-mode-implementation/transcripts/development-step-0-execute.jsonl
+
+              Verify:
+              1. All 3 scripts execute without errors
+              2. Scripts reduce file size as expected
+              3. Extract command detects large transcript
+              4. Preprocessing artifacts are created
+              5. Full extraction completes successfully
+
+              Fix any issues discovered during testing.
+
+
+              ## Shared Context
+              Read: context/_shared-context.md (project patterns, test patterns, commands)
+              Read: context/sprint-plan.md (how this step fits in the sprint)
+
+              ## TDD Rule: RED Phase
+              In this phase, you ONLY write tests. No implementation code.
+              Tests should FAIL when run (because implementation doesn't exist yet).
+
+              ## Instructions
+
+              ### Part 1: Write Gherkin Scenarios (4-8 scenarios)
+              Create scenarios that define the expected behavior:
+
+              ```gherkin
+              Scenario: [Descriptive name]
+                Given [precondition or context]
+                When [action taken]
+                Then [expected outcome]
+
+              Verification: `[shell command that exits 0 on success, non-zero on failure]`
+              Pass: Exit code = 0 → Score 1
+              Fail: Exit code ≠ 0 → Score 0
+              ```
+
+              ### Part 2: Write Unit Tests
+              Create test files that exercise the expected functionality:
+
+              1. Determine test file location (from _shared-context.md patterns)
+              2. Write test cases that match gherkin scenarios
+              3. Include edge cases and error handling tests
+              4. Tests should be runnable but FAIL (code doesn't exist)
+
+              ## Test File Template
+              ```typescript
+              // Filename follows project convention from _shared-context.md
+              import { describe, it, expect } from '[test-framework]';
+
+              describe('[Feature under test]', () => {
+                describe('[Scenario group]', () => {
+                  it('should [expected behavior from gherkin]', () => {
+                    // Arrange - Given
+                    // Act - When
+                    // Assert - Then
+                  });
+
+                  it('should [another expected behavior]', () => {
+                    // ...
+                  });
+                });
+
+                describe('edge cases', () => {
+                  it('should handle [edge case]', () => {
+                    // ...
+                  });
+                });
+
+                describe('error handling', () => {
+                  it('should throw when [error condition]', () => {
+                    // ...
+                  });
+                });
+              });
+              ```
+
+              ## Output
+              Create: artifacts/step-4-gherkin.md
+
+              ```markdown
+              # Gherkin Scenarios: step-4
+
+              ## Step Task
+              Test the complete large transcript handling workflow.
+
+              Test using the actual large transcript:
+              .claude/sprints/2026-01-18_ralph-mode-implementation/transcripts/development-step-0-execute.jsonl
+
+              Verify:
+              1. All 3 scripts execute without errors
+              2. Scripts reduce file size as expected
+              3. Extract command detects large transcript
+              4. Preprocessing artifacts are created
+              5. Full extraction completes successfully
+
+              Fix any issues discovered during testing.
+
+
+              ## Success Criteria
+              All scenarios must pass (score = 1) for the step to be complete.
+              Total scenarios: [N]
+              Required score: [N]/[N]
+
+              ---
+
+              ## Scenario 1: [Name]
+              [Full gherkin with verification]
+
+              ---
+
+              ## Scenario 2: [Name]
+              [Continue for 4-8 scenarios]
+
+              ---
+
+              ## Unit Test Coverage
+              | Test File | Test Cases | Scenarios Covered |
+              |-----------|------------|-------------------|
+              | [path] | [count] | 1, 2, 3 |
+
+              ## RED Phase Verification
+              Tests are expected to FAIL at this point:
+              \`\`\`bash
+              npm test -- --testPathPattern="[pattern]"
+              # Expected: FAIL (no implementation yet)
+              \`\`\`
+              ```
+
+              ## Commit (Tests Only)
+              ```bash
+              git add [test files] artifacts/step-4-gherkin.md
+              git commit -m "test(step-4): add failing tests [RED]"
+              ```
+
+              ## Important
+              - Do NOT write any implementation code in this phase
+              - Tests SHOULD fail - that's the point of RED
+              - Each gherkin scenario should have corresponding unit test(s)
+            started-at: "2026-01-20T00:35:04Z"
+            completed-at: "2026-01-20T00:37:48Z"
+            elapsed: 00:02:44
+          - id: context
+            status: completed
+            prompt: |
+              Gather step-specific context for implementation.
+
+              ## Your Task
+              Test the complete large transcript handling workflow.
+
+              Test using the actual large transcript:
+              .claude/sprints/2026-01-18_ralph-mode-implementation/transcripts/development-step-0-execute.jsonl
+
+              Verify:
+              1. All 3 scripts execute without errors
+              2. Scripts reduce file size as expected
+              3. Extract command detects large transcript
+              4. Preprocessing artifacts are created
+              5. Full extraction completes successfully
+
+              Fix any issues discovered during testing.
+
+
+              ## Shared Context
+              Read: context/_shared-context.md (project-wide patterns)
+              Read: artifacts/step-4-gherkin.md (scenarios to implement)
+
+              ## Instructions
+              Research the specific code areas this step will touch:
+
+              1. **Related Existing Code**
+                 - Find similar implementations to follow as patterns
+                 - Identify modules to import from
+                 - Note interfaces/types to implement or extend
+
+              2. **Dependencies**
+                 - Internal module imports needed
+                 - External packages needed
+                 - Version constraints
+
+              3. **Integration Points**
+                 - How will this code be called/used?
+                 - What modules will import from this?
+                 - Existing tests to reference
+
+              4. **Patterns for Implementation**
+                 - Error handling patterns
+                 - Naming conventions
+                 - File organization
+
+              ## Output
+              Create: context/step-4-context.md
+
+              ```markdown
+              # Step Context: step-4
+
+              ## Task
+              Test the complete large transcript handling workflow.
+
+              Test using the actual large transcript:
+              .claude/sprints/2026-01-18_ralph-mode-implementation/transcripts/development-step-0-execute.jsonl
+
+              Verify:
+              1. All 3 scripts execute without errors
+              2. Scripts reduce file size as expected
+              3. Extract command detects large transcript
+              4. Preprocessing artifacts are created
+              5. Full extraction completes successfully
+
+              Fix any issues discovered during testing.
+
+
+              ## Implementation Plan
+              Based on gherkin scenarios, implement in this order:
+              1. [First thing to implement]
+              2. [Second thing]
+              ...
+
+              ## Related Code Patterns
+
+              ### Pattern from: [path]
+              \`\`\`typescript
+              // Key pattern to follow
+              [relevant code snippet]
+              \`\`\`
+
+              ## Required Imports
+              ### Internal
+              - `[module]`: [what to import]
+
+              ### External
+              - `[package]`: [what to import]
+
+              ## Types/Interfaces to Use
+              \`\`\`typescript
+              // From [source]
+              interface [Name] {
+                [relevant fields]
+              }
+              \`\`\`
+
+              ## Integration Points
+              - Called by: [consumers]
+              - Calls: [dependencies]
+
+              ## Files to Create/Modify
+              | File | Action | Purpose |
+              |------|--------|---------|
+              | [path] | Create | [purpose] |
+              | [path] | Modify | [changes] |
+              ```
+
+              ## Commit
+              ```bash
+              git add context/step-4-context.md
+              git commit -m "context(step-4): gather implementation context"
+              ```
+            started-at: "2026-01-20T00:37:52Z"
+            completed-at: "2026-01-20T00:39:34Z"
+            elapsed: 00:01:42
+          - id: green
+            status: in-progress
+            prompt: |
+              Implement MINIMAL code to make tests pass.
+
+              ## Your Task
+              Test the complete large transcript handling workflow.
+
+              Test using the actual large transcript:
+              .claude/sprints/2026-01-18_ralph-mode-implementation/transcripts/development-step-0-execute.jsonl
+
+              Verify:
+              1. All 3 scripts execute without errors
+              2. Scripts reduce file size as expected
+              3. Extract command detects large transcript
+              4. Preprocessing artifacts are created
+              5. Full extraction completes successfully
+
+              Fix any issues discovered during testing.
+
+
+              ## TDD Rule: GREEN Phase
+              Write the simplest code that makes tests pass. No more, no less.
+              "Make it work" - not beautiful, just working.
+
+              ## MUST READ BEFORE IMPLEMENTING
+              Read in order:
+              1. context/_shared-context.md (project patterns)
+              2. artifacts/step-4-gherkin.md (scenarios to satisfy)
+              3. context/step-4-context.md (specific patterns, imports)
+
+              ## Implementation Rules
+
+              ### Follow the Tests
+              Your implementation MUST satisfy:
+              - ALL gherkin scenario verifications
+              - ALL unit tests written in RED phase
+
+              ### Minimal Implementation
+              - Write the simplest code that passes tests
+              - Don't add features not covered by tests
+              - Don't optimize prematurely
+              - Don't add "nice to have" abstractions
+
+              ### Follow the Context
+              - Use patterns from context file
+              - Import from specified modules
+              - Follow naming conventions
+
+              ### Run Tests Frequently
+              ```bash
+              # Run tests as you implement
+              npm test -- --testPathPattern="[pattern]" --watch
+              ```
+
+              ## Commits
+              Make atomic commits for logical units:
+              ```bash
+              git add [files]
+              git commit -m "feat(step-4): [what now works] [GREEN]"
+              ```
+
+              ## Success Criteria
+              Before marking complete:
+              - [ ] All unit tests pass
+              - [ ] All gherkin verifications should pass
+              - [ ] No TypeScript errors
+              - [ ] Code follows context patterns
+
+              ## Run Final Test
+              ```bash
+              npm test -- --testPathPattern="[pattern]"
+              # Expected: PASS (all tests green)
+              ```
+
+              ## Important
+              - Tests MUST pass before moving to REFACTOR
+              - Don't refactor yet - that's the next phase
+              - "Quick and dirty" is OK - we'll clean up next
+          - id: refactor
+            status: pending
+            prompt: |
+              Refactor implementation while keeping tests green.
+
+              ## Your Task
+              Test the complete large transcript handling workflow.
+
+              Test using the actual large transcript:
+              .claude/sprints/2026-01-18_ralph-mode-implementation/transcripts/development-step-0-execute.jsonl
+
+              Verify:
+              1. All 3 scripts execute without errors
+              2. Scripts reduce file size as expected
+              3. Extract command detects large transcript
+              4. Preprocessing artifacts are created
+              5. Full extraction completes successfully
+
+              Fix any issues discovered during testing.
+
+
+              ## TDD Rule: REFACTOR Phase
+              "Make it right" - improve code quality without changing behavior.
+              Tests MUST stay green throughout refactoring.
+
+              ## Context
+              Read: context/step-4-context.md (target patterns)
+              Read: artifacts/step-4-gherkin.md (scenarios that must stay passing)
+
+              ## Refactoring Checklist
+
+              ### Code Quality
+              - [ ] Remove any duplication
+              - [ ] Improve naming (variables, functions, files)
+              - [ ] Extract helper functions if beneficial
+              - [ ] Simplify complex conditionals
+              - [ ] Add necessary type annotations
+
+              ### Pattern Conformance
+              - [ ] Follows project conventions from context
+              - [ ] Error handling matches patterns
+              - [ ] File organization matches patterns
+
+              ### Clean Code
+              - [ ] Remove dead code
+              - [ ] Remove console.log/debug statements
+              - [ ] Fix any linting issues
+              - [ ] Add JSDoc for public APIs only
+
+              ## Refactoring Rules
+
+              ### Run Tests After Each Change
+              ```bash
+              npm test -- --testPathPattern="[pattern]"
+              ```
+              If tests fail, REVERT the change immediately.
+
+              ### Small Steps
+              - One refactoring at a time
+              - Commit after each successful refactoring
+              - Don't refactor multiple things at once
+
+              ### Don't Change Behavior
+              - No new features
+              - No API changes (unless fixing test file imports)
+              - Same inputs → same outputs
+
+              ## Commits
+              ```bash
+              git add [files]
+              git commit -m "refactor(step-4): [improvement made]"
+              ```
+
+              ## Lint and Type Check
+              ```bash
+              npm run lint -- [files]
+              npm run typecheck
+              ```
+
+              Fix any issues found.
+
+              ## Final Verification
+              ```bash
+              npm test -- --testPathPattern="[pattern]"
+              npm run lint
+              npm run typecheck
+              ```
+
+              All must pass before completing this phase.
+          - id: qa
+            status: pending
+            prompt: |
+              Verify implementation against gherkin scenarios.
+
+              ## Context
+              Read: artifacts/step-4-gherkin.md (scenarios with verification commands)
+
+              ## Step 1: Run Unit Tests
+              ```bash
+              npm test -- --testPathPattern="[pattern]"
+              ```
+
+              Record results: total tests, passed, failed.
+
+              ## Step 2: Run Each Gherkin Verification
+
+              For EACH scenario in the gherkin file:
+              1. Run the verification command
+              2. Record result: 1 (pass) or 0 (fail)
+              3. If fail, capture error output
+
+              ## Step 3: Calculate Score
+
+              Score = (passed scenarios) / (total scenarios)
+              - Score = 1.0 (all pass) → PASS
+              - Score < 1.0 (any fail) → FAIL
+
+              ## Step 4: Generate QA Report
+
+              Create: artifacts/step-4-qa-report.md
+
+              ```markdown
+              # QA Report: step-4
+
+              ## Summary
+              - Gherkin Scenarios: [N] total, [N] passed, [N] failed
+              - Gherkin Score: [X]/[N] = [percentage]%
+              - Unit Tests: [N] total, [N] passed, [N] failed
+
+              ## Unit Test Results
+              \`\`\`
+              [test output]
+              \`\`\`
+
+              ## Gherkin Verification Results
+
+              | # | Scenario | Result | Details |
+              |---|----------|--------|---------|
+              | 1 | [Name] | PASS/FAIL | [output] |
+              | 2 | [Name] | PASS/FAIL | [output] |
+              ...
+
+              ## Detailed Results
+
+              ### Scenario 1: [Name]
+              **Verification**: `[command]`
+              **Exit Code**: [0 or N]
+              **Output**:
+              \`\`\`
+              [actual output]
+              \`\`\`
+              **Result**: PASS / FAIL
+
+              [Continue for all scenarios]
+
+              ## TDD Cycle Summary
+              | Phase | Status |
+              |-------|--------|
+              | RED (tests) | ✓ Completed |
+              | GREEN (implement) | ✓ Completed |
+              | REFACTOR | ✓ Completed |
+              | QA (verify) | PASS/FAIL |
+
+              ## Issues Found
+              [If any failures, describe each issue]
+
+              ## Status: PASS / FAIL
+              ```
+
+              ## Step 5: Handle Outcome
+
+              ### If ALL pass (Score = 100%):
+              ```bash
+              git add artifacts/step-4-qa-report.md
+              git commit -m "qa(step-4): all scenarios passed"
+              ```
+
+              ### If ANY fail (Score < 100%):
+              Inject fix phases:
+
+              ```bash
+              PROGRESS_FILE=$(find .claude/sprints -name "PROGRESS.yaml" -type f 2>/dev/null | head -1)
+
+              yq -i '
+                (.phases[] | select(.steps) | .steps[] | select(.status == "in-progress") | .phases) +=
+                [
+                  {
+                    "id": "fix",
+                    "status": "pending",
+                    "prompt": "Fix failing scenarios for step-4.\n\nRead: artifacts/step-4-qa-report.md\n\n1. Review each FAIL scenario\n2. Fix implementation to pass\n3. Run verification to confirm\n4. Run unit tests to ensure no regression\n5. Commit fixes"
+                  },
+                  {
+                    "id": "reverify",
+                    "status": "pending",
+                    "prompt": "Re-verify all scenarios after fixes.\n\nRun ALL verifications from artifacts/step-4-gherkin.md\nRun ALL unit tests.\n\nIf ALL pass: Update QA report with PASS status.\nIf ANY fail: Inject another fix phase."
+                  }
+                ]
+              ' "$PROGRESS_FILE"
+
+              yq -i '
+                (.. | select(.id == "qa" and .status == "in-progress")) |=
+                (.status = "failed" | .error = "QA failed - fix phase injected")
+              ' "$PROGRESS_FILE"
+              ```
+          - id: verify
+            status: pending
+            prompt: |
+              Final integration verification for the step.
+
+              ## Your Task
+              Test the complete large transcript handling workflow.
+
+              Test using the actual large transcript:
+              .claude/sprints/2026-01-18_ralph-mode-implementation/transcripts/development-step-0-execute.jsonl
+
+              Verify:
+              1. All 3 scripts execute without errors
+              2. Scripts reduce file size as expected
+              3. Extract command detects large transcript
+              4. Preprocessing artifacts are created
+              5. Full extraction completes successfully
+
+              Fix any issues discovered during testing.
+
+
+              ## Context
+              Read: context/_shared-context.md (build commands)
+              Read: artifacts/step-4-qa-report.md (should show PASS)
+
+              ## Step 1: Full Test Suite
+              Run all tests (not just this step's tests):
+              ```bash
+              npm test
+              ```
+
+              Verify no regressions in other tests.
+
+              ## Step 2: Build Verification
+              ```bash
+              npm run build
+              npm run typecheck
+              npm run lint
+              ```
+
+              ## Step 3: Integration Check
+              - Check imports resolve correctly
+              - Verify no circular dependencies
+              - Ensure types are compatible
+
+              ## Step 4: Final Commit
+              ```bash
+              git add -A
+              git status
+              git diff --cached --quiet || git commit -m "verify(step-4): integration verified"
+              ```
+
+              ## Step Complete
+              The TDD cycle for this step is complete:
+              - ✓ RED: Tests written first
+              - ✓ GREEN: Minimal implementation
+              - ✓ REFACTOR: Code cleaned up
+              - ✓ QA: All scenarios pass
+              - ✓ VERIFY: Integration confirmed
+  - id: doc-analyze
+    status: pending
+    prompt: |
+      Analyze code changes and plan documentation updates.
+
+      ## Context
+      Read: context/_shared-context.md (documentation structure)
+      Read: context/sprint-plan.md (documentation update plan)
+
+      ## Step 1: Review All Code Changes
+      ```bash
+      # See all changes in this sprint
+      git diff main..HEAD --name-only
+
+      # Get detailed diff
+      git diff main..HEAD -- "*.ts" "*.tsx" "*.js"
+      ```
+
+      ## Step 2: Identify Documentation Impact
+
+      For each change, determine:
+      - New features that need documenting
+      - Changed behavior that needs updating
+      - Removed features that need removing from docs
+      - New/changed CLI commands
+      - New/changed configuration options
+      - New/changed API endpoints or functions
+
+      ## Step 3: Audit Existing Documentation
+      ```bash
+      # Find all documentation files
+      find . -name "*.md" -path "*/docs/*" -o -name "README.md" | head -30
+      ```
+
+      Review each relevant doc file and note:
+      - What's accurate and complete
+      - What's outdated
+      - What's missing
+
+      ## Step 4: Generate Documentation Plan
+      Create: artifacts/docs-update-plan.md
+
+      ```markdown
+      # Documentation Update Plan: 2026-01-19_m42-signs-large-transcript-handling
+
+      ## Code Changes Summary
+      | File | Change Type | Description |
+      |------|-------------|-------------|
+      | [path] | Added/Modified | [what changed] |
+
+      ## Documentation Impact
+
+      ### User Guide Updates
+      | Section | Action | Reason |
+      |---------|--------|--------|
+      | [section] | Update/Add/Remove | [why] |
+
+      ### Getting Started Updates
+      | Section | Action | Reason |
+      |---------|--------|--------|
+      | [section] | Update/Add | [why] |
+
+      ### Reference Updates
+      | Item | Action | Details |
+      |------|--------|---------|
+      | [command/function] | Update/Add | [changes] |
+
+      ## New Documentation Needed
+      - [ ] [New doc 1]: [purpose]
+      - [ ] [New doc 2]: [purpose]
+
+      ## Files to Update
+      | File | Updates Needed |
+      |------|----------------|
+      | [path] | [specific updates] |
+
+      ## Verification Plan
+      - [ ] All code examples tested
+      - [ ] All commands verified
+      - [ ] All links checked
+      ```
+
+      ## Commit
+      ```bash
+      git add artifacts/docs-update-plan.md
+      git commit -m "docs(plan): documentation update analysis"
+      ```
+  - id: doc-user-guide
+    status: pending
+    prompt: |
+      Update user-facing documentation based on analysis.
+
+      ## Context
+      Read: artifacts/docs-update-plan.md (what needs updating)
+      Read: context/_shared-context.md (documentation structure)
+
+      ## User Guide Principles
+      1. **Task-oriented**: Organize by what users want to DO
+      2. **Progressive**: Simple → Advanced
+      3. **Example-rich**: Every feature needs an example
+      4. **Scannable**: Use headers, lists, tables
+
+      ## Step 1: Locate or Create User Guide
+      The user guide should be at: `docs/USER-GUIDE.md` or `docs/user-guide/`
+
+      If it doesn't exist, create it using the template below.
+
+      ## Step 2: Update Each Section
+
+      For each item in docs-update-plan.md's "User Guide Updates":
+
+      ### Adding New Features
+      ```markdown
+      ## [Feature Name]
+
+      [One paragraph explaining WHAT it does and WHY you'd use it]
+
+      ### Quick Example
+      \`\`\`bash
+      # Show the simplest possible example
+      [command or code]
+      \`\`\`
+
+      ### How It Works
+      [Explain the feature in more detail]
+
+      ### Examples
+
+      #### Basic Usage
+      \`\`\`bash
+      [example]
+      \`\`\`
+
+      #### Advanced Usage
+      \`\`\`bash
+      [example with options]
+      \`\`\`
+
+      ### Tips
+      - [Helpful tip 1]
+      - [Helpful tip 2]
+      ```
+
+      ### Updating Existing Features
+      - Locate the existing section
+      - Update examples if behavior changed
+      - Update descriptions if functionality changed
+      - Add new subsections for new capabilities
+
+      ### Removing Features
+      - Remove the section entirely
+      - Or add deprecation notice if replacing
+
+      ## Step 3: Verify Examples Work
+      Run each code example in the documentation to ensure it works:
+      ```bash
+      # Test each example manually
+      [example command from docs]
+      ```
+
+      ## Step 4: Commit Updates
+      ```bash
+      git add docs/
+      git commit -m "docs(user-guide): update for 2026-01-19_m42-signs-large-transcript-handling changes"
+      ```
+  - id: doc-getting-started
+    status: pending
+    prompt: |
+      Update getting started and quickstart documentation.
+
+      ## Context
+      Read: artifacts/docs-update-plan.md (what needs updating)
+      Read: context/_shared-context.md (documentation structure)
+
+      ## Getting Started Principles
+      1. **Fast**: Get to "Hello World" in < 5 steps
+      2. **Complete**: All prerequisites clearly listed
+      3. **Copy-paste**: Every command should work as written
+      4. **No assumptions**: Don't assume prior knowledge
+
+      ## Step 1: Locate or Create Getting Started
+      Should be at: `docs/getting-started/` or `docs/QUICKSTART.md` or in README.md
+
+      ## Step 2: Update Prerequisites
+      List everything needed before starting:
+      ```markdown
+      ## Prerequisites
+
+      - [Requirement 1] - [how to check/install]
+      - [Requirement 2] - [how to check/install]
+
+      ### Version Requirements
+      | Tool | Minimum Version | Check Command |
+      |------|-----------------|---------------|
+      | [tool] | [version] | `[command]` |
+      ```
+
+      ## Step 3: Update Installation
+      ```markdown
+      ## Installation
+
+      ### Option 1: [Primary method]
+      \`\`\`bash
+      [installation commands]
+      \`\`\`
+
+      ### Option 2: [Alternative method]
+      \`\`\`bash
+      [alternative commands]
+      \`\`\`
+
+      ### Verify Installation
+      \`\`\`bash
+      [verification command]
+      # Expected output: [what they should see]
+      \`\`\`
+      ```
+
+      ## Step 4: Update First Steps
+      ```markdown
+      ## Your First [Thing]
+
+      ### Step 1: [Action]
+      \`\`\`bash
+      [command]
+      \`\`\`
+
+      You should see:
+      \`\`\`
+      [expected output]
+      \`\`\`
+
+      ### Step 2: [Action]
+      [Continue with clear steps]
+
+      ### Step 3: [Action]
+      [Each step should be verifiable]
+
+      ## Success!
+      You've now [accomplished goal]. Next steps:
+      - [Link to User Guide]
+      - [Link to next tutorial]
+      ```
+
+      ## Step 5: Update README Quick Example
+      If README.md has a quick example section, ensure it's current:
+      - Examples should work with latest code
+      - Version numbers should be accurate
+      - Links should be valid
+
+      ## Step 6: Test the Flow
+      Follow the getting started guide yourself:
+      1. Start from a fresh state
+      2. Run each command exactly as written
+      3. Verify expected outputs match
+      4. Fix any issues found
+
+      ## Step 7: Commit Updates
+      ```bash
+      git add docs/ README.md
+      git commit -m "docs(getting-started): update onboarding for 2026-01-19_m42-signs-large-transcript-handling"
+      ```
+  - id: doc-reference
+    status: pending
+    prompt: >
+      Update technical reference and API documentation.
+
+
+      ## Context
+
+      Read: artifacts/docs-update-plan.md (what needs updating)
+
+      Read: context/_shared-context.md (documentation structure)
+
+
+      ## Reference Documentation Principles
+
+      1. **Complete**: Document ALL public APIs
+
+      2. **Accurate**: Generated from code when possible
+
+      3. **Structured**: Consistent format for all items
+
+      4. **Searchable**: Easy to find specific items
+
+
+      ## Step 1: Locate or Create Reference Docs
+
+      Should be at: `docs/reference/` or `docs/api/`
+
+
+      ## Step 2: Update Command Reference
+
+      For CLI commands, use this format:
+
+
+      ```markdown
+
+      ## Commands Reference
+
+
+      ### [command-name]
+
+
+      [One-line description]
+
+
+      #### Synopsis
+
+      \`\`\`
+
+      [command] [options] [arguments]
+
+      \`\`\`
+
+
+      #### Description
+
+      [Detailed description of what the command does]
+
+
+      #### Options
+
+      | Option | Type | Default | Description |
+
+      |--------|------|---------|-------------|
+
+      | `--option` | string | none | [description] |
+
+      | `-f, --flag` | boolean | false | [description] |
+
+
+      #### Arguments
+
+      | Argument | Required | Description |
+
+      |----------|----------|-------------|
+
+      | `<name>` | Yes | [description] |
+
+      | `[path]` | No | [description] |
+
+
+      #### Examples
+
+      \`\`\`bash
+
+      # Basic usage
+
+      [command] [basic-args]
+
+
+      # With options
+
+      [command] --option value
+
+
+      # Advanced usage
+
+      [command] --flag -o value
+
+      \`\`\`
+
+
+      #### See Also
+
+      - [Related command 1]
+
+      - [Related command 2]
+
+      ```
+
+
+      ## Step 3: Update API Reference
+
+      For functions/classes, use this format:
+
+
+      ```markdown
+
+      ## API Reference
+
+
+      ### [FunctionName]
+
+
+      \`\`\`typescript
+
+      function name(param: Type): ReturnType
+
+      \`\`\`
+
+
+      [Description of what the function does]
+
+
+      #### Parameters
+
+      | Parameter | Type | Required | Description |
+
+      |-----------|------|----------|-------------|
+
+      | `param` | `Type` | Yes | [description] |
+
+
+      #### Returns
+
+      `ReturnType` - [description of return value]
+
+
+      #### Throws
+
+      - `ErrorType` - [when this error is thrown]
+
+
+      #### Example
+
+      \`\`\`typescript
+
+      const result = name(value);
+
+      console.log(result); // [expected output]
+
+      \`\`\`
+
+      ```
+
+
+      ## Step 4: Update Configuration Reference
+
+      For config options:
+
+
+      ```markdown
+
+      ## Configuration Reference
+
+
+      ### [config-file-name]
+
+
+      #### Schema
+
+      \`\`\`yaml
+
+      # Full schema with comments
+
+      option: value  # description
+
+      nested:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        key: value   # description
+      \`\`\`
+
+
+      #### Options
+
+
+      ##### `option`
+
+      - **Type**: string
+
+      - **Required**: Yes/No
+
+      - **Default**: `value`
+
+      - **Description**: [what this option does]
+
+      - **Example**: `option: "example"`
+
+      ```
+
+
+      ## Step 5: Update Type Definitions
+
+      If there are TypeScript types that users need to know:
+
+
+      ```markdown
+
+      ## Type Definitions
+
+
+      ### [TypeName]
+
+      \`\`\`typescript
+
+      interface TypeName {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        property: string;
+        optional?: number;
+      }
+
+      \`\`\`
+
+
+      | Property | Type | Required | Description |
+
+      |----------|------|----------|-------------|
+
+      | `property` | `string` | Yes | [description] |
+
+      ```
+
+
+      ## Step 6: Verify Reference Accuracy
+
+      - Check that all documented APIs actually exist
+
+      - Verify parameter names and types match code
+
+      - Test example code snippets
+
+
+      ## Step 7: Commit Updates
+
+      ```bash
+
+      git add docs/reference/
+
+      git commit -m "docs(reference): update API and command reference for 2026-01-19_m42-signs-large-transcript-handling"
+
+      ```
+
+  - id: doc-validate
+    status: pending
+    prompt: |
+      Validate all documentation updates.
+
+      ## Context
+      Read: artifacts/docs-update-plan.md (original plan)
+
+      ## Step 1: Completeness Check
+      Verify all planned updates were made:
+      ```bash
+      # Show all doc changes in this sprint
+      git diff main..HEAD -- "*.md" --stat
+      ```
+
+      Cross-reference with docs-update-plan.md:
+      - [ ] All User Guide updates complete
+      - [ ] All Getting Started updates complete
+      - [ ] All Reference updates complete
+      - [ ] All new docs created
+
+      ## Step 2: Link Validation
+      Check all internal links work:
+      ```bash
+      # Find all markdown links
+      grep -rh "\[.*\](.*\.md)" docs/ | head -30
+      ```
+
+      Verify each linked file exists.
+
+      ## Step 3: Code Example Validation
+      Test each code example in the documentation:
+      - Run CLI examples
+      - Compile TypeScript examples
+      - Execute JavaScript examples
+
+      Document any failures.
+
+      ## Step 4: Consistency Check
+      - Consistent formatting across all docs
+      - Consistent terminology
+      - Consistent example style
+      - Version numbers match
+
+      ## Step 5: Generate Validation Report
+      Create: artifacts/docs-validation-report.md
+
+      ```markdown
+      # Documentation Validation Report: 2026-01-19_m42-signs-large-transcript-handling
+
+      ## Completeness
+      | Planned Update | Status | Notes |
+      |----------------|--------|-------|
+      | [update 1] | DONE/MISSING | [notes] |
+
+      ## Link Validation
+      | Link | Target | Status |
+      |------|--------|--------|
+      | [link text] | [file] | OK/BROKEN |
+
+      ## Code Example Validation
+      | File | Example | Status | Output |
+      |------|---------|--------|--------|
+      | [path] | Line [N] | PASS/FAIL | [output] |
+
+      ## Consistency Check
+      - [ ] Formatting consistent
+      - [ ] Terminology consistent
+      - [ ] Examples consistent
+      - [ ] Versions accurate
+
+      ## Issues Found
+      [List any issues, or "None"]
+
+      ## Documentation Files Updated
+      | File | Lines Changed | Summary |
+      |------|---------------|---------|
+      | [path] | +[N]/-[N] | [summary] |
+
+      ## Overall Status: PASS / FAIL
+      ```
+
+      ## Step 6: Fix Any Issues
+      If validation found issues:
+      - Fix broken links
+      - Update failed examples
+      - Correct inconsistencies
+
+      ## Step 7: Final Commit
+      ```bash
+      git add artifacts/docs-validation-report.md
+      git add docs/  # Any fixes
+      git commit -m "docs(validate): documentation verified for 2026-01-19_m42-signs-large-transcript-handling"
+      ```
+
+      ## Important
+      Documentation must pass validation before sprint can complete.
+      All code examples must work with the actual code.
+  - id: final-qa
+    status: pending
+    prompt: |
+      Comprehensive Quality Assurance for the entire sprint.
+
+      ## Context
+      Read: context/_shared-context.md for build/test commands
+      Read: context/sprint-plan.md for success criteria
+
+      ## Step 1: Full Build Verification
+      Run ALL build checks:
+      ```bash
+      npm run build
+      npm run typecheck
+      npm run lint
+      ```
+
+      Record each result in the QA report.
+
+      ## Step 2: Complete Test Suite
+      Run the full test suite:
+      ```bash
+      npm test
+      ```
+
+      Record test results, coverage, and any failures.
+
+      ## Step 3: Review All Step QA Reports
+      Read all artifacts/step-*-qa-report.md files:
+      - Verify all steps show PASS status
+      - Calculate total gherkin score
+      - Consolidate warnings or notes
+
+      ## Step 4: Documentation Verification
+      Verify documentation was updated:
+      ```bash
+      # Check for documentation changes
+      git diff main..HEAD -- "*.md" --stat
+      ```
+
+      Verify:
+      - User guide reflects new features
+      - Getting started is accurate
+      - Reference material is complete
+      - Examples work correctly
+
+      ## Step 5: Integration Verification
+      - Check modules properly import each other
+      - Verify no circular dependencies
+      - Test end-to-end flow if applicable
+
+      ## Step 6: Regression Check
+      ```bash
+      git diff main...HEAD --stat
+      ```
+
+      Verify:
+      - No unintended changes
+      - All modified files are expected
+      - No debug code left in
+
+      ## Step 7: Generate Sprint QA Report
+      Create: artifacts/sprint-qa-report.md
+
+      ```markdown
+      # Sprint QA Report: 2026-01-19_m42-signs-large-transcript-handling
+
+      ## Build Verification
+      | Check | Result | Output |
+      |-------|--------|--------|
+      | Build | PASS/FAIL | [summary] |
+      | TypeCheck | PASS/FAIL | [summary] |
+      | Lint | PASS/FAIL | [summary] |
+
+      ## Test Suite
+      | Metric | Value |
+      |--------|-------|
+      | Tests Run | [count] |
+      | Passed | [count] |
+      | Failed | [count] |
+      | Coverage | [percentage] |
+
+      ## Gherkin Scenario Summary
+      | Step | Total | Passed | Score |
+      |------|-------|--------|-------|
+      | step-0 | [N] | [N] | 100% |
+      | step-1 | [N] | [N] | 100% |
+      | **Total** | [N] | [N] | **100%** |
+
+      ## Documentation Status
+      | Document | Status | Changes |
+      |----------|--------|---------|
+      | User Guide | PASS/FAIL | [summary] |
+      | Getting Started | PASS/FAIL | [summary] |
+      | Reference | PASS/FAIL | [summary] |
+
+      ## Integration Verification
+      - [ ] Modules import correctly
+      - [ ] No circular dependencies
+      - [ ] End-to-end flow works
+
+      ## Overall Status: PASS / FAIL
+      ```
+
+      ## Step 8: Handle Outcome
+
+      ### If PASS:
+      ```bash
+      git add artifacts/sprint-qa-report.md
+      git commit -m "qa: sprint-level verification passed"
+      ```
+
+      ### If FAIL:
+      - Document specific failures
+      - Set status to needs-human with details
+  - id: summary
+    status: pending
+    prompt: |
+      Generate sprint summary with TDD and documentation highlights.
+
+      ## Context
+      Read: context/sprint-plan.md for original goals
+      Read: artifacts/sprint-qa-report.md for verification results
+      Read: All artifacts/step-*-qa-report.md for step details
+
+      ## Step 1: Collect Commit History
+      ```bash
+      git log main..HEAD --oneline --no-decorate
+      ```
+
+      ## Step 2: Collect File Changes
+      ```bash
+      git diff main..HEAD --stat
+      ```
+
+      ## Step 3: Generate Sprint Summary
+      Create: artifacts/sprint-summary.md
+
+      ```markdown
+      # Sprint Summary: 2026-01-19_m42-signs-large-transcript-handling
+
+      ## What Was Accomplished
+
+      ### Step 0: [Step title]
+      **TDD Cycle**:
+      - Tests written: [count]
+      - Gherkin scenarios: [count], all passing
+
+      **Implementation**:
+      - [Key accomplishment 1]
+      - [Key accomplishment 2]
+
+      **Files**: [list]
+
+      [Continue for each step]
+
+      ## Test Coverage Summary
+      | Metric | Before | After | Delta |
+      |--------|--------|-------|-------|
+      | Tests | [N] | [N] | +[N] |
+      | Gherkin | [N] | [N] | +[N] |
+      | Coverage | [%] | [%] | +[%] |
+
+      ## Documentation Updates
+      | Document | Change |
+      |----------|--------|
+      | [path] | [what changed] |
+
+      ## Files Changed
+      | File | Change Type | Description |
+      |------|-------------|-------------|
+      | [path] | Created/Modified | [description] |
+
+      ## Commits Made
+      | Hash | Type | Message |
+      |------|------|---------|
+      | [hash] | test | [message] |
+      | [hash] | feat | [message] |
+      | [hash] | docs | [message] |
+
+      ## Verification Status
+      - Build: PASS
+      - TypeCheck: PASS
+      - Lint: PASS
+      - Tests: [X/Y passed]
+      - Gherkin: [X/Y scenarios, 100%]
+      - Documentation: Updated
+
+      ## Sprint Statistics
+      - Steps completed: [X/Y]
+      - Total commits: [count]
+      - Tests added: [count]
+      - Gherkin scenarios: [count]
+      - Files changed: [count]
+      ```
+
+      ## Step 4: Commit Summary
+      ```bash
+      git add artifacts/sprint-summary.md
+      git commit -m "docs: add sprint summary"
+      ```
+  - id: pr-create
+    status: pending
+    prompt: "Push the sprint branch and create a pull request.\n\n## Context\nRead: artifacts/sprint-summary.md for PR body content\nRead: artifacts/sprint-qa-report.md for verification checklist\n\n## Step 1: Ensure All Changes Committed\n```bash\ngit status\n```\n\n## Step 2: Push Branch\n```bash\ngit push -u origin sprint/2026-01-19_m42-signs-large-transcript-handling\n```\n\n## Step 3: Create Pull Request\n```bash\ngh pr create \\\n  --title \"Sprint: 2026-01-19_m42-signs-large-transcript-handling\" \\\n  --body \"$(cat <<'EOF'\n## Summary\n[Extract key points from sprint-summary.md]\n\n## TDD Approach\n- Tests written first for each step\n- All gherkin scenarios pass\n- [X] new tests added\n\n## Changes\n[List major changes]\n\n## Documentation\n- [ ] User Guide updated\n- [ ] Getting Started updated\n- [ ] Reference updated\n\n## Verification Checklist\n- [x] Build passes\n- [x] TypeCheck passes\n- [x] Lint passes\n- [x] All tests pass\n- [x] Gherkin scenarios: 100%\n- [x] Documentation updated\n- [x] No regressions\n\n---\nFull details in `artifacts/sprint-summary.md`\n\n\U0001F9EA TDD Sprint with Documentation\nEOF\n)\"\n```\n\n## Step 4: Output PR URL\n```bash\ngh pr view --json url -q '.url'\n```\n"
+current:
+  phase: 1
+  step: 4
+  sub-phase: 2
+stats:
+  started-at: "2026-01-19T23:42:36Z"
+  total-phases: 40
+  completed-phases: 0
+  total-steps: 5
+  completed-steps: 0
+  max-iterations: 1000000
+  current-iteration: 2
+parallel-tasks: []
