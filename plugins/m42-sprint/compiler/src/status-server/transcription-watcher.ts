@@ -32,6 +32,7 @@ export interface TranscriptionWatcherOptions {
 
 const DEFAULT_DEBOUNCE_DELAY = 100;
 const DEFAULT_MAX_EVENTS = 200;
+const TEXT_DEBOUNCE_DELAY = 500; // 500ms debounce for text accumulation
 
 /**
  * Determine verbosity level for a tool
@@ -98,6 +99,16 @@ function extractParams(toolName: string, input: Record<string, unknown>): string
  * - Extracts tool name and parameters
  * - Emits ActivityEvent for each tool use
  */
+/**
+ * State for tracking text block accumulation
+ */
+interface TextBlockState {
+  index: number;
+  text: string;
+  startTime: number;
+  stopped: boolean;
+}
+
 export class TranscriptionWatcher extends EventEmitter {
   private readonly transcriptionsDir: string;
   private readonly debounceDelay: number;
@@ -108,6 +119,10 @@ export class TranscriptionWatcher extends EventEmitter {
   private filePositions: Map<string, number> = new Map();
   private seenToolUseIds: Set<string> = new Set();
   private recentActivity: ActivityEvent[] = [];
+
+  // Text block accumulation state
+  private textBlocks: Map<number, TextBlockState> = new Map();
+  private textDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(transcriptionsDir: string, options: TranscriptionWatcherOptions = {}) {
     super();
@@ -259,7 +274,7 @@ export class TranscriptionWatcher extends EventEmitter {
   }
 
   /**
-   * Parse a single NDJSON line and emit activity if it's a tool use
+   * Parse a single NDJSON line and emit activity if it's a tool use or text content
    */
   private parseLine(line: string, timestamp: string): void {
     try {
@@ -288,15 +303,59 @@ export class TranscriptionWatcher extends EventEmitter {
       }
 
       // Format 2: Stream event with content_block_start (for streaming mode)
+      if (event.type === 'stream_event' && event.event?.type === 'content_block_start') {
+        const contentBlock = event.event.content_block;
+        const blockIndex = event.event.index ?? 0;
+
+        if (contentBlock?.type === 'tool_use') {
+          // Tool use block
+          toolUses.push({
+            id: contentBlock.id,
+            name: contentBlock.name,
+            input: contentBlock.input || {},
+          });
+        } else if (contentBlock?.type === 'text') {
+          // Text content block start
+          this.textBlocks.set(blockIndex, {
+            index: blockIndex,
+            text: '',
+            startTime: Date.now(),
+            stopped: false,
+          });
+        }
+      }
+
+      // Handle text_delta events
       if (event.type === 'stream_event' &&
-          event.event?.type === 'content_block_start' &&
-          event.event?.content_block?.type === 'tool_use') {
-        const toolUse = event.event.content_block;
-        toolUses.push({
-          id: toolUse.id,
-          name: toolUse.name,
-          input: toolUse.input || {},
-        });
+          event.event?.type === 'content_block_delta' &&
+          event.event?.delta?.type === 'text_delta') {
+        const blockIndex = event.event.index ?? 0;
+        const deltaText = event.event.delta.text || '';
+
+        let block = this.textBlocks.get(blockIndex);
+        if (!block) {
+          // Create block if not exists (handle out-of-order events)
+          block = {
+            index: blockIndex,
+            text: '',
+            startTime: Date.now(),
+            stopped: false,
+          };
+          this.textBlocks.set(blockIndex, block);
+        }
+
+        block.text += deltaText;
+        this.scheduleTextEmission(timestamp);
+      }
+
+      // Handle content_block_stop events
+      if (event.type === 'stream_event' && event.event?.type === 'content_block_stop') {
+        const blockIndex = event.event.index ?? 0;
+        const block = this.textBlocks.get(blockIndex);
+        if (block) {
+          block.stopped = true;
+          this.scheduleTextEmission(timestamp);
+        }
       }
 
       // Process each tool use found
@@ -337,6 +396,51 @@ export class TranscriptionWatcher extends EventEmitter {
   }
 
   /**
+   * Schedule text emission with debouncing
+   */
+  private scheduleTextEmission(timestamp: string): void {
+    if (this.textDebounceTimer) {
+      clearTimeout(this.textDebounceTimer);
+    }
+
+    this.textDebounceTimer = setTimeout(() => {
+      this.textDebounceTimer = null;
+      this.emitAccumulatedText(timestamp);
+    }, TEXT_DEBOUNCE_DELAY);
+  }
+
+  /**
+   * Emit accumulated text as assistant activity events
+   */
+  private emitAccumulatedText(timestamp: string): void {
+    for (const [blockIndex, block] of this.textBlocks) {
+      if (block.text.length > 0) {
+        const activityEvent: ActivityEvent = {
+          ts: timestamp,
+          type: 'assistant',
+          tool: '', // Required for compatibility
+          level: 'minimal',
+          text: block.text,
+          isThinking: !block.stopped,
+        };
+
+        // Store in recent activity
+        this.recentActivity.push(activityEvent);
+        if (this.recentActivity.length > this.maxEvents) {
+          this.recentActivity = this.recentActivity.slice(-this.maxEvents);
+        }
+
+        this.emit('activity', activityEvent);
+      }
+
+      // Remove completed blocks
+      if (block.stopped) {
+        this.textBlocks.delete(blockIndex);
+      }
+    }
+  }
+
+  /**
    * Stop watching and clean up resources
    */
   close(): void {
@@ -348,11 +452,17 @@ export class TranscriptionWatcher extends EventEmitter {
       this.debounceTimer = null;
     }
 
+    if (this.textDebounceTimer) {
+      clearTimeout(this.textDebounceTimer);
+      this.textDebounceTimer = null;
+    }
+
     if (this.watcher) {
       this.watcher.close();
       this.watcher = null;
     }
 
+    this.textBlocks.clear();
     this.emit('close');
   }
 

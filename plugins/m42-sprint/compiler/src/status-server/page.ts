@@ -1354,6 +1354,46 @@ function getStyles(): string {
       font-size: 11px;
     }
 
+    /* Tool call styling (secondary/muted) */
+    .activity-tool-entry {
+      color: var(--text-muted);
+    }
+
+    .activity-tool-entry .activity-icon {
+      opacity: 0.7;
+    }
+
+    .activity-tool-desc {
+      color: var(--text-secondary);
+      flex: 1;
+      word-break: break-word;
+    }
+
+    /* Assistant message styling (chat bubble) */
+    .activity-assistant {
+      background-color: var(--bg-secondary);
+      border-radius: 8px;
+      margin: 4px 8px;
+      padding: 8px 12px;
+    }
+
+    .activity-bubble {
+      flex: 1;
+      color: var(--text-primary);
+      word-break: break-word;
+      white-space: pre-wrap;
+    }
+
+    .activity-thinking .activity-bubble::after {
+      content: '...';
+      animation: thinking 1.5s infinite;
+    }
+
+    @keyframes thinking {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 1; }
+    }
+
     /* Footer */
     .footer {
       display: flex;
@@ -4624,8 +4664,13 @@ function getScript(): string {
       }
 
       function handleActivityEvent(event) {
-        // Deduplicate by ts+tool+file (events may come from both ActivityWatcher and TranscriptionWatcher)
-        const key = event.ts + '|' + event.tool + '|' + (event.file || '');
+        // Deduplicate: for tool events use ts+tool+file, for assistant events use ts+type+text
+        var key;
+        if (event.type === 'assistant') {
+          key = event.ts + '|assistant|' + (event.text || '').slice(0, 50);
+        } else {
+          key = event.ts + '|' + event.tool + '|' + (event.file || '');
+        }
         if (seenActivityKeys.has(key)) {
           return; // Skip duplicate
         }
@@ -4655,6 +4700,44 @@ function getScript(): string {
 
       function getToolIcon(toolName) {
         return toolIcons[toolName] || toolIcons.default;
+      }
+
+      function getToolDescription(event) {
+        var tool = event.tool;
+        var file = event.file;
+        var params = event.params;
+
+        // Extract just the filename from path
+        var filename = file ? file.split('/').pop() : undefined;
+
+        switch (tool) {
+          case 'TodoWrite':
+            return 'Updated task list';
+          case 'Edit':
+            return filename ? 'Editing ' + filename : 'Editing file';
+          case 'Read':
+            return filename ? 'Reading ' + filename : 'Reading file';
+          case 'Write':
+            return filename ? 'Writing ' + filename : 'Writing file';
+          case 'Bash':
+            // Truncate long commands
+            if (params && params.length > 50) {
+              return params.slice(0, 47) + '...';
+            }
+            return params || 'Running command';
+          case 'Grep':
+            return params ? 'Searching: ' + params : 'Searching';
+          case 'Glob':
+            return file ? 'Finding: ' + file : 'Finding files';
+          case 'Task':
+            return params || 'Running task';
+          case 'WebFetch':
+            return 'Fetching web content';
+          case 'AskUserQuestion':
+            return 'Asking question';
+          default:
+            return tool;
+        }
       }
 
       function formatRelativeTime(isoString) {
@@ -4690,29 +4773,30 @@ function getScript(): string {
         }
 
         const html = filtered.map(function(event) {
-          const icon = getToolIcon(event.tool);
           const eventDate = new Date(event.ts);
           // Format as HH:MM:SS for compact display
           const timeStr = eventDate.toLocaleTimeString('en-US', { hour12: false });
           const fullDateTime = eventDate.toLocaleString();
 
-          let desc = '';
-          if (event.file) {
-            const truncated = truncatePath(event.file);
-            desc = '<span class="activity-path" title="' + escapeHtml(event.file) + '">' + escapeHtml(truncated) + '</span>';
-          }
-          if (event.params) {
-            desc += (desc ? ' ' : '') + '<span class="activity-params">' + escapeHtml(event.params) + '</span>';
-          }
-          if (!desc) {
-            desc = '<span class="activity-desc">-</span>';
+          // Handle assistant events (chat bubble style)
+          if (event.type === 'assistant') {
+            const text = event.text || '';
+            const thinkingClass = event.isThinking ? ' activity-thinking' : '';
+            return '<div class="activity-entry activity-assistant' + thinkingClass + '">' +
+              '<span class="activity-time" title="' + escapeHtml(fullDateTime) + '">' + escapeHtml(timeStr) + '</span>' +
+              '<span class="activity-icon">🤖</span>' +
+              '<span class="activity-bubble">' + escapeHtml(text) + '</span>' +
+              '</div>';
           }
 
-          return '<div class="activity-entry">' +
+          // Handle tool events (secondary/grey style)
+          const icon = getToolIcon(event.tool);
+          const description = getToolDescription(event);
+
+          return '<div class="activity-entry activity-tool">' +
             '<span class="activity-time" title="' + escapeHtml(fullDateTime) + '">' + escapeHtml(timeStr) + '</span>' +
             '<span class="activity-icon">' + icon + '</span>' +
-            '<span class="activity-tool">' + escapeHtml(event.tool) + '</span>' +
-            '<span class="activity-desc">' + desc + '</span>' +
+            '<span class="activity-tool-desc">' + escapeHtml(description) + '</span>' +
             '</div>';
         }).join('');
 

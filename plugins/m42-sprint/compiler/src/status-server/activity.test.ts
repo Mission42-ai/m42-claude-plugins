@@ -87,17 +87,17 @@ async function sleep(ms: number): Promise<void> {
 // ============================================================================
 
 /**
- * Create a valid activity event JSON string
+ * Create a valid tool activity event JSON string
  */
-function createActivityEventJson(overrides: Partial<ActivityEvent> = {}): string {
-  const event: ActivityEvent = {
+function createActivityEventJson(overrides: Record<string, unknown> = {}): string {
+  const baseEvent = {
     ts: new Date().toISOString(),
     type: 'tool',
     tool: 'Read',
     level: 'basic',
     ...overrides,
   };
-  return JSON.stringify(event);
+  return JSON.stringify(baseEvent);
 }
 
 /**
@@ -366,7 +366,7 @@ test('ActivityWatcher emits activity events for new JSONL entries', async () => 
 
     const receivedEvent = receivedEvents[0];
     assert(receivedEvent.tool === 'Read', `Expected tool 'Read', got '${receivedEvent.tool}'`);
-    assert(receivedEvent.file === '/test/file.ts', `Expected file '/test/file.ts', got '${receivedEvent.file}'`);
+    assert(receivedEvent.type === 'tool' && receivedEvent.file === '/test/file.ts', `Expected file '/test/file.ts', got '${receivedEvent.type === 'tool' ? receivedEvent.file : 'N/A'}'`);
 
     watcher.close();
   } finally {
