@@ -56,7 +56,7 @@ Then use the Read tool to read:
 
 The resume command only updates the status. To actually start processing
 tasks again, the user needs to run `/run-sprint` which will launch the
-sprint-loop.sh bash loop with fresh context per task.
+TypeScript sprint runtime with fresh context per task.
 
 ## Success Criteria
 

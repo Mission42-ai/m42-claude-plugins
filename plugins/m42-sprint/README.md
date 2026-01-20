@@ -82,7 +82,9 @@ claude plugin install m42-sprint
 
 Requirements:
 - Claude Code CLI
-- `yq` for YAML: `brew install yq` (macOS) or `snap install yq` (Linux)
+- Node.js >= 18.0.0
+
+The sprint runtime is built with TypeScript and runs on Node.js. No additional YAML tools are required.
 
 ## Commands
 
