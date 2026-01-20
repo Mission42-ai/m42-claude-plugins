@@ -165,9 +165,77 @@ export interface OperatorConfig {
 
 const DEFAULT_OPERATOR_SKILL = 'sprint-operator';
 
+/** Default injection position for approved requests */
+const DEFAULT_INJECT_POSITION: InsertPosition = { type: 'after-current' };
+
 // ============================================================================
 // Helper Functions
 // ============================================================================
+
+/**
+ * Create an approval decision for a request
+ */
+function createApprovalDecision(
+  request: QueuedRequest,
+  reasoning: string,
+  promptPrefix: string
+): OperatorDecision {
+  return {
+    requestId: request.id,
+    decision: 'approve',
+    reasoning,
+    injection: {
+      position: DEFAULT_INJECT_POSITION,
+      prompt: `${promptPrefix}: ${request.title}\n\n${request.description}`,
+      idPrefix: `fix-${request.id}`,
+    },
+  };
+}
+
+/**
+ * Create a decision based on request priority and type
+ */
+function createDecisionForRequest(request: QueuedRequest): OperatorDecision {
+  // Critical security issues should be approved
+  if (request.priority === 'critical' && request.type === 'security') {
+    return createApprovalDecision(
+      request,
+      'Critical security issue - must be addressed immediately',
+      'Fix the security issue'
+    );
+  }
+
+  // High priority bugs should be approved
+  if (request.priority === 'high' && request.type === 'bug') {
+    return createApprovalDecision(
+      request,
+      'High priority bug - should be fixed before proceeding',
+      'Fix the bug'
+    );
+  }
+
+  // Low priority items go to backlog
+  if (request.priority === 'low') {
+    return {
+      requestId: request.id,
+      decision: 'backlog',
+      reasoning: 'Low priority - added to backlog for human review',
+      backlogEntry: {
+        category: request.type === 'docs' ? 'documentation' : 'tech-debt',
+        suggestedPriority: 'low',
+        notes: `Discovered during sprint execution. ${request.description}`,
+      },
+    };
+  }
+
+  // Medium priority gets deferred to end of phase
+  return {
+    requestId: request.id,
+    decision: 'defer',
+    reasoning: 'Medium priority - will review at end of current phase',
+    deferredUntil: 'end-of-phase',
+  };
+}
 
 /**
  * Find skill path in common locations
@@ -224,57 +292,9 @@ export async function processOperatorRequests(
 
   // For now, create auto-decisions based on priority
   // In a full implementation, this would invoke Claude with the operator prompt
-  const decisions: OperatorDecision[] = pendingRequests.map((request) => {
-    // Critical security issues should be approved
-    if (request.priority === 'critical' && request.type === 'security') {
-      return {
-        requestId: request.id,
-        decision: 'approve' as const,
-        reasoning: 'Critical security issue - must be addressed immediately',
-        injection: {
-          position: { type: 'after-current' as const },
-          prompt: `Fix the security issue: ${request.title}\n\n${request.description}`,
-          idPrefix: `fix-${request.id}`,
-        },
-      };
-    }
-
-    // High priority bugs should be approved
-    if (request.priority === 'high' && request.type === 'bug') {
-      return {
-        requestId: request.id,
-        decision: 'approve' as const,
-        reasoning: 'High priority bug - should be fixed before proceeding',
-        injection: {
-          position: { type: 'after-current' as const },
-          prompt: `Fix the bug: ${request.title}\n\n${request.description}`,
-          idPrefix: `fix-${request.id}`,
-        },
-      };
-    }
-
-    // Low priority items go to backlog
-    if (request.priority === 'low') {
-      return {
-        requestId: request.id,
-        decision: 'backlog' as const,
-        reasoning: 'Low priority - added to backlog for human review',
-        backlogEntry: {
-          category: request.type === 'docs' ? 'documentation' : 'tech-debt',
-          suggestedPriority: 'low',
-          notes: `Discovered during sprint execution. ${request.description}`,
-        },
-      };
-    }
-
-    // Medium priority gets deferred to end of phase
-    return {
-      requestId: request.id,
-      decision: 'defer' as const,
-      reasoning: 'Medium priority - will review at end of current phase',
-      deferredUntil: 'end-of-phase' as const,
-    };
-  });
+  const decisions: OperatorDecision[] = pendingRequests.map((request) =>
+    createDecisionForRequest(request)
+  );
 
   return {
     decisions,
@@ -297,34 +317,34 @@ export async function executeOperatorDecision(
 ): Promise<void> {
   const decidedAt = new Date().toISOString();
 
+  // Map decision type to request status
+  const statusMap: Record<OperatorDecision['decision'], QueuedRequest['status']> = {
+    approve: 'approved',
+    reject: 'rejected',
+    defer: 'deferred',
+    backlog: 'backlog',
+  };
+
+  // Common fields for all decision types
+  request.status = statusMap[decision.decision];
+  request['decided-at'] = decidedAt;
+  request.decision = decision;
+
+  // Decision-specific handling
   switch (decision.decision) {
     case 'approve':
-      request.status = 'approved';
-      request['decided-at'] = decidedAt;
-      request.decision = decision;
       // Injection happens in the caller (loop.ts) since it needs access to PROGRESS.yaml
       break;
 
     case 'reject':
-      request.status = 'rejected';
-      request['decided-at'] = decidedAt;
       request['rejection-reason'] = decision.rejectionReason || decision.reasoning;
-      request.decision = decision;
       break;
 
     case 'defer':
-      request.status = 'deferred';
-      request['decided-at'] = decidedAt;
       request['deferred-until'] = decision.deferredUntil;
-      request.decision = decision;
       break;
 
     case 'backlog':
-      request.status = 'backlog';
-      request['decided-at'] = decidedAt;
-      request.decision = decision;
-
-      // Create backlog entry
       if (decision.backlogEntry) {
         const backlogItem: BacklogItem = {
           id: request.id,
