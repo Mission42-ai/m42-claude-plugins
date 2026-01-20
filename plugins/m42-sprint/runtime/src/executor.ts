@@ -10,138 +10,32 @@ import * as path from 'path';
 import { writeProgressAtomic, CompiledProgress as YamlOpsProgress } from './yaml-ops.js';
 import { runClaude, categorizeError, ClaudeResult, ClaudeRunOptions } from './claude-runner.js';
 
-// ============================================================================
-// Type Definitions
-// ============================================================================
+// Re-export types from transition module for consumers
+export type {
+  LogLevel,
+  InsertPosition,
+  ErrorCategory,
+  PhaseStatus,
+  SprintStatus,
+  StepQueueItem,
+  SprintStats,
+  CurrentPointer,
+  CompiledPhase,
+  CompiledStep,
+  CompiledTopPhase,
+  CompiledProgress,
+  SprintAction,
+  SprintEvent,
+} from './transition.js';
 
-/** Log severity levels for LOG actions */
-export type LogLevel = 'info' | 'warn' | 'error';
-
-/** Step insertion position strategies */
-export type InsertPosition = 'after-current' | 'end-of-phase';
-
-/** Error category types for classification */
-export type ErrorCategory = 'network' | 'rate-limit' | 'timeout' | 'validation' | 'logic';
-
-/** Phase status values */
-export type PhaseStatus = 'pending' | 'in-progress' | 'completed' | 'blocked' | 'skipped' | 'failed';
-
-/** Sprint status values */
-export type SprintStatus = 'not-started' | 'in-progress' | 'completed' | 'blocked' | 'paused' | 'needs-human';
-
-/**
- * A queued step waiting for orchestration
- */
-export interface StepQueueItem {
-  id: string;
-  prompt: string;
-  proposedBy: string;
-  proposedAt: string;
-  reasoning?: string;
-  priority: 'low' | 'medium' | 'high' | 'critical';
-}
-
-/**
- * Execution statistics
- */
-export interface SprintStats {
-  'started-at': string | null;
-  'completed-at'?: string | null;
-  'total-phases': number;
-  'completed-phases': number;
-  'total-steps'?: number;
-  'completed-steps'?: number;
-  elapsed?: string;
-  'current-iteration'?: number;
-  'max-iterations'?: number;
-}
-
-/**
- * Current position pointer in the workflow
- */
-export interface CurrentPointer {
-  phase: number;
-  step: number | null;
-  'sub-phase': number | null;
-}
-
-/**
- * A compiled phase (leaf node - has prompt)
- */
-export interface CompiledPhase {
-  id: string;
-  status: PhaseStatus;
-  prompt: string;
-}
-
-/**
- * A compiled step (contains sub-phases)
- */
-export interface CompiledStep {
-  id: string;
-  prompt: string;
-  status: PhaseStatus;
-  phases: CompiledPhase[];
-}
-
-/**
- * A top-level phase that may contain steps
- */
-export interface CompiledTopPhase {
-  id: string;
-  status: PhaseStatus;
-  prompt?: string;
-  steps?: CompiledStep[];
-}
-
-/**
- * Compiled Progress - full runtime format
- */
-export interface CompiledProgress {
-  'sprint-id': string;
-  status: SprintStatus;
-  phases?: CompiledTopPhase[];
-  current: CurrentPointer;
-  stats: SprintStats;
-  [key: string]: unknown;
-}
-
-// ============================================================================
-// SprintAction Discriminated Union
-// ============================================================================
-
-/**
- * Discriminated union for sprint actions - describes side effects without executing them.
- */
-export type SprintAction =
-  | { type: 'LOG'; level: LogLevel; message: string }
-  | { type: 'SPAWN_CLAUDE'; prompt: string; phaseId: string; onComplete: SprintEvent['type'] }
-  | { type: 'WRITE_PROGRESS' }
-  | { type: 'UPDATE_STATS'; updates: Partial<SprintStats> }
-  | { type: 'EMIT_ACTIVITY'; activity: string; data: unknown }
-  | { type: 'SCHEDULE_RETRY'; phaseId: string; delayMs: number }
-  | { type: 'INSERT_STEP'; step: StepQueueItem; position: InsertPosition };
-
-// ============================================================================
-// SprintEvent Discriminated Union
-// ============================================================================
-
-/**
- * Discriminated union for sprint events - enables exhaustive switch handling.
- */
-export type SprintEvent =
-  | { type: 'START' }
-  | { type: 'TICK' }
-  | { type: 'MAX_ITERATIONS_REACHED' }
-  | { type: 'PHASE_COMPLETE'; summary: string; phaseId: string }
-  | { type: 'PHASE_FAILED'; error: string; category: ErrorCategory; phaseId: string }
-  | { type: 'STEP_COMPLETE'; summary: string; stepId: string }
-  | { type: 'STEP_FAILED'; error: string; category: ErrorCategory; stepId: string }
-  | { type: 'PROPOSE_STEPS'; steps: unknown[]; proposedBy: string }
-  | { type: 'PAUSE'; reason: string }
-  | { type: 'RESUME' }
-  | { type: 'HUMAN_NEEDED'; reason: string; details?: string }
-  | { type: 'GOAL_COMPLETE'; summary: string };
+// Import types for local use
+import type {
+  LogLevel,
+  SprintStats,
+  CompiledProgress,
+  SprintAction,
+  SprintEvent,
+} from './transition.js';
 
 // ============================================================================
 // ExecutorContext Interface
