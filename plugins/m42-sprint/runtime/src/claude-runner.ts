@@ -96,8 +96,6 @@ export function extractJson(output: string): unknown | undefined {
  * - logic: Unknown/other errors (default)
  */
 export function categorizeError(errorText: string): ErrorCategory {
-  const lowerText = errorText.toLowerCase();
-
   // Rate limit detection
   if (/rate.?limit|429|too many requests/i.test(errorText)) {
     return 'rate-limit';
