@@ -195,6 +195,12 @@ export async function runClaude(options: ClaudeRunOptions): Promise<ClaudeResult
     let timeoutId: NodeJS.Timeout | undefined;
     let timedOut = false;
 
+    // Open file stream for real-time writing if outputFile specified
+    let outputStream: fs.WriteStream | undefined;
+    if (options.outputFile) {
+      outputStream = fs.createWriteStream(options.outputFile, { flags: 'w' });
+    }
+
     // Set up timeout if specified
     if (options.timeout !== undefined) {
       timeoutId = setTimeout(() => {
@@ -203,9 +209,14 @@ export async function runClaude(options: ClaudeRunOptions): Promise<ClaudeResult
       }, options.timeout);
     }
 
-    // Capture stdout
+    // Capture stdout and stream to file in real-time
     proc.stdout.on('data', (data: Buffer) => {
-      stdout += data.toString();
+      const chunk = data.toString();
+      stdout += chunk;
+      // Write to file immediately for real-time streaming
+      if (outputStream) {
+        outputStream.write(chunk);
+      }
     });
 
     // Capture stderr
@@ -265,16 +276,24 @@ export async function runClaude(options: ClaudeRunOptions): Promise<ClaudeResult
       // Also check for JSON blocks in the text result (for structured responses)
       const jsonResult = extractJson(textResult);
 
-      // Write full transcript to file if outputFile was specified
+      // Close the output stream (content was already streamed in real-time)
+      if (outputStream) {
+        outputStream.end();
+      }
+
+      // Write human-readable summary as .md file in logs folder
       if (options.outputFile) {
         try {
-          // Write the raw NDJSON stream as the transcript
-          // This preserves all tool calls, responses, and events
-          fs.writeFileSync(options.outputFile, stdout, 'utf8');
-
-          // Also write a human-readable summary as .md file
-          const summaryPath = options.outputFile.replace(/\.log$/, '.md');
+          // Change transcriptions -> logs and .log -> .md
+          const summaryPath = options.outputFile
+            .replace(/transcriptions/, 'logs')
+            .replace(/\.log$/, '.md');
           if (summaryPath !== options.outputFile) {
+            // Ensure logs directory exists
+            const logsDir = summaryPath.substring(0, summaryPath.lastIndexOf('/'));
+            if (!fs.existsSync(logsDir)) {
+              fs.mkdirSync(logsDir, { recursive: true });
+            }
             const summaryContent = [
               `# Claude Execution Log`,
               ``,
@@ -293,7 +312,7 @@ export async function runClaude(options: ClaudeRunOptions): Promise<ClaudeResult
           }
         } catch (writeErr) {
           // Log but don't fail - output capture is secondary to execution
-          console.error(`Failed to write output to ${options.outputFile}:`, writeErr);
+          console.error(`Failed to write summary to ${options.outputFile}:`, writeErr);
         }
       }
 

@@ -9,6 +9,8 @@
  *     -v, --verbose         Enable verbose logging
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
 import { runLoop, LoopOptions, LoopResult, LoopDependencies } from './loop.js';
 import { runClaude } from './claude-runner.js';
 
@@ -170,6 +172,23 @@ const defaultDeps: LoopDependencies = {
   runClaude,
 };
 
+/**
+ * Format duration in human-readable form
+ */
+function formatDuration(ms: number): string {
+  const seconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+
+  if (hours > 0) {
+    return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
+  } else if (minutes > 0) {
+    return `${minutes}m ${seconds % 60}s`;
+  } else {
+    return `${seconds}s`;
+  }
+}
+
 export async function runCommand(
   command: string,
   directory: string,
@@ -186,6 +205,27 @@ export async function runCommand(
     const result = await loopFn(directory, options, deps);
     const isSuccess = result.finalState.status === 'completed' ||
                       result.finalState.status === 'paused';
+
+    // Print completion summary
+    console.log('\n' + '='.repeat(60));
+    console.log('SPRINT COMPLETE');
+    console.log('='.repeat(60));
+    console.log(`Status:     ${result.finalState.status.toUpperCase()}`);
+    console.log(`Iterations: ${result.iterations}`);
+    console.log(`Duration:   ${formatDuration(result.elapsedMs)}`);
+    console.log('='.repeat(60) + '\n');
+
+    // Write completion notification file for external monitoring
+    const notificationPath = path.join(directory, '.sprint-complete');
+    const notification = {
+      status: result.finalState.status,
+      iterations: result.iterations,
+      durationMs: result.elapsedMs,
+      durationHuman: formatDuration(result.elapsedMs),
+      completedAt: new Date().toISOString(),
+    };
+    fs.writeFileSync(notificationPath, JSON.stringify(notification, null, 2));
+
     return isSuccess ? 0 : 1;
   } catch (error) {
     console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);

@@ -3,10 +3,11 @@
  * These types are used for real-time status updates via SSE
  */
 import type { CompiledProgress, CompiledTopPhase, CompiledStep, CompiledPhase, PhaseStatus, SprintStatus } from '../types.js';
+import type { ActivityEvent } from './activity-types.js';
 /**
  * Types of events sent over the SSE connection
  */
-export type SSEEventType = 'status-update' | 'log-entry' | 'keep-alive';
+export type SSEEventType = 'status-update' | 'log-entry' | 'keep-alive' | 'activity-event';
 /**
  * Generic SSE event wrapper
  */
@@ -165,8 +166,12 @@ export type LogEntryEvent = SSEEvent<'log-entry', LogEntry>;
  */
 export type KeepAliveEvent = SSEEvent<'keep-alive', null>;
 /**
+ * Activity event (tool usage from .sprint-activity.jsonl)
+ */
+export type ActivityEventSSE = SSEEvent<'activity-event', ActivityEvent>;
+/**
  * Union of all SSE event types
  */
-export type AnySSEEvent = StatusUpdateEvent | LogEntryEvent | KeepAliveEvent;
+export type AnySSEEvent = StatusUpdateEvent | LogEntryEvent | KeepAliveEvent | ActivityEventSSE;
 export type { CompiledProgress, CompiledTopPhase, CompiledStep, CompiledPhase, PhaseStatus, SprintStatus, };
 //# sourceMappingURL=status-types.d.ts.map

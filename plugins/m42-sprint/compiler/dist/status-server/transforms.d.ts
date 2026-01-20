@@ -48,6 +48,8 @@ export declare function countPhases(progress: CompiledProgress): {
 export declare function calculateProgressPercent(progress: CompiledProgress): number;
 /**
  * Build the complete phase tree from CompiledProgress
+ * Uses the current pointer to infer step statuses when they haven't been
+ * explicitly updated by the runtime (fixes BUG-001)
  */
 export declare function buildPhaseTree(progress: CompiledProgress): PhaseTreeNode[];
 /**

@@ -1,5 +1,5 @@
 sprint-id: 2026-01-20_dashboard-bugfixes
-status: in-progress
+status: completed
 phases:
   - id: preflight
     status: completed
@@ -1893,7 +1893,7 @@ phases:
     started-at: '2026-01-20T20:34:29.305Z'
     completed-at: '2026-01-20T20:39:26.532Z'
   - id: summary
-    status: in-progress
+    status: completed
     prompt: |
       ## Fixing Sprint Summary
 
@@ -1926,6 +1926,7 @@ phases:
 
       Output completion message with commit hash.
     started-at: '2026-01-20T20:39:28.546Z'
+    completed-at: '2026-01-20T20:41:54.242Z'
 current:
   phase: 3
   step: null
@@ -1937,4 +1938,7 @@ stats:
   total-steps: 7
   completed-steps: 0
   current-iteration: 38
+  completed-at: '2026-01-20T20:41:54.242Z'
+  elapsed: 2h 28m 8s
 parallel-tasks: []
+summary: Phase completed

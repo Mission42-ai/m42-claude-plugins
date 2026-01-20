@@ -45,8 +45,10 @@ const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const yaml = __importStar(require("js-yaml"));
 const zlib = __importStar(require("zlib"));
+const activity_types_js_1 = require("./activity-types.js");
 const watcher_js_1 = require("./watcher.js");
 const activity_watcher_js_1 = require("./activity-watcher.js");
+const transcription_watcher_js_1 = require("./transcription-watcher.js");
 const transforms_js_1 = require("./transforms.js");
 const page_js_1 = require("./page.js");
 const timing_tracker_js_1 = require("./timing-tracker.js");
@@ -104,6 +106,7 @@ class StatusServer extends events_1.EventEmitter {
     server = null;
     watcher = null;
     activityWatcher = null;
+    transcriptionWatcher = null;
     timingTracker = null;
     clients = new Map();
     keepAliveTimer = null;
@@ -162,6 +165,18 @@ class StatusServer extends events_1.EventEmitter {
             console.error('[StatusServer] Activity watcher error:', error.message);
         });
         this.activityWatcher.start();
+        // Set up transcription watcher (reads activity from NDJSON transcription files)
+        const transcriptionsDir = path.join(this.config.sprintDir, 'transcriptions');
+        this.transcriptionWatcher = new transcription_watcher_js_1.TranscriptionWatcher(transcriptionsDir, {
+            debounceDelay: this.config.debounceDelay,
+        });
+        this.transcriptionWatcher.on('activity', (event) => {
+            this.broadcast('activity-event', event);
+        });
+        this.transcriptionWatcher.on('error', (error) => {
+            console.error('[StatusServer] Transcription watcher error:', error.message);
+        });
+        this.transcriptionWatcher.start();
         // Initialize timing tracker for progress estimation
         this.timingTracker = new timing_tracker_js_1.TimingTracker(this.config.sprintDir);
         this.timingTracker.loadTimingHistory();
@@ -206,6 +221,11 @@ class StatusServer extends events_1.EventEmitter {
         if (this.activityWatcher) {
             this.activityWatcher.close();
             this.activityWatcher = null;
+        }
+        // Stop transcription watcher
+        if (this.transcriptionWatcher) {
+            this.transcriptionWatcher.close();
+            this.transcriptionWatcher = null;
         }
         // Close HTTP server
         if (this.server) {
@@ -399,7 +419,7 @@ class StatusServer extends events_1.EventEmitter {
     handleDashboardPageRequest(res) {
         try {
             const sprintsDir = this.getSprintsDir();
-            const scanner = new sprint_scanner_js_1.SprintScanner(sprintsDir);
+            const scanner = new sprint_scanner_js_1.SprintScanner(sprintsDir, { includeWorktreeInfo: true });
             const sprints = scanner.scan();
             const aggregator = new metrics_aggregator_js_1.MetricsAggregator(sprints);
             const metrics = aggregator.aggregate();
@@ -1442,12 +1462,54 @@ class StatusServer extends events_1.EventEmitter {
             // Send a log entry for connection
             const logEntry = (0, transforms_js_1.createLogEntry)('info', 'Connected to status server');
             this.sendEvent(client, 'log-entry', logEntry);
+            // Send historical activity events (BUG-003 fix)
+            this.sendHistoricalActivity(client);
         }
         catch (error) {
             console.error('[StatusServer] Failed to send initial status:', error);
             // Send error log entry
             const logEntry = (0, transforms_js_1.createLogEntry)('error', `Failed to load progress: ${error instanceof Error ? error.message : String(error)}`);
             this.sendEvent(client, 'log-entry', logEntry);
+        }
+    }
+    /**
+     * Send historical activity events to a newly connected client (BUG-003 fix)
+     * Reads from both .sprint-activity.jsonl and transcription files
+     * Note: Reads entire file then slices tail - acceptable for typical activity files (<1000 lines)
+     * For very large files, consider streaming tail read like ActivityWatcher.processFileChange()
+     */
+    sendHistoricalActivity(client) {
+        try {
+            // Read from .sprint-activity.jsonl (legacy hook-generated activity)
+            if (fs.existsSync(this.activityFilePath)) {
+                const content = fs.readFileSync(this.activityFilePath, 'utf-8');
+                const lines = content.split('\n').filter(line => line.trim() !== '');
+                // Take last N lines (same as ActivityWatcher tailLines default)
+                const startIndex = Math.max(0, lines.length - activity_types_js_1.DEFAULT_ACTIVITY_TAIL_LINES);
+                const recentLines = lines.slice(startIndex);
+                for (const line of recentLines) {
+                    try {
+                        const parsed = JSON.parse(line);
+                        if ((0, activity_types_js_1.isActivityEvent)(parsed)) {
+                            this.sendEvent(client, 'activity-event', parsed);
+                        }
+                    }
+                    catch {
+                        // Skip invalid JSON lines
+                    }
+                }
+            }
+            // Also send recent activity from transcription files (live streaming source)
+            // Note: Events may overlap with .jsonl - clients should dedupe by timestamp+tool
+            if (this.transcriptionWatcher) {
+                const transcriptionActivity = this.transcriptionWatcher.getRecentActivity(activity_types_js_1.DEFAULT_ACTIVITY_TAIL_LINES);
+                for (const event of transcriptionActivity) {
+                    this.sendEvent(client, 'activity-event', event);
+                }
+            }
+        }
+        catch (error) {
+            console.error('[StatusServer] Failed to send historical activity:', error);
         }
     }
     /**
@@ -1470,6 +1532,18 @@ class StatusServer extends events_1.EventEmitter {
             // Broadcast log entries
             for (const entry of logEntries) {
                 this.broadcast('log-entry', entry);
+            }
+            // Check for sprint completion and broadcast special event
+            if (progress.status === 'completed' || progress.status === 'blocked' ||
+                progress.status === 'paused' || progress.status === 'needs-human') {
+                const completionEvent = {
+                    status: progress.status,
+                    sprintId: progress['sprint-id'],
+                    completedAt: new Date().toISOString(),
+                    stats: progress.stats,
+                };
+                this.broadcast('sprint-complete', completionEvent);
+                console.log(`[StatusServer] Sprint ${progress.status}: ${progress['sprint-id']}`);
             }
         }
         catch (error) {

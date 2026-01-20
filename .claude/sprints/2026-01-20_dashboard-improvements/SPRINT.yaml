@@ -1,0 +1,254 @@
+# SPRINT.yaml - Dashboard Improvements for m42-sprint Plugin
+# Workflow-based sprint definition with worktree isolation
+
+workflow: plugin-development
+
+steps:
+  # Phase 1: Live Activity Chat-Like UI (P0)
+  - prompt: |
+      Implement chat-like Live Activity UI showing assistant messages alongside tool calls.
+
+      Requirements:
+      1. Extend ActivityEvent type in activity-types.ts:
+         - Add 'assistant' event type
+         - Add text, isThinking fields
+
+      2. Modify TranscriptionWatcher in transcription-watcher.ts:
+         - Parse content_block_start with type "text"
+         - Parse content_block_delta with text_delta
+         - Accumulate text deltas with 500ms debouncing
+         - Emit ActivityEvent with type='assistant'
+
+      3. Update page.ts renderLiveActivity():
+         - Assistant messages: chat bubble style, full content
+         - Tool calls: grey/secondary style with better descriptions
+         - TodoWrite → "Updated task list"
+         - Edit → "Editing {filename}"
+         - Read → "Reading {filename}"
+
+      4. Add CSS styling for chat-like appearance
+
+      Files:
+      - plugins/m42-sprint/compiler/src/status-server/activity-types.ts
+      - plugins/m42-sprint/compiler/src/status-server/transcription-watcher.ts
+      - plugins/m42-sprint/compiler/src/status-server/page.ts
+
+      Verification: Start a sprint and verify assistant messages appear in chat style
+
+  # Phase 2: Elapsed Time & Progress Display (P2/P3/P4)
+  - prompt: |
+      Add elapsed time display and prominent progress indicators.
+
+      Requirements:
+      1. Calculate elapsed in transforms.ts:
+         - In buildSubPhaseNode(), buildStepNode(), buildTopPhaseNode()
+         - If elapsed not set but started-at exists → calculate using calculateElapsed()
+
+      2. Add prominent timer in page.ts:
+         - Add sprint-timer div in header with ⏱ icon
+         - Format as HH:MM:SS
+         - Update every second
+         - Large font, blue accent color
+
+      3. Add step progress counter:
+         - Count total steps from phases in transforms.ts
+         - Add totalSteps to SprintHeader
+         - Display "Step X of Y" in header
+
+      Files:
+      - plugins/m42-sprint/compiler/src/status-server/transforms.ts
+      - plugins/m42-sprint/compiler/src/status-server/page.ts
+      - plugins/m42-sprint/compiler/src/status-server/status-types.ts
+
+      Verification:
+      - Steps show elapsed time in sidebar
+      - Prominent HH:MM:SS timer in header
+      - "Step X of Y" displays
+
+  # Phase 3: Sprint Dropdown & Stale Detection (P1)
+  - prompt: |
+      Fix sprint dropdown switching and add stale sprint detection.
+
+      Requirements:
+      1. Fix dropdown in page.ts:
+         - Close existing SSE connection on change
+         - Navigate to /sprint/{id} with full page reload
+         - Add loading indicator
+
+      2. Add heartbeat in loop.ts:
+         - Write last-activity timestamp each iteration
+         - Add process.on('SIGTERM') handler
+         - Add process.on('SIGINT') handler
+         - Mark sprint as 'interrupted' before exit
+
+      3. Detect staleness in transforms.ts:
+         - If in-progress but last-activity > 15 min → stale
+         - Add isStale flag to status
+
+      4. Show stale indicator in page.ts:
+         - Display "Stale" badge next to status
+         - Show "Resume Sprint" button
+
+      5. Add resume endpoint in server.ts:
+         - Add /api/sprint/:id/resume endpoint
+         - Trigger sprint loop restart
+
+      Files:
+      - plugins/m42-sprint/compiler/src/status-server/page.ts
+      - plugins/m42-sprint/compiler/src/status-server/server.ts
+      - plugins/m42-sprint/compiler/src/status-server/transforms.ts
+      - plugins/m42-sprint/runtime/src/loop.ts
+      - plugins/m42-sprint/runtime/src/cli.ts
+
+      Verification:
+      - Switch sprints via dropdown, verify correct data loads
+      - Kill sprint process, wait 15 min, verify "Stale" badge + "Resume" button
+
+  # Phase 4: Model Selection per Level
+  - prompt: |
+      Implement configurable model selection with cascading override.
+
+      ## Overview
+      Allow setting the Claude model (sonnet, opus, haiku) at different levels:
+      - workflow (default for all phases)
+      - sprint (overrides workflow)
+      - phase (overrides sprint)
+      - step (overrides phase) - highest priority
+
+      Override priority: step > phase > sprint > workflow
+
+      ## Requirements
+
+      ### 1. Schema Updates
+
+      **SPRINT.yaml schema** - add optional `model` field:
+      ```yaml
+      workflow: plugin-development
+      model: sonnet  # Sprint-level default (optional)
+
+      steps:
+        - prompt: |
+            Complex task requiring more reasoning...
+          model: opus  # Step-level override (optional)
+        - prompt: |
+            Simple task...
+          # No model specified - inherits from sprint/workflow
+      ```
+
+      **Workflow YAML schema** - add optional `model` field:
+      ```yaml
+      name: My Workflow
+      model: sonnet  # Workflow-level default (optional)
+
+      phases:
+        - id: planning
+          model: opus  # Phase-level override (optional)
+          prompt: |
+            ...
+        - id: implement
+          # No model - inherits from workflow
+          prompt: |
+            ...
+      ```
+
+      ### 2. Compiler Changes (plugins/m42-sprint/compiler/)
+
+      Update the compiler to:
+      1. Parse `model` field from SPRINT.yaml at sprint level
+      2. Parse `model` field from each step
+      3. Parse `model` field from workflow YAML at workflow level
+      4. Parse `model` field from each phase
+      5. Store resolved model in PROGRESS.yaml for each phase
+
+      **Resolution logic**:
+      ```typescript
+      function resolveModel(step, phase, sprint, workflow): string | undefined {
+        return step.model ?? phase.model ?? sprint.model ?? workflow.model;
+      }
+      ```
+
+      ### 3. Runtime Changes (plugins/m42-sprint/runtime/)
+
+      Update the runtime loop to:
+      1. Read the `model` field from current phase in PROGRESS.yaml
+      2. Pass model to claude-runner when invoking Claude CLI
+      3. Use `--model` flag in Claude CLI invocation
+
+      **claude-runner.ts changes**:
+      ```typescript
+      interface ClaudeRunnerOptions {
+        // ... existing options
+        model?: 'sonnet' | 'opus' | 'haiku';
+      }
+
+      // In runClaude():
+      const args = [
+        '--print', 'text',
+        // ... other args
+      ];
+      if (options.model) {
+        args.push('--model', options.model);
+      }
+      ```
+
+      ### 4. Dashboard Display (optional enhancement)
+
+      Show current model in the sprint detail page:
+      - Display model name next to phase in sidebar
+      - Different icon/color for each model tier
+
+      ## Files to Modify
+
+      **Compiler:**
+      - plugins/m42-sprint/compiler/src/compile.ts - parse model fields
+      - plugins/m42-sprint/compiler/src/types.ts - add model to types
+      - plugins/m42-sprint/compiler/src/workflow-loader.ts - parse workflow model
+
+      **Runtime:**
+      - plugins/m42-sprint/runtime/src/loop.ts - pass model to runner
+      - plugins/m42-sprint/runtime/src/claude-runner.ts - add --model flag
+      - plugins/m42-sprint/runtime/src/types.ts - add model to phase type
+
+      **Dashboard (optional):**
+      - plugins/m42-sprint/compiler/src/status-server/page.ts - display model
+      - plugins/m42-sprint/compiler/src/status-server/transforms.ts - include model
+
+      ## Verification
+
+      1. Create test sprint with mixed models:
+         ```yaml
+         model: sonnet
+         steps:
+           - prompt: "Task 1"           # Uses sonnet (sprint default)
+           - prompt: "Task 2"
+             model: opus                # Uses opus (step override)
+         ```
+
+      2. Run the sprint and verify:
+         - Task 1 runs with sonnet
+         - Task 2 runs with opus
+
+      3. Check PROGRESS.yaml contains resolved model for each phase
+
+  # Final verification step
+  - prompt: |
+      Run complete end-to-end verification of all dashboard improvements.
+
+      Test all features:
+      1. Live Activity: Start sprint, verify chat-style display with assistant messages
+      2. Elapsed time: Verify steps show timing in sidebar
+      3. Sprint timer: Verify prominent HH:MM:SS display in header
+      4. Step count: Verify "Step X of Y" indicator
+      5. Sprint switching: Use dropdown to switch sprints
+      6. Stale detection: Kill a sprint and verify stale indicator
+      7. Model selection: Verify model override works at step/phase/sprint/workflow levels
+
+      Build and test:
+      - Run npm run build in plugins/m42-sprint/compiler
+      - Run npm run build in plugins/m42-sprint/runtime
+      - Reinstall plugin and verify all features work
+
+# Sprint metadata
+sprint-id: 2026-01-20_dashboard-improvements
+name: dashboard-improvements
+created: 2026-01-20T19:52:00Z

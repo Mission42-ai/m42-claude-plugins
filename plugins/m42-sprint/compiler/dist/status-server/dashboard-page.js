@@ -100,32 +100,213 @@ function generateHeader(activeSprint) {
 }
 /**
  * Generate the metrics summary cards section
+ * Organized into categories: Health Overview, Performance, Workflows, Trends
+ * Uses actionable metrics with insights and alerts
  */
-function generateMetricsSection(metrics, activeSprint) {
-    const activeDisplay = activeSprint
-        ? `<a href="/sprint/${activeSprint}" class="active-link">${activeSprint}</a>`
-        : '<span class="no-active">None</span>';
+function generateMetricsSection(metrics, _activeSprint) {
+    // Calculate finished sprints for context
+    const finishedSprints = metrics.completedSprints + metrics.failedSprints;
+    // Get recent trend summary
+    const recentTrend = metrics.dailyTrend.length > 0
+        ? metrics.dailyTrend[metrics.dailyTrend.length - 1]
+        : null;
+    // Get health status styling
+    const healthClass = metrics.healthStatus === 'healthy' ? 'success'
+        : metrics.healthStatus === 'warning' ? 'warning' : 'danger';
+    const healthIcon = metrics.healthStatus === 'healthy' ? '●'
+        : metrics.healthStatus === 'warning' ? '◐' : '○';
+    // Get trend indicator
+    const trendIcon = metrics.successRateTrend === 'improving' ? '↑'
+        : metrics.successRateTrend === 'declining' ? '↓' : '→';
+    const trendClass = metrics.successRateTrend === 'improving' ? 'success'
+        : metrics.successRateTrend === 'declining' ? 'danger' : '';
     return `
     <section class="metrics-section">
-      <div class="metrics-grid">
-        <div class="metric-card">
-          <div class="metric-label">Total Sprints</div>
-          <div class="metric-value">${metrics.totalSprints}</div>
+      ${generateAlertsSection(metrics.alerts)}
+      ${generateInsightsSection(metrics.insights)}
+
+      <!-- Health Overview - Primary status at a glance -->
+      <div class="metrics-category">
+        <h3 class="category-title">Health Overview</h3>
+        <div class="metrics-grid health-grid">
+          <div class="metric-card metric-primary health-status-card ${healthClass}">
+            <div class="metric-label">Sprint Health</div>
+            <div class="metric-value ${healthClass}">
+              <span class="health-icon">${healthIcon}</span>
+              ${metrics.healthStatus.charAt(0).toUpperCase() + metrics.healthStatus.slice(1)}
+            </div>
+            <div class="metric-context">
+              ${metrics.successRate}% success rate
+              <span class="trend-indicator ${trendClass}" title="Trend: ${metrics.successRateTrend}">${trendIcon}</span>
+            </div>
+          </div>
+          <div class="metric-card metric-secondary">
+            <div class="metric-label">Completed</div>
+            <div class="metric-value success">${metrics.completedSprints}</div>
+            <div class="metric-context">of ${metrics.totalSprints} total</div>
+          </div>
+          <div class="metric-card metric-secondary">
+            <div class="metric-label">Failed</div>
+            <div class="metric-value ${metrics.failedSprints > 0 ? 'danger' : ''}">${metrics.failedSprints}</div>
+            ${metrics.durationAnomalies > 0 ? `<div class="metric-context warning">${metrics.durationAnomalies} anomalies</div>` : ''}
+          </div>
+          <div class="metric-card metric-secondary">
+            <div class="metric-label">In Progress</div>
+            <div class="metric-value">${metrics.inProgressSprints}</div>
+          </div>
         </div>
-        <div class="metric-card">
-          <div class="metric-label">Success Rate</div>
-          <div class="metric-value ${metrics.successRate >= 80 ? 'success' : metrics.successRate >= 50 ? 'warning' : 'danger'}">${metrics.successRate}%</div>
+      </div>
+
+      <!-- Performance Category - Efficiency metrics -->
+      <div class="metrics-category">
+        <h3 class="category-title">Performance</h3>
+        <div class="metrics-grid performance-grid">
+          <div class="metric-card metric-secondary">
+            <div class="metric-label">Avg Duration</div>
+            <div class="metric-value">${metrics.averageDurationFormatted}</div>
+            ${metrics.comparison.durationChange !== 0 ? `
+            <div class="metric-context ${metrics.comparison.durationChange > 0 ? 'warning' : 'success'}">
+              ${metrics.comparison.durationChange > 0 ? '+' : ''}${metrics.comparison.durationChange}% vs prior
+            </div>` : ''}
+          </div>
+          <div class="metric-card metric-secondary">
+            <div class="metric-label">Avg Steps</div>
+            <div class="metric-value">${metrics.averageStepsPerSprint}</div>
+          </div>
+          <div class="metric-card metric-secondary">
+            <div class="metric-label">Steps/Hour</div>
+            <div class="metric-value">${metrics.averageStepsPerHour}</div>
+            <div class="metric-context">efficiency rate</div>
+          </div>
+          <div class="metric-card metric-secondary">
+            <div class="metric-label">Sprints/Day</div>
+            <div class="metric-value">${metrics.categories.velocity.sprintsPerDay}</div>
+            <div class="metric-context">velocity</div>
+          </div>
         </div>
-        <div class="metric-card">
-          <div class="metric-label">Avg Duration</div>
-          <div class="metric-value">${metrics.averageDurationFormatted}</div>
+      </div>
+
+      <!-- Workflows Category -->
+      <div class="metrics-category">
+        <h3 class="category-title">Workflows</h3>
+        <div class="metrics-grid workflow-grid">
+          ${metrics.mostCommonWorkflow ? `
+          <div class="metric-card metric-secondary">
+            <div class="metric-label">Most Used</div>
+            <div class="metric-value workflow-name">${escapeHtml(metrics.mostCommonWorkflow)}</div>
+            ${metrics.workflowStats.length > 0 ? `<div class="metric-context">${metrics.workflowStats[0].percentage}% of sprints</div>` : ''}
+          </div>
+          ` : ''}
+          ${generateWorkflowDistribution(metrics.workflowStats)}
         </div>
-        <div class="metric-card">
-          <div class="metric-label">Active Sprint</div>
-          <div class="metric-value active-sprint">${activeDisplay}</div>
+      </div>
+
+      <!-- Trends Category -->
+      <div class="metrics-category">
+        <h3 class="category-title">Activity Trend</h3>
+        <div class="metrics-grid trend-grid">
+          ${recentTrend ? `
+          <div class="metric-card metric-secondary">
+            <div class="metric-label">Today (${recentTrend.dateKey})</div>
+            <div class="metric-value">${recentTrend.count} sprints</div>
+            <div class="metric-context">${recentTrend.successRate}% success rate</div>
+          </div>
+          ` : '<div class="metric-card metric-secondary"><div class="metric-label">Today</div><div class="metric-value">No activity</div></div>'}
+          ${metrics.comparison.successRateChange !== 0 ? `
+          <div class="metric-card metric-secondary">
+            <div class="metric-label">Trend</div>
+            <div class="metric-value ${metrics.comparison.successRateChange > 0 ? 'success' : 'danger'}">
+              ${metrics.comparison.successRateChange > 0 ? '+' : ''}${metrics.comparison.successRateChange}%
+            </div>
+            <div class="metric-context">success rate change</div>
+          </div>
+          ` : ''}
+          ${generateTrendSparkline(metrics.dailyTrend)}
         </div>
       </div>
     </section>`;
+}
+/**
+ * Generate alerts section for critical/warning issues
+ */
+function generateAlertsSection(alerts) {
+    if (!alerts || alerts.length === 0)
+        return '';
+    const criticalAlerts = alerts.filter(a => a.severity === 'critical');
+    const warningAlerts = alerts.filter(a => a.severity === 'warning');
+    if (criticalAlerts.length === 0 && warningAlerts.length === 0)
+        return '';
+    const alertItems = [...criticalAlerts, ...warningAlerts].map(alert => `
+    <div class="alert-item alert-${alert.severity}">
+      <span class="alert-icon">${alert.severity === 'critical' ? '⚠' : '!'}</span>
+      <span class="alert-message">${escapeHtml(alert.message)}</span>
+    </div>
+  `).join('');
+    return `
+    <div class="alerts-banner ${criticalAlerts.length > 0 ? 'has-critical' : 'has-warning'}">
+      ${alertItems}
+    </div>`;
+}
+/**
+ * Generate insights section with actionable recommendations
+ */
+function generateInsightsSection(insights) {
+    if (!insights || insights.length === 0)
+        return '';
+    // Only show success and warning insights prominently
+    const relevantInsights = insights.filter(i => i.type === 'success' || i.type === 'warning' || i.type === 'recommendation');
+    if (relevantInsights.length === 0)
+        return '';
+    const insightItems = relevantInsights.slice(0, 3).map(insight => `
+    <div class="insight-item insight-${insight.type}">
+      <span class="insight-icon">${insight.type === 'success' ? '✓' : insight.type === 'warning' ? '!' : '→'}</span>
+      <span class="insight-message">${escapeHtml(insight.message)}</span>
+    </div>
+  `).join('');
+    return `
+    <div class="insights-section">
+      ${insightItems}
+    </div>`;
+}
+/**
+ * Generate workflow distribution display
+ */
+function generateWorkflowDistribution(workflowStats) {
+    if (workflowStats.length <= 1)
+        return '';
+    const bars = workflowStats.slice(0, 5).map(w => `
+    <div class="workflow-bar-item">
+      <div class="workflow-bar-label">${escapeHtml(w.workflow)}</div>
+      <div class="workflow-bar-container">
+        <div class="workflow-bar" style="width: ${w.percentage}%"></div>
+        <span class="workflow-bar-value">${w.percentage}%</span>
+      </div>
+    </div>
+  `).join('');
+    return `
+    <div class="metric-card metric-secondary metric-wide workflow-distribution">
+      <div class="metric-label">Workflow Distribution</div>
+      <div class="workflow-bars">${bars}</div>
+    </div>`;
+}
+/**
+ * Generate a simple text-based trend sparkline
+ */
+function generateTrendSparkline(dailyTrend) {
+    if (dailyTrend.length < 2)
+        return '';
+    const recentDays = dailyTrend.slice(-7);
+    const maxCount = Math.max(...recentDays.map(d => d.count), 1);
+    const bars = recentDays.map(d => {
+        const height = Math.round((d.count / maxCount) * 100);
+        const successRate = d.count > 0 ? Math.round((d.completed / d.count) * 100) : 0;
+        return `<div class="sparkline-bar" style="height: ${height}%" title="${d.dateKey}: ${d.count} sprints, ${successRate}% success"></div>`;
+    }).join('');
+    return `
+    <div class="metric-card metric-secondary trend-chart">
+      <div class="metric-label">7-Day Trend</div>
+      <div class="sparkline">${bars}</div>
+    </div>`;
 }
 /**
  * Generate the sprint list table
@@ -178,9 +359,9 @@ function generateSprintRow(sprint) {
         ? formatDate(sprint.startedAt)
         : '<span class="not-started">Not started</span>';
     const durationDisplay = sprint.elapsed || '--';
-    // Worktree data for filtering (extract from path if available)
-    // Sprint paths are like: /path/to/worktree/.claude/sprints/sprint-id
-    const worktreeName = extractWorktreeName(sprint.path);
+    // Use worktree name from sprint data (properly normalized by sprint-scanner)
+    // Falls back to path extraction only if worktree info is not available
+    const worktreeName = sprint.worktree?.name ?? extractWorktreeName(sprint.path);
     return `
     <tr class="sprint-row" data-sprint-id="${escapeHtml(sprint.sprintId)}" data-worktree="${escapeHtml(worktreeName)}">
       <td class="sprint-id-cell">
@@ -197,6 +378,16 @@ function generateSprintRow(sprint) {
       </td>
     </tr>`;
 }
+// ============================================================================
+// Utility Functions (Server-Side)
+// ============================================================================
+// NOTE: These functions have client-side counterparts in getDashboardScript().
+// The client-side versions are needed for dynamically loaded sprint rows.
+// When modifying these, ensure the client-side versions stay consistent.
+// Key differences:
+// - escapeHtml: Server uses string replacement, client uses DOM textContent
+// - formatDate/formatStartDate: Client handles null input with HTML fallback
+// ============================================================================
 /**
  * Extract worktree name from sprint path
  * Defaults to 'main' if cannot determine
@@ -500,30 +691,87 @@ function getDashboardStyles() {
       vertical-align: middle;
     }
 
-    /* Metrics Section */
+    /* Metrics Section - Categorized Layout */
     .metrics-section {
       margin-bottom: 24px;
+    }
+
+    .metrics-category {
+      margin-bottom: 20px;
+    }
+
+    .metrics-category:last-child {
+      margin-bottom: 0;
+    }
+
+    .category-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border-color);
     }
 
     .metrics-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      gap: 16px;
+      gap: 12px;
+    }
+
+    .status-grid {
+      grid-template-columns: repeat(5, 1fr);
+    }
+
+    .performance-grid {
+      grid-template-columns: repeat(4, 1fr);
+    }
+
+    .workflow-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .trend-grid {
+      grid-template-columns: repeat(3, 1fr);
     }
 
     .metric-card {
       background-color: var(--bg-secondary);
       border: 1px solid var(--border-color);
       border-radius: 8px;
-      padding: 16px;
+      padding: 12px 16px;
       text-align: center;
     }
 
+    /* Visual hierarchy - Primary metrics are larger/more prominent */
+    .metric-primary {
+      padding: 16px 20px;
+      border-width: 2px;
+    }
+
+    .metric-primary .metric-value {
+      font-size: 32px;
+    }
+
+    .metric-secondary {
+      padding: 10px 14px;
+    }
+
+    .metric-secondary .metric-value {
+      font-size: 20px;
+    }
+
+    .metric-wide {
+      grid-column: span 2;
+    }
+
     .metric-label {
-      font-size: 12px;
+      font-size: 11px;
       color: var(--text-secondary);
       text-transform: uppercase;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
 
     .metric-value {
@@ -544,21 +792,209 @@ function getDashboardStyles() {
       color: var(--accent-red);
     }
 
-    .metric-value.active-sprint {
-      font-size: 14px;
-    }
-
-    .metric-value .active-link {
-      color: var(--accent-blue);
-      text-decoration: none;
-    }
-
-    .metric-value .active-link:hover {
-      text-decoration: underline;
-    }
-
-    .metric-value .no-active {
+    .metric-context {
+      font-size: 11px;
       color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .metric-context.success {
+      color: var(--accent-green);
+    }
+
+    .metric-context.warning {
+      color: var(--accent-yellow);
+    }
+
+    .metric-context.danger {
+      color: var(--accent-red);
+    }
+
+    /* Alerts Banner */
+    .alerts-banner {
+      background-color: rgba(248, 81, 73, 0.1);
+      border: 1px solid rgba(248, 81, 73, 0.3);
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+    }
+
+    .alerts-banner.has-warning:not(.has-critical) {
+      background-color: rgba(210, 153, 34, 0.1);
+      border-color: rgba(210, 153, 34, 0.3);
+    }
+
+    .alert-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 0;
+      font-size: 13px;
+    }
+
+    .alert-icon {
+      font-weight: 600;
+    }
+
+    .alert-item.alert-critical {
+      color: var(--accent-red);
+    }
+
+    .alert-item.alert-warning {
+      color: var(--accent-yellow);
+    }
+
+    /* Insights Section */
+    .insights-section {
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+    }
+
+    .insight-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 0;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .insight-icon {
+      font-weight: 600;
+      width: 16px;
+      text-align: center;
+    }
+
+    .insight-item.insight-success .insight-icon {
+      color: var(--accent-green);
+    }
+
+    .insight-item.insight-warning .insight-icon {
+      color: var(--accent-yellow);
+    }
+
+    .insight-item.insight-recommendation .insight-icon {
+      color: var(--accent-blue);
+    }
+
+    /* Health Status Card */
+    .health-grid {
+      grid-template-columns: 2fr 1fr 1fr 1fr;
+    }
+
+    .health-status-card {
+      text-align: left;
+    }
+
+    .health-status-card.success {
+      border-color: rgba(63, 185, 80, 0.3);
+      background-color: rgba(63, 185, 80, 0.05);
+    }
+
+    .health-status-card.warning {
+      border-color: rgba(210, 153, 34, 0.3);
+      background-color: rgba(210, 153, 34, 0.05);
+    }
+
+    .health-status-card.danger {
+      border-color: rgba(248, 81, 73, 0.3);
+      background-color: rgba(248, 81, 73, 0.05);
+    }
+
+    .health-icon {
+      margin-right: 8px;
+    }
+
+    .trend-indicator {
+      margin-left: 8px;
+      font-weight: 600;
+    }
+
+    .trend-indicator.success {
+      color: var(--accent-green);
+    }
+
+    .trend-indicator.danger {
+      color: var(--accent-red);
+    }
+
+    /* Workflow distribution bars */
+    .workflow-distribution {
+      text-align: left;
+    }
+
+    .workflow-bars {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .workflow-bar-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .workflow-bar-label {
+      font-size: 11px;
+      color: var(--text-secondary);
+      min-width: 80px;
+      text-overflow: ellipsis;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+
+    .workflow-bar-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .workflow-bar {
+      height: 6px;
+      background-color: var(--accent-blue);
+      border-radius: 3px;
+      min-width: 4px;
+    }
+
+    .workflow-bar-value {
+      font-size: 10px;
+      color: var(--text-muted);
+      min-width: 30px;
+    }
+
+    /* Trend sparkline */
+    .trend-chart {
+      text-align: left;
+    }
+
+    .sparkline {
+      display: flex;
+      align-items: flex-end;
+      gap: 3px;
+      height: 40px;
+      padding-top: 8px;
+    }
+
+    .sparkline-bar {
+      flex: 1;
+      background-color: var(--accent-blue);
+      border-radius: 2px;
+      min-height: 4px;
+      transition: background-color 0.15s;
+    }
+
+    .sparkline-bar:hover {
+      background-color: var(--accent-green);
+    }
+
+    .metric-value.workflow-name {
+      font-size: 16px;
+      color: var(--accent-purple);
     }
 
     /* Sprint Table */
@@ -714,6 +1150,30 @@ function getDashboardStyles() {
         grid-template-columns: repeat(2, 1fr);
       }
 
+      .status-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .health-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .performance-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .trend-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .metric-wide {
+        grid-column: span 2;
+      }
+
+      .health-status-card {
+        grid-column: span 2;
+      }
+
       .header {
         flex-direction: column;
         gap: 12px;
@@ -732,8 +1192,18 @@ function getDashboardStyles() {
     }
 
     @media (max-width: 480px) {
-      .metrics-grid {
+      .metrics-grid,
+      .status-grid,
+      .health-grid,
+      .performance-grid,
+      .workflow-grid,
+      .trend-grid {
         grid-template-columns: 1fr;
+      }
+
+      .metric-wide,
+      .health-status-card {
+        grid-column: span 1;
       }
     }
   `;
@@ -885,8 +1355,8 @@ function getDashboardScript() {
           row.className = 'sprint-row';
           row.dataset.sprintId = sprint.sprintId;
 
-          // Extract worktree name from path
-          const worktreeName = extractWorktreeName(sprint.path || '');
+          // Use worktree name from sprint data (properly normalized by server)
+          const worktreeName = (sprint.worktree && sprint.worktree.name) || extractWorktreeName(sprint.path || '');
           row.dataset.worktree = worktreeName;
 
           // Check if this row should be visible based on current filter
@@ -915,6 +1385,13 @@ function getDashboardScript() {
           tbody.appendChild(row);
         }
       }
+
+      // ================================================================
+      // Utility Functions (Client-Side)
+      // ================================================================
+      // NOTE: These mirror server-side functions for dynamically
+      // loaded sprint rows. See comments near line 335 for details.
+      // ================================================================
 
       // Extract worktree name from sprint path
       function extractWorktreeName(sprintPath) {

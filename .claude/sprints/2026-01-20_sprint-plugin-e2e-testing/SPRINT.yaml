@@ -1,0 +1,139 @@
+# SPRINT.yaml - Workflow-based Sprint Definition
+# This file is compiled into PROGRESS.yaml by /run-sprint
+
+workflow: bugfix-workflow    # Reference to .claude/workflows/bugfix-workflow.yaml
+
+steps:
+  - prompt: |
+      Test basic sprint initialization and directory structure creation.
+
+      Test cases:
+      1. Run /start-sprint with Ralph mode - verify SPRINT.yaml has correct Ralph structure
+      2. Run /start-sprint with workflow mode - verify SPRINT.yaml has steps array
+      3. Verify context/ and artifacts/ directories are created
+      4. Check that duplicate sprint names are rejected
+      5. Verify date-based naming convention (YYYY-MM-DD_name)
+
+      Expected: All directory structures created correctly, proper error handling for edge cases
+
+  - prompt: |
+      Test workflow compilation from SPRINT.yaml to PROGRESS.yaml.
+
+      Test cases:
+      1. Create a simple SPRINT.yaml with 2-3 steps
+      2. Run /run-sprint with --dry-run flag
+      3. Verify PROGRESS.yaml is generated with expanded workflow phases
+      4. Check that for-each expansion works correctly
+      5. Verify workflow: references are resolved properly
+      6. Test nested workflow references (steps with custom workflows)
+
+      Expected: PROGRESS.yaml contains all expanded phases, proper task structure
+
+  - prompt: |
+      Test sprint execution loop with fresh context per iteration.
+
+      Test cases:
+      1. Start a simple sprint with 1-2 tasks
+      2. Verify that each task runs in fresh agent context
+      3. Check that task results are captured in JSON format
+      4. Verify task status updates (pending → in_progress → completed/failed)
+      5. Test pause/resume functionality
+      6. Test error handling when a task fails
+
+      Expected: Tasks execute sequentially, status updates correctly, results captured
+
+  - prompt: |
+      Test Ralph mode autonomous execution.
+
+      Test cases:
+      1. Create a Ralph mode sprint with a clear goal
+      2. Start execution and verify Ralph creates dynamic tasks
+      3. Check that minimum iterations threshold is enforced
+      4. Verify learning extraction happens per iteration (if enabled)
+      5. Test goal completion detection
+      6. Check artifacts are saved to artifacts/ directory
+
+      Expected: Ralph dynamically shapes work, creates tasks, meets minimum iterations
+
+  - prompt: |
+      Test status monitoring and progress tracking.
+
+      Test cases:
+      1. Run /sprint-status on an active sprint
+      2. Verify dashboard shows current task, progress percentage
+      3. Test /sprint-watch command to start status server
+      4. Check that server serves the status dashboard HTML
+      5. Verify progress metrics are accurate (completed/total tasks)
+      6. Test status polling/refresh mechanism
+
+      Expected: Status dashboard displays accurate sprint progress information
+
+  - prompt: |
+      Test sprint lifecycle commands (pause, resume, stop).
+
+      Test cases:
+      1. Start a sprint, then pause it mid-execution
+      2. Verify state is saved and sprint can be resumed
+      3. Test /stop-sprint to forcefully terminate
+      4. Check cleanup of state files
+      5. Verify graceful handling of interrupted sprints
+      6. Test multiple sprints in different directories
+
+      Expected: Pause/resume works correctly, stop cleans up properly
+
+  - prompt: |
+      Test step manipulation commands (add-step, import-steps).
+
+      Test cases:
+      1. Use /add-step to add a new step to SPRINT.yaml
+      2. Verify step is appended to steps array
+      3. Test /import-steps with a JSON/YAML file of steps
+      4. Check that imported steps maintain proper structure
+      5. Verify steps can be added while sprint is running (queued)
+
+      Expected: Steps can be added dynamically, file formats validated
+
+  - prompt: |
+      Test error handling and edge cases.
+
+      Test cases:
+      1. Invalid SPRINT.yaml syntax - verify helpful error message
+      2. Missing workflow file - verify graceful failure
+      3. Corrupted PROGRESS.yaml - test recovery
+      4. Running /run-sprint on already running sprint
+      5. Empty steps array in workflow mode
+      6. Missing required fields in SPRINT.yaml
+      7. Circular workflow references
+
+      Expected: All errors handled gracefully with clear error messages
+
+  - prompt: |
+      Test per-iteration hooks and learning extraction.
+
+      Test cases:
+      1. Enable per-iteration learning hook in SPRINT.yaml
+      2. Run a sprint and verify learnings are extracted after each task
+      3. Check that learnings are saved to proper location
+      4. Test custom hooks configuration
+      5. Verify hook failures don't crash the sprint
+
+      Expected: Hooks execute at correct points, learnings captured properly
+
+  - prompt: |
+      Integration test: Full end-to-end sprint execution.
+
+      Test scenario:
+      1. Create a realistic sprint with 3-5 meaningful tasks
+      2. Use bugfix-workflow with actual code fixes
+      3. Run through complete lifecycle: start → execute → complete
+      4. Verify all artifacts are created
+      5. Check that final status shows 100% completion
+      6. Review generated artifacts for quality
+
+      Expected: Complete sprint runs successfully, all features working together
+
+# Sprint metadata
+sprint-id: 2026-01-20_sprint-plugin-e2e-testing
+name: sprint-plugin-e2e-testing
+created: 2026-01-20T09:59:18+01:00
+description: Comprehensive end-to-end testing of sprint plugin to identify and fix bugs

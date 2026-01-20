@@ -1707,6 +1707,19 @@ export class StatusServer extends EventEmitter {
       for (const entry of logEntries) {
         this.broadcast('log-entry', entry);
       }
+
+      // Check for sprint completion and broadcast special event
+      if (progress.status === 'completed' || progress.status === 'blocked' ||
+          progress.status === 'paused' || progress.status === 'needs-human') {
+        const completionEvent = {
+          status: progress.status,
+          sprintId: progress['sprint-id'],
+          completedAt: new Date().toISOString(),
+          stats: progress.stats,
+        };
+        this.broadcast('sprint-complete', completionEvent);
+        console.log(`[StatusServer] Sprint ${progress.status}: ${progress['sprint-id']}`);
+      }
     } catch (error) {
       console.error('[StatusServer] Failed to process progress change:', error);
       // Broadcast error log entry

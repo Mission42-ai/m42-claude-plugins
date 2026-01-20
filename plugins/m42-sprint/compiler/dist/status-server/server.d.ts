@@ -21,6 +21,7 @@ export declare class StatusServer extends EventEmitter {
     private server;
     private watcher;
     private activityWatcher;
+    private transcriptionWatcher;
     private timingTracker;
     private clients;
     private keepAliveTimer;
@@ -223,6 +224,13 @@ export declare class StatusServer extends EventEmitter {
      * Send initial status to a newly connected client
      */
     private sendInitialStatus;
+    /**
+     * Send historical activity events to a newly connected client (BUG-003 fix)
+     * Reads from both .sprint-activity.jsonl and transcription files
+     * Note: Reads entire file then slices tail - acceptable for typical activity files (<1000 lines)
+     * For very large files, consider streaming tail read like ActivityWatcher.processFileChange()
+     */
+    private sendHistoricalActivity;
     /**
      * Handle progress file change
      */

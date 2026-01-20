@@ -7,6 +7,8 @@
 # 3. REFACTOR - Clean up while keeping tests green
 # 4. QA     - Binary verify all scenarios, inject fixes if needed
 # 5. VERIFY - End-to-end integration verification
+#
+# NOTE: This workflow expects to run in a worktree when used with plugin-development
 
 name: TDD Step Workflow
 description: |
@@ -22,7 +24,38 @@ description: |
 
 phases:
   # ============================================================================
-  # Phase 1: RED
+  # Phase 1: CONTEXT
+  # Ensure we're in correct worktree and read shared context
+  # ============================================================================
+  - id: context
+    prompt: |
+      Prepare context for TDD development.
+
+      ## Step 0: Ensure Working in Worktree (if applicable)
+      ```bash
+      # If trees directory exists, switch to worktree
+      if [ -d "trees/{{sprint.id}}" ]; then
+        cd trees/{{sprint.id}}
+      fi
+      pwd
+      git branch --show-current
+      ```
+
+      ## Step 1: Read Shared Context
+      Read: context/_shared-context.md (project patterns, test patterns, commands)
+      Read: context/sprint-plan.md (how this step fits in the sprint)
+
+      ## Step 2: Understand the Step
+      {{step.prompt}}
+
+      ## Output
+      Confirm understanding of:
+      - Test patterns and locations
+      - Build/test commands
+      - The step requirements
+
+  # ============================================================================
+  # Phase 2: RED
   # Write failing tests and gherkin scenarios BEFORE implementation
   # ============================================================================
   - id: red

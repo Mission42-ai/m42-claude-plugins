@@ -43,7 +43,6 @@ const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const activity_types_js_1 = require("./activity-types.js");
 const DEFAULT_DEBOUNCE_DELAY = 100;
-const DEFAULT_TAIL_LINES = 50;
 /**
  * Watches a .sprint-activity.jsonl file for new activity events
  *
@@ -66,7 +65,7 @@ class ActivityWatcher extends events_1.EventEmitter {
         super();
         this.filePath = path.resolve(filePath);
         this.debounceDelay = options.debounceDelay ?? DEFAULT_DEBOUNCE_DELAY;
-        this.tailLines = options.tailLines ?? DEFAULT_TAIL_LINES;
+        this.tailLines = options.tailLines ?? activity_types_js_1.DEFAULT_ACTIVITY_TAIL_LINES;
     }
     /**
      * Start watching the activity file

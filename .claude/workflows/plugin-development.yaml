@@ -2,6 +2,7 @@
 # TDD-based development with integrated documentation updates
 #
 # Features:
+# - WORKTREE ISOLATION for parallel development
 # - Preflight planning with shared context for all agents
 # - TDD per-step phases: RED (tests) → GREEN (implement) → REFACTOR → QA
 # - Integrated documentation phase (user docs, getting started, reference)
@@ -14,6 +15,9 @@ description: |
   Comprehensive plugin development workflow combining TDD (test-driven development)
   with gherkin scenario verification and integrated documentation updates.
 
+  **IMPORTANT**: This workflow creates a git worktree for isolated parallel development.
+  Multiple sprints can run simultaneously in different worktrees.
+
   Each step follows the TDD cycle:
   1. RED   - Write failing tests and gherkin scenarios first
   2. GREEN - Implement minimal code to pass tests
@@ -23,6 +27,95 @@ description: |
   After all steps complete, documentation is automatically updated.
 
 phases:
+  # ============================================================================
+  # Phase 0: WORKTREE-SETUP
+  # Create isolated worktree for parallel development
+  # ============================================================================
+  - id: worktree-setup
+    prompt: |
+      Create a git worktree for isolated sprint development.
+
+      ## Why Worktrees?
+      Git worktrees allow multiple sprints to run in parallel, each with its own:
+      - Working directory
+      - Branch
+      - Independent development state
+
+      ## Step 1: Check Current Location
+      ```bash
+      # Determine if we're in a worktree or main repo
+      git rev-parse --show-toplevel
+      git worktree list
+      ```
+
+      ## Step 2: Determine Worktree Location
+      The worktree structure should be:
+      ```
+      project-root/
+        trees/
+          {{sprint.id}}/   # ← Sprint worktree (we'll create this)
+        main/              # or project files directly here
+      ```
+
+      If the project root doesn't have a `trees/` directory, create it:
+      ```bash
+      mkdir -p trees
+      ```
+
+      ## Step 3: Create the Worktree
+      ```bash
+      # Create worktree with new branch
+      git worktree add trees/{{sprint.id}} -b sprint/{{sprint.id}}
+      ```
+
+      If the branch already exists:
+      ```bash
+      git worktree add trees/{{sprint.id}} sprint/{{sprint.id}}
+      ```
+
+      ## Step 4: Verify Worktree
+      ```bash
+      cd trees/{{sprint.id}}
+      git status
+      pwd
+      ```
+
+      ## Step 5: Copy Sprint Files to Worktree
+      The sprint definition needs to be accessible from the worktree:
+      ```bash
+      # Copy the sprint directory to the worktree
+      cp -r .claude/sprints/{{sprint.id}} trees/{{sprint.id}}/.claude/sprints/
+      ```
+
+      ## Step 6: Record Worktree Path
+      Create: context/worktree-info.md
+
+      ```markdown
+      # Worktree Information
+
+      ## Paths
+      - **Worktree**: trees/{{sprint.id}}
+      - **Branch**: sprint/{{sprint.id}}
+      - **Main repo**: [path to main repo]
+
+      ## Working in the Worktree
+      All subsequent phases will work in the worktree directory.
+
+      ## After Sprint Completion
+      - Create PR from sprint/{{sprint.id}} branch
+      - Clean up worktree: `git worktree remove trees/{{sprint.id}}`
+      ```
+
+      ## Output
+      - Worktree created at `trees/{{sprint.id}}`
+      - Branch `sprint/{{sprint.id}}` created
+      - Sprint files copied to worktree
+      - Worktree info documented
+
+      ## IMPORTANT
+      All subsequent phases must work within the worktree:
+      `cd trees/{{sprint.id}}` before any operations.
+
   # ============================================================================
   # Phase 1: PREFLIGHT
   # Sprint-level planning, context generation, and documentation inventory
@@ -34,9 +127,17 @@ phases:
       ## Your Task
       Analyze the sprint scope and prepare shared context for all development phases.
 
-      ## Step 1: Create Sprint Branch
+      ## Step 0: Switch to Worktree
       ```bash
-      git checkout -b sprint/{{sprint.id}} 2>/dev/null || git checkout sprint/{{sprint.id}}
+      # Ensure we're working in the sprint worktree
+      cd trees/{{sprint.id}}
+      pwd  # Verify location
+      ```
+
+      ## Step 1: Verify Branch
+      ```bash
+      git branch --show-current  # Should show: sprint/{{sprint.id}}
+      git status
       ```
 
       ## Step 2: Analyze Sprint Scope
@@ -164,6 +265,13 @@ phases:
   - id: doc-analyze
     prompt: |
       Analyze code changes and plan documentation updates.
+
+      ## Step 0: Ensure Working in Worktree
+      ```bash
+      cd trees/{{sprint.id}} 2>/dev/null || true
+      pwd
+      git branch --show-current  # Verify: sprint/{{sprint.id}}
+      ```
 
       ## Context
       Read: context/_shared-context.md (documentation structure)
@@ -697,6 +805,13 @@ phases:
     prompt: |
       Comprehensive Quality Assurance for the entire sprint.
 
+      ## Step 0: Ensure Working in Worktree
+      ```bash
+      cd trees/{{sprint.id}} 2>/dev/null || true
+      pwd
+      git branch --show-current  # Verify: sprint/{{sprint.id}}
+      ```
+
       ## Context
       Read: context/_shared-context.md for build/test commands
       Read: context/sprint-plan.md for success criteria
@@ -909,6 +1024,14 @@ phases:
       ## Context
       Read: artifacts/sprint-summary.md for PR body content
       Read: artifacts/sprint-qa-report.md for verification checklist
+      Read: context/worktree-info.md for worktree paths
+
+      ## Step 0: Verify Working in Worktree
+      ```bash
+      # Ensure we're in the sprint worktree
+      pwd
+      git branch --show-current  # Should be: sprint/{{sprint.id}}
+      ```
 
       ## Step 1: Ensure All Changes Committed
       ```bash
@@ -962,3 +1085,22 @@ phases:
       ```bash
       gh pr view --json url -q '.url'
       ```
+
+      ## Step 5: Worktree Cleanup Instructions
+      After the PR is merged, clean up the worktree:
+
+      ```bash
+      # From the main repository (not the worktree)
+      cd ..  # Go to main repo root
+
+      # Remove the worktree
+      git worktree remove trees/{{sprint.id}}
+
+      # Delete the remote branch (optional, after PR merge)
+      git push origin --delete sprint/{{sprint.id}}
+
+      # List remaining worktrees
+      git worktree list
+      ```
+
+      Note: Do NOT remove the worktree until the PR is merged!

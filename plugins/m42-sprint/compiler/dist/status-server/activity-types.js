@@ -4,7 +4,7 @@
  * Used by ActivityWatcher to parse and validate events from .sprint-activity.jsonl
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.VERBOSITY_ORDER = void 0;
+exports.DEFAULT_ACTIVITY_TAIL_LINES = exports.VERBOSITY_ORDER = void 0;
 exports.shouldShowAtLevel = shouldShowAtLevel;
 exports.isActivityEvent = isActivityEvent;
 exports.isVerbosityLevel = isVerbosityLevel;
@@ -53,4 +53,12 @@ function isActivityEvent(obj) {
 function isVerbosityLevel(value) {
     return value === 'minimal' || value === 'basic' || value === 'detailed' || value === 'verbose';
 }
+// ============================================================================
+// Activity Watcher Configuration
+// ============================================================================
+/**
+ * Default number of activity lines to read from end of file
+ * Used by both ActivityWatcher (for initial read) and StatusServer (for new client connections)
+ */
+exports.DEFAULT_ACTIVITY_TAIL_LINES = 50;
 //# sourceMappingURL=activity-types.js.map

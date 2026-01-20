@@ -50,12 +50,17 @@ export declare function isActivityEvent(obj: unknown): obj is ActivityEvent;
  */
 export declare function isVerbosityLevel(value: unknown): value is VerbosityLevel;
 /**
+ * Default number of activity lines to read from end of file
+ * Used by both ActivityWatcher (for initial read) and StatusServer (for new client connections)
+ */
+export declare const DEFAULT_ACTIVITY_TAIL_LINES = 50;
+/**
  * Options for ActivityWatcher
  */
 export interface ActivityWatcherOptions {
     /** Debounce delay in milliseconds (default: 100) */
     debounceDelay?: number;
-    /** Initial lines to read from end of file (default: 50) */
+    /** Initial lines to read from end of file (default: DEFAULT_ACTIVITY_TAIL_LINES) */
     tailLines?: number;
 }
 /**
