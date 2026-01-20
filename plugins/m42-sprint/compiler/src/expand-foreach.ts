@@ -35,7 +35,7 @@ export interface ModelContext {
 /**
  * Resolve model using priority: step > phase > sprint > workflow
  */
-function resolveModelFromContext(ctx: ModelContext): ClaudeModel | undefined {
+export function resolveModelFromContext(ctx: ModelContext): ClaudeModel | undefined {
   return ctx.stepModel ?? ctx.phaseModel ?? ctx.sprintModel ?? ctx.workflowModel;
 }
 
