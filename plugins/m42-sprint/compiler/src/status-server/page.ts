@@ -311,9 +311,13 @@ function generateNavigationBar(navigation: SprintNavigation): string {
         </span>
       </div>
       <div class="nav-right">
+        <div class="sprint-loading" id="sprint-loading" style="display: none;">
+          <span class="loading-spinner"></span>
+          <span>Loading sprint...</span>
+        </div>
         <label class="sprint-switcher">
           <span class="sprint-switcher-label">Sprint:</span>
-          <select id="sprint-select" class="sprint-select" onchange="window.location.href='/sprint/' + this.value">
+          <select id="sprint-select" class="sprint-select" onchange="handleSprintChange(this.value)">
             ${sprintOptions}
           </select>
         </label>
@@ -474,6 +478,27 @@ function getStyles(): string {
       border-color: var(--accent-blue);
     }
 
+    .sprint-loading {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    .loading-spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid var(--border-color);
+      border-top-color: var(--accent-blue);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
     /* Header */
     .header {
       display: flex;
@@ -511,6 +536,47 @@ function getStyles(): string {
     .status-badge.completed { background-color: rgba(63, 185, 80, 0.15); color: var(--accent-green); }
     .status-badge.failed { background-color: rgba(248, 81, 73, 0.15); color: var(--accent-red); }
     .status-badge.blocked { background-color: rgba(210, 153, 34, 0.15); color: var(--accent-yellow); }
+    .status-badge.stale { background-color: rgba(210, 153, 34, 0.15); color: var(--accent-yellow); }
+    .status-badge.interrupted { background-color: rgba(248, 81, 73, 0.15); color: var(--accent-red); }
+
+    .stale-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .stale-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+      background-color: rgba(210, 153, 34, 0.15);
+      color: var(--accent-yellow);
+      margin-left: 8px;
+    }
+
+    .resume-sprint-btn {
+      background-color: var(--accent-blue);
+      color: white;
+      border: none;
+      padding: 4px 12px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      margin-left: 8px;
+    }
+
+    .resume-sprint-btn:hover {
+      background-color: #4c8ed4;
+    }
+
+    .resume-sprint-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
 
     .header-right {
       display: flex;
@@ -4065,6 +4131,27 @@ function getScript(): string {
         }
       }
 
+      // Sprint dropdown change handler - closes SSE and navigates
+      function handleSprintChange(sprintId) {
+        // Show loading indicator
+        var loadingEl = document.getElementById('sprint-loading');
+        if (loadingEl) {
+          loadingEl.style.display = 'flex';
+        }
+
+        // Close existing SSE connection
+        if (eventSource) {
+          eventSource.close();
+          eventSource = null;
+        }
+
+        // Navigate to selected sprint with full page reload
+        window.location.href = '/sprint/' + encodeURIComponent(sprintId);
+      }
+
+      // Make function available globally for inline onchange
+      window.handleSprintChange = handleSprintChange;
+
       // SSE Connection
       function connect() {
         updateConnectionStatus('connecting');
@@ -4375,7 +4462,68 @@ function getScript(): string {
 
         // Update control buttons based on sprint status
         updateControlButtons(header.status);
+
+        // Update stale indicator and resume button
+        updateStaleIndicator(header);
       }
+
+      // Stale indicator and resume button
+      function updateStaleIndicator(header) {
+        var staleContainer = document.getElementById('stale-container');
+        if (!staleContainer) {
+          // Create container if it doesn't exist (insert after status badge)
+          staleContainer = document.createElement('span');
+          staleContainer.id = 'stale-container';
+          staleContainer.className = 'stale-indicator';
+          elements.statusBadge.parentNode.insertBefore(staleContainer, elements.statusBadge.nextSibling);
+        }
+
+        // Show stale badge and resume button if sprint is stale or interrupted
+        if (header.isStale || header.status === 'interrupted') {
+          var badgeText = header.status === 'interrupted' ? 'Interrupted' : 'Stale';
+          staleContainer.innerHTML =
+            '<span class="stale-badge">' + badgeText + '</span>' +
+            '<button class="resume-sprint-btn" onclick="resumeStaleSprint()">Resume Sprint</button>';
+          staleContainer.style.display = 'inline-flex';
+        } else {
+          staleContainer.innerHTML = '';
+          staleContainer.style.display = 'none';
+        }
+      }
+
+      // Resume stale or interrupted sprint
+      function resumeStaleSprint() {
+        var sprintId = elements.sprintName.textContent;
+        var btn = document.querySelector('.resume-sprint-btn');
+        if (btn) {
+          btn.disabled = true;
+          btn.textContent = 'Resuming...';
+        }
+
+        fetch('/api/sprint/' + encodeURIComponent(sprintId) + '/resume', {
+          method: 'POST'
+        })
+        .then(function(response) { return response.json(); })
+        .then(function(data) {
+          if (data.success) {
+            showToast('success', 'Sprint resume requested');
+          } else {
+            showToast('error', data.error || 'Failed to resume sprint');
+          }
+        })
+        .catch(function(err) {
+          showToast('error', 'Failed to resume sprint: ' + err.message);
+        })
+        .finally(function() {
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Resume Sprint';
+          }
+        });
+      }
+
+      // Make function available globally
+      window.resumeStaleSprint = resumeStaleSprint;
 
       function updateEstimateDisplay(header) {
         const timeEl = elements.estimateTime;
