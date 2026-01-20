@@ -7,16 +7,13 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import * as yaml from 'js-yaml';
 
 // Import from transition module
 import {
   SprintState,
   SprintEvent,
   CompiledProgress,
-  CurrentPointer,
   transition,
-  CompiledTopPhase,
 } from './transition.js';
 
 // Import from yaml-ops module
@@ -48,14 +45,6 @@ import type { ClaudeResult, ClaudeRunOptions } from './claude-runner.js';
 function readProgress(filePath: string): CompiledProgress {
   // Use yaml-ops readProgress which validates checksum
   return readProgressYaml(filePath) as unknown as CompiledProgress;
-}
-
-/**
- * Read progress from file without checksum validation (for recovery scenarios)
- */
-function readProgressRaw(filePath: string): CompiledProgress {
-  const content = fs.readFileSync(filePath, 'utf8');
-  return yaml.load(content) as CompiledProgress;
 }
 
 /**
