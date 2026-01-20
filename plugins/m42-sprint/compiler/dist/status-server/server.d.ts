@@ -232,6 +232,11 @@ export declare class StatusServer extends EventEmitter {
      */
     private loadProgress;
     /**
+     * Clean up signal files from sprint directory
+     * Called on server stop and start (to handle leftover files from crashed sprints)
+     */
+    private cleanupSignalFiles;
+    /**
      * Send an SSE event to a specific client
      */
     private sendEvent;

@@ -23,8 +23,11 @@ import {
   backupProgress,
   restoreProgress,
   cleanupBackup,
+  calculateChecksum,
   CompiledProgress as YamlOpsProgress,
 } from './yaml-ops.js';
+
+import * as yaml from 'js-yaml';
 
 // Import from executor module
 import {
@@ -218,14 +221,113 @@ function updateProgressFromState(progress: CompiledProgress, state: SprintState)
       if (state.summary) {
         (progress as unknown as { summary: string }).summary = state.summary;
       }
-      // Mark all phases as completed
+      // Mark non-skipped phases as completed (BUG-002 FIX: preserve skipped status)
       if (progress.phases) {
         for (const phase of progress.phases) {
-          phase.status = 'completed';
+          if (phase.status !== 'skipped') {
+            phase.status = 'completed';
+          }
         }
       }
       break;
   }
+}
+
+/**
+ * Merge external status changes into a single item (phase, step, or sub-phase).
+ * Preserves 'skipped' status and retry-count from external writes.
+ */
+function mergeItemChanges(
+  localItem: { id?: string; status?: string; 'retry-count'?: number },
+  diskItem: { id?: string; status?: string; 'retry-count'?: number }
+): void {
+  // Preserve 'skipped' status from external writes (e.g., /api/skip)
+  if (diskItem?.status === 'skipped' && localItem?.status !== 'completed') {
+    localItem.status = 'skipped';
+  }
+
+  // Preserve retry-count from external writes (e.g., /api/retry)
+  if (diskItem?.['retry-count'] !== undefined) {
+    localItem['retry-count'] = diskItem['retry-count'];
+    // If retry was requested and phase was failed/blocked, reset to pending
+    if (diskItem.status === 'pending' && (localItem.status === 'failed' || localItem.status === 'blocked')) {
+      localItem.status = 'pending';
+    }
+  }
+}
+
+/**
+ * Merge external changes into the in-memory progress.
+ * Called when file has been modified by an external process during Claude execution.
+ *
+ * This preserves phase-level status changes (like 'skipped' from /api/skip)
+ * that may have been made by the status server. Handles the full hierarchy:
+ * phases → steps → sub-phases.
+ */
+function mergeExternalChanges(
+  localProgress: CompiledProgress,
+  diskProgress: CompiledProgress
+): void {
+  if (!localProgress.phases || !diskProgress.phases) return;
+
+  // Iterate through top-level phases
+  for (let i = 0; i < localProgress.phases.length && i < diskProgress.phases.length; i++) {
+    const localPhase = localProgress.phases[i] as {
+      id?: string;
+      status?: string;
+      'retry-count'?: number;
+      steps?: Array<{ id?: string; status?: string; 'retry-count'?: number; phases?: Array<{ id?: string; status?: string; 'retry-count'?: number }> }>;
+    };
+    const diskPhase = diskProgress.phases[i] as typeof localPhase;
+
+    // Only merge if IDs match (sanity check)
+    if (localPhase?.id !== diskPhase?.id) continue;
+
+    // Merge phase-level changes
+    mergeItemChanges(localPhase, diskPhase);
+
+    // Merge step-level changes
+    if (localPhase.steps && diskPhase.steps) {
+      for (let j = 0; j < localPhase.steps.length && j < diskPhase.steps.length; j++) {
+        const localStep = localPhase.steps[j];
+        const diskStep = diskPhase.steps[j];
+
+        if (localStep?.id !== diskStep?.id) continue;
+
+        mergeItemChanges(localStep, diskStep);
+
+        // Merge sub-phase-level changes
+        if (localStep.phases && diskStep.phases) {
+          for (let k = 0; k < localStep.phases.length && k < diskStep.phases.length; k++) {
+            const localSubPhase = localStep.phases[k];
+            const diskSubPhase = diskStep.phases[k];
+
+            if (localSubPhase?.id !== diskSubPhase?.id) continue;
+
+            mergeItemChanges(localSubPhase, diskSubPhase);
+          }
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Get the checksum of a file's current content.
+ */
+function getFileChecksum(filePath: string): string {
+  const content = fs.readFileSync(filePath, 'utf8');
+  return calculateChecksum(content);
+}
+
+/**
+ * Read progress from file without checksum validation.
+ * Used for merging external changes where checksum may be out of sync.
+ * BUG-002 FIX: External processes may write without updating checksum.
+ */
+function readProgressWithoutChecksumValidation(filePath: string): CompiledProgress {
+  const content = fs.readFileSync(filePath, 'utf8');
+  return yaml.load(content) as unknown as CompiledProgress;
 }
 
 /**
@@ -361,6 +463,9 @@ export async function runLoop(
     // Transaction: backup before Claude execution
     backupProgress(progressPath);
 
+    // BUG-002 FIX: Store checksum before Claude execution for compare-and-swap
+    const preExecChecksum = getFileChecksum(progressPath);
+
     // Get the current phase/step/sub-phase
     const currentPhase = progress.phases?.[progress.current.phase];
     const currentStep = currentPhase?.steps?.[progress.current.step ?? -1];
@@ -369,11 +474,37 @@ export async function runLoop(
     const prompt = currentSubPhase?.prompt ?? currentStep?.prompt ?? currentPhase?.prompt ?? '';
     const phaseId = currentSubPhase?.id ?? currentStep?.id ?? currentPhase?.id ?? '';
 
+    // Create logs directory if it doesn't exist
+    const logsDir = path.join(sprintDir, 'logs');
+    if (!fs.existsSync(logsDir)) {
+      fs.mkdirSync(logsDir, { recursive: true });
+    }
+
+    // Generate log file path based on phase/step/sub-phase ID
+    const sanitizedId = phaseId.replace(/[^a-zA-Z0-9-_]/g, '_') || `phase-${progress.current.phase}`;
+    const logFileName = `${sanitizedId}.log`;
+    const outputFile = path.join(logsDir, logFileName);
+
     // Execute SPAWN_CLAUDE action directly
     const spawnResult = await deps.runClaude({
       prompt,
       cwd: sprintDir,
+      outputFile,
     });
+
+    // BUG-002 FIX: Compare-and-swap - check if file was modified during execution
+    const postExecChecksum = getFileChecksum(progressPath);
+    if (postExecChecksum !== preExecChecksum) {
+      // File was modified externally (e.g., by status server /api/skip or /api/retry)
+      // Read the current disk state and merge external changes into our progress
+      // Use readProgressWithoutChecksumValidation because external writers may not update checksum
+      const diskProgress = readProgressWithoutChecksumValidation(progressPath);
+      mergeExternalChanges(progress, diskProgress);
+
+      if (verbose) {
+        console.log('[loop] Detected external modification to PROGRESS.yaml, merged changes');
+      }
+    }
 
     // Process result
     let event: SprintEvent;

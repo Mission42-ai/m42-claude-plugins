@@ -728,6 +728,116 @@ test('Integration: corrupted file detected after external modification', async (
 });
 
 // ============================================================================
+// Test: BUG-007 - Async/Sync API Consistency
+// ============================================================================
+
+console.log('\n=== BUG-007: Async/Sync API Consistency Tests ===\n');
+
+/**
+ * BUG-007: writeProgressAtomic is declared async but uses sync fs operations.
+ *
+ * This test verifies that writeProgressAtomic uses truly async fs.promises API
+ * by checking if the function internally awaits any async operation.
+ *
+ * Test approach: Use Promise microtask timing. A truly async function that uses
+ * fs.promises will have multiple microtask boundaries (after each await).
+ * A fake async function (sync body, returns immediately resolved promise)
+ * resolves in the same microtask as the call.
+ */
+test('BUG-007: writeProgressAtomic should use fs.promises (truly async I/O)', async () => {
+  const ctx = createTestDir();
+  try {
+    const progress = createMinimalProgress();
+
+    // Track microtask execution order
+    let promiseResolvedInSameMicrotask = true;
+    let writeCompleted = false;
+
+    // Start the write operation
+    const writePromise = writeProgressAtomic(ctx.progressFile, progress).then(() => {
+      writeCompleted = true;
+    });
+
+    // Schedule a microtask to check if write already completed
+    // If using sync fs operations, writeCompleted will already be true
+    // If using async fs.promises, writeCompleted will still be false
+    await Promise.resolve().then(() => {
+      promiseResolvedInSameMicrotask = writeCompleted;
+    });
+
+    // Wait for write to actually complete
+    await writePromise;
+
+    // With truly async fs.promises: writeCompleted should be false in the microtask
+    // because the I/O hasn't completed yet (it's waiting on the event loop)
+    // With sync fs operations: writeCompleted is true immediately because sync
+    // operations block and complete before any microtask runs
+    assert(
+      !promiseResolvedInSameMicrotask,
+      `writeProgressAtomic completed synchronously (in same microtask), indicating it uses blocking ` +
+      `fs.writeFileSync/fs.renameSync instead of async fs.promises.writeFile/fs.promises.rename. ` +
+      `This blocks the event loop despite the async function signature.`
+    );
+  } finally {
+    cleanupTestDir(ctx);
+  }
+});
+
+/**
+ * Additional test: Verify multiple concurrent writes don't serialize unexpectedly.
+ * With truly async operations, multiple writes should interleave their I/O.
+ * With sync operations, they execute sequentially, blocking each other.
+ */
+test('BUG-007: concurrent writeProgressAtomic calls should not serialize (async I/O)', async () => {
+  const ctx1 = createTestDir();
+  const ctx2 = createTestDir();
+  try {
+    const progress1 = createMinimalProgress();
+    progress1['sprint-id'] = 'concurrent-test-1';
+    const progress2 = createMinimalProgress();
+    progress2['sprint-id'] = 'concurrent-test-2';
+
+    // Track which operations yield to event loop
+    let eventLoopYields = 0;
+
+    // Set up a counter that increments on each event loop tick during the writes
+    const tickCounter = setInterval(() => {
+      eventLoopYields++;
+    }, 0);
+
+    // Start both writes concurrently
+    const startTime = Date.now();
+    await Promise.all([
+      writeProgressAtomic(ctx1.progressFile, progress1),
+      writeProgressAtomic(ctx2.progressFile, progress2),
+    ]);
+    const elapsed = Date.now() - startTime;
+
+    clearInterval(tickCounter);
+
+    // Verify files were written correctly
+    assert(fs.existsSync(ctx1.progressFile), 'First progress file should exist');
+    assert(fs.existsSync(ctx2.progressFile), 'Second progress file should exist');
+
+    // With truly async I/O, we should see event loop yields during the operations
+    // With sync I/O, the event loop is blocked and we see 0 or very few yields
+    // Note: This is a heuristic test - on fast systems, even async I/O might complete
+    // before the interval fires, but sync I/O definitely blocks all yields.
+
+    // We expect at least 1 yield if the operations are truly async
+    // (allowing the interval to fire at least once during I/O wait)
+    assert(
+      eventLoopYields >= 1,
+      `Expected event loop to yield during async I/O (got ${eventLoopYields} yields in ${elapsed}ms). ` +
+      `Zero yields indicates blocking sync operations are being used.`
+    );
+  } finally {
+    cleanupTestDir(ctx1);
+    cleanupTestDir(ctx2);
+  }
+});
+
+// ============================================================================
 // Test Summary
 // ============================================================================
 

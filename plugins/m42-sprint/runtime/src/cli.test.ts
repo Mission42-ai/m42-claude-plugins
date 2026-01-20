@@ -17,12 +17,12 @@ import {
   CLI_VERSION,
 } from './cli.js';
 
-// Import from index module for export tests (WILL FAIL - module doesn't exist yet)
+// Import from loop module directly (avoids index.ts export issues)
 import {
   runLoop,
   LoopOptions,
   LoopResult,
-} from './index.js';
+} from './loop.js';
 
 // ============================================================================
 // Test Infrastructure
@@ -482,6 +482,124 @@ test('Bug 2: should handle hook-config style flags gracefully', () => {
     `Bug 2: Expected sprint dir, got hooks file path. Directory: "${result.directory}"`
   );
   assertEqual(result.options.maxIterations, 10, 'Should still parse known options correctly');
+});
+
+// ============================================================================
+// BUG-003 + BUG-013: CLI Numeric Parameter Validation
+// ============================================================================
+
+test('BUG-003: should error when --max-iterations receives non-numeric value', () => {
+  // BUG-003: --max-iterations accepts non-numeric values, resulting in NaN
+  // This causes unexpected behavior when the loop checks iteration count
+  //
+  // CURRENT BEHAVIOR: result.options.maxIterations === NaN (no error)
+  // EXPECTED BEHAVIOR: result.error should be set with validation message
+
+  const args = ['node', 'cli.js', 'run', '/path', '--max-iterations', 'abc'];
+  const result = parseArgs(args);
+
+  // The bug: currently maxIterations becomes NaN silently
+  // After fix: should set result.error
+  assert(result.error !== undefined,
+    `BUG-003: Non-numeric --max-iterations should produce error. ` +
+    `Got maxIterations=${result.options.maxIterations}, error=${result.error}`
+  );
+  assertIncludes(result.error!, 'max-iterations',
+    'Error message should mention max-iterations parameter'
+  );
+});
+
+test('BUG-003: should error when -n receives non-numeric value', () => {
+  // Same bug with short flag variant
+  const args = ['node', 'cli.js', 'run', '/path', '-n', 'notanumber'];
+  const result = parseArgs(args);
+
+  assert(result.error !== undefined,
+    `BUG-003: Non-numeric -n should produce error. ` +
+    `Got maxIterations=${result.options.maxIterations}, error=${result.error}`
+  );
+});
+
+test('BUG-003: should error when --max-iterations receives empty string', () => {
+  const args = ['node', 'cli.js', 'run', '/path', '--max-iterations', ''];
+  const result = parseArgs(args);
+
+  assert(result.error !== undefined,
+    `BUG-003: Empty --max-iterations should produce error. ` +
+    `Got maxIterations=${result.options.maxIterations}, error=${result.error}`
+  );
+});
+
+test('BUG-013: should error when --delay receives negative value', () => {
+  // BUG-013: --delay accepts negative values
+  // Negative delays don't make sense and could cause undefined behavior
+  //
+  // CURRENT BEHAVIOR: result.options.delay === -1000 (no error)
+  // EXPECTED BEHAVIOR: result.error should be set with validation message
+
+  const args = ['node', 'cli.js', 'run', '/path', '--delay', '-1000'];
+  const result = parseArgs(args);
+
+  assert(result.error !== undefined,
+    `BUG-013: Negative --delay should produce error. ` +
+    `Got delay=${result.options.delay}, error=${result.error}`
+  );
+  assertIncludes(result.error!, 'delay',
+    'Error message should mention delay parameter'
+  );
+});
+
+test('BUG-013: should error when -d receives negative value', () => {
+  // Same bug with short flag variant
+  const args = ['node', 'cli.js', 'run', '/path', '-d', '-500'];
+  const result = parseArgs(args);
+
+  assert(result.error !== undefined,
+    `BUG-013: Negative -d should produce error. ` +
+    `Got delay=${result.options.delay}, error=${result.error}`
+  );
+});
+
+test('BUG-013: should error when --delay receives non-numeric value', () => {
+  // Delay also has the NaN problem like max-iterations
+  const args = ['node', 'cli.js', 'run', '/path', '--delay', 'fast'];
+  const result = parseArgs(args);
+
+  assert(result.error !== undefined,
+    `BUG-013: Non-numeric --delay should produce error. ` +
+    `Got delay=${result.options.delay}, error=${result.error}`
+  );
+});
+
+test('BUG-003: should error when --max-iterations receives negative value', () => {
+  // Negative iterations also doesn't make sense
+  const args = ['node', 'cli.js', 'run', '/path', '--max-iterations', '-5'];
+  const result = parseArgs(args);
+
+  assert(result.error !== undefined,
+    `BUG-003: Negative --max-iterations should produce error. ` +
+    `Got maxIterations=${result.options.maxIterations}, error=${result.error}`
+  );
+});
+
+test('Valid numeric parameters should still work after fix', () => {
+  // Ensure the fix doesn't break valid inputs
+  const args = ['node', 'cli.js', 'run', '/path', '--max-iterations', '10', '--delay', '5000'];
+  const result = parseArgs(args);
+
+  assertEqual(result.error, undefined, 'Valid numeric params should not produce error');
+  assertEqual(result.options.maxIterations, 10, 'maxIterations should be 10');
+  assertEqual(result.options.delay, 5000, 'delay should be 5000');
+});
+
+test('Zero values should be valid for both parameters', () => {
+  // Zero is valid: 0 iterations = unlimited, 0 delay = no wait
+  const args = ['node', 'cli.js', 'run', '/path', '--max-iterations', '0', '--delay', '0'];
+  const result = parseArgs(args);
+
+  assertEqual(result.error, undefined, 'Zero values should be valid');
+  assertEqual(result.options.maxIterations, 0, 'maxIterations should be 0');
+  assertEqual(result.options.delay, 0, 'delay should be 0');
 });
 
 // ============================================================================

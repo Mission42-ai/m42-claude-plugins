@@ -109,15 +109,11 @@ function classifyError(exitCode, errorMessage) {
             matchedPattern: `exit_code:${exitCode}`,
         };
     }
-    // Try to match patterns in priority order
+    // Try to match patterns in priority order (specific categories first, logic fallback last)
     for (const category of categoryPriority) {
         const patterns = errorPatterns[category];
         for (const pattern of patterns) {
             if (pattern.test(errorMessage)) {
-                // Skip the generic 'logic' patterns if we're still early in priority
-                if (category === 'logic' && categoryPriority.indexOf(category) < categoryPriority.length - 1) {
-                    continue;
-                }
                 return {
                     category,
                     isRetryable: retryableCategories.includes(category),

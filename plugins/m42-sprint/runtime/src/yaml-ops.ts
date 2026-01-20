@@ -118,22 +118,21 @@ export async function writeProgressAtomic(
 
   try {
     // Write to temp file first
-    fs.writeFileSync(tempPath, content, 'utf8');
+    await fs.promises.writeFile(tempPath, content, 'utf8');
 
     // Atomic rename (atomic on POSIX)
-    fs.renameSync(tempPath, filePath);
+    await fs.promises.rename(tempPath, filePath);
 
     // Calculate and write checksum
     const checksum = calculateChecksum(content);
-    fs.writeFileSync(checksumPath, checksum, 'utf8');
+    await fs.promises.writeFile(checksumPath, checksum, 'utf8');
   } finally {
     // Clean up temp file if it still exists
     try {
-      if (fs.existsSync(tempPath)) {
-        fs.unlinkSync(tempPath);
-      }
+      await fs.promises.access(tempPath);
+      await fs.promises.unlink(tempPath);
     } catch {
-      // Ignore cleanup errors
+      // Ignore cleanup errors (file doesn't exist or other issues)
     }
   }
 }

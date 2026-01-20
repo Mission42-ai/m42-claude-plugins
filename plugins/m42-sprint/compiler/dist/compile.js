@@ -85,6 +85,8 @@ function formatYamlError(err, filePath) {
 async function compile(config) {
     const errors = [];
     const warnings = [];
+    // Clear workflow cache at compilation start to prevent stale data in watch mode
+    (0, resolve_workflows_js_1.clearWorkflowCache)();
     // Load SPRINT.yaml
     const sprintYamlPath = path.join(config.sprintDir, 'SPRINT.yaml');
     let sprintDef;

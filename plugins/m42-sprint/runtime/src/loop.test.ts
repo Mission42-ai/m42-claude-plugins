@@ -977,6 +977,474 @@ test('runLoop without deps should import runClaude internally (Bug 7 execution p
 });
 
 // ============================================================================
+// BUG-018: Runtime Loop Must Create Per-Phase Log Files
+// ============================================================================
+
+test('BUG-018: runLoop should pass outputFile to runClaude for phase logs', async () => {
+  // This test verifies BUG-018:
+  // The status server expects log files at `{sprintDir}/logs/{phaseId}.log`
+  // but the runtime loop NEVER creates them because it doesn't pass
+  // outputFile to runClaude.
+  //
+  // CURRENT BUG: loop.ts:373-376 calls runClaude WITHOUT outputFile:
+  //   const spawnResult = await deps.runClaude({
+  //     prompt,
+  //     cwd: sprintDir,
+  //     // MISSING: outputFile for logs!
+  //   });
+  //
+  // EXPECTED: Should pass outputFile: `{sprintDir}/logs/{phaseId}.log`
+  //
+  // This test captures the outputFile passed to runClaude and verifies
+  // it points to a log file in the logs directory.
+
+  const testDir = createTestSprintDir();
+  let capturedOutputFile: string | undefined;
+
+  try {
+    const progress = createTestProgress({
+      status: 'not-started',
+      phases: [
+        { id: 'phase-1', status: 'pending', prompt: 'Execute phase 1' },
+      ],
+    });
+    writeProgress(testDir, progress);
+
+    const options: LoopOptions = { maxIterations: 1, delay: 0, verbose: false };
+
+    const mockDeps = {
+      runClaude: async (opts: { prompt: string; cwd?: string; outputFile?: string }) => {
+        // Capture the outputFile parameter
+        capturedOutputFile = opts.outputFile;
+        return {
+          success: true,
+          output: 'Phase completed',
+          exitCode: 0,
+          jsonResult: { status: 'completed', summary: 'Done' },
+        };
+      },
+    };
+
+    await runLoop(testDir, options, mockDeps);
+
+    // Verify outputFile was passed to runClaude
+    assert(
+      capturedOutputFile !== undefined,
+      'BUG-018: runClaude should receive outputFile parameter for phase logs'
+    );
+
+    // Verify outputFile points to logs directory
+    const logsDir = path.join(testDir, 'logs');
+    assert(
+      capturedOutputFile!.startsWith(logsDir),
+      `BUG-018: outputFile should be in logs directory. Got: ${capturedOutputFile}`
+    );
+
+    // Verify outputFile includes phase ID
+    assert(
+      capturedOutputFile!.includes('phase-1') || capturedOutputFile!.includes('phase_1'),
+      `BUG-018: outputFile should include phase ID. Got: ${capturedOutputFile}`
+    );
+
+    // Verify outputFile ends with .log
+    assert(
+      capturedOutputFile!.endsWith('.log'),
+      `BUG-018: outputFile should end with .log. Got: ${capturedOutputFile}`
+    );
+  } finally {
+    cleanupTestDir(testDir);
+  }
+});
+
+test('BUG-018: runLoop should create logs directory if it does not exist', async () => {
+  // This test verifies that the logs directory is created before calling runClaude.
+  // Without this, outputFile would fail to write.
+
+  const testDir = createTestSprintDir();
+  // Remove the logs directory that createTestSprintDir creates
+  const logsDir = path.join(testDir, 'logs');
+  if (fs.existsSync(logsDir)) {
+    fs.rmSync(logsDir, { recursive: true });
+  }
+
+  let logsExistedDuringCall = false;
+
+  try {
+    const progress = createTestProgress({
+      status: 'not-started',
+      phases: [
+        { id: 'phase-1', status: 'pending', prompt: 'Execute phase 1' },
+      ],
+    });
+    writeProgress(testDir, progress);
+
+    const options: LoopOptions = { maxIterations: 1, delay: 0, verbose: false };
+
+    const mockDeps = {
+      runClaude: async (opts: { prompt: string; cwd?: string; outputFile?: string }) => {
+        // Check if logs directory exists when runClaude is called
+        logsExistedDuringCall = fs.existsSync(logsDir);
+        return {
+          success: true,
+          output: 'Phase completed',
+          exitCode: 0,
+          jsonResult: { status: 'completed', summary: 'Done' },
+        };
+      },
+    };
+
+    await runLoop(testDir, options, mockDeps);
+
+    // Verify logs directory was created before runClaude was called
+    assert(
+      logsExistedDuringCall,
+      'BUG-018: logs directory should be created before calling runClaude'
+    );
+  } finally {
+    cleanupTestDir(testDir);
+  }
+});
+
+test('BUG-018: runLoop should generate unique log file per phase/step/sub-phase', async () => {
+  // This test verifies that each phase execution gets a unique log file.
+  // The status page needs separate log files for each phase to display correctly.
+
+  const testDir = createTestSprintDir();
+  const capturedOutputFiles: (string | undefined)[] = [];
+
+  try {
+    const progress = createTestProgress({
+      status: 'not-started',
+      phases: [
+        { id: 'phase-1', status: 'pending', prompt: 'Execute phase 1' },
+        { id: 'phase-2', status: 'pending', prompt: 'Execute phase 2' },
+      ],
+    });
+    writeProgress(testDir, progress);
+
+    const options: LoopOptions = { maxIterations: 10, delay: 0, verbose: false };
+
+    const mockDeps = {
+      runClaude: async (opts: { prompt: string; cwd?: string; outputFile?: string }) => {
+        capturedOutputFiles.push(opts.outputFile);
+        return {
+          success: true,
+          output: 'Phase completed',
+          exitCode: 0,
+          jsonResult: { status: 'completed', summary: 'Done' },
+        };
+      },
+    };
+
+    await runLoop(testDir, options, mockDeps);
+
+    // Should have 2 log files (one per phase)
+    assertEqual(
+      capturedOutputFiles.length,
+      2,
+      'Should have called runClaude twice (once per phase)'
+    );
+
+    // Both should have outputFile set
+    assert(
+      capturedOutputFiles[0] !== undefined && capturedOutputFiles[1] !== undefined,
+      'BUG-018: Both phases should have outputFile set'
+    );
+
+    // Files should be different
+    assert(
+      capturedOutputFiles[0] !== capturedOutputFiles[1],
+      `BUG-018: Each phase should have unique log file. Got same file for both: ${capturedOutputFiles[0]}`
+    );
+  } finally {
+    cleanupTestDir(testDir);
+  }
+});
+
+// ============================================================================
+// BUG-002: Race Condition on PROGRESS.yaml
+// ============================================================================
+
+test('BUG-002: External writes during Claude execution are lost (race condition)', async () => {
+  // This test reproduces the race condition described in BUG-002:
+  //
+  // The bug: loop.ts performs backup → Claude execution → write cycle
+  // WITHOUT holding a lock on PROGRESS.yaml. If an external process
+  // (like status server's /api/skip or /api/retry) modifies the file
+  // during Claude execution, those changes are lost when the loop
+  // writes its version.
+  //
+  // Repro Steps:
+  // 1. Start a sprint with long-running Claude task
+  // 2. While Claude is executing, simulate /api/skip via external file modification
+  // 3. Status server writes skip action to PROGRESS.yaml
+  // 4. Claude completes and loop writes its PROGRESS.yaml
+  // 5. Skip action is lost
+  //
+  // EXPECTED after fix: Skip action persists after Claude completes
+  // ACTUAL (bug): Skip action overwritten by loop's write
+  //
+  // The fix should use one of:
+  // - File locking
+  // - Compare-and-swap with checksum verification
+  // - Event-based IPC instead of file modification
+
+  const testDir = createTestSprintDir();
+  let externalWritePerformed = false;
+
+  try {
+    // Create progress with 3 phases - we'll skip the second one during execution
+    const progress = createTestProgress({
+      status: 'not-started',
+      phases: [
+        { id: 'phase-1', status: 'pending', prompt: 'Execute phase 1' },
+        { id: 'phase-2', status: 'pending', prompt: 'Execute phase 2' },
+        { id: 'phase-3', status: 'pending', prompt: 'Execute phase 3' },
+      ],
+    });
+    writeProgress(testDir, progress);
+
+    const options: LoopOptions = { maxIterations: 10, delay: 0, verbose: false };
+
+    let claudeCallCount = 0;
+
+    const mockDeps = {
+      runClaude: async () => {
+        claudeCallCount++;
+
+        // During the first phase execution, simulate an external process
+        // (like status server's /api/skip) modifying PROGRESS.yaml
+        if (claudeCallCount === 1) {
+          // Simulate the delay of a real Claude execution
+          await new Promise((resolve) => setTimeout(resolve, 10));
+
+          // Read current progress, mark phase-2 as skipped, write back
+          // This mimics what the status server's handleSkipRequest does
+          const currentProgress = readProgressFile(testDir);
+          const phase2 = (currentProgress.phases as { id: string; status: string }[]).find(
+            (p) => p.id === 'phase-2'
+          );
+          if (phase2) {
+            phase2.status = 'skipped';
+            externalWritePerformed = true;
+
+            // Write the modified progress (simulating status server)
+            const progressPath = path.join(testDir, 'PROGRESS.yaml');
+            const content = yaml.dump(currentProgress);
+            fs.writeFileSync(progressPath, content, 'utf8');
+          }
+        }
+
+        return {
+          success: true,
+          output: 'Phase completed',
+          exitCode: 0,
+          jsonResult: { status: 'completed', summary: 'Done' },
+        };
+      },
+    };
+
+    // Run the loop
+    await runLoop(testDir, options, mockDeps);
+
+    // Verify the external write was performed
+    assert(externalWritePerformed, 'Test setup: external write should have been performed');
+
+    // Read final progress
+    const finalProgress = readProgressFile(testDir);
+
+    // The bug: phase-2's 'skipped' status gets overwritten by the loop
+    // because the loop reads progress BEFORE Claude execution (via backup),
+    // then writes its own version AFTER Claude execution, ignoring any
+    // changes made during execution.
+    //
+    // After fix: phase-2 should remain 'skipped' because the loop should
+    // detect the external modification and merge it (or prevent it from being lost)
+    const phase2Final = (finalProgress.phases as { id: string; status: string }[]).find(
+      (p) => p.id === 'phase-2'
+    );
+
+    assertEqual(
+      phase2Final?.status,
+      'skipped',
+      `BUG-002: External skip was lost! phase-2 status is "${phase2Final?.status}" but should be "skipped". ` +
+        'The loop overwrote external modifications made during Claude execution.'
+    );
+  } finally {
+    cleanupTestDir(testDir);
+  }
+});
+
+test('BUG-002: Skip actions from status server are preserved (compare-and-swap)', async () => {
+  // This test verifies the fix for BUG-002 using the recommended approach:
+  // Compare-and-swap with checksum verification.
+  //
+  // The fix should:
+  // 1. Store file hash before Claude execution
+  // 2. Before writing, check if hash changed
+  // 3. If changed, read current file, merge changes, write
+  //
+  // This test simulates the scenario where:
+  // - Phase 1 is executing
+  // - User skips Phase 2 via /api/skip
+  // - Phase 1 completes
+  // - Loop should preserve Phase 2's skipped status
+
+  const testDir = createTestSprintDir();
+
+  try {
+    const progress = createTestProgress({
+      status: 'not-started',
+      phases: [
+        { id: 'phase-1', status: 'pending', prompt: 'Execute phase 1' },
+        { id: 'phase-2', status: 'pending', prompt: 'Execute phase 2' },
+      ],
+    });
+    writeProgress(testDir, progress);
+
+    const options: LoopOptions = { maxIterations: 2, delay: 0, verbose: false };
+
+    let phase1Called = false;
+
+    const mockDeps = {
+      runClaude: async () => {
+        if (!phase1Called) {
+          phase1Called = true;
+
+          // During phase-1 execution, mark phase-2 as skipped externally
+          const currentProgress = readProgressFile(testDir);
+          const phase2 = (currentProgress.phases as { id: string; status: string }[]).find(
+            (p) => p.id === 'phase-2'
+          );
+          if (phase2) {
+            phase2.status = 'skipped';
+            const progressPath = path.join(testDir, 'PROGRESS.yaml');
+            fs.writeFileSync(progressPath, yaml.dump(currentProgress), 'utf8');
+          }
+
+          return {
+            success: true,
+            output: 'Phase 1 completed',
+            exitCode: 0,
+            jsonResult: { status: 'completed', summary: 'Done' },
+          };
+        }
+
+        // If we get here, the bug exists - phase 2 shouldn't be called if skipped
+        throw new Error(
+          'BUG-002: Phase 2 was executed even though it was skipped! ' +
+            'The loop failed to detect external modifications.'
+        );
+      },
+    };
+
+    // Run the loop - should complete after phase-1 since phase-2 is skipped
+    const result = await runLoop(testDir, options, mockDeps);
+
+    // Verify phase-2 remained skipped and wasn't executed
+    const finalProgress = readProgressFile(testDir);
+    const phase2Status = (finalProgress.phases as { id: string; status: string }[]).find(
+      (p) => p.id === 'phase-2'
+    )?.status;
+
+    assertEqual(
+      phase2Status,
+      'skipped',
+      `BUG-002: Phase 2 status should be 'skipped' but is '${phase2Status}'`
+    );
+
+    // Sprint should complete successfully
+    assertEqual(
+      result.finalState.status,
+      'completed',
+      'Sprint should complete after phase-1 since phase-2 was skipped'
+    );
+  } finally {
+    cleanupTestDir(testDir);
+  }
+});
+
+test('BUG-002: Retry actions from status server are preserved', async () => {
+  // This test verifies that retry-count modifications made during Claude execution
+  // are not lost when the loop writes its progress update.
+  //
+  // Scenario:
+  // - Phase 1 is executing
+  // - DURING execution, external process sets retry-count on phase-1
+  // - Phase 1 completes (or fails)
+  // - The retry-count should be preserved in the final progress
+
+  const testDir = createTestSprintDir();
+  let retryCountInjected = false;
+
+  try {
+    const progress = createTestProgress({
+      status: 'not-started',
+      phases: [
+        { id: 'phase-1', status: 'pending', prompt: 'Execute phase 1' },
+        { id: 'phase-2', status: 'pending', prompt: 'Execute phase 2' },
+      ],
+    });
+    writeProgress(testDir, progress);
+
+    const options: LoopOptions = { maxIterations: 5, delay: 0, verbose: false };
+
+    const mockDeps = {
+      runClaude: async () => {
+        // During the FIRST phase execution, simulate external process
+        // setting retry-count (e.g., from /api/retry on a previous failure)
+        if (!retryCountInjected) {
+          retryCountInjected = true;
+
+          // Simulate delay
+          await new Promise((resolve) => setTimeout(resolve, 10));
+
+          // Read current progress, add retry-count to phase-1
+          const currentProgress = readProgressFile(testDir);
+          const phase1 = (currentProgress.phases as { id: string; status: string; 'retry-count'?: number }[]).find(
+            (p) => p.id === 'phase-1'
+          );
+          if (phase1) {
+            phase1['retry-count'] = 1;
+            const progressPath = path.join(testDir, 'PROGRESS.yaml');
+            fs.writeFileSync(progressPath, yaml.dump(currentProgress), 'utf8');
+          }
+        }
+
+        return {
+          success: true,
+          output: 'Phase completed',
+          exitCode: 0,
+          jsonResult: { status: 'completed', summary: 'Done' },
+        };
+      },
+    };
+
+    const result = await runLoop(testDir, options, mockDeps);
+
+    // Verify the injected retry-count was preserved
+    assert(retryCountInjected, 'Test setup: retry-count should have been injected');
+
+    const finalProgress = readProgressFile(testDir);
+    const phase1 = (finalProgress.phases as { id: string; status: string; 'retry-count'?: number }[]).find(
+      (p) => p.id === 'phase-1'
+    );
+
+    // The retry-count should be preserved (merged from external modification)
+    assertEqual(
+      phase1?.['retry-count'],
+      1,
+      `BUG-002: retry-count was lost! Expected 1, got ${phase1?.['retry-count']}`
+    );
+
+    // Sprint should still complete
+    assertEqual(result.finalState.status, 'completed', 'Sprint should complete normally');
+  } finally {
+    cleanupTestDir(testDir);
+  }
+});
+
+// ============================================================================
 // Run Tests Summary
 // ============================================================================
 

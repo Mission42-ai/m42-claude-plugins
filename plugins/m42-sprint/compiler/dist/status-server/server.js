@@ -65,6 +65,37 @@ const DEFAULT_HOST = 'localhost';
  */
 const DEFAULT_READY_TIMEOUT = 10_000; // 10 seconds
 /**
+ * Signal file names used for inter-process communication
+ * These files are created by API calls and read by the sprint runner
+ */
+const SIGNAL_FILES = {
+    PAUSE: '.pause-requested',
+    RESUME: '.resume-requested',
+    STOP: '.stop-requested',
+    FORCE_RETRY: '.force-retry-requested',
+};
+/**
+ * Validate pagination parameters from query string
+ * Returns validated page/limit or an error message
+ *
+ * Constraints:
+ * - page: must be a positive integer (>= 1)
+ * - limit: must be between 1 and 100 (prevents excessive memory usage)
+ *
+ * Fixes: BUG-011 (negative page), BUG-014 (page=0), BUG-015 (non-numeric), BUG-016 (negative limit)
+ */
+function validatePagination(params) {
+    const pageStr = params.get('page') || '1';
+    const limitStr = params.get('limit') || '20';
+    const page = parseInt(pageStr, 10);
+    const limit = parseInt(limitStr, 10);
+    if (isNaN(page) || page < 1)
+        return { error: 'page must be a positive integer' };
+    if (isNaN(limit) || limit < 1 || limit > 100)
+        return { error: 'limit must be between 1 and 100' };
+    return { page, limit };
+}
+/**
  * Status Server class
  * Manages HTTP server, SSE connections, and file watching
  */
@@ -103,6 +134,8 @@ class StatusServer extends events_1.EventEmitter {
         if (!fs.existsSync(this.progressFilePath)) {
             throw new Error(`PROGRESS.yaml not found: ${this.progressFilePath}`);
         }
+        // Clean up any leftover signal files from crashed sprints
+        this.cleanupSignalFiles();
         // Detect worktree context for this server instance
         this.worktreeInfo = (0, worktree_js_1.detectWorktree)(this.config.sprintDir);
         // Create HTTP server
@@ -152,6 +185,8 @@ class StatusServer extends events_1.EventEmitter {
      * Stop the server and clean up resources
      */
     async stop() {
+        // Clean up signal files
+        this.cleanupSignalFiles();
         // Stop keep-alive timer
         if (this.keepAliveTimer) {
             clearInterval(this.keepAliveTimer);
@@ -444,16 +479,21 @@ class StatusServer extends events_1.EventEmitter {
      *   - includeWorktree: Include worktree info (default: false)
      */
     handleSprintsApiRequest(res, params) {
+        // Validate pagination parameters first
+        const pagination = validatePagination(params);
+        if ('error' in pagination) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: pagination.error }));
+            return;
+        }
         try {
             const sprintsDir = this.getSprintsDir();
             const includeWorktreeInfo = params.get('includeWorktree') === 'true';
             const scanner = new sprint_scanner_js_1.SprintScanner(sprintsDir, { includeWorktreeInfo });
             const allSprints = scanner.scan();
-            // Parse pagination parameters
-            const page = parseInt(params.get('page') || '1', 10);
-            const limit = parseInt(params.get('limit') || '20', 10);
-            const offset = (page - 1) * limit;
             // Apply pagination
+            const { page, limit } = pagination;
+            const offset = (page - 1) * limit;
             const sprints = allSprints.slice(offset, offset + limit);
             // Build response with optional server worktree context
             const response = {
@@ -793,7 +833,7 @@ class StatusServer extends events_1.EventEmitter {
                 }));
                 return;
             }
-            const signalPath = path.join(this.config.sprintDir, '.pause-requested');
+            const signalPath = path.join(this.config.sprintDir, SIGNAL_FILES.PAUSE);
             fs.writeFileSync(signalPath, new Date().toISOString());
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
@@ -828,7 +868,7 @@ class StatusServer extends events_1.EventEmitter {
                 }));
                 return;
             }
-            const signalPath = path.join(this.config.sprintDir, '.resume-requested');
+            const signalPath = path.join(this.config.sprintDir, SIGNAL_FILES.RESUME);
             fs.writeFileSync(signalPath, new Date().toISOString());
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
@@ -863,7 +903,7 @@ class StatusServer extends events_1.EventEmitter {
                 }));
                 return;
             }
-            const signalPath = path.join(this.config.sprintDir, '.stop-requested');
+            const signalPath = path.join(this.config.sprintDir, SIGNAL_FILES.STOP);
             fs.writeFileSync(signalPath, new Date().toISOString());
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
@@ -1122,7 +1162,7 @@ class StatusServer extends events_1.EventEmitter {
                 return;
             }
             // Create force-retry signal file
-            const signalPath = path.join(this.config.sprintDir, '.force-retry-requested');
+            const signalPath = path.join(this.config.sprintDir, SIGNAL_FILES.FORCE_RETRY);
             const signalData = {
                 phaseId,
                 timestamp: new Date().toISOString(),
@@ -1157,7 +1197,14 @@ class StatusServer extends events_1.EventEmitter {
     getLogFilePath(phaseId) {
         // Convert phase ID to log filename format
         const sanitized = phaseId.replace(/ > /g, '-').replace(/[^a-zA-Z0-9-_]/g, '_');
-        return path.join(this.config.sprintDir, 'logs', `${sanitized}.log`);
+        const logPath = path.join(this.config.sprintDir, 'logs', `${sanitized}.log`);
+        // Defense-in-depth: verify path is within expected logs directory
+        const resolved = path.resolve(logPath);
+        const logsDir = path.resolve(this.config.sprintDir, 'logs');
+        if (!resolved.startsWith(logsDir + path.sep)) {
+            throw new Error('Invalid log path');
+        }
+        return logPath;
     }
     /**
      * Get list of all log files in the logs directory
@@ -1442,6 +1489,21 @@ class StatusServer extends events_1.EventEmitter {
             throw new Error('Invalid PROGRESS.yaml format');
         }
         return progress;
+    }
+    /**
+     * Clean up signal files from sprint directory
+     * Called on server stop and start (to handle leftover files from crashed sprints)
+     */
+    cleanupSignalFiles() {
+        for (const signal of Object.values(SIGNAL_FILES)) {
+            const signalPath = path.join(this.config.sprintDir, signal);
+            try {
+                fs.unlinkSync(signalPath);
+            }
+            catch {
+                // Ignore errors (file may not exist)
+            }
+        }
     }
     /**
      * Send an SSE event to a specific client

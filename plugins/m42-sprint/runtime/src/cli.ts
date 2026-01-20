@@ -9,7 +9,8 @@
  *     -v, --verbose         Enable verbose logging
  */
 
-import { runLoop, LoopOptions, LoopResult } from './loop.js';
+import { runLoop, LoopOptions, LoopResult, LoopDependencies } from './loop.js';
+import { runClaude } from './claude-runner.js';
 
 // ============================================================================
 // Constants
@@ -40,6 +41,17 @@ export interface ParseResult {
 // ============================================================================
 // Argument Parsing
 // ============================================================================
+
+/**
+ * Parse and validate a non-negative integer parameter.
+ * @returns The parsed number, or an error message string if invalid.
+ */
+function parseNonNegativeInt(value: string, paramName: string): number | string {
+  const parsed = parseInt(value, 10);
+  if (isNaN(parsed)) return `Invalid number for ${paramName}: "${value}"`;
+  if (parsed < 0) return `${paramName} must be non-negative`;
+  return parsed;
+}
 
 /**
  * Parse command-line arguments.
@@ -99,12 +111,22 @@ export function parseArgs(args: string[]): ParseResult {
       if (arg === '--max-iterations' || arg === '-n') {
         const value = cliArgs[++i];
         if (value !== undefined) {
-          result.options.maxIterations = parseInt(value, 10);
+          const parsed = parseNonNegativeInt(value, 'max-iterations');
+          if (typeof parsed === 'string') {
+            result.error = parsed;
+            return result;
+          }
+          result.options.maxIterations = parsed;
         }
       } else if (arg === '--delay' || arg === '-d') {
         const value = cliArgs[++i];
         if (value !== undefined) {
-          result.options.delay = parseInt(value, 10);
+          const parsed = parseNonNegativeInt(value, 'delay');
+          if (typeof parsed === 'string') {
+            result.error = parsed;
+            return result;
+          }
+          result.options.delay = parsed;
         }
       } else if (arg === '--verbose' || arg === '-v') {
         result.options.verbose = true;
@@ -143,11 +165,17 @@ export function parseArgs(args: string[]): ParseResult {
  * @param loopFn - Optional loop function for testing (defaults to runLoop)
  * @returns Exit code (0 = success, 1 = failure)
  */
+// Default dependencies for production use
+const defaultDeps: LoopDependencies = {
+  runClaude,
+};
+
 export async function runCommand(
   command: string,
   directory: string,
   options: LoopOptions,
-  loopFn: (dir: string, opts: LoopOptions) => Promise<LoopResult> = runLoop
+  loopFn: (dir: string, opts: LoopOptions, deps?: LoopDependencies) => Promise<LoopResult> = runLoop,
+  deps: LoopDependencies = defaultDeps
 ): Promise<number> {
   if (command !== 'run') {
     console.error(`Unknown command: ${command}`);
@@ -155,7 +183,7 @@ export async function runCommand(
   }
 
   try {
-    const result = await loopFn(directory, options);
+    const result = await loopFn(directory, options, deps);
     const isSuccess = result.finalState.status === 'completed' ||
                       result.finalState.status === 'paused';
     return isSuccess ? 0 : 1;

@@ -131,6 +131,10 @@ export function buildArgs(options: ClaudeRunOptions): string[] {
   // Print mode flag (non-interactive)
   args.push('-p');
 
+  // Skip permissions for non-interactive execution
+  // Without this, Claude waits for permission prompts that can never be answered
+  args.push('--dangerously-skip-permissions');
+
   // Max turns
   if (options.maxTurns !== undefined) {
     args.push('--max-turns', String(options.maxTurns));

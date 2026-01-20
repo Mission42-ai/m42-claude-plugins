@@ -25,7 +25,7 @@ import type {
   OrchestrationConfig,
   SprintPrompts
 } from './types.js';
-import { loadWorkflow, resolveWorkflowRefs } from './resolve-workflows.js';
+import { loadWorkflow, resolveWorkflowRefs, clearWorkflowCache } from './resolve-workflows.js';
 import { expandForEach, compileSimplePhase } from './expand-foreach.js';
 import {
   validateSprintDefinition,
@@ -79,6 +79,9 @@ export function formatYamlError(err: unknown, filePath: string): string {
 export async function compile(config: CompilerConfig): Promise<CompilerResult> {
   const errors: CompilerError[] = [];
   const warnings: string[] = [];
+
+  // Clear workflow cache at compilation start to prevent stale data in watch mode
+  clearWorkflowCache();
 
   // Load SPRINT.yaml
   const sprintYamlPath = path.join(config.sprintDir, 'SPRINT.yaml');
