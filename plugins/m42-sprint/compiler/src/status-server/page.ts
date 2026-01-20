@@ -1424,6 +1424,12 @@ function getStyles(): string {
       color: var(--text-muted);
     }
 
+    .sprint-duration {
+      font-weight: 600;
+      color: var(--text-primary);
+      font-size: 14px;
+    }
+
     /* Control Bar */
     .control-bar {
       display: flex;
@@ -2896,6 +2902,7 @@ function getScript(): string {
 
       // Live Activity State
       const liveActivityLog = [];
+      const seenActivityKeys = new Set(); // Dedup by ts+tool+file (BUG-003 fix)
       const MAX_ACTIVITY_ENTRIES = 100;
       let verbosityLevel = localStorage.getItem('verbosity') || 'detailed';
       let activityAutoScroll = true;
@@ -3440,6 +3447,11 @@ function getScript(): string {
         if (!('Notification' in window)) return;
         if (Notification.permission !== 'granted') return;
         if (!notificationPreferences.enabled) return;
+
+        // BUG-005 fix: Skip notifications on initial page load (previousStatus is null)
+        // When user opens a page for an already-completed/failed sprint, we should not
+        // play sounds or show notifications - the sprint was already in that state
+        if (previousStatus === null) return;
 
         var title = '';
         var body = '';
@@ -4225,6 +4237,12 @@ function getScript(): string {
           elements.elapsed.dataset.startedAt = header.startedAt;
         }
 
+        // BUG-006 fix: Set elapsed textContent directly for completed/terminal sprints
+        // The timer skips these statuses, so we must set the value here
+        if (header.elapsed && ['completed', 'failed', 'blocked', 'needs-human'].includes(header.status)) {
+          elements.elapsed.textContent = 'Total: ' + header.elapsed;
+        }
+
         // Update estimate display
         updateEstimateDisplay(header);
 
@@ -4340,6 +4358,25 @@ function getScript(): string {
         // Add click handlers for view log buttons
         elements.phaseTree.querySelectorAll('.log-viewer-toggle').forEach(btn => {
           btn.addEventListener('click', handleViewLogClick);
+        });
+
+        // BUG-007 FIX: Add click handlers to tree-node-content for easier log access
+        // Users can click anywhere on the row to view logs, not just the "View Log" button
+        elements.phaseTree.querySelectorAll('.tree-node-content').forEach(content => {
+          content.addEventListener('click', function(e) {
+            // Don't trigger if clicking on a button or toggle
+            if (e.target.closest('.tree-toggle, .tree-actions, button')) {
+              return;
+            }
+            // Find the phase ID from the node or its View Log button
+            const node = this.closest('.tree-node');
+            if (node) {
+              const viewLogBtn = node.querySelector('.log-viewer-toggle');
+              if (viewLogBtn && viewLogBtn.dataset.phaseId) {
+                handleViewLogClick({ target: viewLogBtn, stopPropagation: function() {} });
+              }
+            }
+          });
         });
 
         // Add click handlers for error details toggle buttons
@@ -4562,6 +4599,7 @@ function getScript(): string {
         // Clear activity button
         elements.clearActivityBtn.addEventListener('click', function() {
           liveActivityLog.length = 0;
+          seenActivityKeys.clear();
           renderLiveActivity();
         });
 
@@ -4586,6 +4624,20 @@ function getScript(): string {
       }
 
       function handleActivityEvent(event) {
+        // Deduplicate by ts+tool+file (events may come from both ActivityWatcher and TranscriptionWatcher)
+        const key = event.ts + '|' + event.tool + '|' + (event.file || '');
+        if (seenActivityKeys.has(key)) {
+          return; // Skip duplicate
+        }
+        seenActivityKeys.add(key);
+
+        // Limit seen keys set size to prevent memory growth
+        if (seenActivityKeys.size > MAX_ACTIVITY_ENTRIES * 2) {
+          const keysArray = Array.from(seenActivityKeys);
+          seenActivityKeys.clear();
+          keysArray.slice(-MAX_ACTIVITY_ENTRIES).forEach(function(k) { seenActivityKeys.add(k); });
+        }
+
         // Add to log
         liveActivityLog.unshift(event);
 

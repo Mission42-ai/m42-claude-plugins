@@ -8,7 +8,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import type { ActivityEvent, ActivityWatcherOptions } from './activity-types.js';
-import { isActivityEvent } from './activity-types.js';
+import { isActivityEvent, DEFAULT_ACTIVITY_TAIL_LINES } from './activity-types.js';
 
 /**
  * Events emitted by ActivityWatcher
@@ -21,7 +21,6 @@ export interface ActivityWatcherEvents {
 }
 
 const DEFAULT_DEBOUNCE_DELAY = 100;
-const DEFAULT_TAIL_LINES = 50;
 
 /**
  * Watches a .sprint-activity.jsonl file for new activity events
@@ -46,7 +45,7 @@ export class ActivityWatcher extends EventEmitter {
     super();
     this.filePath = path.resolve(filePath);
     this.debounceDelay = options.debounceDelay ?? DEFAULT_DEBOUNCE_DELAY;
-    this.tailLines = options.tailLines ?? DEFAULT_TAIL_LINES;
+    this.tailLines = options.tailLines ?? DEFAULT_ACTIVITY_TAIL_LINES;
   }
 
   /**

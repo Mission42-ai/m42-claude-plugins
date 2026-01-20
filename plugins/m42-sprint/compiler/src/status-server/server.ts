@@ -27,11 +27,11 @@ import { ActivityWatcher } from './activity-watcher.js';
 import { TranscriptionWatcher } from './transcription-watcher.js';
 import { toStatusUpdate, generateDiffLogEntries, createLogEntry, type TimingInfo } from './transforms.js';
 import { getPageHtml, type SprintNavigation } from './page.js';
-import { TimingTracker, type SprintTimingInfo, type PhaseTimingStats } from './timing-tracker.js';
+import { TimingTracker } from './timing-tracker.js';
 import { SprintScanner, type SprintSummary } from './sprint-scanner.js';
 import { MetricsAggregator, type AggregateMetrics } from './metrics-aggregator.js';
 import { generateDashboardPage } from './dashboard-page.js';
-import { detectWorktree, listWorktrees, type WorktreeInfo, type WorktreeList } from './worktree.js';
+import { detectWorktree, listWorktrees, type WorktreeInfo } from './worktree.js';
 
 /**
  * Response type for phase actions (skip/retry)
@@ -1640,12 +1640,14 @@ export class StatusServer extends EventEmitter {
   }
 
   /**
-   * Send historical activity events to a newly connected client
+   * Send historical activity events to a newly connected client (BUG-003 fix)
    * Reads from both .sprint-activity.jsonl and transcription files
+   * Note: Reads entire file then slices tail - acceptable for typical activity files (<1000 lines)
+   * For very large files, consider streaming tail read like ActivityWatcher.processFileChange()
    */
   private sendHistoricalActivity(client: SSEClient): void {
     try {
-      // Try to read from .sprint-activity.jsonl first
+      // Read from .sprint-activity.jsonl (legacy hook-generated activity)
       if (fs.existsSync(this.activityFilePath)) {
         const content = fs.readFileSync(this.activityFilePath, 'utf-8');
         const lines = content.split('\n').filter(line => line.trim() !== '');
@@ -1666,7 +1668,8 @@ export class StatusServer extends EventEmitter {
         }
       }
 
-      // Also send recent activity from transcription files
+      // Also send recent activity from transcription files (live streaming source)
+      // Note: Events may overlap with .jsonl - clients should dedupe by timestamp+tool
       if (this.transcriptionWatcher) {
         const transcriptionActivity = this.transcriptionWatcher.getRecentActivity(DEFAULT_ACTIVITY_TAIL_LINES);
         for (const event of transcriptionActivity) {

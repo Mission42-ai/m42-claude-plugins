@@ -35,6 +35,7 @@ const DEFAULT_MAX_EVENTS = 200;
 
 /**
  * Determine verbosity level for a tool
+ * NOTE: Similar logic exists in sprint-activity-hook.sh - keep in sync
  */
 function getToolVerbosityLevel(toolName: string): VerbosityLevel {
   // Minimal: major milestones only
@@ -55,6 +56,7 @@ function getToolVerbosityLevel(toolName: string): VerbosityLevel {
 
 /**
  * Extract file path from tool input
+ * NOTE: Similar logic exists in sprint-activity-hook.sh - keep in sync
  */
 function extractFilePath(toolName: string, input: Record<string, unknown>): string | undefined {
   switch (toolName) {
@@ -73,6 +75,7 @@ function extractFilePath(toolName: string, input: Record<string, unknown>): stri
 
 /**
  * Extract params summary from tool input
+ * NOTE: Similar logic exists in sprint-activity-hook.sh - keep in sync
  */
 function extractParams(toolName: string, input: Record<string, unknown>): string | undefined {
   switch (toolName) {
@@ -121,8 +124,6 @@ export class TranscriptionWatcher extends EventEmitter {
       return; // Already watching
     }
 
-    console.log(`[TranscriptionWatcher] Starting to watch: ${this.transcriptionsDir}`);
-
     // Ensure directory exists
     if (!fs.existsSync(this.transcriptionsDir)) {
       try {
@@ -136,7 +137,6 @@ export class TranscriptionWatcher extends EventEmitter {
     try {
       // Read existing transcription files
       this.readExistingFiles();
-      console.log(`[TranscriptionWatcher] Found ${this.recentActivity.length} activity events from transcriptions`);
 
       // Watch the directory for changes
       this.watcher = fs.watch(this.transcriptionsDir, { persistent: true }, (eventType, filename) => {
@@ -265,21 +265,47 @@ export class TranscriptionWatcher extends EventEmitter {
     try {
       const event = JSON.parse(line);
 
-      // Look for tool_use content blocks in stream events
-      const isToolUse = event.type === 'stream_event' &&
-          event.event?.type === 'content_block_start' &&
-          event.event?.content_block?.type === 'tool_use';
+      // Handle two formats:
+      // 1. Non-streaming: assistant message with content array containing tool_use
+      // 2. Streaming: stream_event with content_block_start
 
-      if (isToolUse) {
+      let toolUses: Array<{ id: string; name: string; input: Record<string, unknown> }> = [];
 
-        const toolUse = event.event.content_block;
-        const toolUseId = toolUse.id;
-
-        // Skip if we've already seen this tool use
-        if (this.seenToolUseIds.has(toolUseId)) {
-          return;
+      // Format 1: Assistant message with tool_use in content array
+      if (event.type === 'assistant' && event.message?.content) {
+        const content = event.message.content;
+        if (Array.isArray(content)) {
+          for (const block of content) {
+            if (block.type === 'tool_use' && block.id && block.name) {
+              toolUses.push({
+                id: block.id,
+                name: block.name,
+                input: block.input || {},
+              });
+            }
+          }
         }
-        this.seenToolUseIds.add(toolUseId);
+      }
+
+      // Format 2: Stream event with content_block_start (for streaming mode)
+      if (event.type === 'stream_event' &&
+          event.event?.type === 'content_block_start' &&
+          event.event?.content_block?.type === 'tool_use') {
+        const toolUse = event.event.content_block;
+        toolUses.push({
+          id: toolUse.id,
+          name: toolUse.name,
+          input: toolUse.input || {},
+        });
+      }
+
+      // Process each tool use found
+      for (const toolUse of toolUses) {
+        // Skip if we've already seen this tool use
+        if (this.seenToolUseIds.has(toolUse.id)) {
+          continue;
+        }
+        this.seenToolUseIds.add(toolUse.id);
 
         // Limit memory usage
         if (this.seenToolUseIds.size > this.maxEvents * 2) {
@@ -287,16 +313,13 @@ export class TranscriptionWatcher extends EventEmitter {
           this.seenToolUseIds = new Set(idsArray.slice(-this.maxEvents));
         }
 
-        const toolName = toolUse.name;
-        const input = toolUse.input || {};
-
         const activityEvent: ActivityEvent = {
           ts: timestamp,
           type: 'tool',
-          tool: toolName,
-          level: getToolVerbosityLevel(toolName),
-          file: extractFilePath(toolName, input),
-          params: extractParams(toolName, input),
+          tool: toolUse.name,
+          level: getToolVerbosityLevel(toolUse.name),
+          file: extractFilePath(toolUse.name, toolUse.input),
+          params: extractParams(toolUse.name, toolUse.input),
         };
 
         // Store in recent activity (for historical queries)
@@ -306,11 +329,6 @@ export class TranscriptionWatcher extends EventEmitter {
         }
 
         this.emit('activity', activityEvent);
-      }
-
-      // Also look for tool_result to get timing info
-      if (event.type === 'tool_result') {
-        // Could emit completion events here if needed
       }
 
     } catch {

@@ -1,0 +1,230 @@
+# SPRINT.yaml - Dashboard Bug Fixes
+# This file is compiled into PROGRESS.yaml by /run-sprint
+
+workflow: bughunt-fixing
+
+steps:
+  - prompt: |
+      BUG-001: Sprint Steps Show No Progress Indicators
+
+      **Severity**: HIGH (usability issue)
+      **Feature**: Status dashboard - sprint detail page
+
+      **Issue**: Die "steps" im Sprint Review zeigen aktuell keine Indikationen,
+      ob etwas läuft oder gelaufen ist (sind alles leere Kreise).
+
+      **Expected**: Steps should show visual indicators:
+      - Completed steps: filled/checked circle
+      - In-progress steps: animated/partial circle
+      - Pending steps: empty circle
+
+      **Location**: Likely in the status-server frontend components
+      - Check `plugins/m42-sprint/compiler/src/status-server/` for React components
+      - Look for step rendering logic
+
+      **Analysis Required**:
+      1. Find where steps are rendered
+      2. Check if status data is available in PROGRESS.yaml
+      3. Verify frontend receives status data
+      4. Add visual indicators based on step status
+
+      **Success Criteria**:
+      - Completed steps show completed indicator
+      - In-progress steps show in-progress indicator
+      - Pending steps show pending indicator
+
+  - prompt: |
+      BUG-002: Worktree Filter Shows No Sprints
+
+      **Severity**: HIGH (usability issue)
+      **Feature**: Status dashboard - worktree filter
+
+      **Issue**: Wenn ich auf dem Dashboard einen Worktree auswähle außer "All Worktrees",
+      dann sehe ich keine Sprints in der Liste.
+
+      **Expected**: Selecting a specific worktree should filter sprints to show only
+      those belonging to that worktree.
+
+      **Location**: Status server dashboard filtering logic
+      - Check `plugins/m42-sprint/compiler/src/status-server/` for filtering code
+      - Look for worktree detection and sprint association
+
+      **Analysis Required**:
+      1. How are sprints associated with worktrees?
+      2. Is the worktree path correctly detected from sprint directory?
+      3. Is the filter logic working correctly?
+      4. Are there any path normalization issues?
+
+      **Success Criteria**:
+      - Selecting a worktree shows all sprints in that worktree
+      - "All Worktrees" shows all sprints
+      - Filter accurately matches sprint locations to worktrees
+
+  - prompt: |
+      BUG-003: Live Activity Always Shows "Waiting for activity"
+
+      **Severity**: HIGH (core feature broken)
+      **Feature**: Status dashboard - live activity panel
+
+      **Issue**: Die "Live Activity" auf der Sprint Detailseite zeigt immer
+      "Waiting for activity" an.
+
+      **Expected**: Live activity should show real-time tool usage and events
+      from `.sprint-activity.jsonl`.
+
+      **Location**:
+      - Status server: `plugins/m42-sprint/compiler/src/status-server/`
+      - Activity hook: `plugins/m42-sprint/hooks/sprint-activity-hook.sh`
+      - Activity file: `{sprintDir}/.sprint-activity.jsonl`
+
+      **Analysis Required**:
+      1. Is `.sprint-activity.jsonl` being created and written?
+      2. Is the status server reading the activity file?
+      3. Is the frontend WebSocket/polling working?
+      4. Check if activity hook is registered in settings.json
+      5. Verify JSONL parsing
+
+      **Success Criteria**:
+      - Live activity panel shows tool usage in real-time
+      - Activity updates as sprint progresses
+      - Historical activity visible for completed sprints
+
+  - prompt: |
+      BUG-004: Performance Metrics Cluttered and Uninformative
+
+      **Severity**: MEDIUM (usability/polish)
+      **Feature**: Status dashboard - performance metrics
+
+      **Issue**: Die Performance Metrics sind ziemlich cluttered und nichtsaussagend.
+      Da darf nochmal etwas Gedanken und Energie reinfließen das auszuarbeiten.
+
+      **Expected**: Performance metrics should be:
+      - Clear and easy to understand
+      - Visually organized
+      - Provide actionable insights
+      - Show meaningful aggregations
+
+      **Location**: Status server metrics display
+      - `plugins/m42-sprint/compiler/src/status-server/`
+
+      **Analysis Required**:
+      1. What metrics are currently shown?
+      2. Which metrics are actually useful?
+      3. How can we better organize/visualize them?
+      4. What metrics are missing?
+
+      **Suggested Improvements**:
+      - Group by category (time, resources, quality)
+      - Show trends over sprint lifecycle
+      - Highlight anomalies or issues
+      - Add summary/aggregate views
+
+      **Success Criteria**:
+      - Metrics are organized and scannable
+      - Visual hierarchy guides attention
+      - Information density is appropriate
+      - Metrics tell a clear story about sprint health
+
+  - prompt: |
+      BUG-005: Completed Sprint Triggers Completion Sound
+
+      **Severity**: MEDIUM (annoying UX bug)
+      **Feature**: Status dashboard - completion notifications
+
+      **Issue**: Wenn ich auf einen fertigen Sprint klicke, dann bekomme ich sofort
+      die Sound Notification, als ob der Sprint gerade abgeschlossen wäre
+      (was er aber schon lange ist).
+
+      **Expected**: Completion sound should only play ONCE when sprint transitions
+      to completed status, not every time the page is viewed.
+
+      **Location**: Status server notification logic
+      - Check `plugins/m42-sprint/compiler/src/status-server/` for sound trigger
+      - Look for completion detection logic
+
+      **Analysis Required**:
+      1. When is the completion sound triggered?
+      2. Is there a "notification already shown" flag?
+      3. How to track which sprints user has already been notified about?
+      4. Should use localStorage or session storage?
+
+      **Success Criteria**:
+      - Completion sound plays once when sprint completes
+      - No sound when viewing already-completed sprints
+      - Sound can be manually triggered again if desired
+      - Notification state persists across browser sessions
+
+  - prompt: |
+      BUG-006: Total Sprint Duration Not Displayed
+
+      **Severity**: MEDIUM (missing information)
+      **Feature**: Status dashboard - sprint detail page
+
+      **Issue**: Ich sehe nirgends mehr auf der Sprint Detailseite, wie lange
+      der Sprint in Summe gelaufen ist.
+
+      **Expected**: Sprint detail page should prominently display total duration:
+      - For completed sprints: total elapsed time
+      - For running sprints: current elapsed time (updating)
+      - Format: human-readable (e.g., "2h 34m 12s" or "45 minutes")
+
+      **Location**: Status server sprint detail view
+      - `plugins/m42-sprint/compiler/src/status-server/`
+      - Check PROGRESS.yaml for timing data
+
+      **Analysis Required**:
+      1. Does PROGRESS.yaml track sprint start/end times?
+      2. Where should duration be displayed on the page?
+      3. Should it update in real-time for running sprints?
+      4. What format is most readable?
+
+      **Success Criteria**:
+      - Total duration clearly visible on sprint detail page
+      - Updates in real-time for running sprints
+      - Shows in human-readable format
+      - Accurate calculation from start to end time
+
+  - prompt: |
+      BUG-007: Steps/Substeps Missing Duration and Clickable Logs
+
+      **Severity**: HIGH (usability/discoverability)
+      **Feature**: Status dashboard - step/substep display
+
+      **Issue**: Ich würde gerne, dass jeder Step/Substep mir in der Liste anzeigt
+      wie lange er gelaufen ist (oder gerade läuft) - und idealerweise sind die
+      Einträge auch klickbar, sodass ich mir vorherige Logs anschauen kann.
+
+      **Expected**:
+      - Each step/substep shows duration (elapsed or total)
+      - Steps are clickable to view logs
+      - Visual indication of clickability (hover state, cursor)
+      - Log viewer opens in modal or side panel
+
+      **Location**: Status server step rendering and log display
+      - `plugins/m42-sprint/compiler/src/status-server/`
+      - Log files at `{sprintDir}/logs/{phaseId}.log`
+
+      **Analysis Required**:
+      1. Does PROGRESS.yaml track per-step timing?
+      2. Are log files accessible via the web server?
+      3. How to implement log viewer UI?
+      4. Should logs be syntax-highlighted or formatted?
+
+      **Features to Implement**:
+      - Duration badge on each step/substep
+      - Clickable step rows
+      - Log viewer modal/panel
+      - Real-time log tailing for in-progress steps
+      - Search/filter within logs
+
+      **Success Criteria**:
+      - Every step shows duration
+      - Clicking step opens its log
+      - Log viewer is easy to use and read
+      - Real-time updates for running steps
+      - Can navigate between step logs easily
+
+# Sprint metadata
+sprint-id: 2026-01-20_dashboard-bugfixes
+name: dashboard-bugfixes
+created: 2026-01-20T00:00:00Z

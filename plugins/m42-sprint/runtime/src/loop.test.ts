@@ -982,21 +982,15 @@ test('runLoop without deps should import runClaude internally (Bug 7 execution p
 
 test('BUG-018: runLoop should pass outputFile to runClaude for phase logs', async () => {
   // This test verifies BUG-018:
-  // The status server expects log files at `{sprintDir}/logs/{phaseId}.log`
+  // The status server expects log files at `{sprintDir}/transcriptions/{phaseId}.log`
   // but the runtime loop NEVER creates them because it doesn't pass
   // outputFile to runClaude.
   //
-  // CURRENT BUG: loop.ts:373-376 calls runClaude WITHOUT outputFile:
-  //   const spawnResult = await deps.runClaude({
-  //     prompt,
-  //     cwd: sprintDir,
-  //     // MISSING: outputFile for logs!
-  //   });
-  //
-  // EXPECTED: Should pass outputFile: `{sprintDir}/logs/{phaseId}.log`
+  // CURRENT IMPLEMENTATION: loop.ts passes outputFile to runClaude pointing to
+  // the transcriptions directory for NDJSON stream logs.
   //
   // This test captures the outputFile passed to runClaude and verifies
-  // it points to a log file in the logs directory.
+  // it points to a log file in the transcriptions directory.
 
   const testDir = createTestSprintDir();
   let capturedOutputFile: string | undefined;
@@ -1033,11 +1027,11 @@ test('BUG-018: runLoop should pass outputFile to runClaude for phase logs', asyn
       'BUG-018: runClaude should receive outputFile parameter for phase logs'
     );
 
-    // Verify outputFile points to logs directory
-    const logsDir = path.join(testDir, 'logs');
+    // Verify outputFile points to transcriptions directory (NDJSON stream logs)
+    const transcriptionsDir = path.join(testDir, 'transcriptions');
     assert(
-      capturedOutputFile!.startsWith(logsDir),
-      `BUG-018: outputFile should be in logs directory. Got: ${capturedOutputFile}`
+      capturedOutputFile!.startsWith(transcriptionsDir),
+      `BUG-018: outputFile should be in transcriptions directory. Got: ${capturedOutputFile}`
     );
 
     // Verify outputFile includes phase ID
@@ -1056,18 +1050,18 @@ test('BUG-018: runLoop should pass outputFile to runClaude for phase logs', asyn
   }
 });
 
-test('BUG-018: runLoop should create logs directory if it does not exist', async () => {
-  // This test verifies that the logs directory is created before calling runClaude.
+test('BUG-018: runLoop should create transcriptions directory if it does not exist', async () => {
+  // This test verifies that the transcriptions directory is created before calling runClaude.
   // Without this, outputFile would fail to write.
 
   const testDir = createTestSprintDir();
-  // Remove the logs directory that createTestSprintDir creates
-  const logsDir = path.join(testDir, 'logs');
-  if (fs.existsSync(logsDir)) {
-    fs.rmSync(logsDir, { recursive: true });
+  // Remove the transcriptions directory that createTestSprintDir might create
+  const transcriptionsDir = path.join(testDir, 'transcriptions');
+  if (fs.existsSync(transcriptionsDir)) {
+    fs.rmSync(transcriptionsDir, { recursive: true });
   }
 
-  let logsExistedDuringCall = false;
+  let transcriptionsExistedDuringCall = false;
 
   try {
     const progress = createTestProgress({
@@ -1082,8 +1076,8 @@ test('BUG-018: runLoop should create logs directory if it does not exist', async
 
     const mockDeps = {
       runClaude: async (opts: { prompt: string; cwd?: string; outputFile?: string }) => {
-        // Check if logs directory exists when runClaude is called
-        logsExistedDuringCall = fs.existsSync(logsDir);
+        // Check if transcriptions directory exists when runClaude is called
+        transcriptionsExistedDuringCall = fs.existsSync(transcriptionsDir);
         return {
           success: true,
           output: 'Phase completed',
@@ -1095,10 +1089,10 @@ test('BUG-018: runLoop should create logs directory if it does not exist', async
 
     await runLoop(testDir, options, mockDeps);
 
-    // Verify logs directory was created before runClaude was called
+    // Verify transcriptions directory was created before runClaude was called
     assert(
-      logsExistedDuringCall,
-      'BUG-018: logs directory should be created before calling runClaude'
+      transcriptionsExistedDuringCall,
+      'BUG-018: transcriptions directory should be created before calling runClaude'
     );
   } finally {
     cleanupTestDir(testDir);

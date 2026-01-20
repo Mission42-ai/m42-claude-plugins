@@ -181,6 +181,26 @@ function getLabel(id: string, prompt?: string): string {
 }
 
 /**
+ * Compute elapsed for in-progress nodes that have startedAt but no elapsed
+ * BUG-007 FIX: In-progress steps now show duration computed from startedAt
+ */
+function computeElapsedIfNeeded(
+  existingElapsed: string | undefined,
+  startedAt: string | undefined,
+  status: PhaseStatus
+): string | undefined {
+  // If we already have elapsed, use it
+  if (existingElapsed) {
+    return existingElapsed;
+  }
+  // Compute elapsed for in-progress nodes with a start time
+  if (startedAt && status === 'in-progress') {
+    return calculateElapsed(startedAt);
+  }
+  return undefined;
+}
+
+/**
  * Build a PhaseTreeNode from a CompiledPhase (leaf node)
  */
 function buildSubPhaseNode(phase: CompiledPhase, depth: number): PhaseTreeNode {
@@ -192,7 +212,7 @@ function buildSubPhaseNode(phase: CompiledPhase, depth: number): PhaseTreeNode {
     depth,
     startedAt: phase['started-at'],
     completedAt: phase['completed-at'],
-    elapsed: phase.elapsed,
+    elapsed: computeElapsedIfNeeded(phase.elapsed, phase['started-at'], phase.status),
     error: phase.error,
     'retry-count': phase['retry-count'],
     'next-retry-at': phase['next-retry-at'],
@@ -201,19 +221,69 @@ function buildSubPhaseNode(phase: CompiledPhase, depth: number): PhaseTreeNode {
 }
 
 /**
+ * Infer step status based on the current pointer position
+ * This handles the case where the runtime hasn't updated step.status
+ * but we can infer the correct status from the current pointer
+ */
+function inferStepStatus(
+  step: CompiledStep,
+  stepIndex: number,
+  currentStepIndex: number | null,
+  phaseStatus: PhaseStatus
+): PhaseStatus {
+  // If step already has a non-pending status, trust it
+  if (step.status !== 'pending') {
+    return step.status;
+  }
+
+  // If the phase is not in-progress, steps should remain pending
+  if (phaseStatus !== 'in-progress') {
+    return step.status;
+  }
+
+  // Infer status based on current pointer
+  if (currentStepIndex === null) {
+    return step.status;
+  }
+
+  if (stepIndex < currentStepIndex) {
+    // Steps before current are completed (unless explicitly failed/blocked)
+    return 'completed';
+  } else if (stepIndex === currentStepIndex) {
+    // Current step is in-progress
+    return 'in-progress';
+  }
+
+  // Steps after current remain pending
+  return step.status;
+}
+
+/**
  * Build a PhaseTreeNode from a CompiledStep (contains sub-phases)
  */
-function buildStepNode(step: CompiledStep, depth: number): PhaseTreeNode {
+function buildStepNode(
+  step: CompiledStep,
+  depth: number,
+  stepIndex?: number,
+  currentStepIndex?: number | null,
+  phaseStatus?: PhaseStatus
+): PhaseTreeNode {
+  // Infer status if current pointer info is provided
+  const status =
+    stepIndex !== undefined && currentStepIndex !== undefined && phaseStatus !== undefined
+      ? inferStepStatus(step, stepIndex, currentStepIndex, phaseStatus)
+      : step.status;
+
   return {
     id: step.id,
     label: getLabel(step.id, step.prompt),
-    status: step.status,
+    status,
     type: 'step',
     depth,
     children: step.phases.map((p) => buildSubPhaseNode(p, depth + 1)),
     startedAt: step['started-at'],
     completedAt: step['completed-at'],
-    elapsed: step.elapsed,
+    elapsed: computeElapsedIfNeeded(step.elapsed, step['started-at'], status),
     error: step.error,
     'retry-count': step['retry-count'],
     'next-retry-at': step['next-retry-at'],
@@ -224,7 +294,13 @@ function buildStepNode(step: CompiledStep, depth: number): PhaseTreeNode {
 /**
  * Build a PhaseTreeNode from a CompiledTopPhase
  */
-function buildTopPhaseNode(topPhase: CompiledTopPhase, depth: number): PhaseTreeNode {
+function buildTopPhaseNode(
+  topPhase: CompiledTopPhase,
+  depth: number,
+  phaseIndex?: number,
+  currentPhaseIndex?: number,
+  currentStepIndex?: number | null
+): PhaseTreeNode {
   const node: PhaseTreeNode = {
     id: topPhase.id,
     label: getLabel(topPhase.id, topPhase.prompt),
@@ -233,7 +309,7 @@ function buildTopPhaseNode(topPhase: CompiledTopPhase, depth: number): PhaseTree
     depth,
     startedAt: topPhase['started-at'],
     completedAt: topPhase['completed-at'],
-    elapsed: topPhase.elapsed,
+    elapsed: computeElapsedIfNeeded(topPhase.elapsed, topPhase['started-at'], topPhase.status),
     error: topPhase.error,
     'retry-count': topPhase['retry-count'],
     'next-retry-at': topPhase['next-retry-at'],
@@ -241,7 +317,13 @@ function buildTopPhaseNode(topPhase: CompiledTopPhase, depth: number): PhaseTree
   };
 
   if (topPhase.steps) {
-    node.children = topPhase.steps.map((s) => buildStepNode(s, depth + 1));
+    // Only pass current step index if this is the current phase
+    const isCurrentPhase = phaseIndex !== undefined && phaseIndex === currentPhaseIndex;
+    const stepCurrentIndex = isCurrentPhase ? currentStepIndex : null;
+
+    node.children = topPhase.steps.map((s, idx) =>
+      buildStepNode(s, depth + 1, idx, stepCurrentIndex, topPhase.status)
+    );
   }
 
   return node;
@@ -249,9 +331,16 @@ function buildTopPhaseNode(topPhase: CompiledTopPhase, depth: number): PhaseTree
 
 /**
  * Build the complete phase tree from CompiledProgress
+ * Uses the current pointer to infer step statuses when they haven't been
+ * explicitly updated by the runtime (fixes BUG-001)
  */
 export function buildPhaseTree(progress: CompiledProgress): PhaseTreeNode[] {
-  return (progress.phases ?? []).map((p) => buildTopPhaseNode(p, 0));
+  const currentPhaseIndex = progress.current?.phase;
+  const currentStepIndex = progress.current?.step;
+
+  return (progress.phases ?? []).map((p, idx) =>
+    buildTopPhaseNode(p, 0, idx, currentPhaseIndex, currentStepIndex)
+  );
 }
 
 // ============================================================================

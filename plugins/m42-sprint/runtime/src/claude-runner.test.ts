@@ -324,7 +324,9 @@ test('buildArgs: includes model when specified', () => {
   assertArrayContainsSequence(args, '--model', 'claude-3-sonnet');
 });
 
-test('buildArgs: includes output-file when specified', () => {
+test('buildArgs: outputFile is handled via file write, not CLI arg', () => {
+  // NOTE: outputFile is handled via file write after execution, not via CLI flag
+  // The Claude CLI doesn't have an --output-file flag
   const options: ClaudeRunOptions = {
     prompt: 'Test',
     outputFile: '/tmp/output.md',
@@ -332,7 +334,9 @@ test('buildArgs: includes output-file when specified', () => {
 
   const args = buildArgs(options);
 
-  assertArrayContainsSequence(args, '--output-file', '/tmp/output.md');
+  // outputFile should NOT appear in args - it's handled by writing to file after execution
+  assert(!args.includes('--output-file'), 'outputFile should not be passed as CLI arg');
+  assert(!args.includes('/tmp/output.md'), 'outputFile path should not be in args');
 });
 
 test('buildArgs: includes allowed-tools for each tool', () => {
@@ -372,7 +376,8 @@ test('buildArgs: includes continue session flag', () => {
   assertArrayContainsSequence(args, '--continue', 'session-abc-123');
 });
 
-test('buildArgs: includes all specified options', () => {
+test('buildArgs: includes all specified options (except outputFile)', () => {
+  // NOTE: outputFile is handled via file write after execution, not via CLI flag
   const options: ClaudeRunOptions = {
     prompt: 'Full test',
     maxTurns: 10,
@@ -386,7 +391,8 @@ test('buildArgs: includes all specified options', () => {
 
   assertArrayContainsSequence(args, '--max-turns', '10');
   assertArrayContainsSequence(args, '--model', 'claude-opus-4');
-  assertArrayContainsSequence(args, '--output-file', '/out.md');
+  // outputFile is NOT passed as CLI arg - it's handled by file write after execution
+  assert(!args.includes('--output-file'), 'outputFile should not be passed as CLI arg');
   assertArrayContainsSequence(args, '--allowed-tools', 'Read');
   assertArrayContainsSequence(args, '--continue', 'sess-1');
 });
