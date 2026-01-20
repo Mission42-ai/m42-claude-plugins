@@ -21,9 +21,10 @@ import type {
   CompiledPhase,
   PhaseStatus,
 } from './status-types.js';
-import type { ActivityEvent } from './activity-types.js';
+import { isActivityEvent, DEFAULT_ACTIVITY_TAIL_LINES, type ActivityEvent } from './activity-types.js';
 import { ProgressWatcher } from './watcher.js';
 import { ActivityWatcher } from './activity-watcher.js';
+import { TranscriptionWatcher } from './transcription-watcher.js';
 import { toStatusUpdate, generateDiffLogEntries, createLogEntry, type TimingInfo } from './transforms.js';
 import { getPageHtml, type SprintNavigation } from './page.js';
 import { TimingTracker, type SprintTimingInfo, type PhaseTimingStats } from './timing-tracker.js';
@@ -128,6 +129,7 @@ export class StatusServer extends EventEmitter {
   private server: http.Server | null = null;
   private watcher: ProgressWatcher | null = null;
   private activityWatcher: ActivityWatcher | null = null;
+  private transcriptionWatcher: TranscriptionWatcher | null = null;
   private timingTracker: TimingTracker | null = null;
   private clients: Map<string, SSEClient> = new Map();
   private keepAliveTimer: ReturnType<typeof setInterval> | null = null;
@@ -200,6 +202,22 @@ export class StatusServer extends EventEmitter {
 
     this.activityWatcher.start();
 
+    // Set up transcription watcher (reads activity from NDJSON transcription files)
+    const transcriptionsDir = path.join(this.config.sprintDir, 'transcriptions');
+    this.transcriptionWatcher = new TranscriptionWatcher(transcriptionsDir, {
+      debounceDelay: this.config.debounceDelay,
+    });
+
+    this.transcriptionWatcher.on('activity', (event: ActivityEvent) => {
+      this.broadcast('activity-event', event);
+    });
+
+    this.transcriptionWatcher.on('error', (error) => {
+      console.error('[StatusServer] Transcription watcher error:', error.message);
+    });
+
+    this.transcriptionWatcher.start();
+
     // Initialize timing tracker for progress estimation
     this.timingTracker = new TimingTracker(this.config.sprintDir);
     this.timingTracker.loadTimingHistory();
@@ -252,6 +270,12 @@ export class StatusServer extends EventEmitter {
     if (this.activityWatcher) {
       this.activityWatcher.close();
       this.activityWatcher = null;
+    }
+
+    // Stop transcription watcher
+    if (this.transcriptionWatcher) {
+      this.transcriptionWatcher.close();
+      this.transcriptionWatcher = null;
     }
 
     // Close HTTP server
@@ -468,7 +492,7 @@ export class StatusServer extends EventEmitter {
   private handleDashboardPageRequest(res: http.ServerResponse): void {
     try {
       const sprintsDir = this.getSprintsDir();
-      const scanner = new SprintScanner(sprintsDir);
+      const scanner = new SprintScanner(sprintsDir, { includeWorktreeInfo: true });
       const sprints = scanner.scan();
 
       const aggregator = new MetricsAggregator(sprints);
@@ -1601,6 +1625,9 @@ export class StatusServer extends EventEmitter {
       // Send a log entry for connection
       const logEntry = createLogEntry('info', 'Connected to status server');
       this.sendEvent(client, 'log-entry', logEntry);
+
+      // Send historical activity events (BUG-003 fix)
+      this.sendHistoricalActivity(client);
     } catch (error) {
       console.error('[StatusServer] Failed to send initial status:', error);
       // Send error log entry
@@ -1609,6 +1636,45 @@ export class StatusServer extends EventEmitter {
         `Failed to load progress: ${error instanceof Error ? error.message : String(error)}`
       );
       this.sendEvent(client, 'log-entry', logEntry);
+    }
+  }
+
+  /**
+   * Send historical activity events to a newly connected client
+   * Reads from both .sprint-activity.jsonl and transcription files
+   */
+  private sendHistoricalActivity(client: SSEClient): void {
+    try {
+      // Try to read from .sprint-activity.jsonl first
+      if (fs.existsSync(this.activityFilePath)) {
+        const content = fs.readFileSync(this.activityFilePath, 'utf-8');
+        const lines = content.split('\n').filter(line => line.trim() !== '');
+
+        // Take last N lines (same as ActivityWatcher tailLines default)
+        const startIndex = Math.max(0, lines.length - DEFAULT_ACTIVITY_TAIL_LINES);
+        const recentLines = lines.slice(startIndex);
+
+        for (const line of recentLines) {
+          try {
+            const parsed = JSON.parse(line);
+            if (isActivityEvent(parsed)) {
+              this.sendEvent(client, 'activity-event', parsed);
+            }
+          } catch {
+            // Skip invalid JSON lines
+          }
+        }
+      }
+
+      // Also send recent activity from transcription files
+      if (this.transcriptionWatcher) {
+        const transcriptionActivity = this.transcriptionWatcher.getRecentActivity(DEFAULT_ACTIVITY_TAIL_LINES);
+        for (const event of transcriptionActivity) {
+          this.sendEvent(client, 'activity-event', event);
+        }
+      }
+    } catch (error) {
+      console.error('[StatusServer] Failed to send historical activity:', error);
     }
   }
 
