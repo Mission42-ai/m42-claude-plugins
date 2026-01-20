@@ -164,6 +164,24 @@ export function calculateProgressPercent(progress: CompiledProgress): number {
   return Math.round((completed / total) * 100);
 }
 
+/**
+ * Count total steps (leaf-level phases) for "Step X of Y" display
+ * Returns the total number of leaf-level phases (sub-phases) across all steps
+ */
+export function countTotalSteps(progress: CompiledProgress): number {
+  let total = 0;
+  for (const topPhase of progress.phases ?? []) {
+    if (topPhase.steps) {
+      for (const step of topPhase.steps) {
+        total += step.phases.length;
+      }
+    } else {
+      total++; // Simple phase counts as 1
+    }
+  }
+  return total;
+}
+
 // ============================================================================
 // Phase Tree Building
 // ============================================================================
@@ -730,6 +748,12 @@ export function toStatusUpdate(
       header.estimatedCompletionTime = timingInfo.estimatedCompletionTime;
     }
   }
+
+  // Add step progress info for "Step X of Y" display
+  const totalSteps = countTotalSteps(progress);
+  header.totalSteps = totalSteps;
+  // currentStep is 1-indexed: completed + 1 (for display "Step 3 of 5")
+  header.currentStep = progress.status === 'in-progress' ? completed + 1 : completed;
 
   // Build the phase/task tree based on mode
   const phaseTree = isRalphMode ? buildRalphTaskTree(progress) : buildPhaseTree(progress);

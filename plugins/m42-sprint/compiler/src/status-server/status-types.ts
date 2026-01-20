@@ -112,6 +112,10 @@ export interface SprintHeader {
   estimateConfidence?: 'low' | 'medium' | 'high' | 'no-data';
   /** Estimated completion time (ISO) */
   estimatedCompletionTime?: string;
+  /** Total leaf-level phases for "Step X of Y" display */
+  totalSteps?: number;
+  /** Current step number (1-indexed for display) */
+  currentStep?: number;
 }
 
 /**

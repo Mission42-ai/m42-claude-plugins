@@ -40,6 +40,13 @@ ${getStyles()}
         <span class="status-badge" id="status-badge">--</span>
       </div>
       <div class="header-right">
+        <div class="sprint-timer" id="sprint-timer" title="Sprint elapsed time">
+          <span class="timer-icon">⏱</span>
+          <span class="timer-value" id="timer-value">00:00:00</span>
+        </div>
+        <div class="step-counter" id="step-counter">
+          <span class="step-counter-text">Step <span id="current-step">-</span> of <span id="total-steps">-</span></span>
+        </div>
         <div class="iteration" id="iteration"></div>
         <div class="progress-container">
           <div class="progress-bar">
@@ -542,6 +549,48 @@ function getStyles(): string {
       font-size: 12px;
       color: var(--text-secondary);
       min-width: 35px;
+    }
+
+    /* Sprint Timer */
+    .sprint-timer {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      background-color: var(--bg-tertiary);
+      border-radius: 4px;
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--accent-blue);
+    }
+
+    .timer-icon {
+      font-size: 16px;
+    }
+
+    .timer-value {
+      font-family: var(--font-mono);
+      letter-spacing: 0.5px;
+    }
+
+    /* Step Counter */
+    .step-counter {
+      display: flex;
+      align-items: center;
+      padding: 4px 10px;
+      background-color: var(--bg-tertiary);
+      border-radius: 4px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .step-counter-text {
+      white-space: nowrap;
+    }
+
+    #current-step, #total-steps {
+      color: var(--text-primary);
+      font-weight: 500;
     }
 
     /* Estimate Display */
@@ -2923,7 +2972,12 @@ function getScript(): string {
         goalContent: document.getElementById('goal-content'),
         hookStatusSection: document.getElementById('hook-status-section'),
         hookStatusContent: document.getElementById('hook-status-content'),
-        collapseHooksBtn: document.getElementById('collapse-hooks-btn')
+        collapseHooksBtn: document.getElementById('collapse-hooks-btn'),
+        // Sprint timer and step counter elements
+        sprintTimer: document.getElementById('sprint-timer'),
+        timerValue: document.getElementById('timer-value'),
+        currentStep: document.getElementById('current-step'),
+        totalSteps: document.getElementById('total-steps')
       };
 
       // State
@@ -2955,6 +3009,9 @@ function getScript(): string {
       // Ralph Mode State
       let hooksCollapsed = false;
       let currentMode = 'standard';
+
+      // Sprint Timer State
+      let sprintStartedAt = null;
 
       // Verbosity level ordering for filtering
       const VERBOSITY_ORDER = { minimal: 0, basic: 1, detailed: 2, verbose: 3 };
@@ -3145,6 +3202,8 @@ function getScript(): string {
         setInterval(updateElapsedTimes, 1000);
         // Update relative times in activity panel
         setInterval(updateActivityRelativeTimes, 1000);
+        // Update sprint timer in header
+        setInterval(updateSprintTimer, 1000);
       }
 
       // Hook Status Controls Setup (Ralph Mode)
@@ -4256,6 +4315,24 @@ function getScript(): string {
         }
       }
 
+      // Format seconds as HH:MM:SS
+      function toHHMMSS(totalSeconds) {
+        var hours = Math.floor(totalSeconds / 3600);
+        var minutes = Math.floor((totalSeconds % 3600) / 60);
+        var seconds = totalSeconds % 60;
+        return String(hours).padStart(2, '0') + ':' +
+               String(minutes).padStart(2, '0') + ':' +
+               String(seconds).padStart(2, '0');
+      }
+
+      // Update sprint timer display
+      function updateSprintTimer() {
+        if (!sprintStartedAt || !elements.timerValue) return;
+        var elapsed = Math.floor((Date.now() - new Date(sprintStartedAt).getTime()) / 1000);
+        if (elapsed < 0) elapsed = 0;
+        elements.timerValue.textContent = toHHMMSS(elapsed);
+      }
+
       function updateHeader(header) {
         elements.sprintName.textContent = header.sprintId;
 
@@ -4275,12 +4352,22 @@ function getScript(): string {
 
         if (header.startedAt) {
           elements.elapsed.dataset.startedAt = header.startedAt;
+          sprintStartedAt = header.startedAt;
+          updateSprintTimer(); // Initial update
         }
 
         // BUG-006 fix: Set elapsed textContent directly for completed/terminal sprints
         // The timer skips these statuses, so we must set the value here
         if (header.elapsed && ['completed', 'failed', 'blocked', 'needs-human'].includes(header.status)) {
           elements.elapsed.textContent = 'Total: ' + header.elapsed;
+        }
+
+        // Update step counter (Step X of Y)
+        if (elements.currentStep && header.currentStep !== undefined) {
+          elements.currentStep.textContent = header.currentStep;
+        }
+        if (elements.totalSteps && header.totalSteps !== undefined) {
+          elements.totalSteps.textContent = header.totalSteps;
         }
 
         // Update estimate display
