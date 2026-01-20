@@ -88,6 +88,11 @@ function getToolIcon(toolName: string): string {
  * This is NEW functionality to be implemented
  */
 function getToolDescription(event: ActivityEvent): string {
+  // Only tool events have file and params
+  if (event.type !== 'tool') {
+    return '';
+  }
+
   const tool = event.tool;
   const file = event.file;
   const params = event.params;
@@ -160,7 +165,7 @@ function simulateRenderLiveActivity(events: ActivityEvent[]): string {
         `<span class="activity-icon">🤖</span>` +
         `<span class="activity-bubble">${escapeHtml(text)}</span>` +
         `</div>`;
-    } else {
+    } else if (event.type === 'tool') {
       // Secondary/grey style for tool calls
       const icon = getToolIcon(event.tool);
       const description = getToolDescription(event);
@@ -170,6 +175,8 @@ function simulateRenderLiveActivity(events: ActivityEvent[]): string {
         `<span class="activity-icon">${icon}</span>` +
         `<span class="activity-tool-desc">${escapeHtml(description)}</span>` +
         `</div>`;
+    } else {
+      return '';
     }
   }).join('');
 }

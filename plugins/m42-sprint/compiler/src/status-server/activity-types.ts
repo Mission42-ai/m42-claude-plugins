@@ -39,18 +39,23 @@ export function shouldShowAtLevel(eventLevel: VerbosityLevel, displayLevel: Verb
 // ============================================================================
 
 /**
- * Activity event from .sprint-activity.jsonl file
- * Written by sprint-activity-hook.sh
+ * Base activity event fields shared by all event types
  */
-export interface ActivityEvent {
+interface BaseActivityEvent {
   /** ISO-8601 timestamp */
   ts: string;
-  /** Event type (currently only 'tool') */
+  /** Verbosity level this event belongs to */
+  level: VerbosityLevel;
+}
+
+/**
+ * Tool activity event - emitted when Claude uses a tool
+ */
+export interface ToolActivityEvent extends BaseActivityEvent {
+  /** Event type */
   type: 'tool';
   /** Tool name (Read, Write, Bash, Edit, Grep, Glob, etc.) */
   tool: string;
-  /** Verbosity level this event belongs to */
-  level: VerbosityLevel;
   /** File path (for Read, Write, Edit operations) */
   file?: string;
   /** Additional parameters (for Bash commands, Grep patterns, etc.) */
@@ -62,6 +67,25 @@ export interface ActivityEvent {
 }
 
 /**
+ * Assistant activity event - emitted when Claude writes text
+ */
+export interface AssistantActivityEvent extends BaseActivityEvent {
+  /** Event type */
+  type: 'assistant';
+  /** Tool field (empty string for assistant events, for compatibility) */
+  tool?: string;
+  /** Text content from assistant */
+  text?: string;
+  /** True if assistant is still typing/thinking */
+  isThinking?: boolean;
+}
+
+/**
+ * Activity event - discriminated union of tool and assistant events
+ */
+export type ActivityEvent = ToolActivityEvent | AssistantActivityEvent;
+
+/**
  * Type guard to check if an object is a valid ActivityEvent
  */
 export function isActivityEvent(obj: unknown): obj is ActivityEvent {
@@ -71,17 +95,33 @@ export function isActivityEvent(obj: unknown): obj is ActivityEvent {
 
   const event = obj as Record<string, unknown>;
 
-  // Required fields
+  // Required base fields
   if (typeof event.ts !== 'string') return false;
-  if (event.type !== 'tool') return false;
-  if (typeof event.tool !== 'string') return false;
   if (!isVerbosityLevel(event.level)) return false;
 
-  // Optional fields must be correct type if present
-  if (event.file !== undefined && typeof event.file !== 'string') return false;
-  if (event.params !== undefined && typeof event.params !== 'string') return false;
+  // Validate by type
+  if (event.type === 'tool') {
+    // Tool event validation
+    if (typeof event.tool !== 'string') return false;
+    // Optional fields must be correct type if present
+    if (event.file !== undefined && typeof event.file !== 'string') return false;
+    if (event.params !== undefined && typeof event.params !== 'string') return false;
+    return true;
+  }
 
-  return true;
+  if (event.type === 'assistant') {
+    // Assistant event validation
+    // tool field is optional for assistant (for compatibility, can be empty string)
+    if (event.tool !== undefined && typeof event.tool !== 'string') return false;
+    // text is optional for assistant events (can be empty string)
+    if (event.text !== undefined && typeof event.text !== 'string') return false;
+    // isThinking is optional boolean
+    if (event.isThinking !== undefined && typeof event.isThinking !== 'boolean') return false;
+    return true;
+  }
+
+  // Unknown type
+  return false;
 }
 
 /**
