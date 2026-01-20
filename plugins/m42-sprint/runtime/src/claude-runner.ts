@@ -136,6 +136,11 @@ export function buildArgs(options: ClaudeRunOptions): string[] {
   // Without this, Claude waits for permission prompts that can never be answered
   args.push('--dangerously-skip-permissions');
 
+  // Use stream-json with partial messages for full transcript capture
+  // This outputs all tool calls, responses, and streaming events
+  args.push('--output-format', 'stream-json');
+  args.push('--include-partial-messages');
+
   // Max turns
   if (options.maxTurns !== undefined) {
     args.push('--max-turns', String(options.maxTurns));
@@ -225,12 +230,66 @@ export async function runClaude(options: ClaudeRunOptions): Promise<ClaudeResult
         error = `Process exited with code ${exitCode}`;
       }
 
-      const jsonResult = extractJson(stdout);
+      // Parse stream-json output (NDJSON - one JSON object per line)
+      // Each line is a streaming event: tool calls, responses, result, etc.
+      const lines = stdout.trim().split('\n').filter(line => line.trim());
+      const events: Array<Record<string, unknown>> = [];
+      let resultEvent: {
+        type?: string;
+        subtype?: string;
+        result?: string;
+        session_id?: string;
+        duration_ms?: number;
+        total_cost_usd?: number;
+        num_turns?: number;
+        is_error?: boolean;
+      } | undefined;
 
-      // Write output to file if outputFile was specified
+      for (const line of lines) {
+        try {
+          const event = JSON.parse(line) as Record<string, unknown>;
+          events.push(event);
+          // The final "result" event has the summary
+          if (event.type === 'result') {
+            resultEvent = event as typeof resultEvent;
+          }
+        } catch {
+          // Skip malformed lines
+        }
+      }
+
+      // Extract text result from the final result event, or use raw stdout
+      const textResult = resultEvent?.result ?? stdout;
+
+      // Also check for JSON blocks in the text result (for structured responses)
+      const jsonResult = extractJson(textResult);
+
+      // Write full transcript to file if outputFile was specified
       if (options.outputFile) {
         try {
+          // Write the raw NDJSON stream as the transcript
+          // This preserves all tool calls, responses, and events
           fs.writeFileSync(options.outputFile, stdout, 'utf8');
+
+          // Also write a human-readable summary as .md file
+          const summaryPath = options.outputFile.replace(/\.log$/, '.md');
+          if (summaryPath !== options.outputFile) {
+            const summaryContent = [
+              `# Claude Execution Log`,
+              ``,
+              `**Session ID**: ${resultEvent?.session_id ?? 'N/A'}`,
+              `**Duration**: ${resultEvent?.duration_ms ? `${(resultEvent.duration_ms / 1000).toFixed(1)}s` : 'N/A'}`,
+              `**Cost**: ${resultEvent?.total_cost_usd ? `$${resultEvent.total_cost_usd.toFixed(4)}` : 'N/A'}`,
+              `**Turns**: ${resultEvent?.num_turns ?? 'N/A'}`,
+              `**Status**: ${resultEvent?.subtype ?? (success ? 'success' : 'error')}`,
+              `**Events**: ${events.length}`,
+              ``,
+              `## Final Output`,
+              ``,
+              textResult,
+            ].join('\n');
+            fs.writeFileSync(summaryPath, summaryContent, 'utf8');
+          }
         } catch (writeErr) {
           // Log but don't fail - output capture is secondary to execution
           console.error(`Failed to write output to ${options.outputFile}:`, writeErr);
@@ -239,7 +298,7 @@ export async function runClaude(options: ClaudeRunOptions): Promise<ClaudeResult
 
       resolve({
         success,
-        output: stdout,
+        output: textResult,
         exitCode,
         jsonResult,
         error,

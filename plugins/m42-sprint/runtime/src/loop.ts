@@ -477,9 +477,27 @@ export async function runLoop(
       fs.mkdirSync(logsDir, { recursive: true });
     }
 
-    // Generate log file path based on phase/step/sub-phase ID
-    const sanitizedId = phaseId.replace(/[^a-zA-Z0-9-_]/g, '_') || `phase-${progress.current.phase}`;
-    const logFileName = `${sanitizedId}.log`;
+    // Generate unique log file path including phase/step/sub-phase indices
+    // Format: phase-{N}_step-{M}_subphase-{K}_{id}.log or phase-{N}_{id}.log
+    const phaseIdx = progress.current.phase;
+    const stepIdx = progress.current.step;
+    const subPhaseIdx = progress.current['sub-phase'];
+
+    let logBaseName: string;
+    if (stepIdx != null && stepIdx >= 0 && subPhaseIdx != null && subPhaseIdx >= 0) {
+      // Full hierarchy: phase + step + sub-phase
+      const sanitizedId = phaseId.replace(/[^a-zA-Z0-9-_]/g, '_') || 'subphase';
+      logBaseName = `phase-${phaseIdx}_step-${stepIdx}_${sanitizedId}`;
+    } else if (stepIdx != null && stepIdx >= 0) {
+      // Phase + step (no sub-phase)
+      const sanitizedId = (currentStep?.id || phaseId).replace(/[^a-zA-Z0-9-_]/g, '_') || 'step';
+      logBaseName = `phase-${phaseIdx}_step-${stepIdx}_${sanitizedId}`;
+    } else {
+      // Just phase (no steps)
+      const sanitizedId = phaseId.replace(/[^a-zA-Z0-9-_]/g, '_') || 'phase';
+      logBaseName = `phase-${phaseIdx}_${sanitizedId}`;
+    }
+    const logFileName = `${logBaseName}.log`;
     const outputFile = path.join(logsDir, logFileName);
 
     // BUG-001 FIX: Mark current step/sub-phase as in-progress before execution
