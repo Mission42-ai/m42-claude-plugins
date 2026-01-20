@@ -86,9 +86,6 @@ export function parseArgs(args: string[]): ParseResult {
 
   // Handle known commands
   if (command === 'run') {
-    // Parse run command arguments
-    let directoryFound = false;
-
     for (let i = 1; i < cliArgs.length; i++) {
       const arg = cliArgs[i];
 
@@ -114,12 +111,11 @@ export function parseArgs(args: string[]): ParseResult {
       } else if (!arg.startsWith('-')) {
         // Positional argument = directory
         result.directory = arg;
-        directoryFound = true;
       }
     }
 
     // Validate required arguments
-    if (!directoryFound) {
+    if (!result.directory) {
       result.error = 'Missing required argument: directory';
     }
   } else if (command === 'help') {
@@ -157,14 +153,9 @@ export async function runCommand(
 
   try {
     const result = await loopFn(directory, options);
-
-    // Determine exit code based on final state
-    const successStates = ['completed', 'paused'];
-    if (successStates.includes(result.finalState.status)) {
-      return 0;
-    } else {
-      return 1;
-    }
+    const isSuccess = result.finalState.status === 'completed' ||
+                      result.finalState.status === 'paused';
+    return isSuccess ? 0 : 1;
   } catch (error) {
     console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
     return 1;
@@ -249,7 +240,6 @@ async function main(): Promise<void> {
 }
 
 // Run main if this is the entry point
-// Use import.meta.url to check if this file is the main module
 const isMainModule = process.argv[1]?.endsWith('cli.js') ||
                      process.argv[1]?.endsWith('cli.ts');
 
