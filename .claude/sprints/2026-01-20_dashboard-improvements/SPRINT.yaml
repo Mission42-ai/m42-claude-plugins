@@ -1057,6 +1057,69 @@ steps:
       4. Manually approve a request, verify injection
       5. Verify real-time updates when new requests arrive
 
+  # Phase 9: Remove Hook System
+  - prompt: |
+      Remove the hook system from m42-sprint plugin entirely.
+
+      ## Overview
+      The hook system (PostToolUse hooks writing to .sprint-activity.jsonl) is being
+      deprecated. We now use transcription-based activity tracking instead.
+
+      ## Tasks
+
+      ### 1. Remove Hook Files
+      Delete the hooks directory:
+      ```
+      plugins/m42-sprint/hooks/
+      ```
+
+      ### 2. Update Runtime Code
+      Remove hook-related code from:
+      - `plugins/m42-sprint/runtime/src/cli.ts` - Remove --hook-config option
+      - `plugins/m42-sprint/runtime/src/loop.ts` - Remove any hook triggers
+      - Any other runtime files referencing hooks
+
+      ### 3. Update Skills
+      Search and update all skills that mention hooks:
+      ```bash
+      grep -r "hook" plugins/m42-sprint/skills/ --include="*.md"
+      ```
+
+      Remove or update references in:
+      - `orchestrating-sprints/skill.md`
+      - `creating-sprints/skill.md`
+      - Any other skill files
+
+      ### 4. Update Commands
+      Search and update commands:
+      ```bash
+      grep -r "hook" .claude/commands/ --include="*.md"
+      grep -r "hook" plugins/m42-sprint/.claude-plugin/commands/ --include="*.md"
+      ```
+
+      Update:
+      - `run-sprint` command - remove hook registration steps
+      - `start-sprint` command - remove any hook setup
+      - `sprint-status` command - remove hook references
+
+      ### 5. Clean Up Settings Manipulation
+      Remove code that:
+      - Backs up settings.json
+      - Merges hooks into settings.json
+      - Creates .sprint-hooks.json files
+
+      ### 6. Update Documentation
+      Update any docs mentioning hooks:
+      - README files
+      - Reference documentation
+      - Skill documentation
+
+      ## Verification
+      1. `grep -r "hook" plugins/m42-sprint/` returns no relevant matches
+      2. Sprint can start and run without hook system
+      3. Activity tracking still works via transcription watcher
+      4. No errors about missing hook files
+
   # Final verification step
   - prompt: |
       Run complete end-to-end verification of all dashboard improvements.
@@ -1073,6 +1136,7 @@ steps:
       9. Operator requests: Verify agents can submit requests, operator processes them
       10. Dynamic injection: Verify steps can be injected at various positions
       11. Operator queue view: Verify pending/decided requests display with reasoning
+      12. Hook removal: Verify no hook references remain, sprint works without hooks
 
       Build and test:
       - Run npm run build in plugins/m42-sprint/compiler

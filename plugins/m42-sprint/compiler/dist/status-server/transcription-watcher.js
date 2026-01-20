@@ -44,6 +44,7 @@ const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const DEFAULT_DEBOUNCE_DELAY = 100;
 const DEFAULT_MAX_EVENTS = 200;
+const TEXT_DEBOUNCE_DELAY = 500; // 500ms debounce for text accumulation
 /**
  * Determine verbosity level for a tool
  * NOTE: Similar logic exists in sprint-activity-hook.sh - keep in sync
@@ -96,14 +97,6 @@ function extractParams(toolName, input) {
             return undefined;
     }
 }
-/**
- * Watches transcription files for tool use activity
- *
- * Parses NDJSON stream format from Claude CLI:
- * - Looks for content_block_start events with tool_use
- * - Extracts tool name and parameters
- * - Emits ActivityEvent for each tool use
- */
 class TranscriptionWatcher extends events_1.EventEmitter {
     transcriptionsDir;
     debounceDelay;
@@ -114,6 +107,9 @@ class TranscriptionWatcher extends events_1.EventEmitter {
     filePositions = new Map();
     seenToolUseIds = new Set();
     recentActivity = [];
+    // Text block accumulation state
+    textBlocks = new Map();
+    textDebounceTimer = null;
     constructor(transcriptionsDir, options = {}) {
         super();
         this.transcriptionsDir = path.resolve(transcriptionsDir);
@@ -250,7 +246,7 @@ class TranscriptionWatcher extends events_1.EventEmitter {
         }
     }
     /**
-     * Parse a single NDJSON line and emit activity if it's a tool use
+     * Parse a single NDJSON line and emit activity if it's a tool use or text content
      */
     parseLine(line, timestamp) {
         try {
@@ -275,15 +271,53 @@ class TranscriptionWatcher extends events_1.EventEmitter {
                 }
             }
             // Format 2: Stream event with content_block_start (for streaming mode)
+            if (event.type === 'stream_event' && event.event?.type === 'content_block_start') {
+                const contentBlock = event.event.content_block;
+                const blockIndex = event.event.index ?? 0;
+                if (contentBlock?.type === 'tool_use') {
+                    // Tool use block
+                    toolUses.push({
+                        id: contentBlock.id,
+                        name: contentBlock.name,
+                        input: contentBlock.input || {},
+                    });
+                }
+                else if (contentBlock?.type === 'text') {
+                    // Text content block start
+                    this.textBlocks.set(blockIndex, {
+                        text: '',
+                        startTime: Date.now(),
+                        stopped: false,
+                    });
+                }
+            }
+            // Handle text_delta events
             if (event.type === 'stream_event' &&
-                event.event?.type === 'content_block_start' &&
-                event.event?.content_block?.type === 'tool_use') {
-                const toolUse = event.event.content_block;
-                toolUses.push({
-                    id: toolUse.id,
-                    name: toolUse.name,
-                    input: toolUse.input || {},
-                });
+                event.event?.type === 'content_block_delta' &&
+                event.event?.delta?.type === 'text_delta') {
+                const blockIndex = event.event.index ?? 0;
+                const deltaText = event.event.delta.text || '';
+                let block = this.textBlocks.get(blockIndex);
+                if (!block) {
+                    // Create block if not exists (handle out-of-order events)
+                    block = {
+                        text: '',
+                        startTime: Date.now(),
+                        stopped: false,
+                    };
+                    this.textBlocks.set(blockIndex, block);
+                }
+                block.text += deltaText;
+                this.scheduleTextEmission(timestamp);
+            }
+            // Handle content_block_stop events
+            if (event.type === 'stream_event' && event.event?.type === 'content_block_stop') {
+                const blockIndex = event.event.index ?? 0;
+                const block = this.textBlocks.get(blockIndex);
+                if (block) {
+                    block.stopped = true;
+                    this.scheduleTextEmission(timestamp);
+                }
             }
             // Process each tool use found
             for (const toolUse of toolUses) {
@@ -305,16 +339,56 @@ class TranscriptionWatcher extends events_1.EventEmitter {
                     file: extractFilePath(toolUse.name, toolUse.input),
                     params: extractParams(toolUse.name, toolUse.input),
                 };
-                // Store in recent activity (for historical queries)
-                this.recentActivity.push(activityEvent);
-                if (this.recentActivity.length > this.maxEvents) {
-                    this.recentActivity = this.recentActivity.slice(-this.maxEvents);
-                }
+                this.addToRecentActivity(activityEvent);
                 this.emit('activity', activityEvent);
             }
         }
         catch {
             // Invalid JSON, skip silently
+        }
+    }
+    /**
+     * Add an event to recent activity, maintaining max size limit
+     */
+    addToRecentActivity(event) {
+        this.recentActivity.push(event);
+        if (this.recentActivity.length > this.maxEvents) {
+            this.recentActivity = this.recentActivity.slice(-this.maxEvents);
+        }
+    }
+    /**
+     * Schedule text emission with debouncing
+     */
+    scheduleTextEmission(timestamp) {
+        if (this.textDebounceTimer) {
+            clearTimeout(this.textDebounceTimer);
+        }
+        this.textDebounceTimer = setTimeout(() => {
+            this.textDebounceTimer = null;
+            this.emitAccumulatedText(timestamp);
+        }, TEXT_DEBOUNCE_DELAY);
+    }
+    /**
+     * Emit accumulated text as assistant activity events
+     */
+    emitAccumulatedText(timestamp) {
+        for (const [blockIndex, block] of this.textBlocks) {
+            if (block.text.length > 0) {
+                const activityEvent = {
+                    ts: timestamp,
+                    type: 'assistant',
+                    tool: '', // Required for compatibility
+                    level: 'minimal',
+                    text: block.text,
+                    isThinking: !block.stopped,
+                };
+                this.addToRecentActivity(activityEvent);
+                this.emit('activity', activityEvent);
+            }
+            // Remove completed blocks
+            if (block.stopped) {
+                this.textBlocks.delete(blockIndex);
+            }
         }
     }
     /**
@@ -328,10 +402,15 @@ class TranscriptionWatcher extends events_1.EventEmitter {
             clearTimeout(this.debounceTimer);
             this.debounceTimer = null;
         }
+        if (this.textDebounceTimer) {
+            clearTimeout(this.textDebounceTimer);
+            this.textDebounceTimer = null;
+        }
         if (this.watcher) {
             this.watcher.close();
             this.watcher = null;
         }
+        this.textBlocks.clear();
         this.emit('close');
     }
     /**

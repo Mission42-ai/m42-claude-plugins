@@ -14,6 +14,7 @@ import {
   extractJson,
   categorizeError,
   buildArgs,
+  SPRINT_RESULT_SCHEMA,
   type ClaudeRunOptions,
   type ClaudeResult,
   type ErrorCategory,
@@ -409,6 +410,87 @@ test('buildArgs: does not include undefined options', () => {
   assert(!args.includes('--max-turns'), 'Should not include --max-turns');
   assert(!args.includes('--model'), 'Should not include --model');
   assert(!args.includes('undefined'), 'Should not include undefined string');
+});
+
+test('buildArgs: includes --json-schema when jsonSchema is specified', () => {
+  const schema = {
+    type: 'object',
+    properties: {
+      status: { type: 'string', enum: ['completed', 'failed'] },
+      summary: { type: 'string' },
+    },
+    required: ['status', 'summary'],
+  };
+
+  const options: ClaudeRunOptions = {
+    prompt: 'Test',
+    jsonSchema: schema,
+  };
+
+  const args = buildArgs(options);
+
+  // Find --json-schema and its value
+  const schemaIndex = args.indexOf('--json-schema');
+  assert(schemaIndex !== -1, 'Should include --json-schema flag');
+  assert(schemaIndex < args.length - 1, 'Should have value after --json-schema');
+
+  // Verify the schema is properly JSON stringified
+  const schemaArg = args[schemaIndex + 1];
+  const parsedSchema = JSON.parse(schemaArg);
+  assertDeepEqual(parsedSchema, schema);
+});
+
+test('buildArgs: does not include --json-schema when not specified', () => {
+  const options: ClaudeRunOptions = {
+    prompt: 'Test',
+  };
+
+  const args = buildArgs(options);
+
+  assert(!args.includes('--json-schema'), 'Should not include --json-schema');
+});
+
+test('SPRINT_RESULT_SCHEMA: has correct structure for sprint results', () => {
+  // Verify schema is an object
+  assertEqual(SPRINT_RESULT_SCHEMA.type, 'object');
+
+  // Verify required fields
+  const required = SPRINT_RESULT_SCHEMA.required as string[];
+  assertArrayContains(required, 'status');
+  assertArrayContains(required, 'summary');
+
+  // Verify properties exist
+  const properties = SPRINT_RESULT_SCHEMA.properties as Record<string, unknown>;
+  assert(properties.status !== undefined, 'Should have status property');
+  assert(properties.summary !== undefined, 'Should have summary property');
+  assert(properties.error !== undefined, 'Should have error property');
+  assert(properties.humanNeeded !== undefined, 'Should have humanNeeded property');
+
+  // Verify status enum values
+  const statusProp = properties.status as { enum: string[] };
+  assertArrayContains(statusProp.enum, 'completed');
+  assertArrayContains(statusProp.enum, 'failed');
+  assertArrayContains(statusProp.enum, 'needs-human');
+});
+
+test('SPRINT_RESULT_SCHEMA: validates completed result structure', () => {
+  // Test that a valid "completed" result would pass schema validation
+  const completedResult = { status: 'completed', summary: 'Task done' };
+
+  // The schema should accept this structure
+  const properties = SPRINT_RESULT_SCHEMA.properties as Record<string, { enum: string[] }>;
+  const statusEnum = properties.status.enum;
+  assert(statusEnum.includes(completedResult.status), 'completed should be valid status');
+});
+
+test('SPRINT_RESULT_SCHEMA: humanNeeded has nested structure', () => {
+  const properties = SPRINT_RESULT_SCHEMA.properties as Record<string, unknown>;
+  const humanNeeded = properties.humanNeeded as { type: string; properties: Record<string, unknown>; required: string[] };
+
+  assertEqual(humanNeeded.type, 'object');
+  assert(humanNeeded.properties.reason !== undefined, 'humanNeeded should have reason');
+  assert(humanNeeded.properties.details !== undefined, 'humanNeeded should have details');
+  assertArrayContains(humanNeeded.required, 'reason');
 });
 
 // ============================================================================

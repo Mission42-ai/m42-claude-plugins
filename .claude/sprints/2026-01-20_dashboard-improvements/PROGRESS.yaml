@@ -2,7 +2,7 @@ sprint-id: 2026-01-20_dashboard-improvements
 status: in-progress
 phases:
   - id: worktree-setup
-    status: in-progress
+    status: completed
     prompt: |
       Create a git worktree for isolated sprint development.
 
@@ -87,8 +87,9 @@ phases:
       All subsequent phases must work within the worktree:
       `cd trees/2026-01-20_dashboard-improvements` before any operations.
     started-at: '2026-01-20T21:37:04.236Z'
+    completed-at: '2026-01-20T21:38:08.440Z'
   - id: preflight
-    status: pending
+    status: completed
     prompt: |
       Create comprehensive sprint context for TDD-based plugin development.
 
@@ -217,8 +218,10 @@ phases:
         git add context/
         git commit -m "preflight: add shared context and TDD sprint plan"
         ```
+    started-at: '2026-01-20T21:38:10.519Z'
+    completed-at: '2026-01-20T21:41:55.808Z'
   - id: development
-    status: pending
+    status: in-progress
     steps:
       - id: step-0
         prompt: |
@@ -250,10 +253,10 @@ phases:
           - plugins/m42-sprint/compiler/src/status-server/page.ts
 
           Verification: Start a sprint and verify assistant messages appear in chat style
-        status: pending
+        status: completed
         phases:
           - id: context
-            status: pending
+            status: completed
             prompt: |
               Prepare context for TDD development.
 
@@ -307,8 +310,10 @@ phases:
               - Test patterns and locations
               - Build/test commands
               - The step requirements
+            started-at: '2026-01-20T21:41:57.876Z'
+            completed-at: '2026-01-20T21:42:42.141Z'
           - id: red
-            status: pending
+            status: completed
             prompt: |
               Write tests and gherkin scenarios BEFORE any implementation.
 
@@ -484,8 +489,10 @@ phases:
               - Do NOT write any implementation code in this phase
               - Tests SHOULD fail - that's the point of RED
               - Each gherkin scenario should have corresponding unit test(s)
+            started-at: '2026-01-20T21:42:44.206Z'
+            completed-at: '2026-01-20T21:49:42.446Z'
           - id: green-context
-            status: pending
+            status: completed
             prompt: |
               Gather step-specific context for implementation.
 
@@ -629,8 +636,10 @@ phases:
               git add context/step-0-context.md
               git commit -m "context(step-0): gather implementation context"
               ```
+            started-at: '2026-01-20T21:49:44.525Z'
+            completed-at: '2026-01-20T21:51:25.461Z'
           - id: green
-            status: pending
+            status: completed
             prompt: |
               Implement MINIMAL code to make tests pass.
 
@@ -723,8 +732,10 @@ phases:
               - Tests MUST pass before moving to REFACTOR
               - Don't refactor yet - that's the next phase
               - "Quick and dirty" is OK - we'll clean up next
+            started-at: '2026-01-20T21:51:27.530Z'
+            completed-at: '2026-01-20T21:58:09.217Z'
           - id: refactor
-            status: pending
+            status: completed
             prompt: |
               Refactor implementation while keeping tests green.
 
@@ -827,8 +838,10 @@ phases:
               ```
 
               All must pass before completing this phase.
+            started-at: '2026-01-20T21:58:11.290Z'
+            completed-at: '2026-01-20T22:02:29.965Z'
           - id: qa
-            status: pending
+            status: completed
             prompt: |
               Verify implementation against gherkin scenarios.
 
@@ -942,8 +955,10 @@ phases:
                 (.status = "failed" | .error = "QA failed - fix phase injected")
               ' "$PROGRESS_FILE"
               ```
+            started-at: '2026-01-20T22:02:32.021Z'
+            completed-at: '2026-01-20T22:05:38.165Z'
           - id: verify
-            status: pending
+            status: completed
             prompt: |
               Final integration verification for the step.
 
@@ -1016,6 +1031,10 @@ phases:
               - ✓ REFACTOR: Code cleaned up
               - ✓ QA: All scenarios pass
               - ✓ VERIFY: Integration confirmed
+            started-at: '2026-01-20T22:05:40.229Z'
+            completed-at: '2026-01-20T22:07:49.918Z'
+        started-at: '2026-01-20T21:41:57.876Z'
+        completed-at: '2026-01-20T22:07:49.918Z'
       - id: step-1
         prompt: |
           Add elapsed time display and prominent progress indicators.
@@ -1045,10 +1064,10 @@ phases:
           - Steps show elapsed time in sidebar
           - Prominent HH:MM:SS timer in header
           - "Step X of Y" displays
-        status: pending
+        status: completed
         phases:
           - id: context
-            status: pending
+            status: completed
             prompt: |
               Prepare context for TDD development.
 
@@ -1101,8 +1120,10 @@ phases:
               - Test patterns and locations
               - Build/test commands
               - The step requirements
+            started-at: '2026-01-20T22:07:51.992Z'
+            completed-at: '2026-01-20T22:09:17.970Z'
           - id: red
-            status: pending
+            status: completed
             prompt: |
               Write tests and gherkin scenarios BEFORE any implementation.
 
@@ -1276,8 +1297,10 @@ phases:
               - Do NOT write any implementation code in this phase
               - Tests SHOULD fail - that's the point of RED
               - Each gherkin scenario should have corresponding unit test(s)
+            started-at: '2026-01-20T22:09:20.064Z'
+            completed-at: '2026-01-20T22:13:47.868Z'
           - id: green-context
-            status: pending
+            status: completed
             prompt: |
               Gather step-specific context for implementation.
 
@@ -1419,8 +1442,10 @@ phases:
               git add context/step-1-context.md
               git commit -m "context(step-1): gather implementation context"
               ```
+            started-at: '2026-01-20T22:13:49.937Z'
+            completed-at: '2026-01-20T22:16:02.534Z'
           - id: green
-            status: pending
+            status: completed
             prompt: |
               Implement MINIMAL code to make tests pass.
 
@@ -1512,8 +1537,10 @@ phases:
               - Tests MUST pass before moving to REFACTOR
               - Don't refactor yet - that's the next phase
               - "Quick and dirty" is OK - we'll clean up next
+            started-at: '2026-01-20T22:16:04.591Z'
+            completed-at: '2026-01-20T22:19:40.314Z'
           - id: refactor
-            status: pending
+            status: completed
             prompt: |
               Refactor implementation while keeping tests green.
 
@@ -1615,8 +1642,10 @@ phases:
               ```
 
               All must pass before completing this phase.
+            started-at: '2026-01-20T22:19:42.391Z'
+            completed-at: '2026-01-20T22:22:32.304Z'
           - id: qa
-            status: pending
+            status: completed
             prompt: |
               Verify implementation against gherkin scenarios.
 
@@ -1730,8 +1759,10 @@ phases:
                 (.status = "failed" | .error = "QA failed - fix phase injected")
               ' "$PROGRESS_FILE"
               ```
+            started-at: '2026-01-20T22:22:34.381Z'
+            completed-at: '2026-01-20T22:23:53.036Z'
           - id: verify
-            status: pending
+            status: completed
             prompt: |
               Final integration verification for the step.
 
@@ -1803,6 +1834,10 @@ phases:
               - ✓ REFACTOR: Code cleaned up
               - ✓ QA: All scenarios pass
               - ✓ VERIFY: Integration confirmed
+            started-at: '2026-01-20T22:23:55.101Z'
+            completed-at: '2026-01-20T22:26:45.159Z'
+        started-at: '2026-01-20T22:07:51.992Z'
+        completed-at: '2026-01-20T22:26:45.159Z'
       - id: step-2
         prompt: |
           Fix sprint dropdown switching and add stale sprint detection.
@@ -1841,10 +1876,10 @@ phases:
           Verification:
           - Switch sprints via dropdown, verify correct data loads
           - Kill sprint process, wait 15 min, verify "Stale" badge + "Resume" button
-        status: pending
+        status: in-progress
         phases:
           - id: context
-            status: pending
+            status: completed
             prompt: |
               Prepare context for TDD development.
 
@@ -1906,8 +1941,10 @@ phases:
               - Test patterns and locations
               - Build/test commands
               - The step requirements
+            started-at: '2026-01-20T22:26:47.281Z'
+            completed-at: '2026-01-20T22:27:10.335Z'
           - id: red
-            status: pending
+            status: completed
             prompt: |
               Write tests and gherkin scenarios BEFORE any implementation.
 
@@ -2099,8 +2136,10 @@ phases:
               - Do NOT write any implementation code in this phase
               - Tests SHOULD fail - that's the point of RED
               - Each gherkin scenario should have corresponding unit test(s)
+            started-at: '2026-01-20T22:27:10.666Z'
+            completed-at: '2026-01-20T22:33:05.377Z'
           - id: green-context
-            status: pending
+            status: completed
             prompt: |
               Gather step-specific context for implementation.
 
@@ -2260,8 +2299,10 @@ phases:
               git add context/step-2-context.md
               git commit -m "context(step-2): gather implementation context"
               ```
+            started-at: '2026-01-20T22:33:07.448Z'
+            completed-at: '2026-01-20T22:34:58.341Z'
           - id: green
-            status: pending
+            status: completed
             prompt: |
               Implement MINIMAL code to make tests pass.
 
@@ -2362,8 +2403,10 @@ phases:
               - Tests MUST pass before moving to REFACTOR
               - Don't refactor yet - that's the next phase
               - "Quick and dirty" is OK - we'll clean up next
+            started-at: '2026-01-20T22:35:00.404Z'
+            completed-at: '2026-01-20T22:45:00.074Z'
           - id: refactor
-            status: pending
+            status: completed
             prompt: |
               Refactor implementation while keeping tests green.
 
@@ -2474,8 +2517,10 @@ phases:
               ```
 
               All must pass before completing this phase.
+            started-at: '2026-01-20T22:45:02.149Z'
+            completed-at: '2026-01-20T22:49:35.544Z'
           - id: qa
-            status: pending
+            status: completed
             prompt: |
               Verify implementation against gherkin scenarios.
 
@@ -2589,8 +2634,10 @@ phases:
                 (.status = "failed" | .error = "QA failed - fix phase injected")
               ' "$PROGRESS_FILE"
               ```
+            started-at: '2026-01-20T22:49:37.625Z'
+            completed-at: '2026-01-20T22:51:50.309Z'
           - id: verify
-            status: pending
+            status: in-progress
             prompt: |
               Final integration verification for the step.
 
@@ -2671,6 +2718,8 @@ phases:
               - ✓ REFACTOR: Code cleaned up
               - ✓ QA: All scenarios pass
               - ✓ VERIFY: Integration confirmed
+            started-at: '2026-01-20T22:51:52.368Z'
+        started-at: '2026-01-20T22:26:47.281Z'
       - id: step-3
         prompt: |
           Enable referencing another workflow for a single phase (not just for-each).
@@ -14548,6 +14597,7 @@ phases:
               - ✓ REFACTOR: Code cleaned up
               - ✓ QA: All scenarios pass
               - ✓ VERIFY: Integration confirmed
+    started-at: '2026-01-20T21:41:57.876Z'
   - id: doc-analyze
     status: pending
     prompt: |
@@ -15431,14 +15481,14 @@ phases:
 
       Note: Do NOT remove the worktree until the PR is merged!
 current:
-  phase: 0
-  step: null
-  sub-phase: null
+  phase: 2
+  step: 2
+  sub-phase: 6
 stats:
   started-at: '2026-01-20T21:37:04.190Z'
   total-phases: 75
   completed-phases: 0
   total-steps: 9
   completed-steps: 0
-  current-iteration: 1
+  current-iteration: 23
 parallel-tasks: []
