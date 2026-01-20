@@ -25,8 +25,8 @@ import type {
   OrchestrationConfig,
   SprintPrompts
 } from './types.js';
-import { loadWorkflow, resolveWorkflowRefs, clearWorkflowCache } from './resolve-workflows.js';
-import { expandForEach, compileSimplePhase } from './expand-foreach.js';
+import { loadWorkflow, resolveWorkflowRefs, clearWorkflowCache, MAX_WORKFLOW_DEPTH } from './resolve-workflows.js';
+import { expandForEach, compileSimplePhase, substituteTemplateVars } from './expand-foreach.js';
 import {
   validateSprintDefinition,
   validateStandardModeSprint,
@@ -224,6 +224,18 @@ export async function compile(config: CompilerConfig): Promise<CompilerResult> {
         errors
       );
       compiledPhases.push(expandedPhase);
+    } else if (phase.workflow && !phase['for-each']) {
+      // Expand workflow reference (no for-each) - inline the referenced workflow's phases
+      // Start at depth 1 since main workflow is at depth 0
+      const expandedPhases = expandWorkflowReference(
+        phase,
+        config.workflowsDir,
+        context,
+        errors,
+        new Set([sprintDef.workflow]),
+        1
+      );
+      compiledPhases.push(...expandedPhases);
     } else {
       // Simple phase with prompt
       const simplePhase = compileSimplePhase(phase, context);
@@ -290,6 +302,104 @@ export async function compile(config: CompilerConfig): Promise<CompilerResult> {
     errors,
     warnings
   };
+}
+
+/**
+ * Expand a workflow reference phase into inline phases
+ *
+ * @param phase - The phase with workflow reference (no for-each)
+ * @param workflowsDir - Directory containing workflow files
+ * @param context - Template context
+ * @param errors - Error accumulator
+ * @param visited - Set of visited workflows for cycle detection
+ * @param depth - Current nesting depth
+ * @returns Array of compiled phases from the referenced workflow
+ */
+function expandWorkflowReference(
+  phase: { id: string; workflow?: string; prompt?: string },
+  workflowsDir: string,
+  context: TemplateContext,
+  errors: CompilerError[],
+  visited: Set<string>,
+  depth: number
+): CompiledTopPhase[] {
+  if (!phase.workflow) {
+    return [];
+  }
+
+  // Check for cycles
+  if (visited.has(phase.workflow)) {
+    const cyclePath = Array.from(visited).concat(phase.workflow);
+    errors.push({
+      code: 'CYCLE_DETECTED',
+      message: `Circular workflow reference detected: ${cyclePath.join(' → ')}`,
+      path: `phases[${phase.id}].workflow`,
+      details: { cycle: cyclePath }
+    });
+    return [];
+  }
+
+  // Check max depth
+  if (depth >= MAX_WORKFLOW_DEPTH) {
+    errors.push({
+      code: 'MAX_DEPTH_EXCEEDED',
+      message: `Workflow nesting depth exceeded maximum of ${MAX_WORKFLOW_DEPTH}`,
+      path: `phases[${phase.id}].workflow`,
+      details: { depth: depth + 1, maxDepth: MAX_WORKFLOW_DEPTH }
+    });
+    return [];
+  }
+
+  // Load the referenced workflow
+  const loaded = loadWorkflow(phase.workflow, workflowsDir, errors);
+  if (!loaded) {
+    return [];
+  }
+
+  const referencedWorkflow = loaded.definition;
+  const expandedPhases: CompiledTopPhase[] = [];
+
+  // Add to visited for cycle detection in nested refs
+  const newVisited = new Set(visited);
+  newVisited.add(phase.workflow);
+
+  // Expand each phase from the referenced workflow with ID prefixing
+  for (const refPhase of referencedWorkflow.phases ?? []) {
+    const prefixedId = `${phase.id}-${refPhase.id}`;
+
+    if (refPhase.workflow && !refPhase['for-each']) {
+      // Nested workflow reference - recurse
+      const nestedPhases = expandWorkflowReference(
+        { id: prefixedId, workflow: refPhase.workflow },
+        workflowsDir,
+        context,
+        errors,
+        newVisited,
+        depth + 1
+      );
+      expandedPhases.push(...nestedPhases);
+    } else if (refPhase.prompt) {
+      // Simple phase with prompt - prefix the ID
+      const phaseContext: TemplateContext = {
+        ...context,
+        phase: {
+          id: prefixedId,
+          index: expandedPhases.length
+        }
+      };
+
+      const prompt = substituteTemplateVars(refPhase.prompt, phaseContext);
+
+      expandedPhases.push({
+        id: prefixedId,
+        status: 'pending' as const,
+        prompt,
+        'wait-for-parallel': refPhase['wait-for-parallel']
+      });
+    }
+  }
+
+  return expandedPhases;
 }
 
 /**
