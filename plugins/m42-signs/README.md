@@ -23,6 +23,9 @@ claude plugins add m42-signs
 # Extract from session transcript
 /m42-signs:extract <session-id>
 
+# Extract from large transcripts (auto-detects, or use --parallel)
+/m42-signs:extract large-transcript.jsonl --parallel
+
 # Review pending signs
 /m42-signs:review
 
@@ -34,6 +37,7 @@ claude plugins add m42-signs
 
 - **[Getting Started](docs/getting-started.md)** - Add your first sign in 5 minutes
 - [How-To Guides](docs/how-to/) - Task-focused guides
+  - [Handle Large Transcripts](docs/how-to/handle-large-transcripts.md) - Preprocessing for big sessions
 - [Reference](docs/reference/) - Complete command reference
 
 ## License

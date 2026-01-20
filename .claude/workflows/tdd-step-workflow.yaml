@@ -1,0 +1,559 @@
+# TDD Step Workflow
+# Test-Driven Development per-step workflow with gherkin scenarios
+#
+# Follows classic TDD cycle:
+# 1. RED    - Write failing tests and gherkin scenarios first
+# 2. GREEN  - Implement minimal code to pass tests
+# 3. REFACTOR - Clean up while keeping tests green
+# 4. QA     - Binary verify all scenarios, inject fixes if needed
+# 5. VERIFY - End-to-end integration verification
+
+name: TDD Step Workflow
+description: |
+  Test-Driven Development workflow for each step. Tests are written FIRST,
+  then implementation, then refactoring. Gherkin scenarios provide binary
+  verification (1/0) for each test case.
+
+  The cycle ensures:
+  - Tests define the expected behavior before code exists
+  - Implementation is minimal and focused
+  - Refactoring happens safely with test coverage
+  - QA verifies all scenarios pass
+
+phases:
+  # ============================================================================
+  # Phase 1: RED
+  # Write failing tests and gherkin scenarios BEFORE implementation
+  # ============================================================================
+  - id: red
+    prompt: |
+      Write tests and gherkin scenarios BEFORE any implementation.
+
+      ## Your Task
+      {{step.prompt}}
+
+      ## Shared Context
+      Read: context/_shared-context.md (project patterns, test patterns, commands)
+      Read: context/sprint-plan.md (how this step fits in the sprint)
+
+      ## TDD Rule: RED Phase
+      In this phase, you ONLY write tests. No implementation code.
+      Tests should FAIL when run (because implementation doesn't exist yet).
+
+      ## Instructions
+
+      ### Part 1: Write Gherkin Scenarios (4-8 scenarios)
+      Create scenarios that define the expected behavior:
+
+      ```gherkin
+      Scenario: [Descriptive name]
+        Given [precondition or context]
+        When [action taken]
+        Then [expected outcome]
+
+      Verification: `[shell command that exits 0 on success, non-zero on failure]`
+      Pass: Exit code = 0 → Score 1
+      Fail: Exit code ≠ 0 → Score 0
+      ```
+
+      ### Part 2: Write Unit Tests
+      Create test files that exercise the expected functionality:
+
+      1. Determine test file location (from _shared-context.md patterns)
+      2. Write test cases that match gherkin scenarios
+      3. Include edge cases and error handling tests
+      4. Tests should be runnable but FAIL (code doesn't exist)
+
+      ## Test File Template
+      ```typescript
+      // Filename follows project convention from _shared-context.md
+      import { describe, it, expect } from '[test-framework]';
+
+      describe('[Feature under test]', () => {
+        describe('[Scenario group]', () => {
+          it('should [expected behavior from gherkin]', () => {
+            // Arrange - Given
+            // Act - When
+            // Assert - Then
+          });
+
+          it('should [another expected behavior]', () => {
+            // ...
+          });
+        });
+
+        describe('edge cases', () => {
+          it('should handle [edge case]', () => {
+            // ...
+          });
+        });
+
+        describe('error handling', () => {
+          it('should throw when [error condition]', () => {
+            // ...
+          });
+        });
+      });
+      ```
+
+      ## Output
+      Create: artifacts/{{step.id}}-gherkin.md
+
+      ```markdown
+      # Gherkin Scenarios: {{step.id}}
+
+      ## Step Task
+      {{step.prompt}}
+
+      ## Success Criteria
+      All scenarios must pass (score = 1) for the step to be complete.
+      Total scenarios: [N]
+      Required score: [N]/[N]
+
+      ---
+
+      ## Scenario 1: [Name]
+      [Full gherkin with verification]
+
+      ---
+
+      ## Scenario 2: [Name]
+      [Continue for 4-8 scenarios]
+
+      ---
+
+      ## Unit Test Coverage
+      | Test File | Test Cases | Scenarios Covered |
+      |-----------|------------|-------------------|
+      | [path] | [count] | 1, 2, 3 |
+
+      ## RED Phase Verification
+      Tests are expected to FAIL at this point:
+      \`\`\`bash
+      npm test -- --testPathPattern="[pattern]"
+      # Expected: FAIL (no implementation yet)
+      \`\`\`
+      ```
+
+      ## Commit (Tests Only)
+      ```bash
+      git add [test files] artifacts/{{step.id}}-gherkin.md
+      git commit -m "test({{step.id}}): add failing tests [RED]"
+      ```
+
+      ## Important
+      - Do NOT write any implementation code in this phase
+      - Tests SHOULD fail - that's the point of RED
+      - Each gherkin scenario should have corresponding unit test(s)
+
+  # ============================================================================
+  # Phase 2: CONTEXT
+  # Gather implementation context (patterns, types, dependencies)
+  # ============================================================================
+  - id: context
+    prompt: |
+      Gather step-specific context for implementation.
+
+      ## Your Task
+      {{step.prompt}}
+
+      ## Shared Context
+      Read: context/_shared-context.md (project-wide patterns)
+      Read: artifacts/{{step.id}}-gherkin.md (scenarios to implement)
+
+      ## Instructions
+      Research the specific code areas this step will touch:
+
+      1. **Related Existing Code**
+         - Find similar implementations to follow as patterns
+         - Identify modules to import from
+         - Note interfaces/types to implement or extend
+
+      2. **Dependencies**
+         - Internal module imports needed
+         - External packages needed
+         - Version constraints
+
+      3. **Integration Points**
+         - How will this code be called/used?
+         - What modules will import from this?
+         - Existing tests to reference
+
+      4. **Patterns for Implementation**
+         - Error handling patterns
+         - Naming conventions
+         - File organization
+
+      ## Output
+      Create: context/{{step.id}}-context.md
+
+      ```markdown
+      # Step Context: {{step.id}}
+
+      ## Task
+      {{step.prompt}}
+
+      ## Implementation Plan
+      Based on gherkin scenarios, implement in this order:
+      1. [First thing to implement]
+      2. [Second thing]
+      ...
+
+      ## Related Code Patterns
+
+      ### Pattern from: [path]
+      \`\`\`typescript
+      // Key pattern to follow
+      [relevant code snippet]
+      \`\`\`
+
+      ## Required Imports
+      ### Internal
+      - `[module]`: [what to import]
+
+      ### External
+      - `[package]`: [what to import]
+
+      ## Types/Interfaces to Use
+      \`\`\`typescript
+      // From [source]
+      interface [Name] {
+        [relevant fields]
+      }
+      \`\`\`
+
+      ## Integration Points
+      - Called by: [consumers]
+      - Calls: [dependencies]
+
+      ## Files to Create/Modify
+      | File | Action | Purpose |
+      |------|--------|---------|
+      | [path] | Create | [purpose] |
+      | [path] | Modify | [changes] |
+      ```
+
+      ## Commit
+      ```bash
+      git add context/{{step.id}}-context.md
+      git commit -m "context({{step.id}}): gather implementation context"
+      ```
+
+  # ============================================================================
+  # Phase 3: GREEN
+  # Implement MINIMAL code to pass tests
+  # ============================================================================
+  - id: green
+    prompt: |
+      Implement MINIMAL code to make tests pass.
+
+      ## Your Task
+      {{step.prompt}}
+
+      ## TDD Rule: GREEN Phase
+      Write the simplest code that makes tests pass. No more, no less.
+      "Make it work" - not beautiful, just working.
+
+      ## MUST READ BEFORE IMPLEMENTING
+      Read in order:
+      1. context/_shared-context.md (project patterns)
+      2. artifacts/{{step.id}}-gherkin.md (scenarios to satisfy)
+      3. context/{{step.id}}-context.md (specific patterns, imports)
+
+      ## Implementation Rules
+
+      ### Follow the Tests
+      Your implementation MUST satisfy:
+      - ALL gherkin scenario verifications
+      - ALL unit tests written in RED phase
+
+      ### Minimal Implementation
+      - Write the simplest code that passes tests
+      - Don't add features not covered by tests
+      - Don't optimize prematurely
+      - Don't add "nice to have" abstractions
+
+      ### Follow the Context
+      - Use patterns from context file
+      - Import from specified modules
+      - Follow naming conventions
+
+      ### Run Tests Frequently
+      ```bash
+      # Run tests as you implement
+      npm test -- --testPathPattern="[pattern]" --watch
+      ```
+
+      ## Commits
+      Make atomic commits for logical units:
+      ```bash
+      git add [files]
+      git commit -m "feat({{step.id}}): [what now works] [GREEN]"
+      ```
+
+      ## Success Criteria
+      Before marking complete:
+      - [ ] All unit tests pass
+      - [ ] All gherkin verifications should pass
+      - [ ] No TypeScript errors
+      - [ ] Code follows context patterns
+
+      ## Run Final Test
+      ```bash
+      npm test -- --testPathPattern="[pattern]"
+      # Expected: PASS (all tests green)
+      ```
+
+      ## Important
+      - Tests MUST pass before moving to REFACTOR
+      - Don't refactor yet - that's the next phase
+      - "Quick and dirty" is OK - we'll clean up next
+
+  # ============================================================================
+  # Phase 4: REFACTOR
+  # Clean up code while keeping tests green
+  # ============================================================================
+  - id: refactor
+    prompt: |
+      Refactor implementation while keeping tests green.
+
+      ## Your Task
+      {{step.prompt}}
+
+      ## TDD Rule: REFACTOR Phase
+      "Make it right" - improve code quality without changing behavior.
+      Tests MUST stay green throughout refactoring.
+
+      ## Context
+      Read: context/{{step.id}}-context.md (target patterns)
+      Read: artifacts/{{step.id}}-gherkin.md (scenarios that must stay passing)
+
+      ## Refactoring Checklist
+
+      ### Code Quality
+      - [ ] Remove any duplication
+      - [ ] Improve naming (variables, functions, files)
+      - [ ] Extract helper functions if beneficial
+      - [ ] Simplify complex conditionals
+      - [ ] Add necessary type annotations
+
+      ### Pattern Conformance
+      - [ ] Follows project conventions from context
+      - [ ] Error handling matches patterns
+      - [ ] File organization matches patterns
+
+      ### Clean Code
+      - [ ] Remove dead code
+      - [ ] Remove console.log/debug statements
+      - [ ] Fix any linting issues
+      - [ ] Add JSDoc for public APIs only
+
+      ## Refactoring Rules
+
+      ### Run Tests After Each Change
+      ```bash
+      npm test -- --testPathPattern="[pattern]"
+      ```
+      If tests fail, REVERT the change immediately.
+
+      ### Small Steps
+      - One refactoring at a time
+      - Commit after each successful refactoring
+      - Don't refactor multiple things at once
+
+      ### Don't Change Behavior
+      - No new features
+      - No API changes (unless fixing test file imports)
+      - Same inputs → same outputs
+
+      ## Commits
+      ```bash
+      git add [files]
+      git commit -m "refactor({{step.id}}): [improvement made]"
+      ```
+
+      ## Lint and Type Check
+      ```bash
+      npm run lint -- [files]
+      npm run typecheck
+      ```
+
+      Fix any issues found.
+
+      ## Final Verification
+      ```bash
+      npm test -- --testPathPattern="[pattern]"
+      npm run lint
+      npm run typecheck
+      ```
+
+      All must pass before completing this phase.
+
+  # ============================================================================
+  # Phase 5: QA
+  # Binary verify all gherkin scenarios
+  # ============================================================================
+  - id: qa
+    prompt: |
+      Verify implementation against gherkin scenarios.
+
+      ## Context
+      Read: artifacts/{{step.id}}-gherkin.md (scenarios with verification commands)
+
+      ## Step 1: Run Unit Tests
+      ```bash
+      npm test -- --testPathPattern="[pattern]"
+      ```
+
+      Record results: total tests, passed, failed.
+
+      ## Step 2: Run Each Gherkin Verification
+
+      For EACH scenario in the gherkin file:
+      1. Run the verification command
+      2. Record result: 1 (pass) or 0 (fail)
+      3. If fail, capture error output
+
+      ## Step 3: Calculate Score
+
+      Score = (passed scenarios) / (total scenarios)
+      - Score = 1.0 (all pass) → PASS
+      - Score < 1.0 (any fail) → FAIL
+
+      ## Step 4: Generate QA Report
+
+      Create: artifacts/{{step.id}}-qa-report.md
+
+      ```markdown
+      # QA Report: {{step.id}}
+
+      ## Summary
+      - Gherkin Scenarios: [N] total, [N] passed, [N] failed
+      - Gherkin Score: [X]/[N] = [percentage]%
+      - Unit Tests: [N] total, [N] passed, [N] failed
+
+      ## Unit Test Results
+      \`\`\`
+      [test output]
+      \`\`\`
+
+      ## Gherkin Verification Results
+
+      | # | Scenario | Result | Details |
+      |---|----------|--------|---------|
+      | 1 | [Name] | PASS/FAIL | [output] |
+      | 2 | [Name] | PASS/FAIL | [output] |
+      ...
+
+      ## Detailed Results
+
+      ### Scenario 1: [Name]
+      **Verification**: `[command]`
+      **Exit Code**: [0 or N]
+      **Output**:
+      \`\`\`
+      [actual output]
+      \`\`\`
+      **Result**: PASS / FAIL
+
+      [Continue for all scenarios]
+
+      ## TDD Cycle Summary
+      | Phase | Status |
+      |-------|--------|
+      | RED (tests) | ✓ Completed |
+      | GREEN (implement) | ✓ Completed |
+      | REFACTOR | ✓ Completed |
+      | QA (verify) | PASS/FAIL |
+
+      ## Issues Found
+      [If any failures, describe each issue]
+
+      ## Status: PASS / FAIL
+      ```
+
+      ## Step 5: Handle Outcome
+
+      ### If ALL pass (Score = 100%):
+      ```bash
+      git add artifacts/{{step.id}}-qa-report.md
+      git commit -m "qa({{step.id}}): all scenarios passed"
+      ```
+
+      ### If ANY fail (Score < 100%):
+      Inject fix phases:
+
+      ```bash
+      PROGRESS_FILE=$(find .claude/sprints -name "PROGRESS.yaml" -type f 2>/dev/null | head -1)
+
+      yq -i '
+        (.phases[] | select(.steps) | .steps[] | select(.status == "in-progress") | .phases) +=
+        [
+          {
+            "id": "fix",
+            "status": "pending",
+            "prompt": "Fix failing scenarios for {{step.id}}.\n\nRead: artifacts/{{step.id}}-qa-report.md\n\n1. Review each FAIL scenario\n2. Fix implementation to pass\n3. Run verification to confirm\n4. Run unit tests to ensure no regression\n5. Commit fixes"
+          },
+          {
+            "id": "reverify",
+            "status": "pending",
+            "prompt": "Re-verify all scenarios after fixes.\n\nRun ALL verifications from artifacts/{{step.id}}-gherkin.md\nRun ALL unit tests.\n\nIf ALL pass: Update QA report with PASS status.\nIf ANY fail: Inject another fix phase."
+          }
+        ]
+      ' "$PROGRESS_FILE"
+
+      yq -i '
+        (.. | select(.id == "qa" and .status == "in-progress")) |=
+        (.status = "failed" | .error = "QA failed - fix phase injected")
+      ' "$PROGRESS_FILE"
+      ```
+
+  # ============================================================================
+  # Phase 6: VERIFY
+  # End-to-end integration verification
+  # ============================================================================
+  - id: verify
+    prompt: |
+      Final integration verification for the step.
+
+      ## Your Task
+      {{step.prompt}}
+
+      ## Context
+      Read: context/_shared-context.md (build commands)
+      Read: artifacts/{{step.id}}-qa-report.md (should show PASS)
+
+      ## Step 1: Full Test Suite
+      Run all tests (not just this step's tests):
+      ```bash
+      npm test
+      ```
+
+      Verify no regressions in other tests.
+
+      ## Step 2: Build Verification
+      ```bash
+      npm run build
+      npm run typecheck
+      npm run lint
+      ```
+
+      ## Step 3: Integration Check
+      - Check imports resolve correctly
+      - Verify no circular dependencies
+      - Ensure types are compatible
+
+      ## Step 4: Final Commit
+      ```bash
+      git add -A
+      git status
+      git diff --cached --quiet || git commit -m "verify({{step.id}}): integration verified"
+      ```
+
+      ## Step Complete
+      The TDD cycle for this step is complete:
+      - ✓ RED: Tests written first
+      - ✓ GREEN: Minimal implementation
+      - ✓ REFACTOR: Code cleaned up
+      - ✓ QA: All scenarios pass
+      - ✓ VERIFY: Integration confirmed

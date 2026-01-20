@@ -192,6 +192,7 @@ Review and apply the extracted signs:
 
 ## Related Guides
 
+- [Handle Large Transcripts](./handle-large-transcripts.md) - Preprocessing for transcripts >100 lines
 - [Add Signs Manually](./add-sign-manually.md) - Manual sign creation
 - [Review and Apply](./review-and-apply.md) - Review workflow
 - [Getting Started](../getting-started.md) - Overview

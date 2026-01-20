@@ -157,27 +157,55 @@ Displays:
 
 ## /m42-signs:extract
 
-Extract learnings from a Claude session transcript by analyzing error patterns and retry sequences.
+Extract learnings from a Claude session transcript by analyzing patterns, reasoning, and error sequences. Supports automatic preprocessing for large transcripts.
 
-### Syntax
+### Synopsis
 
-```bash
+```
 /m42-signs:extract <session-id|path> [options]
 ```
+
+### Description
+
+Analyzes a Claude Code session transcript to extract **signs** - contextual learnings that help future agents work more effectively. The command goes beyond error detection to capture:
+- Architectural insights discovered during implementation
+- Project conventions not obvious from code alone
+- Pitfalls and gotchas that could trip up future agents
+- Effective strategies that worked well
 
 ### Arguments
 
 | Argument | Required | Description |
 |----------|----------|-------------|
-| `session-id` | Yes | Session ID or full path to transcript JSONL file |
+| `<session-id\|path>` | Yes | Session ID or full path to transcript JSONL file |
 
 ### Options
 
-| Option | Required | Default | Description |
-|--------|----------|---------|-------------|
-| `--dry-run` | No | false | Preview extracted learnings without writing to backlog |
-| `--confidence-min` | No | `low` | Minimum confidence level to include: `low`, `medium`, or `high` |
-| `--auto-approve` | No | false | Automatically approve high-confidence learnings |
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `--dry-run` | boolean | false | Preview extracted learnings without writing to backlog |
+| `--confidence-min` | enum | `low` | Minimum confidence level to include: `low`, `medium`, or `high` |
+| `--auto-approve` | boolean | false | Automatically approve high-confidence learnings |
+| `--focus` | string | none | Focus extraction on specific area (e.g., "api", "testing", "build") |
+| `--preprocess-only` | boolean | false | Generate preprocessing artifacts without LLM analysis |
+| `--parallel` | boolean | false | Enable parallel chunk processing for large transcripts |
+
+### Large Transcript Handling
+
+Preprocessing activates automatically when **either** condition is met:
+
+| Metric | Threshold | Effect |
+|--------|-----------|--------|
+| Line count | >100 lines | Preprocessing mode activates |
+| File size | >500KB | Preprocessing mode activates |
+
+When activated, the command:
+1. Generates a summary of the transcript (`transcript-summary.sh`)
+2. Identifies high-value learning patterns (`find-learning-lines.sh`)
+3. Extracts reasoning blocks to a smaller file (`extract-reasoning.sh`)
+4. Analyzes the condensed content
+
+If the extracted reasoning contains 100+ blocks, it is split into 50-block chunks for analysis. Use `--parallel` to process chunks concurrently via subagents.
 
 ### Examples
 
@@ -206,12 +234,46 @@ Extract learnings from a Claude session transcript by analyzing error patterns a
 /m42-signs:extract abc123def --auto-approve
 ```
 
+```bash
+# Focus extraction on API-related learnings
+/m42-signs:extract abc123def --focus api
+```
+
+```bash
+# Preprocess only - generate artifacts without LLM analysis
+/m42-signs:extract large-session.jsonl --preprocess-only
+```
+
+```bash
+# Parallel processing for very large transcripts (100+ reasoning blocks)
+/m42-signs:extract huge-session.jsonl --parallel
+```
+
+```bash
+# Combined: parallel processing with focus on testing patterns
+/m42-signs:extract huge-session.jsonl --parallel --focus testing
+```
+
 ### What Gets Extracted
 
-The command analyzes the transcript for:
-- **Tool errors** - Failed tool calls with error messages
-- **Retry patterns** - Error followed by successful retry (highest confidence)
-- **Repeated failures** - Same error occurring multiple times
+The command analyzes the transcript for multiple learning types:
+
+| Category | Examples |
+|----------|----------|
+| **Architectural patterns** | Component relationships, design decisions, data flow |
+| **Project conventions** | Naming patterns, file organization, code style |
+| **Pitfalls & gotchas** | Things that look right but fail, edge cases |
+| **Effective strategies** | Debugging techniques, testing approaches |
+| **Tool errors** | Failed tool calls with error messages |
+| **Retry patterns** | Error followed by successful retry (highest confidence) |
+
+### Confidence Levels
+
+| Level | Criteria | Typical Pattern |
+|-------|----------|-----------------|
+| `high` | Clear pattern, explicitly verified, highly reusable | Error → retry → success sequence |
+| `medium` | Good insight, reasonable evidence, somewhat reusable | Error with identifiable cause |
+| `low` | Possible pattern, limited evidence, context-specific | Single occurrence, unclear resolution |
 
 ### Common Errors
 
@@ -219,7 +281,14 @@ The command analyzes the transcript for:
 |-------|-------|----------|
 | "Session not found" | Invalid session ID | Check `~/.claude/projects/` for valid session files |
 | "Invalid transcript format" | File is not valid JSONL | Ensure file is a Claude session transcript |
-| "No learnings extracted" | No errors found in session | This session completed without errors |
+| "No learnings extracted" | No learning-worthy content found | Transcript may be procedural without insights |
+| "jq: command not found" | Missing jq dependency for preprocessing | Install jq (`brew install jq` or `apt install jq`) |
+
+### See Also
+
+- [Scripts Reference](./scripts.md) - Preprocessing helper scripts
+- [Handle Large Transcripts](../how-to/handle-large-transcripts.md) - Detailed preprocessing guide
+- [Extract from Session](../how-to/extract-from-session.md) - Step-by-step extraction workflow
 
 ---
 
