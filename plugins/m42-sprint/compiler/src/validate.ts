@@ -11,9 +11,36 @@ import type {
   SprintStep,
   CompiledProgress,
   CompilerError,
-  PerIterationHook
+  PerIterationHook,
+  ClaudeModel
 } from './types.js';
 import { findUnresolvedVars } from './expand-foreach.js';
+
+/** Valid model values */
+const VALID_MODELS: ClaudeModel[] = ['sonnet', 'opus', 'haiku'];
+
+/**
+ * Validate that a model value is valid
+ *
+ * @param model - The model value to validate
+ * @param path - Path for error messages
+ * @returns Array of validation errors (empty if valid)
+ */
+export function validateModel(model: unknown, path: string): CompilerError[] {
+  const errors: CompilerError[] = [];
+
+  if (model !== undefined && model !== null) {
+    if (typeof model !== 'string' || !VALID_MODELS.includes(model as ClaudeModel)) {
+      errors.push({
+        code: 'INVALID_MODEL',
+        message: `Invalid model value '${model}': must be one of ${VALID_MODELS.join(', ')}`,
+        path
+      });
+    }
+  }
+
+  return errors;
+}
 
 /**
  * Validate a sprint definition (SPRINT.yaml) - basic validation
@@ -49,6 +76,11 @@ export function validateSprintDefinition(sprint: unknown): CompilerError[] {
 
   // Note: steps validation is deferred to validateStandardModeSprint()
   // because Ralph mode sprints don't require steps
+
+  // Validate model field if present
+  if (s.model !== undefined) {
+    errors.push(...validateModel(s.model, 'model'));
+  }
 
   // Validate steps if present (even for Ralph mode, steps would be invalid)
   if (s.steps !== undefined && Array.isArray(s.steps)) {
@@ -134,6 +166,11 @@ export function validateSprintStep(step: unknown, index: number): CompilerError[
     });
   }
 
+  // Validate optional model override
+  if (s.model !== undefined) {
+    errors.push(...validateModel(s.model, `steps[${index}].model`));
+  }
+
   return errors;
 }
 
@@ -179,6 +216,11 @@ export function validateWorkflowDefinition(
       message: `Workflow ${name} has invalid mode: must be 'standard' or 'ralph'`,
       path: `${name}.mode`
     });
+  }
+
+  // Validate model field if present
+  if (w.model !== undefined) {
+    errors.push(...validateModel(w.model, `${name}.model`));
   }
 
   // Ralph mode workflows don't require phases
@@ -447,6 +489,11 @@ export function validateWorkflowPhase(
       message: `parallel: true on for-each phase is not supported; use parallel in step workflow phases instead`,
       path: `${workflowName}.phases[${index}]`
     });
+  }
+
+  // Validate model field if present
+  if (p.model !== undefined) {
+    errors.push(...validateModel(p.model, `${workflowName}.phases[${index}].model`));
   }
 
   return errors;
