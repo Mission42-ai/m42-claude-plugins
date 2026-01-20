@@ -31,21 +31,38 @@ function isActivityEvent(obj) {
         return false;
     }
     const event = obj;
-    // Required fields
+    // Required base fields
     if (typeof event.ts !== 'string')
-        return false;
-    if (event.type !== 'tool')
-        return false;
-    if (typeof event.tool !== 'string')
         return false;
     if (!isVerbosityLevel(event.level))
         return false;
-    // Optional fields must be correct type if present
-    if (event.file !== undefined && typeof event.file !== 'string')
-        return false;
-    if (event.params !== undefined && typeof event.params !== 'string')
-        return false;
-    return true;
+    // Validate by type
+    if (event.type === 'tool') {
+        // Tool event validation
+        if (typeof event.tool !== 'string')
+            return false;
+        // Optional fields must be correct type if present
+        if (event.file !== undefined && typeof event.file !== 'string')
+            return false;
+        if (event.params !== undefined && typeof event.params !== 'string')
+            return false;
+        return true;
+    }
+    if (event.type === 'assistant') {
+        // Assistant event validation
+        // tool field is optional for assistant (for compatibility, can be empty string)
+        if (event.tool !== undefined && typeof event.tool !== 'string')
+            return false;
+        // text is optional for assistant events (can be empty string)
+        if (event.text !== undefined && typeof event.text !== 'string')
+            return false;
+        // isThinking is optional boolean
+        if (event.isThinking !== undefined && typeof event.isThinking !== 'boolean')
+            return false;
+        return true;
+    }
+    // Unknown type
+    return false;
 }
 /**
  * Type guard for VerbosityLevel

@@ -104,17 +104,17 @@ async function sleep(ms) {
 // Test Fixtures
 // ============================================================================
 /**
- * Create a valid activity event JSON string
+ * Create a valid tool activity event JSON string
  */
 function createActivityEventJson(overrides = {}) {
-    const event = {
+    const baseEvent = {
         ts: new Date().toISOString(),
         type: 'tool',
         tool: 'Read',
         level: 'basic',
         ...overrides,
     };
-    return JSON.stringify(event);
+    return JSON.stringify(baseEvent);
 }
 /**
  * Create a minimal PROGRESS.yaml for StatusServer
@@ -332,7 +332,7 @@ test('ActivityWatcher emits activity events for new JSONL entries', async () => 
             `This indicates BUG-003: activity events are not being detected.`);
         const receivedEvent = receivedEvents[0];
         assert(receivedEvent.tool === 'Read', `Expected tool 'Read', got '${receivedEvent.tool}'`);
-        assert(receivedEvent.file === '/test/file.ts', `Expected file '/test/file.ts', got '${receivedEvent.file}'`);
+        assert(receivedEvent.type === 'tool' && receivedEvent.file === '/test/file.ts', `Expected file '/test/file.ts', got '${receivedEvent.type === 'tool' ? receivedEvent.file : 'N/A'}'`);
         watcher.close();
     }
     finally {

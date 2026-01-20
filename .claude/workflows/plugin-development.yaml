@@ -1014,7 +1014,78 @@ phases:
       ```
 
   # ============================================================================
-  # Phase 10: PR-CREATE
+  # Phase 10: VERSION-BUMP
+  # Increment plugin version in plugin.json and marketplace.json
+  # ============================================================================
+  - id: version-bump
+    prompt: |
+      Increment the plugin version number.
+
+      ## Step 0: Ensure Working in Worktree
+      ```bash
+      cd trees/{{sprint.id}} 2>/dev/null || true
+      pwd
+      ```
+
+      ## Step 1: Identify the Plugin
+      Determine which plugin this sprint modifies by checking:
+      1. The sprint name/id for plugin hints
+      2. Files changed in this sprint
+      3. The SPRINT.yaml description
+
+      ```bash
+      # List changed files to identify plugin
+      git diff main..HEAD --name-only | grep "^plugins/" | cut -d'/' -f2 | sort -u
+      ```
+
+      ## Step 2: Read Current Versions
+      For the identified plugin (e.g., `m42-sprint`):
+
+      ```bash
+      # Plugin's own version
+      cat plugins/<plugin-name>/.claude-plugin/plugin.json | grep version
+
+      # Marketplace entry version
+      cat .claude-plugin/marketplace.json | grep -A5 '"<plugin-name>"'
+      ```
+
+      ## Step 3: Determine Version Bump Type
+      Based on changes in this sprint:
+      - **MAJOR** (X.0.0): Breaking changes, incompatible API changes
+      - **MINOR** (0.X.0): New features, backward-compatible additions
+      - **PATCH** (0.0.X): Bug fixes, small improvements
+
+      Default to MINOR for feature sprints, PATCH for bugfix sprints.
+
+      ## Step 4: Update Plugin Version
+      Update `plugins/<plugin-name>/.claude-plugin/plugin.json`:
+
+      ```bash
+      # Example: bump from 2.0.0 to 2.1.0
+      # Use jq or manual edit to update version field
+      ```
+
+      ## Step 5: Update Marketplace Version
+      Update `.claude-plugin/marketplace.json` to match:
+
+      Find the plugin entry and update its version to match plugin.json.
+
+      **IMPORTANT**: Both versions MUST be identical.
+
+      ## Step 6: Commit Version Bump
+      ```bash
+      git add plugins/<plugin-name>/.claude-plugin/plugin.json
+      git add .claude-plugin/marketplace.json
+      git commit -m "chore: bump <plugin-name> version to X.Y.Z"
+      ```
+
+      ## Output
+      - Plugin version updated in `plugins/<plugin-name>/.claude-plugin/plugin.json`
+      - Marketplace version updated in `.claude-plugin/marketplace.json`
+      - Both versions are in sync
+
+  # ============================================================================
+  # Phase 11: PR-CREATE
   # Push branch and create pull request
   # ============================================================================
   - id: pr-create

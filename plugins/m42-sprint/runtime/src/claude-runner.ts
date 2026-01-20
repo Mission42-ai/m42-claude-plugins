@@ -32,6 +32,8 @@ export interface ClaudeRunOptions {
   cwd?: string;
   /** Timeout in milliseconds */
   timeout?: number;
+  /** JSON Schema to enforce structured output (uses --json-schema CLI flag) */
+  jsonSchema?: Record<string, unknown>;
 }
 
 /**
@@ -54,6 +56,53 @@ export interface ClaudeResult {
  * Error categories for classification and retry decisions
  */
 export type ErrorCategory = 'network' | 'rate-limit' | 'timeout' | 'validation' | 'logic';
+
+// ============================================================================
+// JSON Schema for Sprint Results
+// ============================================================================
+
+/**
+ * JSON Schema that enforces structured output from Claude CLI for sprint tasks.
+ * This schema validates the result reporting format:
+ * - completed: {"status": "completed", "summary": "..."}
+ * - failed: {"status": "failed", "summary": "...", "error": "..."}
+ * - needs-human: {"status": "needs-human", "summary": "...", "humanNeeded": {...}}
+ */
+export const SPRINT_RESULT_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  required: ['status', 'summary'],
+  properties: {
+    status: {
+      type: 'string',
+      enum: ['completed', 'failed', 'needs-human'],
+      description: 'The outcome status of the sprint task',
+    },
+    summary: {
+      type: 'string',
+      description: 'Brief description of what was accomplished or attempted',
+    },
+    error: {
+      type: 'string',
+      description: 'Error message when status is "failed"',
+    },
+    humanNeeded: {
+      type: 'object',
+      properties: {
+        reason: {
+          type: 'string',
+          description: 'Why human intervention is required',
+        },
+        details: {
+          type: 'string',
+          description: 'Additional context for the human',
+        },
+      },
+      required: ['reason'],
+      description: 'Details when status is "needs-human"',
+    },
+  },
+  additionalProperties: false,
+};
 
 // ============================================================================
 // Helper Functions
@@ -165,6 +214,12 @@ export function buildArgs(options: ClaudeRunOptions): string[] {
   // Continue session
   if (options.continueSession !== undefined) {
     args.push('--continue', options.continueSession);
+  }
+
+  // JSON Schema for structured output validation
+  // This enforces Claude to return validated JSON matching the schema
+  if (options.jsonSchema !== undefined) {
+    args.push('--json-schema', JSON.stringify(options.jsonSchema));
   }
 
   return args;

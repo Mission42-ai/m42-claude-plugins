@@ -23,14 +23,6 @@ export interface TranscriptionWatcherOptions {
     /** Maximum events to keep in memory (default: 200) */
     maxEvents?: number;
 }
-/**
- * Watches transcription files for tool use activity
- *
- * Parses NDJSON stream format from Claude CLI:
- * - Looks for content_block_start events with tool_use
- * - Extracts tool name and parameters
- * - Emits ActivityEvent for each tool use
- */
 export declare class TranscriptionWatcher extends EventEmitter {
     private readonly transcriptionsDir;
     private readonly debounceDelay;
@@ -41,6 +33,8 @@ export declare class TranscriptionWatcher extends EventEmitter {
     private filePositions;
     private seenToolUseIds;
     private recentActivity;
+    private textBlocks;
+    private textDebounceTimer;
     constructor(transcriptionsDir: string, options?: TranscriptionWatcherOptions);
     /**
      * Start watching the transcriptions directory
@@ -59,9 +53,21 @@ export declare class TranscriptionWatcher extends EventEmitter {
      */
     private processFile;
     /**
-     * Parse a single NDJSON line and emit activity if it's a tool use
+     * Parse a single NDJSON line and emit activity if it's a tool use or text content
      */
     private parseLine;
+    /**
+     * Add an event to recent activity, maintaining max size limit
+     */
+    private addToRecentActivity;
+    /**
+     * Schedule text emission with debouncing
+     */
+    private scheduleTextEmission;
+    /**
+     * Emit accumulated text as assistant activity events
+     */
+    private emitAccumulatedText;
     /**
      * Stop watching and clean up resources
      */

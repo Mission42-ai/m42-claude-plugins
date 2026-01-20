@@ -180,10 +180,10 @@ phases:
       - Each gherkin scenario should have corresponding unit test(s)
 
   # ============================================================================
-  # Phase 2: CONTEXT
+  # Phase 2: GREEN-CONTEXT
   # Gather implementation context (patterns, types, dependencies)
   # ============================================================================
-  - id: context
+  - id: green-context
     prompt: |
       Gather step-specific context for implementation.
 

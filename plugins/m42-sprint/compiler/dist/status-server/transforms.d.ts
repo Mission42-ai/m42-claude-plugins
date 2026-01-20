@@ -85,6 +85,11 @@ export declare function generateDiffLogEntries(oldProgress: CompiledProgress | n
  */
 export declare function transformHookTasks(hookTasks?: HookTask[]): HookTaskStatus[];
 /**
+ * Check if a sprint is stale based on last-activity timestamp.
+ * A sprint is stale if it's in-progress but the last-activity was > 15 minutes ago.
+ */
+export declare function isSprintStale(progress: CompiledProgress): boolean;
+/**
  * Convert CompiledProgress to StatusUpdate format
  * This is the main entry point for transforming progress data for the UI
  * Handles both standard mode (phases) and Ralph mode (goal-driven with dynamic-steps)
