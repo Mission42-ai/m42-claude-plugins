@@ -28,7 +28,7 @@ import type {
   ClaudeModel
 } from './types.js';
 import { loadWorkflow, resolveWorkflowRefs, clearWorkflowCache, MAX_WORKFLOW_DEPTH } from './resolve-workflows.js';
-import { expandForEach, compileSimplePhase, substituteTemplateVars, ModelContext } from './expand-foreach.js';
+import { expandForEach, compileSimplePhase, substituteTemplateVars, ModelContext, resolveModelFromContext } from './expand-foreach.js';
 import {
   validateSprintDefinition,
   validateStandardModeSprint,
@@ -429,8 +429,11 @@ function expandWorkflowReference(
 
       const prompt = substituteTemplateVars(refPhase.prompt, phaseContext);
 
-      // Resolve model for this phase
-      const resolvedModel = refPhase.model ?? modelContext.phaseModel ?? modelContext.sprintModel ?? modelContext.workflowModel;
+      // Resolve model for this phase using consistent priority: step > phase > sprint > workflow
+      const resolvedModel = resolveModelFromContext({
+        ...modelContext,
+        phaseModel: refPhase.model
+      });
 
       expandedPhases.push({
         id: prefixedId,
