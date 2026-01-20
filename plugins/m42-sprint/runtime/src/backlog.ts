@@ -1,15 +1,16 @@
 /**
  * Backlog Module - BACKLOG.yaml Management
  *
- * RED PHASE STUB: This file contains type definitions and function stubs.
- * The implementation will be added in the GREEN phase.
- *
  * This module handles:
  * - Reading BACKLOG.yaml from sprint directory
  * - Writing BACKLOG.yaml with new items
  * - Adding individual backlog items
  * - Updating existing backlog items
  */
+
+import * as fs from 'fs';
+import * as path from 'path';
+import * as yaml from 'js-yaml';
 
 // ============================================================================
 // Types - Backlog Item
@@ -60,7 +61,13 @@ export interface BacklogFile {
 }
 
 // ============================================================================
-// Function Stubs (RED Phase - Not Implemented)
+// Constants
+// ============================================================================
+
+const BACKLOG_FILENAME = 'BACKLOG.yaml';
+
+// ============================================================================
+// Functions
 // ============================================================================
 
 /**
@@ -68,10 +75,22 @@ export interface BacklogFile {
  *
  * @param sprintDir - Sprint directory path
  * @returns BacklogFile with items (empty array if file doesn't exist)
- * @throws Error - Not implemented (RED phase)
  */
-export function readBacklog(_sprintDir: string): BacklogFile {
-  throw new Error('Not implemented: readBacklog (RED phase)');
+export function readBacklog(sprintDir: string): BacklogFile {
+  const backlogPath = path.join(sprintDir, BACKLOG_FILENAME);
+
+  if (!fs.existsSync(backlogPath)) {
+    return { items: [] };
+  }
+
+  const content = fs.readFileSync(backlogPath, 'utf8');
+  const parsed = yaml.load(content) as BacklogFile | null;
+
+  if (!parsed || !Array.isArray(parsed.items)) {
+    return { items: [] };
+  }
+
+  return parsed;
 }
 
 /**
@@ -79,10 +98,11 @@ export function readBacklog(_sprintDir: string): BacklogFile {
  *
  * @param sprintDir - Sprint directory path
  * @param backlog - Backlog file to write
- * @throws Error - Not implemented (RED phase)
  */
-export function writeBacklog(_sprintDir: string, _backlog: BacklogFile): void {
-  throw new Error('Not implemented: writeBacklog (RED phase)');
+export function writeBacklog(sprintDir: string, backlog: BacklogFile): void {
+  const backlogPath = path.join(sprintDir, BACKLOG_FILENAME);
+  const content = yaml.dump(backlog, { lineWidth: -1, noRefs: true, quotingType: '"' });
+  fs.writeFileSync(backlogPath, content, 'utf8');
 }
 
 /**
@@ -90,10 +110,19 @@ export function writeBacklog(_sprintDir: string, _backlog: BacklogFile): void {
  *
  * @param sprintDir - Sprint directory path
  * @param item - Item to add
- * @throws Error - Not implemented (RED phase)
  */
-export function addBacklogItem(_sprintDir: string, _item: BacklogItem): void {
-  throw new Error('Not implemented: addBacklogItem (RED phase)');
+export function addBacklogItem(sprintDir: string, item: BacklogItem): void {
+  const backlog = readBacklog(sprintDir);
+
+  // Ensure defaults
+  const itemWithDefaults: BacklogItem = {
+    ...item,
+    'created-at': item['created-at'] || new Date().toISOString(),
+    status: item.status || 'pending-review',
+  };
+
+  backlog.items.push(itemWithDefaults);
+  writeBacklog(sprintDir, backlog);
 }
 
 /**
@@ -102,12 +131,25 @@ export function addBacklogItem(_sprintDir: string, _item: BacklogItem): void {
  * @param sprintDir - Sprint directory path
  * @param itemId - ID of item to update
  * @param updates - Partial updates to apply
- * @throws Error - Not implemented (RED phase)
+ * @throws Error if item not found
  */
 export function updateBacklogItem(
-  _sprintDir: string,
-  _itemId: string,
-  _updates: Partial<BacklogItem>
+  sprintDir: string,
+  itemId: string,
+  updates: Partial<BacklogItem>
 ): void {
-  throw new Error('Not implemented: updateBacklogItem (RED phase)');
+  const backlog = readBacklog(sprintDir);
+
+  const itemIndex = backlog.items.findIndex((item) => item.id === itemId);
+
+  if (itemIndex === -1) {
+    throw new Error(`Backlog item not found: ${itemId}`);
+  }
+
+  backlog.items[itemIndex] = {
+    ...backlog.items[itemIndex],
+    ...updates,
+  };
+
+  writeBacklog(sprintDir, backlog);
 }

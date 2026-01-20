@@ -39,6 +39,15 @@ import {
 import { runClaude as defaultRunClaude, SPRINT_RESULT_SCHEMA } from './claude-runner.js';
 import type { ClaudeResult, ClaudeRunOptions } from './claude-runner.js';
 
+// Import from operator module
+import {
+  processOperatorRequests,
+  executeOperatorDecision,
+  type OperatorRequest,
+  type QueuedRequest,
+  type OperatorConfig,
+} from './operator.js';
+
 // ============================================================================
 // Progress File Operations (wrapper to handle type differences)
 // ============================================================================
@@ -376,6 +385,109 @@ function readProgressWithoutChecksumValidation(filePath: string): CompiledProgre
   return yaml.load(content) as unknown as CompiledProgress;
 }
 
+// ============================================================================
+// Operator Request Handling
+// ============================================================================
+
+/**
+ * Progress with operator queue extension
+ */
+type ProgressWithOperatorQueue = CompiledProgress & {
+  'operator-queue'?: QueuedRequest[];
+};
+
+/**
+ * Queue operator requests from Claude result into PROGRESS.yaml
+ *
+ * @param progress - Progress object to update
+ * @param requests - Operator requests from Claude
+ * @param phaseId - Current phase ID where requests were discovered
+ */
+function queueOperatorRequests(
+  progress: ProgressWithOperatorQueue,
+  requests: OperatorRequest[],
+  phaseId: string
+): void {
+  if (!requests || requests.length === 0) {
+    return;
+  }
+
+  // Initialize operator-queue if not exists
+  if (!progress['operator-queue']) {
+    progress['operator-queue'] = [];
+  }
+
+  const createdAt = new Date().toISOString();
+
+  for (const request of requests) {
+    const queuedRequest: QueuedRequest = {
+      ...request,
+      status: 'pending',
+      'created-at': createdAt,
+      'discovered-in': phaseId,
+    };
+    progress['operator-queue'].push(queuedRequest);
+  }
+}
+
+/**
+ * Check if there are critical priority requests that need immediate processing
+ *
+ * @param requests - Operator requests to check
+ * @returns True if any request has critical priority
+ */
+function hasCriticalRequests(requests: OperatorRequest[]): boolean {
+  return requests.some((r) => r.priority === 'critical');
+}
+
+/**
+ * Trigger operator processing for pending requests
+ *
+ * @param progress - Progress object with operator queue
+ * @param sprintDir - Sprint directory path
+ * @param verbose - Enable verbose logging
+ */
+async function triggerOperator(
+  progress: ProgressWithOperatorQueue,
+  sprintDir: string,
+  verbose: boolean
+): Promise<void> {
+  const queue = progress['operator-queue'];
+  if (!queue || queue.length === 0) {
+    return;
+  }
+
+  // Get pending requests
+  const pendingRequests = queue.filter((r) => r.status === 'pending');
+  if (pendingRequests.length === 0) {
+    return;
+  }
+
+  if (verbose) {
+    console.log(`[loop] Triggering operator for ${pendingRequests.length} pending requests`);
+  }
+
+  // Default operator config
+  const operatorConfig: OperatorConfig = {
+    enabled: true,
+  };
+
+  // Process requests
+  const response = await processOperatorRequests(pendingRequests, operatorConfig, sprintDir);
+
+  // Execute each decision
+  for (const decision of response.decisions) {
+    const request = queue.find((r) => r.id === decision.requestId);
+    if (request) {
+      await executeOperatorDecision(decision, request, sprintDir);
+    }
+  }
+
+  if (verbose) {
+    console.log(`[loop] Operator processed ${response.decisions.length} requests: ${response.operatorLog}`);
+  }
+}
+
 /**
  * Recover from interrupted transaction on startup.
  * Checks for backup file and restores if main file is corrupted.
@@ -615,7 +727,29 @@ export async function runLoop(
         status?: string;
         summary?: string;
         humanNeeded?: { reason?: string; details?: string };
+        operatorRequests?: OperatorRequest[];
       } | undefined;
+
+      // STEP-5: Queue operator requests if present in result
+      if (jsonResult?.operatorRequests && jsonResult.operatorRequests.length > 0) {
+        queueOperatorRequests(
+          progress as ProgressWithOperatorQueue,
+          jsonResult.operatorRequests,
+          phaseId
+        );
+
+        if (verbose) {
+          console.log(`[loop] Queued ${jsonResult.operatorRequests.length} operator requests from phase ${phaseId}`);
+        }
+
+        // Trigger operator immediately for critical priority requests
+        if (hasCriticalRequests(jsonResult.operatorRequests)) {
+          if (verbose) {
+            console.log('[loop] Critical priority request detected, triggering operator immediately');
+          }
+          await triggerOperator(progress as ProgressWithOperatorQueue, sprintDir, verbose);
+        }
+      }
 
       if (jsonResult?.status === 'needs-human') {
         event = {
