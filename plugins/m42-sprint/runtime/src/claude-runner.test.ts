@@ -733,6 +733,185 @@ test('Integration: error flow with retry category', async () => {
 });
 
 // ============================================================================
+// Test: operatorRequests Parsing (Step 5 - Operator Request System)
+// ============================================================================
+
+console.log('\n=== operatorRequests Parsing Tests ===\n');
+
+test('extractJson: extracts operatorRequests from JSON result', () => {
+  // Scenario 1: Claude returns JSON with operatorRequests array
+  const output = `Task completed, but I found some issues.
+
+\`\`\`json
+{
+  "status": "completed",
+  "summary": "Phase completed with discovered issues",
+  "operatorRequests": [
+    {
+      "id": "req_abc123",
+      "title": "Fix memory leak in parser",
+      "description": "Found a memory leak when parsing large files. The buffer is not being released.",
+      "priority": "high",
+      "type": "bug",
+      "context": {
+        "discoveredIn": "development-step-2",
+        "relatedFiles": ["src/parser.ts", "src/buffer.ts"],
+        "codeSnippet": "const buffer = allocate(size); // never freed",
+        "suggestedWorkflow": "bugfix-workflow"
+      }
+    }
+  ]
+}
+\`\`\``;
+
+  const result = extractJson(output) as {
+    status: string;
+    summary: string;
+    operatorRequests?: Array<{
+      id: string;
+      title: string;
+      description: string;
+      priority: string;
+      type: string;
+      context?: {
+        discoveredIn: string;
+        relatedFiles?: string[];
+        codeSnippet?: string;
+        suggestedWorkflow?: string;
+      };
+    }>;
+  };
+
+  assertEqual(result.status, 'completed');
+  assert(Array.isArray(result.operatorRequests), 'operatorRequests should be an array');
+  assertEqual(result.operatorRequests?.length, 1);
+
+  const request = result.operatorRequests?.[0];
+  assertEqual(request?.id, 'req_abc123');
+  assertEqual(request?.title, 'Fix memory leak in parser');
+  assertEqual(request?.priority, 'high');
+  assertEqual(request?.type, 'bug');
+  assertEqual(request?.context?.discoveredIn, 'development-step-2');
+});
+
+test('extractJson: handles multiple operatorRequests', () => {
+  const output = `\`\`\`json
+{
+  "status": "completed",
+  "summary": "Found multiple issues",
+  "operatorRequests": [
+    {
+      "id": "req_001",
+      "title": "Add input validation",
+      "description": "User input is not validated",
+      "priority": "critical",
+      "type": "security"
+    },
+    {
+      "id": "req_002",
+      "title": "Refactor database queries",
+      "description": "N+1 query problem detected",
+      "priority": "medium",
+      "type": "improvement"
+    },
+    {
+      "id": "req_003",
+      "title": "Add missing tests",
+      "description": "Edge cases not covered",
+      "priority": "low",
+      "type": "test"
+    }
+  ]
+}
+\`\`\``;
+
+  const result = extractJson(output) as {
+    operatorRequests?: Array<{ id: string; priority: string }>;
+  };
+
+  assertEqual(result.operatorRequests?.length, 3);
+  assertEqual(result.operatorRequests?.[0].priority, 'critical');
+  assertEqual(result.operatorRequests?.[1].priority, 'medium');
+  assertEqual(result.operatorRequests?.[2].priority, 'low');
+});
+
+test('extractJson: handles empty operatorRequests array', () => {
+  const output = `\`\`\`json
+{
+  "status": "completed",
+  "summary": "No issues found",
+  "operatorRequests": []
+}
+\`\`\``;
+
+  const result = extractJson(output) as {
+    operatorRequests?: unknown[];
+  };
+
+  assert(Array.isArray(result.operatorRequests), 'operatorRequests should be an array');
+  assertEqual(result.operatorRequests?.length, 0);
+});
+
+test('extractJson: handles result without operatorRequests', () => {
+  const output = `\`\`\`json
+{
+  "status": "completed",
+  "summary": "Simple completion"
+}
+\`\`\``;
+
+  const result = extractJson(output) as {
+    status: string;
+    operatorRequests?: unknown[];
+  };
+
+  assertEqual(result.status, 'completed');
+  assertEqual(result.operatorRequests, undefined);
+});
+
+test('operatorRequest: validates required fields structure', () => {
+  // This test documents the expected structure of OperatorRequest
+  // The implementation should validate these fields
+  const validRequest = {
+    id: 'req_abc123',
+    title: 'Short description',
+    description: 'Full description of what needs to be done',
+    priority: 'high' as const,
+    type: 'bug' as const,
+  };
+
+  // All required fields should be present
+  assert(typeof validRequest.id === 'string', 'id should be string');
+  assert(typeof validRequest.title === 'string', 'title should be string');
+  assert(typeof validRequest.description === 'string', 'description should be string');
+  assert(['critical', 'high', 'medium', 'low'].includes(validRequest.priority), 'priority should be valid');
+  assert(['bug', 'improvement', 'refactor', 'test', 'docs', 'security'].includes(validRequest.type), 'type should be valid');
+});
+
+test('operatorRequest: validates optional context field structure', () => {
+  // This test documents the expected structure of OperatorRequest.context
+  const requestWithContext = {
+    id: 'req_def456',
+    title: 'Add validation',
+    description: 'Input validation missing',
+    priority: 'medium' as const,
+    type: 'security' as const,
+    context: {
+      discoveredIn: 'qa-phase-1',
+      relatedFiles: ['src/input.ts', 'src/validator.ts'],
+      codeSnippet: 'const userInput = req.body; // unvalidated',
+      suggestedWorkflow: 'security-fix-workflow',
+    },
+  };
+
+  const ctx = requestWithContext.context;
+  assert(typeof ctx.discoveredIn === 'string', 'discoveredIn should be string');
+  assert(Array.isArray(ctx.relatedFiles), 'relatedFiles should be array');
+  assert(typeof ctx.codeSnippet === 'string', 'codeSnippet should be string');
+  assert(typeof ctx.suggestedWorkflow === 'string', 'suggestedWorkflow should be string');
+});
+
+// ============================================================================
 // Test Summary
 // ============================================================================
 
