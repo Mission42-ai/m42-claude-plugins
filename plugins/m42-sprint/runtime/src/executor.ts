@@ -30,8 +30,6 @@ export type {
 
 // Import types for local use
 import type {
-  LogLevel,
-  SprintStats,
   CompiledProgress,
   SprintAction,
   SprintEvent,
