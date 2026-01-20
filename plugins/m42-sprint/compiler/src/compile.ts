@@ -24,8 +24,7 @@ import type {
   PerIterationHook,
   RalphConfig,
   OrchestrationConfig,
-  SprintPrompts,
-  ClaudeModel
+  SprintPrompts
 } from './types.js';
 import { loadWorkflow, resolveWorkflowRefs, clearWorkflowCache, MAX_WORKFLOW_DEPTH } from './resolve-workflows.js';
 import { expandForEach, compileSimplePhase, substituteTemplateVars, ModelContext, resolveModelFromContext } from './expand-foreach.js';
@@ -70,31 +69,6 @@ export function formatYamlError(err: unknown, filePath: string): string {
 
   // For non-YAML errors, return the message as-is
   return err instanceof Error ? err.message : String(err);
-}
-
-/**
- * Resolve the model to use for a phase based on override priority.
- *
- * Priority (highest to lowest):
- * 1. Step-level model (from SprintStep.model)
- * 2. Phase-level model (from WorkflowPhase.model)
- * 3. Sprint-level model (from SprintDefinition.model)
- * 4. Workflow-level model (from WorkflowDefinition.model)
- * 5. undefined if none specified
- *
- * @param step - Optional step with model
- * @param phase - Optional phase with model
- * @param sprint - Optional sprint with model
- * @param workflow - Optional workflow with model
- * @returns Resolved model or undefined
- */
-export function resolveModel(
-  step?: { model?: ClaudeModel },
-  phase?: { model?: ClaudeModel },
-  sprint?: { model?: ClaudeModel },
-  workflow?: { model?: ClaudeModel }
-): ClaudeModel | undefined {
-  return step?.model ?? phase?.model ?? sprint?.model ?? workflow?.model;
 }
 
 /**
