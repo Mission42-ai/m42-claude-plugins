@@ -31,6 +31,13 @@ ${getStyles()}
         <span class="status-badge" id="status-badge">--</span>
       </div>
       <div class="header-right">
+        <div class="sprint-timer" id="sprint-timer" title="Sprint elapsed time">
+          <span class="timer-icon">⏱</span>
+          <span class="timer-value" id="timer-value">00:00:00</span>
+        </div>
+        <div class="step-counter" id="step-counter">
+          <span class="step-counter-text">Step <span id="current-step">-</span> of <span id="total-steps">-</span></span>
+        </div>
         <div class="iteration" id="iteration"></div>
         <div class="progress-container">
           <div class="progress-bar">
@@ -529,6 +536,48 @@ function getStyles() {
       font-size: 12px;
       color: var(--text-secondary);
       min-width: 35px;
+    }
+
+    /* Sprint Timer */
+    .sprint-timer {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      background-color: var(--bg-tertiary);
+      border-radius: 4px;
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--accent-blue);
+    }
+
+    .timer-icon {
+      font-size: 16px;
+    }
+
+    .timer-value {
+      font-family: var(--font-mono);
+      letter-spacing: 0.5px;
+    }
+
+    /* Step Counter */
+    .step-counter {
+      display: flex;
+      align-items: center;
+      padding: 4px 10px;
+      background-color: var(--bg-tertiary);
+      border-radius: 4px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .step-counter-text {
+      white-space: nowrap;
+    }
+
+    #current-step, #total-steps {
+      color: var(--text-primary);
+      font-weight: 500;
     }
 
     /* Estimate Display */
@@ -1339,6 +1388,46 @@ function getStyles() {
     .activity-params {
       color: var(--text-secondary);
       font-size: 11px;
+    }
+
+    /* Tool call styling (secondary/muted) */
+    .activity-tool-entry {
+      color: var(--text-muted);
+    }
+
+    .activity-tool-entry .activity-icon {
+      opacity: 0.7;
+    }
+
+    .activity-tool-desc {
+      color: var(--text-secondary);
+      flex: 1;
+      word-break: break-word;
+    }
+
+    /* Assistant message styling (chat bubble) */
+    .activity-assistant {
+      background-color: var(--bg-secondary);
+      border-radius: 8px;
+      margin: 4px 8px;
+      padding: 8px 12px;
+    }
+
+    .activity-bubble {
+      flex: 1;
+      color: var(--text-primary);
+      word-break: break-word;
+      white-space: pre-wrap;
+    }
+
+    .activity-thinking .activity-bubble::after {
+      content: '...';
+      animation: thinking 1.5s infinite;
+    }
+
+    @keyframes thinking {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 1; }
     }
 
     /* Footer */
@@ -2869,7 +2958,12 @@ function getScript() {
         goalContent: document.getElementById('goal-content'),
         hookStatusSection: document.getElementById('hook-status-section'),
         hookStatusContent: document.getElementById('hook-status-content'),
-        collapseHooksBtn: document.getElementById('collapse-hooks-btn')
+        collapseHooksBtn: document.getElementById('collapse-hooks-btn'),
+        // Sprint timer and step counter elements
+        sprintTimer: document.getElementById('sprint-timer'),
+        timerValue: document.getElementById('timer-value'),
+        currentStep: document.getElementById('current-step'),
+        totalSteps: document.getElementById('total-steps')
       };
 
       // State
@@ -2901,6 +2995,9 @@ function getScript() {
       // Ralph Mode State
       let hooksCollapsed = false;
       let currentMode = 'standard';
+
+      // Sprint Timer State
+      let sprintStartedAt = null;
 
       // Verbosity level ordering for filtering
       const VERBOSITY_ORDER = { minimal: 0, basic: 1, detailed: 2, verbose: 3 };
@@ -3091,6 +3188,8 @@ function getScript() {
         setInterval(updateElapsedTimes, 1000);
         // Update relative times in activity panel
         setInterval(updateActivityRelativeTimes, 1000);
+        // Update sprint timer in header
+        setInterval(updateSprintTimer, 1000);
       }
 
       // Hook Status Controls Setup (Ralph Mode)
@@ -4202,6 +4301,24 @@ function getScript() {
         }
       }
 
+      // Format seconds as HH:MM:SS
+      function toHHMMSS(totalSeconds) {
+        var hours = Math.floor(totalSeconds / 3600);
+        var minutes = Math.floor((totalSeconds % 3600) / 60);
+        var seconds = totalSeconds % 60;
+        return String(hours).padStart(2, '0') + ':' +
+               String(minutes).padStart(2, '0') + ':' +
+               String(seconds).padStart(2, '0');
+      }
+
+      // Update sprint timer display
+      function updateSprintTimer() {
+        if (!sprintStartedAt || !elements.timerValue) return;
+        var elapsed = Math.floor((Date.now() - new Date(sprintStartedAt).getTime()) / 1000);
+        if (elapsed < 0) elapsed = 0;
+        elements.timerValue.textContent = toHHMMSS(elapsed);
+      }
+
       function updateHeader(header) {
         elements.sprintName.textContent = header.sprintId;
 
@@ -4221,12 +4338,22 @@ function getScript() {
 
         if (header.startedAt) {
           elements.elapsed.dataset.startedAt = header.startedAt;
+          sprintStartedAt = header.startedAt;
+          updateSprintTimer(); // Initial update
         }
 
         // BUG-006 fix: Set elapsed textContent directly for completed/terminal sprints
         // The timer skips these statuses, so we must set the value here
         if (header.elapsed && ['completed', 'failed', 'blocked', 'needs-human'].includes(header.status)) {
           elements.elapsed.textContent = 'Total: ' + header.elapsed;
+        }
+
+        // Update step counter (Step X of Y)
+        if (elements.currentStep && header.currentStep !== undefined) {
+          elements.currentStep.textContent = header.currentStep;
+        }
+        if (elements.totalSteps && header.totalSteps !== undefined) {
+          elements.totalSteps.textContent = header.totalSteps;
         }
 
         // Update estimate display
@@ -4610,8 +4737,13 @@ function getScript() {
       }
 
       function handleActivityEvent(event) {
-        // Deduplicate by ts+tool+file (events may come from both ActivityWatcher and TranscriptionWatcher)
-        const key = event.ts + '|' + event.tool + '|' + (event.file || '');
+        // Deduplicate: for tool events use ts+tool+file, for assistant events use ts+type+text
+        var key;
+        if (event.type === 'assistant') {
+          key = event.ts + '|assistant|' + (event.text || '').slice(0, 50);
+        } else {
+          key = event.ts + '|' + event.tool + '|' + (event.file || '');
+        }
         if (seenActivityKeys.has(key)) {
           return; // Skip duplicate
         }
@@ -4643,6 +4775,44 @@ function getScript() {
         return toolIcons[toolName] || toolIcons.default;
       }
 
+      function getToolDescription(event) {
+        var tool = event.tool;
+        var file = event.file;
+        var params = event.params;
+
+        // Extract just the filename from path
+        var filename = file ? file.split('/').pop() : undefined;
+
+        switch (tool) {
+          case 'TodoWrite':
+            return 'Updated task list';
+          case 'Edit':
+            return filename ? 'Editing ' + filename : 'Editing file';
+          case 'Read':
+            return filename ? 'Reading ' + filename : 'Reading file';
+          case 'Write':
+            return filename ? 'Writing ' + filename : 'Writing file';
+          case 'Bash':
+            // Truncate long commands
+            if (params && params.length > 50) {
+              return params.slice(0, 47) + '...';
+            }
+            return params || 'Running command';
+          case 'Grep':
+            return params ? 'Searching: ' + params : 'Searching';
+          case 'Glob':
+            return file ? 'Finding: ' + file : 'Finding files';
+          case 'Task':
+            return params || 'Running task';
+          case 'WebFetch':
+            return 'Fetching web content';
+          case 'AskUserQuestion':
+            return 'Asking question';
+          default:
+            return tool;
+        }
+      }
+
       function formatRelativeTime(isoString) {
         const now = Date.now();
         const then = new Date(isoString).getTime();
@@ -4652,16 +4822,6 @@ function getScript() {
         if (diff < 60) return diff + 's ago';
         if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
         return Math.floor(diff / 3600) + 'h ago';
-      }
-
-      function truncatePath(filePath, maxLength) {
-        maxLength = maxLength || 40;
-        if (!filePath || filePath.length <= maxLength) return filePath;
-        const parts = filePath.split('/');
-        const fileName = parts.pop();
-        const remaining = maxLength - fileName.length - 3;
-        if (remaining <= 0) return '...' + fileName.slice(-(maxLength - 3));
-        return filePath.slice(0, remaining) + '...' + fileName;
       }
 
       function renderLiveActivity() {
@@ -4676,29 +4836,30 @@ function getScript() {
         }
 
         const html = filtered.map(function(event) {
-          const icon = getToolIcon(event.tool);
           const eventDate = new Date(event.ts);
           // Format as HH:MM:SS for compact display
           const timeStr = eventDate.toLocaleTimeString('en-US', { hour12: false });
           const fullDateTime = eventDate.toLocaleString();
 
-          let desc = '';
-          if (event.file) {
-            const truncated = truncatePath(event.file);
-            desc = '<span class="activity-path" title="' + escapeHtml(event.file) + '">' + escapeHtml(truncated) + '</span>';
-          }
-          if (event.params) {
-            desc += (desc ? ' ' : '') + '<span class="activity-params">' + escapeHtml(event.params) + '</span>';
-          }
-          if (!desc) {
-            desc = '<span class="activity-desc">-</span>';
+          // Handle assistant events (chat bubble style)
+          if (event.type === 'assistant') {
+            const text = event.text || '';
+            const thinkingClass = event.isThinking ? ' activity-thinking' : '';
+            return '<div class="activity-entry activity-assistant' + thinkingClass + '">' +
+              '<span class="activity-time" title="' + escapeHtml(fullDateTime) + '">' + escapeHtml(timeStr) + '</span>' +
+              '<span class="activity-icon">🤖</span>' +
+              '<span class="activity-bubble">' + escapeHtml(text) + '</span>' +
+              '</div>';
           }
 
-          return '<div class="activity-entry">' +
+          // Handle tool events (secondary/grey style)
+          const icon = getToolIcon(event.tool);
+          const description = getToolDescription(event);
+
+          return '<div class="activity-entry activity-tool">' +
             '<span class="activity-time" title="' + escapeHtml(fullDateTime) + '">' + escapeHtml(timeStr) + '</span>' +
             '<span class="activity-icon">' + icon + '</span>' +
-            '<span class="activity-tool">' + escapeHtml(event.tool) + '</span>' +
-            '<span class="activity-desc">' + desc + '</span>' +
+            '<span class="activity-tool-desc">' + escapeHtml(description) + '</span>' +
             '</div>';
         }).join('');
 
