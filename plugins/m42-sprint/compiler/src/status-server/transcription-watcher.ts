@@ -103,7 +103,6 @@ function extractParams(toolName: string, input: Record<string, unknown>): string
  * State for tracking text block accumulation
  */
 interface TextBlockState {
-  index: number;
   text: string;
   startTime: number;
   stopped: boolean;
@@ -317,7 +316,6 @@ export class TranscriptionWatcher extends EventEmitter {
         } else if (contentBlock?.type === 'text') {
           // Text content block start
           this.textBlocks.set(blockIndex, {
-            index: blockIndex,
             text: '',
             startTime: Date.now(),
             stopped: false,
@@ -336,7 +334,6 @@ export class TranscriptionWatcher extends EventEmitter {
         if (!block) {
           // Create block if not exists (handle out-of-order events)
           block = {
-            index: blockIndex,
             text: '',
             startTime: Date.now(),
             stopped: false,
@@ -381,17 +378,22 @@ export class TranscriptionWatcher extends EventEmitter {
           params: extractParams(toolUse.name, toolUse.input),
         };
 
-        // Store in recent activity (for historical queries)
-        this.recentActivity.push(activityEvent);
-        if (this.recentActivity.length > this.maxEvents) {
-          this.recentActivity = this.recentActivity.slice(-this.maxEvents);
-        }
-
+        this.addToRecentActivity(activityEvent);
         this.emit('activity', activityEvent);
       }
 
     } catch {
       // Invalid JSON, skip silently
+    }
+  }
+
+  /**
+   * Add an event to recent activity, maintaining max size limit
+   */
+  private addToRecentActivity(event: ActivityEvent): void {
+    this.recentActivity.push(event);
+    if (this.recentActivity.length > this.maxEvents) {
+      this.recentActivity = this.recentActivity.slice(-this.maxEvents);
     }
   }
 
@@ -424,12 +426,7 @@ export class TranscriptionWatcher extends EventEmitter {
           isThinking: !block.stopped,
         };
 
-        // Store in recent activity
-        this.recentActivity.push(activityEvent);
-        if (this.recentActivity.length > this.maxEvents) {
-          this.recentActivity = this.recentActivity.slice(-this.maxEvents);
-        }
-
+        this.addToRecentActivity(activityEvent);
         this.emit('activity', activityEvent);
       }
 
