@@ -339,14 +339,23 @@ function validateWorkflowPhase(phase, index, workflowName, existingIds) {
         }
         existingIds.add(p.id);
     }
-    // A phase must have either prompt, for-each, or workflow
+    // A phase must have either prompt, for-each, or workflow (but prompt and workflow are mutually exclusive)
     const hasPrompt = p.prompt && typeof p.prompt === 'string';
     const hasForEach = p['for-each'] === 'step';
     const hasWorkflow = p.workflow && typeof p.workflow === 'string';
-    if (!hasPrompt && !hasForEach) {
+    // Check mutual exclusivity: prompt and workflow cannot both be specified
+    if (hasPrompt && hasWorkflow) {
+        errors.push({
+            code: 'PROMPT_WORKFLOW_MUTUAL_EXCLUSIVE',
+            message: `Phase '${p.id || index}' in ${workflowName} cannot have both 'prompt' and 'workflow'`,
+            path: `${workflowName}.phases[${index}]`
+        });
+    }
+    // A phase must have prompt, for-each, or workflow (workflow without for-each is allowed)
+    if (!hasPrompt && !hasForEach && !hasWorkflow) {
         errors.push({
             code: 'PHASE_MISSING_ACTION',
-            message: `Phase '${p.id || index}' in ${workflowName} must have either 'prompt' or 'for-each: step'`,
+            message: `Phase '${p.id || index}' in ${workflowName} must have 'prompt', 'for-each: step', or 'workflow'`,
             path: `${workflowName}.phases[${index}]`
         });
     }
