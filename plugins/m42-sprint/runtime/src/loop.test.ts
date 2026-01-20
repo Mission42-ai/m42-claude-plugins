@@ -1670,6 +1670,399 @@ test('BUG-001: Completed step status should be preserved in PROGRESS.yaml', asyn
 });
 
 // ============================================================================
+// Step 5: Operator Request System Integration Tests
+// ============================================================================
+
+test('runLoop should parse operatorRequests from Claude JSON result', async () => {
+  // This test verifies that when Claude returns operatorRequests in its JSON result,
+  // the loop correctly parses and queues them for operator processing.
+  //
+  // Scenario 2: Operator requests are added to the queue in PROGRESS.yaml
+
+  const testDir = createTestSprintDir();
+  try {
+    const progress = createTestProgress({
+      status: 'not-started',
+      phases: [
+        { id: 'phase-1', status: 'pending', prompt: 'Execute phase 1' },
+      ],
+    });
+    writeProgress(testDir, progress);
+
+    const options: LoopOptions = { maxIterations: 1, delay: 0, verbose: false };
+
+    const mockDeps = {
+      runClaude: async () => ({
+        success: true,
+        output: 'Phase completed with discovered issues',
+        exitCode: 0,
+        jsonResult: {
+          status: 'completed',
+          summary: 'Done, but found issues',
+          operatorRequests: [
+            {
+              id: 'req_001',
+              title: 'Fix memory leak',
+              description: 'Memory leak in parser module',
+              priority: 'high',
+              type: 'bug',
+              context: {
+                discoveredIn: 'phase-1',
+                relatedFiles: ['src/parser.ts'],
+              },
+            },
+          ],
+        },
+      }),
+    };
+
+    await runLoop(testDir, options, mockDeps);
+
+    // Read final progress and check for operator-queue
+    const finalProgress = readProgressFile(testDir);
+    const operatorQueue = (finalProgress as { 'operator-queue'?: Array<{ id: string; status: string }> })['operator-queue'];
+
+    // This test SHOULD FAIL until operator request system is implemented
+    assert(
+      operatorQueue !== undefined,
+      'STEP-5: operatorRequests should be queued in PROGRESS.yaml'
+    );
+
+    assert(
+      operatorQueue!.length === 1,
+      `STEP-5: Should have 1 request in queue, got ${operatorQueue?.length}`
+    );
+
+    assertEqual(
+      operatorQueue![0].id,
+      'req_001',
+      'STEP-5: Request ID should be preserved'
+    );
+
+    assertEqual(
+      operatorQueue![0].status,
+      'pending',
+      'STEP-5: Request status should be "pending"'
+    );
+  } finally {
+    cleanupTestDir(testDir);
+  }
+});
+
+test('runLoop should trigger operator for critical priority requests', async () => {
+  // This test verifies that critical priority requests trigger immediate
+  // operator processing, rather than waiting for batch processing.
+  //
+  // Scenario 8: Critical priority requests trigger immediate operator
+
+  const testDir = createTestSprintDir();
+  let operatorTriggered = false;
+
+  try {
+    const progress = createTestProgress({
+      status: 'not-started',
+      phases: [
+        { id: 'phase-1', status: 'pending', prompt: 'Execute phase 1' },
+        { id: 'phase-2', status: 'pending', prompt: 'Execute phase 2' },
+      ],
+    });
+    writeProgress(testDir, progress);
+
+    const options: LoopOptions = { maxIterations: 2, delay: 0, verbose: false };
+
+    let callCount = 0;
+    const mockDeps = {
+      runClaude: async () => {
+        callCount++;
+
+        if (callCount === 1) {
+          // First phase returns a critical request
+          return {
+            success: true,
+            output: 'Found critical issue',
+            exitCode: 0,
+            jsonResult: {
+              status: 'completed',
+              summary: 'Critical issue found',
+              operatorRequests: [
+                {
+                  id: 'req_critical',
+                  title: 'Security vulnerability',
+                  description: 'SQL injection detected',
+                  priority: 'critical',
+                  type: 'security',
+                },
+              ],
+            },
+          };
+        }
+
+        // Second call would be either operator or phase-2
+        // If operator was triggered, this would be operator's response
+        operatorTriggered = true;
+        return {
+          success: true,
+          output: 'Phase completed',
+          exitCode: 0,
+          jsonResult: { status: 'completed', summary: 'Done' },
+        };
+      },
+    };
+
+    await runLoop(testDir, options, mockDeps);
+
+    // Read final progress
+    const finalProgress = readProgressFile(testDir);
+    const operatorQueue = (finalProgress as { 'operator-queue'?: Array<{ id: string; priority: string; status: string }> })['operator-queue'];
+
+    // This test SHOULD FAIL until operator request system is implemented
+    // After implementation, critical requests should be processed immediately
+    assert(
+      operatorQueue !== undefined,
+      'STEP-5: operator-queue should exist'
+    );
+
+    // Critical request should have been processed (not still pending)
+    const criticalRequest = operatorQueue?.find(r => r.id === 'req_critical');
+    assert(
+      criticalRequest?.status !== 'pending',
+      'STEP-5: Critical request should not remain pending - operator should process immediately'
+    );
+  } finally {
+    cleanupTestDir(testDir);
+  }
+});
+
+test('runLoop should add discovered-in and created-at to queued requests', async () => {
+  // This test verifies that queued requests have proper metadata.
+  //
+  // Scenario 2: requests should have created-at timestamp and discovered-in
+
+  const testDir = createTestSprintDir();
+  try {
+    const progress = createTestProgress({
+      status: 'not-started',
+      phases: [
+        { id: 'test-phase', status: 'pending', prompt: 'Execute phase' },
+      ],
+    });
+    writeProgress(testDir, progress);
+
+    const options: LoopOptions = { maxIterations: 1, delay: 0, verbose: false };
+
+    const mockDeps = {
+      runClaude: async () => ({
+        success: true,
+        output: 'Done',
+        exitCode: 0,
+        jsonResult: {
+          status: 'completed',
+          summary: 'Complete',
+          operatorRequests: [
+            {
+              id: 'req_meta',
+              title: 'Test request',
+              description: 'Test',
+              priority: 'medium',
+              type: 'improvement',
+            },
+          ],
+        },
+      }),
+    };
+
+    const beforeTime = new Date().toISOString();
+    await runLoop(testDir, options, mockDeps);
+    const afterTime = new Date().toISOString();
+
+    const finalProgress = readProgressFile(testDir);
+    const operatorQueue = (finalProgress as { 'operator-queue'?: Array<{ id: string; 'discovered-in'?: string; 'created-at'?: string }> })['operator-queue'];
+
+    // This test SHOULD FAIL until operator request system is implemented
+    assert(operatorQueue !== undefined, 'STEP-5: operator-queue should exist');
+
+    const request = operatorQueue?.find(r => r.id === 'req_meta');
+    assert(request !== undefined, 'STEP-5: Request should be in queue');
+
+    // Check discovered-in is set to the current phase ID
+    assertEqual(
+      request?.['discovered-in'],
+      'test-phase',
+      'STEP-5: discovered-in should be set to current phase ID'
+    );
+
+    // Check created-at is a valid timestamp within our execution window
+    assert(
+      request?.['created-at'] !== undefined,
+      'STEP-5: created-at should be set'
+    );
+    assert(
+      request!['created-at']! >= beforeTime && request!['created-at']! <= afterTime,
+      'STEP-5: created-at should be within execution time window'
+    );
+  } finally {
+    cleanupTestDir(testDir);
+  }
+});
+
+test('runLoop should handle empty operatorRequests array', async () => {
+  // This test verifies that an empty operatorRequests array doesn't cause issues.
+
+  const testDir = createTestSprintDir();
+  try {
+    const progress = createTestProgress({
+      status: 'not-started',
+      phases: [
+        { id: 'phase-1', status: 'pending', prompt: 'Execute phase' },
+      ],
+    });
+    writeProgress(testDir, progress);
+
+    const options: LoopOptions = { maxIterations: 1, delay: 0, verbose: false };
+
+    const mockDeps = {
+      runClaude: async () => ({
+        success: true,
+        output: 'Done',
+        exitCode: 0,
+        jsonResult: {
+          status: 'completed',
+          summary: 'No issues found',
+          operatorRequests: [],
+        },
+      }),
+    };
+
+    // Should not throw
+    await runLoop(testDir, options, mockDeps);
+
+    const finalProgress = readProgressFile(testDir);
+
+    // operator-queue should either not exist or be empty
+    const operatorQueue = (finalProgress as { 'operator-queue'?: unknown[] })['operator-queue'];
+    assert(
+      operatorQueue === undefined || operatorQueue.length === 0,
+      'STEP-5: Empty operatorRequests should not create queue entries'
+    );
+  } finally {
+    cleanupTestDir(testDir);
+  }
+});
+
+test('runLoop should handle result without operatorRequests field', async () => {
+  // This test verifies backward compatibility - results without operatorRequests
+  // should work normally.
+
+  const testDir = createTestSprintDir();
+  try {
+    const progress = createTestProgress({
+      status: 'not-started',
+      phases: [
+        { id: 'phase-1', status: 'pending', prompt: 'Execute phase' },
+      ],
+    });
+    writeProgress(testDir, progress);
+
+    const options: LoopOptions = { maxIterations: 1, delay: 0, verbose: false };
+
+    const mockDeps = {
+      runClaude: async () => ({
+        success: true,
+        output: 'Done',
+        exitCode: 0,
+        jsonResult: {
+          status: 'completed',
+          summary: 'Simple completion',
+          // No operatorRequests field
+        },
+      }),
+    };
+
+    // Should not throw
+    await runLoop(testDir, options, mockDeps);
+
+    const finalProgress = readProgressFile(testDir);
+    assertEqual(finalProgress.status, 'completed', 'Sprint should complete normally');
+  } finally {
+    cleanupTestDir(testDir);
+  }
+});
+
+test('runLoop should accumulate requests across multiple phases', async () => {
+  // This test verifies that operator requests from different phases
+  // are accumulated in the queue.
+
+  const testDir = createTestSprintDir();
+  try {
+    const progress = createTestProgress({
+      status: 'not-started',
+      phases: [
+        { id: 'phase-1', status: 'pending', prompt: 'Phase 1' },
+        { id: 'phase-2', status: 'pending', prompt: 'Phase 2' },
+      ],
+    });
+    writeProgress(testDir, progress);
+
+    const options: LoopOptions = { maxIterations: 10, delay: 0, verbose: false };
+
+    let callCount = 0;
+    const mockDeps = {
+      runClaude: async () => {
+        callCount++;
+
+        if (callCount === 1) {
+          return {
+            success: true,
+            output: 'Phase 1 done',
+            exitCode: 0,
+            jsonResult: {
+              status: 'completed',
+              summary: 'Phase 1 complete',
+              operatorRequests: [
+                { id: 'req_from_phase1', title: 'Issue 1', description: 'From phase 1', priority: 'low', type: 'docs' },
+              ],
+            },
+          };
+        }
+
+        return {
+          success: true,
+          output: 'Phase 2 done',
+          exitCode: 0,
+          jsonResult: {
+            status: 'completed',
+            summary: 'Phase 2 complete',
+            operatorRequests: [
+              { id: 'req_from_phase2', title: 'Issue 2', description: 'From phase 2', priority: 'medium', type: 'test' },
+            ],
+          },
+        };
+      },
+    };
+
+    await runLoop(testDir, options, mockDeps);
+
+    const finalProgress = readProgressFile(testDir);
+    const operatorQueue = (finalProgress as { 'operator-queue'?: Array<{ id: string; 'discovered-in'?: string }> })['operator-queue'];
+
+    // This test SHOULD FAIL until operator request system is implemented
+    assert(operatorQueue !== undefined, 'STEP-5: operator-queue should exist');
+    assertEqual(operatorQueue!.length, 2, 'STEP-5: Should have 2 requests from 2 phases');
+
+    const req1 = operatorQueue!.find(r => r.id === 'req_from_phase1');
+    const req2 = operatorQueue!.find(r => r.id === 'req_from_phase2');
+
+    assert(req1 !== undefined, 'STEP-5: Request from phase 1 should be in queue');
+    assert(req2 !== undefined, 'STEP-5: Request from phase 2 should be in queue');
+
+    assertEqual(req1?.['discovered-in'], 'phase-1', 'STEP-5: Request 1 should be tagged with phase-1');
+    assertEqual(req2?.['discovered-in'], 'phase-2', 'STEP-5: Request 2 should be tagged with phase-2');
+  } finally {
+    cleanupTestDir(testDir);
+  }
+});
+
+// ============================================================================
 // Run Tests Summary
 // ============================================================================
 
