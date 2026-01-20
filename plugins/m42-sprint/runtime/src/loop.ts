@@ -463,9 +463,6 @@ export async function runLoop(
     // Transaction: backup before Claude execution
     backupProgress(progressPath);
 
-    // BUG-002 FIX: Store checksum before Claude execution for compare-and-swap
-    const preExecChecksum = getFileChecksum(progressPath);
-
     // Get the current phase/step/sub-phase
     const currentPhase = progress.phases?.[progress.current.phase];
     const currentStep = currentPhase?.steps?.[progress.current.step ?? -1];
@@ -485,6 +482,32 @@ export async function runLoop(
     const logFileName = `${sanitizedId}.log`;
     const outputFile = path.join(logsDir, logFileName);
 
+    // BUG-001 FIX: Mark current step/sub-phase as in-progress before execution
+    if (currentPhase) {
+      currentPhase.status = 'in-progress';
+      if (!currentPhase['started-at']) {
+        currentPhase['started-at'] = new Date().toISOString();
+      }
+    }
+    if (currentStep) {
+      currentStep.status = 'in-progress';
+      if (!currentStep['started-at']) {
+        currentStep['started-at'] = new Date().toISOString();
+      }
+    }
+    if (currentSubPhase) {
+      currentSubPhase.status = 'in-progress';
+      if (!currentSubPhase['started-at']) {
+        currentSubPhase['started-at'] = new Date().toISOString();
+      }
+    }
+
+    // BUG-001 FIX: Write progress to disk so status server can see in-progress status
+    await writeProgressAtomic(progressPath, progress);
+
+    // BUG-002 FIX: Update checksum after our write, so compare-and-swap only detects external changes
+    const preClaudeChecksum = getFileChecksum(progressPath);
+
     // Execute SPAWN_CLAUDE action directly
     const spawnResult = await deps.runClaude({
       prompt,
@@ -494,7 +517,7 @@ export async function runLoop(
 
     // BUG-002 FIX: Compare-and-swap - check if file was modified during execution
     const postExecChecksum = getFileChecksum(progressPath);
-    if (postExecChecksum !== preExecChecksum) {
+    if (postExecChecksum !== preClaudeChecksum) {
       // File was modified externally (e.g., by status server /api/skip or /api/retry)
       // Read the current disk state and merge external changes into our progress
       // Use readProgressWithoutChecksumValidation because external writers may not update checksum
@@ -524,6 +547,40 @@ export async function runLoop(
       } else {
         const summary = jsonResult?.summary ?? 'Phase completed';
         event = { type: 'PHASE_COMPLETE', summary, phaseId };
+
+        // BUG-001 FIX: Mark current step/sub-phase as completed
+        const completedAt = new Date().toISOString();
+        if (currentSubPhase) {
+          currentSubPhase.status = 'completed';
+          currentSubPhase['completed-at'] = completedAt;
+        }
+        // Mark step completed only if all its sub-phases are completed
+        if (currentStep) {
+          const allSubPhasesComplete = currentStep.phases.every(
+            (p) => p.status === 'completed' || p.status === 'skipped'
+          );
+          if (allSubPhasesComplete || currentStep.phases.length === 0) {
+            currentStep.status = 'completed';
+            currentStep['completed-at'] = completedAt;
+          }
+        }
+        // Mark phase completed only if all its steps (or direct execution) are completed
+        if (currentPhase) {
+          // For phases with steps, check if all steps are completed
+          if (currentPhase.steps && currentPhase.steps.length > 0) {
+            const allStepsComplete = currentPhase.steps.every(
+              (s) => s.status === 'completed' || s.status === 'skipped'
+            );
+            if (allStepsComplete) {
+              currentPhase.status = 'completed';
+              currentPhase['completed-at'] = completedAt;
+            }
+          } else if (!currentStep && !currentSubPhase) {
+            // Phase has no steps (direct execution) - mark completed
+            currentPhase.status = 'completed';
+            currentPhase['completed-at'] = completedAt;
+          }
+        }
       }
     } else {
       event = {
@@ -532,6 +589,16 @@ export async function runLoop(
         category: 'logic',
         phaseId,
       };
+
+      // BUG-001 FIX: Mark current step/sub-phase as failed
+      if (currentSubPhase) {
+        currentSubPhase.status = 'failed';
+        currentSubPhase.error = spawnResult?.error ?? 'Unknown error';
+      }
+      if (currentStep) {
+        currentStep.status = 'failed';
+        currentStep.error = spawnResult?.error ?? 'Unknown error';
+      }
     }
 
     // Process event through transition

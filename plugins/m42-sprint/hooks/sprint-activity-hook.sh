@@ -63,7 +63,7 @@ esac
 case "$VERBOSITY" in
   minimal)
     # Only tool name and timestamp
-    OUTPUT=$(jq -n \
+    OUTPUT=$(jq -cn \
       --arg ts "$TIMESTAMP" \
       --arg type "tool" \
       --arg tool "$TOOL_NAME" \
@@ -73,7 +73,7 @@ case "$VERBOSITY" in
   basic)
     # Tool name, file path (if applicable), timestamp
     if [[ -n "$FILE_PATH" ]]; then
-      OUTPUT=$(jq -n \
+      OUTPUT=$(jq -cn \
         --arg ts "$TIMESTAMP" \
         --arg type "tool" \
         --arg tool "$TOOL_NAME" \
@@ -81,7 +81,7 @@ case "$VERBOSITY" in
         --arg level "$VERBOSITY" \
         '{ts: $ts, type: $type, tool: $tool, file: $file, level: $level}')
     else
-      OUTPUT=$(jq -n \
+      OUTPUT=$(jq -cn \
         --arg ts "$TIMESTAMP" \
         --arg type "tool" \
         --arg tool "$TOOL_NAME" \
@@ -105,7 +105,7 @@ case "$VERBOSITY" in
     esac
 
     if [[ -n "$FILE_PATH" ]] && [[ -n "$PARAMS" ]]; then
-      OUTPUT=$(jq -n \
+      OUTPUT=$(jq -cn \
         --arg ts "$TIMESTAMP" \
         --arg type "tool" \
         --arg tool "$TOOL_NAME" \
@@ -114,7 +114,7 @@ case "$VERBOSITY" in
         --arg level "$VERBOSITY" \
         '{ts: $ts, type: $type, tool: $tool, file: $file, params: $params, level: $level}')
     elif [[ -n "$FILE_PATH" ]]; then
-      OUTPUT=$(jq -n \
+      OUTPUT=$(jq -cn \
         --arg ts "$TIMESTAMP" \
         --arg type "tool" \
         --arg tool "$TOOL_NAME" \
@@ -122,7 +122,7 @@ case "$VERBOSITY" in
         --arg level "$VERBOSITY" \
         '{ts: $ts, type: $type, tool: $tool, file: $file, level: $level}')
     elif [[ -n "$PARAMS" ]]; then
-      OUTPUT=$(jq -n \
+      OUTPUT=$(jq -cn \
         --arg ts "$TIMESTAMP" \
         --arg type "tool" \
         --arg tool "$TOOL_NAME" \
@@ -130,7 +130,7 @@ case "$VERBOSITY" in
         --arg level "$VERBOSITY" \
         '{ts: $ts, type: $type, tool: $tool, params: $params, level: $level}')
     else
-      OUTPUT=$(jq -n \
+      OUTPUT=$(jq -cn \
         --arg ts "$TIMESTAMP" \
         --arg type "tool" \
         --arg tool "$TOOL_NAME" \
@@ -144,7 +144,7 @@ case "$VERBOSITY" in
     TOOL_RESPONSE=$(echo "$INPUT" | jq -c '.tool_response // {}')
 
     if [[ -n "$FILE_PATH" ]]; then
-      OUTPUT=$(jq -n \
+      OUTPUT=$(jq -cn \
         --arg ts "$TIMESTAMP" \
         --arg type "tool" \
         --arg tool "$TOOL_NAME" \
@@ -154,7 +154,7 @@ case "$VERBOSITY" in
         --argjson response "$TOOL_RESPONSE" \
         '{ts: $ts, type: $type, tool: $tool, file: $file, level: $level, input: $input, response: $response}')
     else
-      OUTPUT=$(jq -n \
+      OUTPUT=$(jq -cn \
         --arg ts "$TIMESTAMP" \
         --arg type "tool" \
         --arg tool "$TOOL_NAME" \

@@ -6,6 +6,7 @@
  */
 
 import { spawn } from 'child_process';
+import * as fs from 'fs';
 
 // ============================================================================
 // Types
@@ -145,10 +146,8 @@ export function buildArgs(options: ClaudeRunOptions): string[] {
     args.push('--model', options.model);
   }
 
-  // Output file
-  if (options.outputFile !== undefined) {
-    args.push('--output-file', options.outputFile);
-  }
+  // NOTE: outputFile is handled via file write after execution, not via CLI flag
+  // The Claude CLI doesn't have an --output-file flag
 
   // Allowed tools (each tool gets its own --allowed-tools flag)
   if (options.allowedTools !== undefined) {
@@ -227,6 +226,16 @@ export async function runClaude(options: ClaudeRunOptions): Promise<ClaudeResult
       }
 
       const jsonResult = extractJson(stdout);
+
+      // Write output to file if outputFile was specified
+      if (options.outputFile) {
+        try {
+          fs.writeFileSync(options.outputFile, stdout, 'utf8');
+        } catch (writeErr) {
+          // Log but don't fail - output capture is secondary to execution
+          console.error(`Failed to write output to ${options.outputFile}:`, writeErr);
+        }
+      }
 
       resolve({
         success,

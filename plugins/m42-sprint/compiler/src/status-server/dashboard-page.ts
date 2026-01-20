@@ -110,33 +110,150 @@ function generateHeader(activeSprint: string | null): string {
 
 /**
  * Generate the metrics summary cards section
+ * Organized into categories: Status, Performance, Workflows, Trends
  */
-function generateMetricsSection(metrics: AggregateMetrics, activeSprint: string | null): string {
-  const activeDisplay = activeSprint
-    ? `<a href="/sprint/${activeSprint}" class="active-link">${activeSprint}</a>`
-    : '<span class="no-active">None</span>';
+function generateMetricsSection(metrics: AggregateMetrics, _activeSprint: string | null): string {
+  // Calculate finished sprints for context
+  const finishedSprints = metrics.completedSprints + metrics.failedSprints;
+
+  // Get recent trend summary
+  const recentTrend = metrics.dailyTrend.length > 0
+    ? metrics.dailyTrend[metrics.dailyTrend.length - 1]
+    : null;
+  const weeklyTrend = metrics.weeklyTrend.length > 0
+    ? metrics.weeklyTrend[metrics.weeklyTrend.length - 1]
+    : null;
 
   return `
     <section class="metrics-section">
-      <div class="metrics-grid">
-        <div class="metric-card">
-          <div class="metric-label">Total Sprints</div>
-          <div class="metric-value">${metrics.totalSprints}</div>
+      <!-- Status Category - Primary metrics with visual hierarchy -->
+      <div class="metrics-category">
+        <h3 class="category-title">Status</h3>
+        <div class="metrics-grid status-grid">
+          <div class="metric-card metric-primary metric-wide">
+            <div class="metric-label">Success Rate</div>
+            <div class="metric-value ${metrics.successRate >= 80 ? 'success' : metrics.successRate >= 50 ? 'warning' : 'danger'}"
+                 title="${metrics.completedSprints} completed out of ${finishedSprints} finished sprints">
+              ${metrics.successRate}%
+            </div>
+            <div class="metric-context">${metrics.completedSprints}/${finishedSprints} finished</div>
+          </div>
+          <div class="metric-card metric-secondary">
+            <div class="metric-label">Total Sprints</div>
+            <div class="metric-value">${metrics.totalSprints}</div>
+          </div>
+          <div class="metric-card metric-secondary">
+            <div class="metric-label">Completed Sprints</div>
+            <div class="metric-value completed-count success">${metrics.completedSprints}</div>
+          </div>
+          <div class="metric-card metric-secondary">
+            <div class="metric-label">Failed Sprints</div>
+            <div class="metric-value failed-count ${metrics.failedSprints > 0 ? 'danger' : ''}">${metrics.failedSprints}</div>
+          </div>
+          <div class="metric-card metric-secondary">
+            <div class="metric-label">In Progress</div>
+            <div class="metric-value in-progress-count">${metrics.inProgressSprints}</div>
+          </div>
         </div>
-        <div class="metric-card">
-          <div class="metric-label">Success Rate</div>
-          <div class="metric-value ${metrics.successRate >= 80 ? 'success' : metrics.successRate >= 50 ? 'warning' : 'danger'}">${metrics.successRate}%</div>
+      </div>
+
+      <!-- Performance Category -->
+      <div class="metrics-category">
+        <h3 class="category-title">Performance</h3>
+        <div class="metrics-grid performance-grid">
+          <div class="metric-card metric-secondary">
+            <div class="metric-label">Avg Duration</div>
+            <div class="metric-value">${metrics.averageDurationFormatted}</div>
+          </div>
+          <div class="metric-card metric-secondary">
+            <div class="metric-label">Avg Steps</div>
+            <div class="metric-value">${metrics.averageStepsPerSprint}</div>
+          </div>
         </div>
-        <div class="metric-card">
-          <div class="metric-label">Avg Duration</div>
-          <div class="metric-value">${metrics.averageDurationFormatted}</div>
+      </div>
+
+      <!-- Workflows Category -->
+      <div class="metrics-category">
+        <h3 class="category-title">Workflows</h3>
+        <div class="metrics-grid workflow-grid">
+          ${metrics.mostCommonWorkflow ? `
+          <div class="metric-card metric-secondary">
+            <div class="metric-label">Most Used Workflow</div>
+            <div class="metric-value workflow-name">${metrics.mostCommonWorkflow}</div>
+            ${metrics.workflowStats.length > 0 ? `<div class="metric-context">${metrics.workflowStats[0].percentage}% of sprints</div>` : ''}
+          </div>
+          ` : ''}
+          ${generateWorkflowDistribution(metrics.workflowStats)}
         </div>
-        <div class="metric-card">
-          <div class="metric-label">Active Sprint</div>
-          <div class="metric-value active-sprint">${activeDisplay}</div>
+      </div>
+
+      <!-- Trends Category -->
+      <div class="metrics-category">
+        <h3 class="category-title">Activity Trend</h3>
+        <div class="metrics-grid trend-grid">
+          ${recentTrend ? `
+          <div class="metric-card metric-secondary">
+            <div class="metric-label">Today (${recentTrend.dateKey})</div>
+            <div class="metric-value">${recentTrend.count} sprints</div>
+            <div class="metric-context">${recentTrend.completed} completed, ${recentTrend.failed} failed</div>
+          </div>
+          ` : '<div class="metric-card metric-secondary"><div class="metric-label">Today</div><div class="metric-value">No activity</div></div>'}
+          ${weeklyTrend ? `
+          <div class="metric-card metric-secondary">
+            <div class="metric-label">This Week (${weeklyTrend.dateKey})</div>
+            <div class="metric-value">${weeklyTrend.count} sprints</div>
+            <div class="metric-context">${weeklyTrend.completed} completed, ${weeklyTrend.failed} failed</div>
+          </div>
+          ` : ''}
+          ${generateTrendSparkline(metrics.dailyTrend)}
         </div>
       </div>
     </section>`;
+}
+
+/**
+ * Generate workflow distribution display
+ */
+function generateWorkflowDistribution(workflowStats: AggregateMetrics['workflowStats']): string {
+  if (workflowStats.length <= 1) return '';
+
+  const bars = workflowStats.slice(0, 5).map(w => `
+    <div class="workflow-bar-item">
+      <div class="workflow-bar-label">${escapeHtml(w.workflow)}</div>
+      <div class="workflow-bar-container">
+        <div class="workflow-bar" style="width: ${w.percentage}%"></div>
+        <span class="workflow-bar-value">${w.percentage}%</span>
+      </div>
+    </div>
+  `).join('');
+
+  return `
+    <div class="metric-card metric-secondary metric-wide workflow-distribution">
+      <div class="metric-label">Workflow Distribution</div>
+      <div class="workflow-bars">${bars}</div>
+    </div>`;
+}
+
+/**
+ * Generate a simple text-based trend sparkline
+ */
+function generateTrendSparkline(dailyTrend: AggregateMetrics['dailyTrend']): string {
+  if (dailyTrend.length < 2) return '';
+
+  const recentDays = dailyTrend.slice(-7);
+  const maxCount = Math.max(...recentDays.map(d => d.count), 1);
+
+  const bars = recentDays.map(d => {
+    const height = Math.round((d.count / maxCount) * 100);
+    const successRate = d.count > 0 ? Math.round((d.completed / d.count) * 100) : 0;
+    return `<div class="sparkline-bar" style="height: ${height}%" title="${d.dateKey}: ${d.count} sprints, ${successRate}% success"></div>`;
+  }).join('');
+
+  return `
+    <div class="metric-card metric-secondary trend-chart">
+      <div class="metric-label">7-Day Trend</div>
+      <div class="sparkline">${bars}</div>
+    </div>`;
 }
 
 /**
@@ -194,9 +311,9 @@ function generateSprintRow(sprint: SprintSummary): string {
     : '<span class="not-started">Not started</span>';
   const durationDisplay = sprint.elapsed || '--';
 
-  // Worktree data for filtering (extract from path if available)
-  // Sprint paths are like: /path/to/worktree/.claude/sprints/sprint-id
-  const worktreeName = extractWorktreeName(sprint.path);
+  // Use worktree name from sprint data (properly normalized by sprint-scanner)
+  // Falls back to path extraction only if worktree info is not available
+  const worktreeName = sprint.worktree?.name ?? extractWorktreeName(sprint.path);
 
   return `
     <tr class="sprint-row" data-sprint-id="${escapeHtml(sprint.sprintId)}" data-worktree="${escapeHtml(worktreeName)}">
@@ -214,6 +331,17 @@ function generateSprintRow(sprint: SprintSummary): string {
       </td>
     </tr>`;
 }
+
+// ============================================================================
+// Utility Functions (Server-Side)
+// ============================================================================
+// NOTE: These functions have client-side counterparts in getDashboardScript().
+// The client-side versions are needed for dynamically loaded sprint rows.
+// When modifying these, ensure the client-side versions stay consistent.
+// Key differences:
+// - escapeHtml: Server uses string replacement, client uses DOM textContent
+// - formatDate/formatStartDate: Client handles null input with HTML fallback
+// ============================================================================
 
 /**
  * Extract worktree name from sprint path
@@ -520,30 +648,88 @@ function getDashboardStyles(): string {
       vertical-align: middle;
     }
 
-    /* Metrics Section */
+    /* Metrics Section - Categorized Layout */
     .metrics-section {
       margin-bottom: 24px;
+    }
+
+    .metrics-category {
+      margin-bottom: 20px;
+    }
+
+    .metrics-category:last-child {
+      margin-bottom: 0;
+    }
+
+    .category-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border-color);
     }
 
     .metrics-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      gap: 16px;
+      gap: 12px;
+    }
+
+    .status-grid {
+      grid-template-columns: repeat(5, 1fr);
+    }
+
+    .performance-grid {
+      grid-template-columns: repeat(2, 1fr);
+      max-width: 400px;
+    }
+
+    .workflow-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .trend-grid {
+      grid-template-columns: repeat(3, 1fr);
     }
 
     .metric-card {
       background-color: var(--bg-secondary);
       border: 1px solid var(--border-color);
       border-radius: 8px;
-      padding: 16px;
+      padding: 12px 16px;
       text-align: center;
     }
 
+    /* Visual hierarchy - Primary metrics are larger/more prominent */
+    .metric-primary {
+      padding: 16px 20px;
+      border-width: 2px;
+    }
+
+    .metric-primary .metric-value {
+      font-size: 32px;
+    }
+
+    .metric-secondary {
+      padding: 10px 14px;
+    }
+
+    .metric-secondary .metric-value {
+      font-size: 20px;
+    }
+
+    .metric-wide {
+      grid-column: span 2;
+    }
+
     .metric-label {
-      font-size: 12px;
+      font-size: 11px;
       color: var(--text-secondary);
       text-transform: uppercase;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
 
     .metric-value {
@@ -564,21 +750,86 @@ function getDashboardStyles(): string {
       color: var(--accent-red);
     }
 
-    .metric-value.active-sprint {
-      font-size: 14px;
-    }
-
-    .metric-value .active-link {
-      color: var(--accent-blue);
-      text-decoration: none;
-    }
-
-    .metric-value .active-link:hover {
-      text-decoration: underline;
-    }
-
-    .metric-value .no-active {
+    .metric-context {
+      font-size: 11px;
       color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* Workflow distribution bars */
+    .workflow-distribution {
+      text-align: left;
+    }
+
+    .workflow-bars {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .workflow-bar-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .workflow-bar-label {
+      font-size: 11px;
+      color: var(--text-secondary);
+      min-width: 80px;
+      text-overflow: ellipsis;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+
+    .workflow-bar-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .workflow-bar {
+      height: 6px;
+      background-color: var(--accent-blue);
+      border-radius: 3px;
+      min-width: 4px;
+    }
+
+    .workflow-bar-value {
+      font-size: 10px;
+      color: var(--text-muted);
+      min-width: 30px;
+    }
+
+    /* Trend sparkline */
+    .trend-chart {
+      text-align: left;
+    }
+
+    .sparkline {
+      display: flex;
+      align-items: flex-end;
+      gap: 3px;
+      height: 40px;
+      padding-top: 8px;
+    }
+
+    .sparkline-bar {
+      flex: 1;
+      background-color: var(--accent-blue);
+      border-radius: 2px;
+      min-height: 4px;
+      transition: background-color 0.15s;
+    }
+
+    .sparkline-bar:hover {
+      background-color: var(--accent-green);
+    }
+
+    .metric-value.workflow-name {
+      font-size: 16px;
+      color: var(--accent-purple);
     }
 
     /* Sprint Table */
@@ -734,6 +985,18 @@ function getDashboardStyles(): string {
         grid-template-columns: repeat(2, 1fr);
       }
 
+      .status-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .trend-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .metric-wide {
+        grid-column: span 2;
+      }
+
       .header {
         flex-direction: column;
         gap: 12px;
@@ -752,8 +1015,16 @@ function getDashboardStyles(): string {
     }
 
     @media (max-width: 480px) {
-      .metrics-grid {
+      .metrics-grid,
+      .status-grid,
+      .performance-grid,
+      .workflow-grid,
+      .trend-grid {
         grid-template-columns: 1fr;
+      }
+
+      .metric-wide {
+        grid-column: span 1;
       }
     }
   `;
@@ -906,8 +1177,8 @@ function getDashboardScript(): string {
           row.className = 'sprint-row';
           row.dataset.sprintId = sprint.sprintId;
 
-          // Extract worktree name from path
-          const worktreeName = extractWorktreeName(sprint.path || '');
+          // Use worktree name from sprint data (properly normalized by server)
+          const worktreeName = (sprint.worktree && sprint.worktree.name) || extractWorktreeName(sprint.path || '');
           row.dataset.worktree = worktreeName;
 
           // Check if this row should be visible based on current filter
@@ -936,6 +1207,13 @@ function getDashboardScript(): string {
           tbody.appendChild(row);
         }
       }
+
+      // ================================================================
+      // Utility Functions (Client-Side)
+      // ================================================================
+      // NOTE: These mirror server-side functions for dynamically
+      // loaded sprint rows. See comments near line 335 for details.
+      // ================================================================
 
       // Extract worktree name from sprint path
       function extractWorktreeName(sprintPath) {

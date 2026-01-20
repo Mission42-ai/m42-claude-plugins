@@ -1445,6 +1445,237 @@ test('BUG-002: Retry actions from status server are preserved', async () => {
 });
 
 // ============================================================================
+// BUG-001: Step Progress Indicators Tests
+// ============================================================================
+
+test('BUG-001: Step status should be updated to in-progress when executing', async () => {
+  // This test verifies that step statuses are updated during execution.
+  //
+  // BUG: Currently the runtime only updates:
+  //   - progress.status (sprint-level)
+  //   - phase.status (only when sprint completes)
+  // It NEVER updates step.status or subPhase.status, which means the
+  // dashboard shows all steps as "pending" (empty circles) regardless
+  // of actual execution state.
+  //
+  // Expected: When a step's sub-phase is being executed, both the step
+  // and its current sub-phase should have status 'in-progress'.
+  //
+  // This test SHOULD FAIL with current code (demonstrating the bug exists)
+  // and PASS once the bug is fixed.
+
+  const testDir = createTestSprintDir();
+
+  try {
+    // Create progress with a for-each phase containing steps
+    // Use type assertion to create the nested structure
+    const progressData = {
+      'sprint-id': 'test-sprint',
+      status: 'not-started' as const,
+      current: { phase: 0, step: 0, 'sub-phase': 0 },
+      stats: {
+        'started-at': null,
+        'total-phases': 4,
+        'completed-phases': 0,
+      },
+      phases: [
+        {
+          id: 'development',
+          status: 'pending' as const,
+          steps: [
+            {
+              id: 'step-0',
+              prompt: 'Implement feature A',
+              status: 'pending' as const,
+              phases: [
+                { id: 'context', status: 'pending' as const, prompt: 'Gather context' },
+                { id: 'implement', status: 'pending' as const, prompt: 'Implement feature' },
+              ],
+            },
+            {
+              id: 'step-1',
+              prompt: 'Implement feature B',
+              status: 'pending' as const,
+              phases: [
+                { id: 'context', status: 'pending' as const, prompt: 'Gather context' },
+                { id: 'implement', status: 'pending' as const, prompt: 'Implement feature' },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const progress = progressData as unknown as CompiledProgress;
+    writeProgress(testDir, progress);
+
+    // Track what statuses we see during execution
+    const stepStatusesDuringExecution: string[] = [];
+    const subPhaseStatusesDuringExecution: string[] = [];
+    let executionCount = 0;
+
+    const options: LoopOptions = { maxIterations: 10, delay: 0, verbose: false };
+
+    const mockDeps = {
+      runClaude: async () => {
+        executionCount++;
+
+        // Read progress file to check step/sub-phase statuses during execution
+        const currentProgress = readProgressFile(testDir);
+        const devPhase = currentProgress.phases?.[0] as {
+          steps?: Array<{
+            id: string;
+            status: string;
+            phases?: Array<{ id: string; status: string }>;
+          }>;
+        };
+
+        if (devPhase?.steps) {
+          for (const step of devPhase.steps) {
+            stepStatusesDuringExecution.push(`${step.id}:${step.status}`);
+            if (step.phases) {
+              for (const subPhase of step.phases) {
+                subPhaseStatusesDuringExecution.push(`${step.id}/${subPhase.id}:${subPhase.status}`);
+              }
+            }
+          }
+        }
+
+        return {
+          success: true,
+          output: 'Phase completed',
+          exitCode: 0,
+          jsonResult: { status: 'completed', summary: 'Done' },
+        };
+      },
+    };
+
+    const result = await runLoop(testDir, options, mockDeps);
+
+    // Verify test ran
+    assert(executionCount > 0, 'Test should have executed at least one phase');
+
+    // BUG-001: Check that step statuses were EVER updated to 'in-progress'
+    // With the current bug, all step statuses remain 'pending' throughout execution
+    const hadInProgressStep = stepStatusesDuringExecution.some((s) => s.includes(':in-progress'));
+    const hadInProgressSubPhase = subPhaseStatusesDuringExecution.some((s) => s.includes(':in-progress'));
+
+    // This assertion should FAIL with current code
+    assert(
+      hadInProgressStep,
+      `BUG-001: Step status was NEVER set to 'in-progress' during execution!\n` +
+        `Observed step statuses: ${JSON.stringify([...new Set(stepStatusesDuringExecution)])}\n` +
+        `Expected at least one 'in-progress' status for the current step.`
+    );
+
+    assert(
+      hadInProgressSubPhase,
+      `BUG-001: Sub-phase status was NEVER set to 'in-progress' during execution!\n` +
+        `Observed sub-phase statuses: ${JSON.stringify([...new Set(subPhaseStatusesDuringExecution)])}\n` +
+        `Expected at least one 'in-progress' status for the current sub-phase.`
+    );
+  } finally {
+    cleanupTestDir(testDir);
+  }
+});
+
+test('BUG-001: Completed step status should be preserved in PROGRESS.yaml', async () => {
+  // This test verifies that when a step is completed, its status is
+  // updated to 'completed' in PROGRESS.yaml.
+  //
+  // BUG: Currently when the sprint completes, only phase.status is set
+  // to 'completed' (line 228 in loop.ts), but step.status and
+  // subPhase.status are never updated.
+  //
+  // Expected: After a step's last sub-phase completes, the step status
+  // should be 'completed'. After sprint completion, PROGRESS.yaml
+  // should show all executed steps and sub-phases as 'completed'.
+
+  const testDir = createTestSprintDir();
+
+  try {
+    // Create progress with steps
+    // Use type assertion to create the nested structure
+    const progressData = {
+      'sprint-id': 'test-sprint',
+      status: 'not-started' as const,
+      current: { phase: 0, step: 0, 'sub-phase': 0 },
+      stats: {
+        'started-at': null,
+        'total-phases': 1,
+        'completed-phases': 0,
+      },
+      phases: [
+        {
+          id: 'development',
+          status: 'pending' as const,
+          steps: [
+            {
+              id: 'step-0',
+              prompt: 'Implement feature A',
+              status: 'pending' as const,
+              phases: [
+                { id: 'implement', status: 'pending' as const, prompt: 'Implement feature' },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const progress = progressData as unknown as CompiledProgress;
+    writeProgress(testDir, progress);
+
+    const options: LoopOptions = { maxIterations: 5, delay: 0, verbose: false };
+
+    const mockDeps = {
+      runClaude: async () => ({
+        success: true,
+        output: 'Phase completed',
+        exitCode: 0,
+        jsonResult: { status: 'completed', summary: 'Done' },
+      }),
+    };
+
+    const result = await runLoop(testDir, options, mockDeps);
+
+    // Sprint should complete
+    assertEqual(result.finalState.status, 'completed', 'Sprint should complete');
+
+    // Now check the final PROGRESS.yaml
+    const finalProgress = readProgressFile(testDir);
+    const devPhase = finalProgress.phases?.[0] as {
+      status: string;
+      steps?: Array<{
+        id: string;
+        status: string;
+        phases?: Array<{ id: string; status: string }>;
+      }>;
+    };
+
+    // BUG-001: Verify step status was updated
+    const step = devPhase?.steps?.[0];
+
+    assert(
+      step?.status === 'completed',
+      `BUG-001: Step status should be 'completed' after execution!\n` +
+        `Actual step status: '${step?.status}'\n` +
+        `The runtime only updates phase.status, not step.status.`
+    );
+
+    // BUG-001: Verify sub-phase status was updated
+    const subPhase = step?.phases?.[0];
+
+    assert(
+      subPhase?.status === 'completed',
+      `BUG-001: Sub-phase status should be 'completed' after execution!\n` +
+        `Actual sub-phase status: '${subPhase?.status}'\n` +
+        `The runtime only updates phase.status, not subPhase.status.`
+    );
+  } finally {
+    cleanupTestDir(testDir);
+  }
+});
+
+// ============================================================================
 // Run Tests Summary
 // ============================================================================
 
