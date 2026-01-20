@@ -30,18 +30,38 @@ const originalConsole = {
 };
 const capturedLogs: { level: string; message: string }[] = [];
 
+// Queue tests for sequential execution to avoid console mock race conditions
+const testQueue: Array<{ name: string; fn: () => void | Promise<void> }> = [];
+let testsStarted = false;
+
 function test(name: string, fn: () => void | Promise<void>): void {
-  Promise.resolve()
-    .then(() => fn())
-    .then(() => {
+  testQueue.push({ name, fn });
+
+  // Start running tests after all are queued (on next tick)
+  if (!testsStarted) {
+    testsStarted = true;
+    setImmediate(runTests);
+  }
+}
+
+async function runTests(): Promise<void> {
+  for (const { name, fn } of testQueue) {
+    try {
+      await fn();
       testsPassed++;
       originalConsole.log(`✓ ${name}`);
-    })
-    .catch((error) => {
+    } catch (error) {
       testsFailed++;
       originalConsole.error(`✗ ${name}`);
       originalConsole.error(`  ${error}`);
-    });
+    }
+  }
+
+  originalConsole.log('');
+  originalConsole.log(`Tests completed: ${testsPassed} passed, ${testsFailed} failed`);
+  if (testsFailed > 0) {
+    process.exitCode = 1;
+  }
 }
 
 function assert(condition: boolean, message: string): void {
@@ -641,11 +661,5 @@ test('LOG action in verbose mode should include prefix', async () => {
 // Run Tests Summary
 // ============================================================================
 
-// Wait for all async tests to complete
-setTimeout(() => {
-  originalConsole.log('');
-  originalConsole.log(`Tests completed: ${testsPassed} passed, ${testsFailed} failed`);
-  if (testsFailed > 0) {
-    process.exitCode = 1;
-  }
-}, 3000);
+// Tests run sequentially via runTests() triggered by setImmediate
+// No setTimeout needed - runTests() handles summary output
