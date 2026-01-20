@@ -29,12 +29,19 @@ The goal: A future agent reading the target CLAUDE.md should be more effective a
 2. List existing CLAUDE.md files for target inference:
    !`find . -name "CLAUDE.md" -not -path "*/node_modules/*" -not -path "*/.git/*" 2>/dev/null | head -20`
 
+3. Assess transcript size:
+   !`wc -l "$TRANSCRIPT_PATH" && (stat --printf="%s" "$TRANSCRIPT_PATH" 2>/dev/null || stat -f%z "$TRANSCRIPT_PATH")`
+
+4. Large transcript detection (>100 lines or >500KB activates preprocessing mode)
+
 ## Arguments
 
 Parse `$ARGUMENTS` for:
 - **Transcript path** (required): Path to `.jsonl` transcript file
 - `--dry-run`: Preview learnings without writing to backlog
 - `--focus <area>`: Focus extraction on specific area (e.g., "api", "testing", "build")
+- `--preprocess-only`: Generate preprocessing artifacts without LLM analysis
+- `--parallel`: Enable parallel chunk processing for large transcripts
 
 ## Transcript Schema
 
@@ -318,3 +325,38 @@ Written to: .claude/learnings/backlog.yaml
 - Confidence levels reflect actual certainty
 - Output is actionable for the review step
 - Signs will meaningfully help future agents
+
+## Large Transcript Handling
+
+When transcript exceeds 100 lines or 500KB, activate preprocessing mode:
+
+### Step 1: Generate Summary
+!`plugins/m42-signs/scripts/transcript-summary.sh "$TRANSCRIPT_PATH"`
+
+Review stats to understand transcript scope.
+
+### Step 2: Find High-Value Patterns
+!`plugins/m42-signs/scripts/find-learning-lines.sh "$TRANSCRIPT_PATH"`
+
+These snippets indicate where learnings concentrate.
+
+### Step 3: Extract Reasoning Blocks
+!`plugins/m42-signs/scripts/extract-reasoning.sh "$TRANSCRIPT_PATH" > /tmp/reasoning-$$.jsonl`
+
+Creates a smaller file focused on learning-worthy content.
+
+### Step 4: Analyze Reasoning File
+
+If reasoning file has < 100 blocks, analyze directly using standard extraction.
+
+If reasoning file has 100+ blocks, split into chunks:
+```bash
+split -l 50 /tmp/reasoning-$$.jsonl /tmp/chunk-$$-
+```
+
+- With `--parallel`: Spawn chunk-analyzer subagent per chunk via Task()
+- Without: Analyze chunks sequentially
+
+### Step 5: Aggregate and Deduplicate Results
+
+Combine learnings from all chunks. Deduplicate by semantic similarity (same problem/solution).
