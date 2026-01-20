@@ -1,0 +1,587 @@
+# Documentation Workflow
+# Updates user documentation, getting started guides, and reference material
+#
+# Phases:
+# 1. ANALYZE   - Review code changes and determine documentation impact
+# 2. USER-GUIDE - Update user-facing documentation
+# 3. GETTING-STARTED - Update quickstart and onboarding material
+# 4. REFERENCE - Update technical reference and API docs
+# 5. VALIDATE  - Verify documentation accuracy and completeness
+
+name: Documentation Workflow
+description: |
+  Comprehensive documentation update workflow that analyzes code changes
+  and ensures all documentation (user guide, getting started, reference)
+  is accurate and up-to-date.
+
+  Documentation follows these principles:
+  - User-first: Write for the human reader
+  - Example-driven: Show, don't just tell
+  - Accurate: Code and docs must match
+  - Complete: Cover all public APIs and features
+
+phases:
+  # ============================================================================
+  # Phase 1: ANALYZE
+  # Review code changes and determine documentation impact
+  # ============================================================================
+  - id: analyze
+    prompt: |
+      Analyze code changes and plan documentation updates.
+
+      ## Context
+      Read: context/_shared-context.md (documentation structure)
+      Read: context/sprint-plan.md (documentation update plan)
+
+      ## Step 1: Review All Code Changes
+      ```bash
+      # See all changes in this sprint
+      git diff main..HEAD --name-only
+
+      # Get detailed diff
+      git diff main..HEAD -- "*.ts" "*.tsx" "*.js"
+      ```
+
+      ## Step 2: Identify Documentation Impact
+
+      For each change, determine:
+      - New features that need documenting
+      - Changed behavior that needs updating
+      - Removed features that need removing from docs
+      - New/changed CLI commands
+      - New/changed configuration options
+      - New/changed API endpoints or functions
+
+      ## Step 3: Audit Existing Documentation
+      ```bash
+      # Find all documentation files
+      find . -name "*.md" -path "*/docs/*" -o -name "README.md" | head -30
+      ```
+
+      Review each relevant doc file and note:
+      - What's accurate and complete
+      - What's outdated
+      - What's missing
+
+      ## Step 4: Generate Documentation Plan
+      Create: artifacts/docs-update-plan.md
+
+      ```markdown
+      # Documentation Update Plan: {{sprint.id}}
+
+      ## Code Changes Summary
+      | File | Change Type | Description |
+      |------|-------------|-------------|
+      | [path] | Added/Modified | [what changed] |
+
+      ## Documentation Impact
+
+      ### User Guide Updates
+      | Section | Action | Reason |
+      |---------|--------|--------|
+      | [section] | Update/Add/Remove | [why] |
+
+      ### Getting Started Updates
+      | Section | Action | Reason |
+      |---------|--------|--------|
+      | [section] | Update/Add | [why] |
+
+      ### Reference Updates
+      | Item | Action | Details |
+      |------|--------|---------|
+      | [command/function] | Update/Add | [changes] |
+
+      ## New Documentation Needed
+      - [ ] [New doc 1]: [purpose]
+      - [ ] [New doc 2]: [purpose]
+
+      ## Files to Update
+      | File | Updates Needed |
+      |------|----------------|
+      | [path] | [specific updates] |
+
+      ## Verification Plan
+      - [ ] All code examples tested
+      - [ ] All commands verified
+      - [ ] All links checked
+      ```
+
+      ## Commit
+      ```bash
+      git add artifacts/docs-update-plan.md
+      git commit -m "docs(plan): documentation update analysis"
+      ```
+
+  # ============================================================================
+  # Phase 2: USER-GUIDE
+  # Update user-facing documentation
+  # ============================================================================
+  - id: user-guide
+    prompt: |
+      Update user-facing documentation based on analysis.
+
+      ## Context
+      Read: artifacts/docs-update-plan.md (what needs updating)
+      Read: context/_shared-context.md (documentation structure)
+
+      ## User Guide Principles
+      1. **Task-oriented**: Organize by what users want to DO
+      2. **Progressive**: Simple → Advanced
+      3. **Example-rich**: Every feature needs an example
+      4. **Scannable**: Use headers, lists, tables
+
+      ## Step 1: Locate or Create User Guide
+      The user guide should be at: `docs/USER-GUIDE.md` or `docs/user-guide/`
+
+      If it doesn't exist, create it using the template below.
+
+      ## Step 2: Update Each Section
+
+      For each item in docs-update-plan.md's "User Guide Updates":
+
+      ### Adding New Features
+      ```markdown
+      ## [Feature Name]
+
+      [One paragraph explaining WHAT it does and WHY you'd use it]
+
+      ### Quick Example
+      \`\`\`bash
+      # Show the simplest possible example
+      [command or code]
+      \`\`\`
+
+      ### How It Works
+      [Explain the feature in more detail]
+
+      ### Examples
+
+      #### Basic Usage
+      \`\`\`bash
+      [example]
+      \`\`\`
+
+      #### Advanced Usage
+      \`\`\`bash
+      [example with options]
+      \`\`\`
+
+      ### Tips
+      - [Helpful tip 1]
+      - [Helpful tip 2]
+      ```
+
+      ### Updating Existing Features
+      - Locate the existing section
+      - Update examples if behavior changed
+      - Update descriptions if functionality changed
+      - Add new subsections for new capabilities
+
+      ### Removing Features
+      - Remove the section entirely
+      - Or add deprecation notice if replacing
+
+      ## Step 3: Verify Examples Work
+      Run each code example in the documentation to ensure it works:
+      ```bash
+      # Test each example manually
+      [example command from docs]
+      ```
+
+      ## Step 4: Commit Updates
+      ```bash
+      git add docs/
+      git commit -m "docs(user-guide): update for {{sprint.id}} changes"
+      ```
+
+      ## User Guide Template (if creating new)
+      ```markdown
+      # [Plugin/Project Name] User Guide
+
+      ## Overview
+      [What this is and who it's for]
+
+      ## Quick Start
+      [Fastest path to using the core feature]
+
+      ## Features
+
+      ### [Feature 1]
+      [Documentation following the pattern above]
+
+      ### [Feature 2]
+      [Documentation following the pattern above]
+
+      ## Common Tasks
+
+      ### [Task 1]
+      Step-by-step guide for common workflow
+
+      ### [Task 2]
+      Step-by-step guide
+
+      ## Troubleshooting
+      [Common issues and solutions]
+
+      ## FAQ
+      [Frequently asked questions]
+      ```
+
+  # ============================================================================
+  # Phase 3: GETTING-STARTED
+  # Update quickstart and onboarding material
+  # ============================================================================
+  - id: getting-started
+    prompt: |
+      Update getting started and quickstart documentation.
+
+      ## Context
+      Read: artifacts/docs-update-plan.md (what needs updating)
+      Read: context/_shared-context.md (documentation structure)
+
+      ## Getting Started Principles
+      1. **Fast**: Get to "Hello World" in < 5 steps
+      2. **Complete**: All prerequisites clearly listed
+      3. **Copy-paste**: Every command should work as written
+      4. **No assumptions**: Don't assume prior knowledge
+
+      ## Step 1: Locate or Create Getting Started
+      Should be at: `docs/getting-started/` or `docs/QUICKSTART.md` or in README.md
+
+      ## Step 2: Update Prerequisites
+      List everything needed before starting:
+      ```markdown
+      ## Prerequisites
+
+      - [Requirement 1] - [how to check/install]
+      - [Requirement 2] - [how to check/install]
+
+      ### Version Requirements
+      | Tool | Minimum Version | Check Command |
+      |------|-----------------|---------------|
+      | [tool] | [version] | `[command]` |
+      ```
+
+      ## Step 3: Update Installation
+      ```markdown
+      ## Installation
+
+      ### Option 1: [Primary method]
+      \`\`\`bash
+      [installation commands]
+      \`\`\`
+
+      ### Option 2: [Alternative method]
+      \`\`\`bash
+      [alternative commands]
+      \`\`\`
+
+      ### Verify Installation
+      \`\`\`bash
+      [verification command]
+      # Expected output: [what they should see]
+      \`\`\`
+      ```
+
+      ## Step 4: Update First Steps
+      ```markdown
+      ## Your First [Thing]
+
+      ### Step 1: [Action]
+      \`\`\`bash
+      [command]
+      \`\`\`
+
+      You should see:
+      \`\`\`
+      [expected output]
+      \`\`\`
+
+      ### Step 2: [Action]
+      [Continue with clear steps]
+
+      ### Step 3: [Action]
+      [Each step should be verifiable]
+
+      ## Success!
+      You've now [accomplished goal]. Next steps:
+      - [Link to User Guide]
+      - [Link to next tutorial]
+      ```
+
+      ## Step 5: Update README Quick Example
+      If README.md has a quick example section, ensure it's current:
+      - Examples should work with latest code
+      - Version numbers should be accurate
+      - Links should be valid
+
+      ## Step 6: Test the Flow
+      Follow the getting started guide yourself:
+      1. Start from a fresh state
+      2. Run each command exactly as written
+      3. Verify expected outputs match
+      4. Fix any issues found
+
+      ## Step 7: Commit Updates
+      ```bash
+      git add docs/ README.md
+      git commit -m "docs(getting-started): update onboarding for {{sprint.id}}"
+      ```
+
+  # ============================================================================
+  # Phase 4: REFERENCE
+  # Update technical reference and API documentation
+  # ============================================================================
+  - id: reference
+    prompt: |
+      Update technical reference and API documentation.
+
+      ## Context
+      Read: artifacts/docs-update-plan.md (what needs updating)
+      Read: context/_shared-context.md (documentation structure)
+
+      ## Reference Documentation Principles
+      1. **Complete**: Document ALL public APIs
+      2. **Accurate**: Generated from code when possible
+      3. **Structured**: Consistent format for all items
+      4. **Searchable**: Easy to find specific items
+
+      ## Step 1: Locate or Create Reference Docs
+      Should be at: `docs/reference/` or `docs/api/`
+
+      ## Step 2: Update Command Reference
+      For CLI commands, use this format:
+
+      ```markdown
+      ## Commands Reference
+
+      ### [command-name]
+
+      [One-line description]
+
+      #### Synopsis
+      \`\`\`
+      [command] [options] [arguments]
+      \`\`\`
+
+      #### Description
+      [Detailed description of what the command does]
+
+      #### Options
+      | Option | Type | Default | Description |
+      |--------|------|---------|-------------|
+      | `--option` | string | none | [description] |
+      | `-f, --flag` | boolean | false | [description] |
+
+      #### Arguments
+      | Argument | Required | Description |
+      |----------|----------|-------------|
+      | `<name>` | Yes | [description] |
+      | `[path]` | No | [description] |
+
+      #### Examples
+      \`\`\`bash
+      # Basic usage
+      [command] [basic-args]
+
+      # With options
+      [command] --option value
+
+      # Advanced usage
+      [command] --flag -o value
+      \`\`\`
+
+      #### See Also
+      - [Related command 1]
+      - [Related command 2]
+      ```
+
+      ## Step 3: Update API Reference
+      For functions/classes, use this format:
+
+      ```markdown
+      ## API Reference
+
+      ### [FunctionName]
+
+      \`\`\`typescript
+      function name(param: Type): ReturnType
+      \`\`\`
+
+      [Description of what the function does]
+
+      #### Parameters
+      | Parameter | Type | Required | Description |
+      |-----------|------|----------|-------------|
+      | `param` | `Type` | Yes | [description] |
+
+      #### Returns
+      `ReturnType` - [description of return value]
+
+      #### Throws
+      - `ErrorType` - [when this error is thrown]
+
+      #### Example
+      \`\`\`typescript
+      const result = name(value);
+      console.log(result); // [expected output]
+      \`\`\`
+      ```
+
+      ## Step 4: Update Configuration Reference
+      For config options:
+
+      ```markdown
+      ## Configuration Reference
+
+      ### [config-file-name]
+
+      #### Schema
+      \`\`\`yaml
+      # Full schema with comments
+      option: value  # description
+      nested:
+        key: value   # description
+      \`\`\`
+
+      #### Options
+
+      ##### `option`
+      - **Type**: string
+      - **Required**: Yes/No
+      - **Default**: `value`
+      - **Description**: [what this option does]
+      - **Example**: `option: "example"`
+      ```
+
+      ## Step 5: Update Type Definitions
+      If there are TypeScript types that users need to know:
+
+      ```markdown
+      ## Type Definitions
+
+      ### [TypeName]
+      \`\`\`typescript
+      interface TypeName {
+        property: string;
+        optional?: number;
+      }
+      \`\`\`
+
+      | Property | Type | Required | Description |
+      |----------|------|----------|-------------|
+      | `property` | `string` | Yes | [description] |
+      ```
+
+      ## Step 6: Verify Reference Accuracy
+      - Check that all documented APIs actually exist
+      - Verify parameter names and types match code
+      - Test example code snippets
+
+      ## Step 7: Commit Updates
+      ```bash
+      git add docs/reference/
+      git commit -m "docs(reference): update API and command reference for {{sprint.id}}"
+      ```
+
+  # ============================================================================
+  # Phase 5: VALIDATE
+  # Verify documentation accuracy and completeness
+  # ============================================================================
+  - id: validate
+    prompt: |
+      Validate all documentation updates.
+
+      ## Context
+      Read: artifacts/docs-update-plan.md (original plan)
+
+      ## Step 1: Completeness Check
+      Verify all planned updates were made:
+      ```bash
+      # Show all doc changes in this sprint
+      git diff main..HEAD -- "*.md" --stat
+      ```
+
+      Cross-reference with docs-update-plan.md:
+      - [ ] All User Guide updates complete
+      - [ ] All Getting Started updates complete
+      - [ ] All Reference updates complete
+      - [ ] All new docs created
+
+      ## Step 2: Link Validation
+      Check all internal links work:
+      ```bash
+      # Find all markdown links
+      grep -rh "\[.*\](.*\.md)" docs/ | head -30
+      ```
+
+      Verify each linked file exists.
+
+      ## Step 3: Code Example Validation
+      Test each code example in the documentation:
+      - Run CLI examples
+      - Compile TypeScript examples
+      - Execute JavaScript examples
+
+      Document any failures.
+
+      ## Step 4: Consistency Check
+      - Consistent formatting across all docs
+      - Consistent terminology
+      - Consistent example style
+      - Version numbers match
+
+      ## Step 5: Generate Validation Report
+      Create: artifacts/docs-validation-report.md
+
+      ```markdown
+      # Documentation Validation Report: {{sprint.id}}
+
+      ## Completeness
+      | Planned Update | Status | Notes |
+      |----------------|--------|-------|
+      | [update 1] | DONE/MISSING | [notes] |
+
+      ## Link Validation
+      | Link | Target | Status |
+      |------|--------|--------|
+      | [link text] | [file] | OK/BROKEN |
+
+      ## Code Example Validation
+      | File | Example | Status | Output |
+      |------|---------|--------|--------|
+      | [path] | Line [N] | PASS/FAIL | [output] |
+
+      ## Consistency Check
+      - [ ] Formatting consistent
+      - [ ] Terminology consistent
+      - [ ] Examples consistent
+      - [ ] Versions accurate
+
+      ## Issues Found
+      [List any issues, or "None"]
+
+      ## Documentation Files Updated
+      | File | Lines Changed | Summary |
+      |------|---------------|---------|
+      | [path] | +[N]/-[N] | [summary] |
+
+      ## Overall Status: PASS / FAIL
+      ```
+
+      ## Step 6: Fix Any Issues
+      If validation found issues:
+      - Fix broken links
+      - Update failed examples
+      - Correct inconsistencies
+
+      ## Step 7: Final Commit
+      ```bash
+      git add artifacts/docs-validation-report.md
+      git add docs/  # Any fixes
+      git commit -m "docs(validate): documentation verified for {{sprint.id}}"
+      ```
+
+      ## Important
+      Documentation must pass validation before sprint can complete.
+      All code examples must work with the actual code.

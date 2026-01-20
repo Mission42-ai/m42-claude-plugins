@@ -1,0 +1,29 @@
+# SPRINT.yaml - Workflow Template Creation Sprint
+# This sprint focuses exclusively on creating high-quality workflow templates
+
+workflow: flat-foreach
+
+steps:
+  # Add workflow template creation steps here
+  # Each step will be executed directly without sub-phases
+  #
+  # Example structure:
+  # - prompt: |
+  #     Create workflow template: [template-name]
+  #
+  #     ## Purpose
+  #     [What this workflow template is for]
+  #
+  #     ## Phases
+  #     [List the phases this workflow should have]
+  #
+  #     ## Success Criteria
+  #     - [ ] Valid YAML syntax
+  #     - [ ] Follows workflow best practices
+  #     - [ ] Includes proper template variables
+  #     - [ ] Documented with description
+
+# Sprint metadata
+sprint-id: 2026-01-19_workflow-templates
+name: workflow-templates
+created: 2026-01-19T23:39:00Z

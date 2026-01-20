@@ -1,0 +1,500 @@
+# SPRINT.yaml - TypeScript Runtime Migration
+# Full migration from bash scripts (~2,900 lines) to TypeScript
+# Using XState patterns without XState dependency
+
+workflow: plugin-development
+
+steps:
+  # ============================================================================
+  # Step 0: Type System Foundation
+  # ============================================================================
+  - id: type-system
+    prompt: |
+      GIVEN the current string-based status types in m42-sprint
+      WHEN applying XState-inspired patterns for type safety
+      THEN create discriminated unions and event types
+
+      ## Scope
+      Enhance plugins/m42-sprint/compiler/src/types.ts only.
+      NO runtime changes - types only.
+
+      ## Acceptance Criteria
+
+      ### Discriminated Union: SprintState
+      - [ ] `{ status: 'not-started' }`
+      - [ ] `{ status: 'in-progress'; current: CurrentPointer; iteration: number; startedAt: string }`
+      - [ ] `{ status: 'paused'; pausedAt: CurrentPointer; pauseReason: string }`
+      - [ ] `{ status: 'blocked'; error: string; failedPhase: string; blockedAt: string }`
+      - [ ] `{ status: 'needs-human'; reason: string; details?: string }`
+      - [ ] `{ status: 'completed'; summary?: string; completedAt: string; elapsed: string }`
+
+      ### Event Union: SprintEvent
+      - [ ] START, TICK, MAX_ITERATIONS_REACHED
+      - [ ] PHASE_COMPLETE { summary, phaseId }
+      - [ ] PHASE_FAILED { error, category, phaseId }
+      - [ ] STEP_COMPLETE { summary, stepId }
+      - [ ] STEP_FAILED { error, category, stepId }
+      - [ ] PROPOSE_STEPS { steps, proposedBy }
+      - [ ] PAUSE { reason }, RESUME
+      - [ ] HUMAN_NEEDED { reason, details? }
+      - [ ] GOAL_COMPLETE { summary }
+
+      ### Action Union: SprintAction
+      - [ ] LOG { level, message }
+      - [ ] SPAWN_CLAUDE { prompt, phaseId, onComplete }
+      - [ ] WRITE_PROGRESS
+      - [ ] UPDATE_STATS { updates }
+      - [ ] EMIT_ACTIVITY { activity, data }
+      - [ ] SCHEDULE_RETRY { phaseId, delayMs }
+      - [ ] INSERT_STEP { step, position }
+
+      ### TransitionResult Interface
+      - [ ] { nextState: SprintState; actions: SprintAction[]; context: Partial<CompiledProgress> }
+
+      ### Guard Functions
+      - [ ] Create `guards` object with: hasMorePhases, hasMoreSteps, hasMoreSubPhases
+      - [ ] isRetryable, hasStepQueue, orchestrationEnabled, autoApproveEnabled
+
+      ### Backwards Compatibility
+      - [ ] Add @deprecated JSDoc to old SprintStatus type
+      - [ ] Keep old types working for now
+      - [ ] npm run typecheck passes
+      - [ ] npm run build passes
+
+      ## Context
+      Read: context/xstate-patterns-plan.md (Type System section)
+
+      ## Files to Modify
+      - plugins/m42-sprint/compiler/src/types.ts
+
+  # ============================================================================
+  # Step 1: Pure Transition Function
+  # ============================================================================
+  - id: transition-function
+    prompt: |
+      GIVEN the discriminated union types from Step 0
+      WHEN implementing transition logic
+      THEN create testable pure function returning state + actions
+
+      ## Scope
+      Create NEW file: plugins/m42-sprint/runtime/src/transition.ts
+      Create runtime directory structure if needed.
+
+      ## Acceptance Criteria
+
+      ### Core Function
+      - [ ] `transition(state: SprintState, event: SprintEvent, context: CompiledProgress): TransitionResult`
+      - [ ] Pure function - NO side effects
+      - [ ] Returns { nextState, actions, context }
+
+      ### Event Handling (exhaustive matching)
+      - [ ] START → in-progress + SPAWN_CLAUDE action
+      - [ ] PHASE_COMPLETE → advance pointer or completed + WRITE_PROGRESS
+      - [ ] PHASE_FAILED + retryable → same state + SCHEDULE_RETRY
+      - [ ] PHASE_FAILED + not retryable → blocked + WRITE_PROGRESS
+      - [ ] PAUSE → paused + WRITE_PROGRESS
+      - [ ] RESUME → in-progress + SPAWN_CLAUDE
+      - [ ] PROPOSE_STEPS + autoApprove → INSERT_STEP actions
+      - [ ] PROPOSE_STEPS + !autoApprove → update step-queue context
+      - [ ] MAX_ITERATIONS_REACHED → blocked
+      - [ ] HUMAN_NEEDED → needs-human
+
+      ### Helper Functions
+      - [ ] `advancePointer(current, context)` → { nextPointer, hasMore }
+      - [ ] `calculateBackoff(context)` → delay in ms
+      - [ ] `getCurrentPhase/Step/SubPhase(progress)` → current item
+
+      ### Guards Integration
+      - [ ] Use guards from types.ts for conditions
+      - [ ] TypeScript enforces exhaustive switch
+
+      ### Tests
+      - [ ] Unit test for each state × event combination
+      - [ ] Test: invalid transitions return unchanged state
+      - [ ] Test: actions are correct for each transition
+      - [ ] 100% code coverage
+
+      ## Files to Create
+      - plugins/m42-sprint/runtime/src/transition.ts
+      - plugins/m42-sprint/runtime/src/transition.test.ts
+
+      ## Context
+      Read: context/xstate-patterns-plan.md (Phase 2 section)
+
+  # ============================================================================
+  # Step 2: YAML Operations Module
+  # ============================================================================
+  - id: yaml-ops
+    prompt: |
+      GIVEN the need to replace yq shell commands with TypeScript
+      WHEN implementing YAML operations
+      THEN create atomic read/write with checksum validation
+
+      ## Scope
+      Create NEW file: plugins/m42-sprint/runtime/src/yaml-ops.ts
+
+      ## Acceptance Criteria
+
+      ### Atomic Write
+      - [ ] `writeProgressAtomic(filePath, progress)` → Promise<void>
+      - [ ] Write to temp file first (same directory for same filesystem)
+      - [ ] Atomic rename (mv is atomic on POSIX)
+      - [ ] Update checksum file after successful write
+
+      ### Read with Validation
+      - [ ] `readProgress(filePath)` → CompiledProgress
+      - [ ] Validate checksum if checksum file exists
+      - [ ] Throw on checksum mismatch (corruption detection)
+
+      ### Transaction Support
+      - [ ] `backupProgress(filePath)` → void (create .backup)
+      - [ ] `restoreProgress(filePath)` → boolean (restore from .backup)
+      - [ ] `cleanupBackup(filePath)` → void (remove .backup)
+
+      ### Checksum
+      - [ ] `calculateChecksum(content)` → string (SHA256)
+      - [ ] Store in {file}.checksum
+
+      ### Tests
+      - [ ] Test: atomic write survives process.exit
+      - [ ] Test: checksum detects file modification
+      - [ ] Test: backup/restore works correctly
+      - [ ] Test: missing checksum file is OK (first run)
+
+      ## Dependencies
+      - js-yaml (already in compiler/package.json)
+      - crypto (Node.js built-in)
+
+      ## Files to Create
+      - plugins/m42-sprint/runtime/src/yaml-ops.ts
+      - plugins/m42-sprint/runtime/src/yaml-ops.test.ts
+
+      ## Context
+      Read: context/xstate-patterns-plan.md (Phase 7 section)
+      Reference: plugins/m42-sprint/scripts/sprint-loop.sh lines 190-340 (yaml_atomic_update)
+
+  # ============================================================================
+  # Step 3: Prompt Builder Module
+  # ============================================================================
+  - id: prompt-builder
+    prompt: |
+      GIVEN build-sprint-prompt.sh (354 lines) and build-parallel-prompt.sh (82 lines)
+      WHEN migrating to TypeScript
+      THEN create unified prompt builder with template support
+
+      ## Scope
+      Create NEW file: plugins/m42-sprint/runtime/src/prompt-builder.ts
+
+      ## Acceptance Criteria
+
+      ### Main Function
+      - [ ] `buildPrompt(progress, sprintDir, customPrompts?)` → string
+      - [ ] Handles regular phases, for-each steps, and sub-phases
+
+      ### Template Variables
+      - [ ] {{sprint.id}}, {{sprint.name}}
+      - [ ] {{iteration}}
+      - [ ] {{phase.id}}, {{phase.index}}
+      - [ ] {{step.id}}, {{step.prompt}}, {{step.index}}
+      - [ ] {{subPhase.id}}, {{subPhase.index}}
+      - [ ] {{retryCount}}
+
+      ### Prompt Sections
+      - [ ] Header: sprint info, iteration count
+      - [ ] Position: phase/step/sub-phase indicator
+      - [ ] Retry Warning: if retryCount > 0
+      - [ ] Context: load and concatenate context/*.md files
+      - [ ] Task: the actual prompt from phase/step
+      - [ ] Instructions: general guidelines
+      - [ ] Result Reporting: JSON format instructions
+
+      ### Custom Prompts Override
+      - [ ] Read prompts.header from SPRINT.yaml
+      - [ ] Read prompts.position, prompts.instructions, etc.
+      - [ ] Fall back to defaults if not specified
+
+      ### Parallel Support
+      - [ ] `buildParallelPrompt(...)` for parallel phases
+      - [ ] Include parallel task ID in prompt
+
+      ### Tests
+      - [ ] Test: all template variables substituted
+      - [ ] Test: custom prompts override defaults
+      - [ ] Test: context files loaded correctly
+      - [ ] Test: output matches build-sprint-prompt.sh output
+
+      ## Files to Create
+      - plugins/m42-sprint/runtime/src/prompt-builder.ts
+      - plugins/m42-sprint/runtime/src/prompt-builder.test.ts
+
+      ## Reference
+      Read: plugins/m42-sprint/scripts/build-sprint-prompt.sh
+      Read: plugins/m42-sprint/scripts/build-parallel-prompt.sh
+
+  # ============================================================================
+  # Step 4: Claude Runner Module
+  # ============================================================================
+  - id: claude-runner
+    prompt: |
+      GIVEN the need to invoke Claude CLI from TypeScript
+      WHEN creating the runner module
+      THEN wrap Claude CLI with proper error handling and result parsing
+
+      ## Scope
+      Create NEW file: plugins/m42-sprint/runtime/src/claude-runner.ts
+
+      ## Acceptance Criteria
+
+      ### Main Function
+      - [ ] `runClaude(options: ClaudeRunOptions)` → Promise<ClaudeResult>
+
+      ### Options Interface
+      - [ ] prompt: string (required)
+      - [ ] outputFile?: string
+      - [ ] maxTurns?: number
+      - [ ] model?: string
+      - [ ] allowedTools?: string[]
+      - [ ] continueSession?: string
+
+      ### Result Interface
+      - [ ] success: boolean
+      - [ ] output: string (full stdout)
+      - [ ] exitCode: number
+      - [ ] jsonResult?: unknown (parsed from ```json block)
+
+      ### Implementation
+      - [ ] Use child_process.spawn for Claude CLI
+      - [ ] Send prompt via stdin
+      - [ ] Capture stdout and stderr
+      - [ ] Extract JSON from ```json blocks in output
+      - [ ] Handle timeouts gracefully
+
+      ### Error Handling
+      - [ ] Detect rate-limit errors
+      - [ ] Detect network errors
+      - [ ] Detect timeout errors
+      - [ ] Return appropriate error category
+
+      ### Tests
+      - [ ] Test: successful run returns output
+      - [ ] Test: JSON extraction works
+      - [ ] Test: exit code captured
+      - [ ] Test: error handling (mock failures)
+
+      ## Files to Create
+      - plugins/m42-sprint/runtime/src/claude-runner.ts
+      - plugins/m42-sprint/runtime/src/claude-runner.test.ts
+
+  # ============================================================================
+  # Step 5: Action Executor
+  # ============================================================================
+  - id: executor
+    prompt: |
+      GIVEN the SprintAction types and support modules (yaml-ops, prompt-builder, claude-runner)
+      WHEN implementing the executor
+      THEN map each action type to its implementation
+
+      ## Scope
+      Create NEW file: plugins/m42-sprint/runtime/src/executor.ts
+
+      ## Acceptance Criteria
+
+      ### Main Functions
+      - [ ] `executeAction(action: SprintAction, context: ExecutorContext)` → Promise<SprintEvent | null>
+      - [ ] `executeActions(actions: SprintAction[], context)` → Promise<SprintEvent[]>
+
+      ### Action Implementations
+      - [ ] LOG → console.log/warn/error based on level
+      - [ ] SPAWN_CLAUDE → call claude-runner, return PHASE_COMPLETE or PHASE_FAILED
+      - [ ] WRITE_PROGRESS → call yaml-ops.writeProgressAtomic
+      - [ ] UPDATE_STATS → update in-memory context (will be persisted by WRITE_PROGRESS)
+      - [ ] EMIT_ACTIVITY → append to .sprint-activity.jsonl
+      - [ ] SCHEDULE_RETRY → sleep for delayMs, return event to retry
+      - [ ] INSERT_STEP → update progress.phases with new step
+
+      ### ExecutorContext Interface
+      - [ ] sprintDir: string
+      - [ ] progress: CompiledProgress (mutable reference)
+      - [ ] verbose: boolean
+
+      ### Type Safety
+      - [ ] Exhaustive switch with `never` check
+      - [ ] TypeScript error if action type missing
+
+      ### Tests
+      - [ ] Unit test for each action type
+      - [ ] Mock claude-runner for SPAWN_CLAUDE tests
+      - [ ] Mock fs for WRITE_PROGRESS tests
+      - [ ] Test: executeActions runs in sequence
+
+      ## Files to Create
+      - plugins/m42-sprint/runtime/src/executor.ts
+      - plugins/m42-sprint/runtime/src/executor.test.ts
+
+      ## Context
+      Read: context/xstate-patterns-plan.md (Phase 3 section)
+
+  # ============================================================================
+  # Step 6: Main Loop
+  # ============================================================================
+  - id: main-loop
+    prompt: |
+      GIVEN all support modules (transition, yaml-ops, prompt-builder, claude-runner, executor)
+      WHEN implementing the main sprint loop
+      THEN replace sprint-loop.sh (2,464 lines) with TypeScript
+
+      ## Scope
+      Create NEW file: plugins/m42-sprint/runtime/src/loop.ts
+
+      ## Acceptance Criteria
+
+      ### Main Function
+      - [ ] `runLoop(sprintDir: string, options: LoopOptions)` → Promise<SprintState>
+
+      ### Options
+      - [ ] maxIterations?: number (0 = unlimited)
+      - [ ] delay?: number (ms between iterations, default 2000)
+      - [ ] verbose?: boolean
+
+      ### Loop Logic
+      1. [ ] Recover from interrupted transaction on startup
+      2. [ ] Load PROGRESS.yaml via yaml-ops
+      3. [ ] Restore SprintState from progress
+      4. [ ] While not terminal state:
+         - [ ] Check max iterations
+         - [ ] Check pause signal (PAUSE file in sprint dir)
+         - [ ] Backup progress (transaction start)
+         - [ ] Determine next event based on state
+         - [ ] Call transition(state, event, context)
+         - [ ] Execute actions via executor
+         - [ ] Process resulting events recursively
+         - [ ] Write progress (transaction commit)
+         - [ ] Clean up backup
+         - [ ] Sleep delay
+
+      ### Terminal States
+      - [ ] 'completed', 'blocked', 'paused', 'needs-human'
+
+      ### Recovery
+      - [ ] `recoverFromInterrupt(progressPath)` → void
+      - [ ] Check for .backup file on startup
+      - [ ] Validate checksum, restore if needed
+
+      ### Logging
+      - [ ] Log iteration start/end
+      - [ ] Log state transitions
+      - [ ] Log errors with context
+
+      ### Tests
+      - [ ] Integration test: full loop with mock Claude
+      - [ ] Test: pause signal stops loop
+      - [ ] Test: max iterations enforced
+      - [ ] Test: crash recovery works
+      - [ ] Test: behavior matches sprint-loop.sh
+
+      ## Files to Create
+      - plugins/m42-sprint/runtime/src/loop.ts
+      - plugins/m42-sprint/runtime/src/loop.test.ts
+
+      ## Reference
+      Read: plugins/m42-sprint/scripts/sprint-loop.sh (the whole file)
+
+  # ============================================================================
+  # Step 7: CLI Entry Point & Package Setup
+  # ============================================================================
+  - id: cli-entrypoint
+    prompt: |
+      GIVEN the TypeScript runtime modules
+      WHEN creating the CLI entry point
+      THEN provide commands matching current bash interface
+
+      ## Scope
+      - Create CLI entry point
+      - Set up runtime package.json
+      - Configure build and test scripts
+
+      ## Acceptance Criteria
+
+      ### Package Setup
+      - [ ] Create plugins/m42-sprint/runtime/package.json
+      - [ ] Dependencies: js-yaml, commander
+      - [ ] DevDependencies: typescript, vitest, @types/*
+      - [ ] Scripts: build, test, typecheck
+
+      ### CLI Entry Point
+      - [ ] Create plugins/m42-sprint/runtime/src/cli.ts
+      - [ ] `sprint run <dir>` - run sprint loop
+      - [ ] `--max-iterations <n>` option
+      - [ ] `--delay <ms>` option
+      - [ ] `-v, --verbose` option
+      - [ ] Exit code 0 on success, 1 on failure
+
+      ### Build Setup
+      - [ ] tsconfig.json for runtime
+      - [ ] Output to dist/
+      - [ ] Shebang for CLI: #!/usr/bin/env node
+
+      ### Integration
+      - [ ] Update root package.json with workspace reference
+      - [ ] npm run build works from root
+      - [ ] npm run test works from root
+
+      ## Files to Create
+      - plugins/m42-sprint/runtime/package.json
+      - plugins/m42-sprint/runtime/tsconfig.json
+      - plugins/m42-sprint/runtime/src/cli.ts
+      - plugins/m42-sprint/runtime/src/index.ts (exports)
+
+  # ============================================================================
+  # Step 8: Command Integration & Bash Removal
+  # ============================================================================
+  - id: remove-bash
+    prompt: |
+      GIVEN the working TypeScript runtime
+      WHEN integrating with commands and cleaning up
+      THEN remove replaced bash scripts and update all references
+
+      ## Scope
+      - Update slash commands to use TypeScript runtime
+      - Remove replaced bash scripts
+      - Update documentation
+
+      ## Acceptance Criteria
+
+      ### Command Updates
+      - [ ] Update /run-sprint command to call TypeScript runtime
+      - [ ] Update /sprint-status to use TypeScript if applicable
+      - [ ] Verify /pause-sprint, /resume-sprint, /stop-sprint work
+
+      ### Bash Script Removal
+      - [ ] Delete: plugins/m42-sprint/scripts/sprint-loop.sh
+      - [ ] Delete: plugins/m42-sprint/scripts/build-sprint-prompt.sh
+      - [ ] Delete: plugins/m42-sprint/scripts/build-parallel-prompt.sh
+      - [ ] Delete: plugins/m42-sprint/scripts/preflight-check.sh
+      - [ ] KEEP: plugins/m42-sprint/scripts/test-*.sh (integration tests)
+
+      ### Documentation Updates
+      - [ ] Update plugins/m42-sprint/README.md
+      - [ ] Update any docs referencing bash scripts
+      - [ ] Document new TypeScript architecture
+
+      ### Verification
+      - [ ] grep -r "sprint-loop.sh" → no results
+      - [ ] grep -r "build-sprint-prompt" → no results
+      - [ ] /run-sprint executes successfully
+      - [ ] Full sprint execution works end-to-end
+      - [ ] All existing integration tests pass
+
+      ## Files to Delete
+      - plugins/m42-sprint/scripts/sprint-loop.sh
+      - plugins/m42-sprint/scripts/build-sprint-prompt.sh
+      - plugins/m42-sprint/scripts/build-parallel-prompt.sh
+      - plugins/m42-sprint/scripts/preflight-check.sh
+
+      ## Files to Modify
+      - plugins/m42-sprint/commands/run-sprint.md
+      - plugins/m42-sprint/README.md
+
+sprint-id: 2026-01-20_typescript-runtime-migration
+name: typescript-runtime-migration
+created: 2026-01-19T23:45:00Z
