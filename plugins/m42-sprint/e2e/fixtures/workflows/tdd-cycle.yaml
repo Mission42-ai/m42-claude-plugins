@@ -1,0 +1,9 @@
+# TDD Cycle Workflow
+# Used for testing for-each expansion with sub-phases
+name: tdd-cycle
+description: TDD red-green-refactor cycle for each step
+
+phases:
+  - id: development
+    for-each: step
+    workflow: feature-standard

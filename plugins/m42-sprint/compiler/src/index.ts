@@ -109,6 +109,13 @@ program
           console.log(yamlOutput); // intentional
         } else {
           fs.writeFileSync(outputPath, yamlOutput, 'utf8');
+
+          // Bug 5 fix: Remove stale checksum file to prevent runtime checksum mismatch
+          const checksumPath = `${outputPath}.checksum`;
+          if (fs.existsSync(checksumPath)) {
+            fs.unlinkSync(checksumPath);
+          }
+
           console.log(`\nCompiled successfully: ${outputPath}`); // intentional
 
           // Summary

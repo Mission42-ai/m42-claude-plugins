@@ -1,0 +1,19 @@
+{
+  "name": "@m42/sprint-e2e-tests",
+  "version": "1.0.0",
+  "description": "E2E tests for m42-sprint plugin",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "test": "npm run build && npm run test:run",
+    "test:run": "node dist/runtime.e2e.test.js && node dist/integration.e2e.test.js"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.0"
+  }
+}

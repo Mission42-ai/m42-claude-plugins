@@ -109,8 +109,11 @@ export function parseArgs(args: string[]): ParseResult {
       } else if (arg === '--verbose' || arg === '-v') {
         result.options.verbose = true;
       } else if (!arg.startsWith('-')) {
-        // Positional argument = directory
-        result.directory = arg;
+        // Positional argument = directory (only set if not already set)
+        // Bug 2 fix: prevent unknown flag values from overwriting directory
+        if (!result.directory) {
+          result.directory = arg;
+        }
       }
     }
 

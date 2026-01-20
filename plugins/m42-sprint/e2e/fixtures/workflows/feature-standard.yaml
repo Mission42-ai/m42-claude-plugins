@@ -1,0 +1,14 @@
+# Feature Standard Workflow
+# TDD sub-phases for implementing features
+name: feature-standard
+description: Standard red-green-refactor cycle
+
+phases:
+  - id: red
+    prompt: "Write failing tests for: {{step.prompt}}"
+
+  - id: green
+    prompt: "Implement to pass tests for: {{step.prompt}}"
+
+  - id: refactor
+    prompt: "Refactor and clean up: {{step.prompt}}"

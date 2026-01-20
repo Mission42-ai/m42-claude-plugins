@@ -437,6 +437,54 @@ test('should show version with --version flag', () => {
 });
 
 // ============================================================================
+// Bug 2: CLI Argument Parsing Should Not Overwrite Directory
+// ============================================================================
+
+test('Bug 2: should NOT overwrite directory when unknown flag has a value', () => {
+  // Bug 2: When --hook-config /path/to/hooks.json is passed,
+  // the CLI treats /path/to/hooks.json as a positional argument
+  // and OVERWRITES the directory that was already set.
+  //
+  // BEFORE FIX: directory becomes /path/to/hooks.json
+  // AFTER FIX: directory stays as /path/to/sprint
+
+  const args = ['node', 'cli.js', 'run', '/path/to/sprint', '--hook-config', '/path/to/hooks.json'];
+  const result = parseArgs(args);
+
+  assertEqual(result.directory, '/path/to/sprint',
+    'Bug 2: Directory was overwritten by unknown flag value. ' +
+    `Expected "/path/to/sprint", got "${result.directory}"`
+  );
+});
+
+test('Bug 2: should keep first directory when multiple positional args (unknown flags)', () => {
+  // Similar to above - tests that only the first positional argument sets directory
+  const args = ['node', 'cli.js', 'run', '/sprint-dir', '--unknown-flag', '/some/value', '--another', '/other'];
+  const result = parseArgs(args);
+
+  assertEqual(result.directory, '/sprint-dir',
+    `Bug 2: Directory should be first positional arg. Got "${result.directory}"`
+  );
+});
+
+test('Bug 2: should handle hook-config style flags gracefully', () => {
+  // This is a specific test case from the bug report
+  const args = [
+    'node', 'cli.js', 'run',
+    '/home/user/sprint',
+    '--max-iterations', '10',
+    '--hook-config', '/home/user/.sprint-hooks.json'
+  ];
+  const result = parseArgs(args);
+
+  // After fix: directory should be the sprint dir, not the hooks file
+  assertEqual(result.directory, '/home/user/sprint',
+    `Bug 2: Expected sprint dir, got hooks file path. Directory: "${result.directory}"`
+  );
+  assertEqual(result.options.maxIterations, 10, 'Should still parse known options correctly');
+});
+
+// ============================================================================
 // Run Tests Summary
 // ============================================================================
 

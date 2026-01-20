@@ -905,6 +905,78 @@ test('LoopResult should include elapsed time', async () => {
 });
 
 // ============================================================================
+// Bug 7: runLoop Without Deps Should Use Default Dependencies
+// ============================================================================
+
+test('runLoop without deps parameter should use default runClaude (Bug 7)', async () => {
+  // This test verifies Bug 7 fix: runLoop should work when deps is NOT provided
+  // by using default dependencies internally.
+  //
+  // BEFORE FIX: deps?.runClaude returns undefined, causing 'Unknown error'
+  // AFTER FIX: Default deps are used when deps is not provided
+  //
+  // NOTE: This test will invoke the real claude-runner if run without mocking,
+  // so we create a minimal sprint that tests the code path exists.
+  // The actual Claude execution would fail in a test env, but what matters
+  // is that the code path attempts to call runClaude, not that it receives undefined.
+
+  const testDir = createTestSprintDir();
+  try {
+    // Create a completed sprint so we don't actually run Claude
+    const progress = createTestProgress({ status: 'completed' });
+    writeProgress(testDir, progress);
+
+    // Call runLoop WITHOUT deps parameter - should not throw
+    // (completed sprint returns immediately without calling runClaude)
+    const result = await runLoop(testDir, { maxIterations: 0, delay: 0 });
+
+    assertEqual(result.finalState.status, 'completed', 'Should complete without error');
+    assertEqual(result.iterations, 0, 'Should not run iterations for completed sprint');
+  } finally {
+    cleanupTestDir(testDir);
+  }
+});
+
+test('runLoop without deps should import runClaude internally (Bug 7 execution path)', async () => {
+  // This test verifies the critical code path for Bug 7:
+  // When runLoop is called WITHOUT deps, the internal spawnResult should
+  // NOT be undefined because default deps are applied.
+  //
+  // We test this by running a sprint that would execute Claude, but catching
+  // the error (since we can't actually run Claude in tests).
+  // The key assertion is that we get a real error (like ENOENT for claude)
+  // NOT "Unknown error" which indicates spawnResult was undefined.
+
+  const testDir = createTestSprintDir();
+  try {
+    const progress = createTestProgress({
+      status: 'not-started',
+      phases: [{ id: 'test', status: 'pending', prompt: 'test' }],
+    });
+    writeProgress(testDir, progress);
+
+    // Call runLoop WITHOUT deps - this should attempt to run real Claude
+    // which will fail (Claude not available in test), but NOT with "Unknown error"
+    const result = await runLoop(testDir, { maxIterations: 1, delay: 0 });
+
+    // After Bug 7 fix: Should get a real error category (network, timeout, etc)
+    // or the sprint should be blocked with a meaningful error, NOT "Unknown error"
+    if (result.finalState.status === 'blocked') {
+      const blockedState = result.finalState as { status: 'blocked'; error: string };
+      // Bug 7 causes: error === "Unknown error" because spawnResult is undefined
+      // Fixed version: error contains actual error from claude-runner
+      assert(
+        blockedState.error !== 'Unknown error',
+        `Bug 7: runLoop without deps returned "Unknown error" which means deps.runClaude was undefined. Error was: ${blockedState.error}`
+      );
+    }
+    // If it somehow succeeded or paused, that's also fine (means deps worked)
+  } finally {
+    cleanupTestDir(testDir);
+  }
+});
+
+// ============================================================================
 // Run Tests Summary
 // ============================================================================
 

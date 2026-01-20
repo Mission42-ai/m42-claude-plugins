@@ -33,6 +33,7 @@ import {
 } from './executor.js';
 
 // Import from claude-runner module
+import { runClaude as defaultRunClaude } from './claude-runner.js';
 import type { ClaudeResult, ClaudeRunOptions } from './claude-runner.js';
 
 // ============================================================================
@@ -88,6 +89,11 @@ export interface LoopResult {
 export interface LoopDependencies {
   runClaude: (options: ClaudeRunOptions) => Promise<ClaudeResult>;
 }
+
+/** Default dependencies using real implementations */
+const defaultLoopDeps: LoopDependencies = {
+  runClaude: defaultRunClaude,
+};
 
 // ============================================================================
 // Constants
@@ -265,7 +271,7 @@ export async function recoverFromInterrupt(progressPath: string): Promise<void> 
 export async function runLoop(
   sprintDir: string,
   options: LoopOptions = {},
-  deps?: LoopDependencies
+  deps: LoopDependencies = defaultLoopDeps
 ): Promise<LoopResult> {
   const startTime = Date.now();
   const maxIterations = options.maxIterations ?? 0;
@@ -364,7 +370,7 @@ export async function runLoop(
     const phaseId = currentSubPhase?.id ?? currentStep?.id ?? currentPhase?.id ?? '';
 
     // Execute SPAWN_CLAUDE action directly
-    const spawnResult = await deps?.runClaude({
+    const spawnResult = await deps.runClaude({
       prompt,
       cwd: sprintDir,
     });

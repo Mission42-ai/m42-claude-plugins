@@ -229,8 +229,6 @@ test('LOG action with error level should call console.error', async () => {
 // ============================================================================
 
 test('SPAWN_CLAUDE action should return PHASE_COMPLETE on successful Claude run', async () => {
-  // This test requires mocking claude-runner
-  // The executor should call runClaude and return appropriate event
   const action: SprintAction = {
     type: 'SPAWN_CLAUDE',
     prompt: 'Test prompt',
@@ -239,12 +237,18 @@ test('SPAWN_CLAUDE action should return PHASE_COMPLETE on successful Claude run'
   };
   const context = createTestContext();
 
-  // The implementation will need to use dependency injection or module mocking
-  // For now, this test documents the expected behavior
-  // Result should be SprintEvent with type 'PHASE_COMPLETE' when Claude succeeds
-  const result = await executeAction(action, context);
+  // Mock dependencies with successful Claude response
+  const mockDeps = {
+    runClaude: async () => ({
+      success: true,
+      output: '{"status": "completed", "summary": "Test completed successfully"}',
+      exitCode: 0,
+      jsonResult: { status: 'completed', summary: 'Test completed successfully' },
+    }),
+  };
 
-  // Expected: result is PHASE_COMPLETE event when Claude succeeds
+  const result = await executeAction(action, context, mockDeps);
+
   assert(result !== null, 'SPAWN_CLAUDE should return an event');
   assertEqual(result?.type, 'PHASE_COMPLETE', 'Should return PHASE_COMPLETE on success');
 });
@@ -262,13 +266,20 @@ test('SPAWN_CLAUDE action should return PHASE_FAILED on Claude failure', async (
   };
   const context = createTestContext();
 
-  // With mock that returns failure, should return PHASE_FAILED
-  // This test documents expected behavior when Claude returns error
-  const result = await executeAction(action, context);
+  // Mock dependencies with failed Claude response
+  const mockDeps = {
+    runClaude: async () => ({
+      success: false,
+      output: '',
+      exitCode: 1,
+      error: 'Claude execution failed: timeout',
+    }),
+  };
 
-  // When Claude fails, expect PHASE_FAILED event
-  // (Test will pass once implementation with mocking is complete)
+  const result = await executeAction(action, context, mockDeps);
+
   assert(result !== null, 'SPAWN_CLAUDE should return an event on failure too');
+  assertEqual(result?.type, 'PHASE_FAILED', 'Should return PHASE_FAILED on failure');
 });
 
 // ============================================================================
@@ -279,14 +290,23 @@ test('WRITE_PROGRESS action should call writeProgressAtomic', async () => {
   const action: SprintAction = {
     type: 'WRITE_PROGRESS',
   };
-  const context = createTestContext();
+  const testDir = '/tmp/test-write-progress-' + Date.now();
+  fs.mkdirSync(testDir, { recursive: true });
+  const context = createTestContext({ sprintDir: testDir });
 
-  // Should call yaml-ops.writeProgressAtomic and return null
-  const result = await executeAction(action, context);
+  try {
+    // Should call yaml-ops.writeProgressAtomic and return null
+    const result = await executeAction(action, context);
 
-  assertEqual(result, null, 'WRITE_PROGRESS should return null');
-  // Verification: yaml-ops.writeProgressAtomic was called
-  // This requires mocking fs operations in yaml-ops
+    assertEqual(result, null, 'WRITE_PROGRESS should return null');
+
+    // Verify file was created
+    const progressPath = path.join(testDir, 'PROGRESS.yaml');
+    assert(fs.existsSync(progressPath), 'PROGRESS.yaml should exist after WRITE_PROGRESS');
+  } finally {
+    // Cleanup
+    fs.rmSync(testDir, { recursive: true, force: true });
+  }
 });
 
 // ============================================================================

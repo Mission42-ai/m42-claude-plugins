@@ -1,0 +1,11 @@
+# Simple Phases Workflow - No Steps
+# Used for testing basic phase execution
+name: simple-phases
+description: Simple two-phase workflow without for-each
+
+phases:
+  - id: prepare
+    prompt: Prepare the environment
+
+  - id: execute
+    prompt: Execute the main task
