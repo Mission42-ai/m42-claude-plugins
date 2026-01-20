@@ -136,10 +136,11 @@ export function buildArgs(options: ClaudeRunOptions): string[] {
   // Without this, Claude waits for permission prompts that can never be answered
   args.push('--dangerously-skip-permissions');
 
-  // Use stream-json with partial messages for full transcript capture
-  // This outputs all tool calls, responses, and streaming events
+  // Use stream-json for structured output with tool calls and results
+  // Note: stream-json requires --verbose when used with -p (print mode)
+  // We omit --include-partial-messages to avoid noisy streaming deltas
+  args.push('--verbose');
   args.push('--output-format', 'stream-json');
-  args.push('--include-partial-messages');
 
   // Max turns
   if (options.maxTurns !== undefined) {
