@@ -528,6 +528,10 @@ export async function runLoop(
     const prompt = currentSubPhase?.prompt ?? currentStep?.prompt ?? currentPhase?.prompt ?? '';
     const phaseId = currentSubPhase?.id ?? currentStep?.id ?? currentPhase?.id ?? '';
 
+    // Get model from current execution context (sub-phase > phase)
+    const currentModel = (currentSubPhase as { model?: string } | undefined)?.model
+      ?? (currentPhase as { model?: string } | undefined)?.model;
+
     // Create transcriptions directory for full NDJSON transcripts
     const transcriptionsDir = path.join(sprintDir, 'transcriptions');
     if (!fs.existsSync(transcriptionsDir)) {
@@ -595,6 +599,7 @@ export async function runLoop(
       cwd: workingDir,
       outputFile,
       jsonSchema: SPRINT_RESULT_SCHEMA,
+      model: currentModel,
     });
 
     // BUG-002 FIX: Compare-and-swap - check if file was modified during execution

@@ -24,10 +24,11 @@ import type {
   PerIterationHook,
   RalphConfig,
   OrchestrationConfig,
-  SprintPrompts
+  SprintPrompts,
+  ClaudeModel
 } from './types.js';
 import { loadWorkflow, resolveWorkflowRefs, clearWorkflowCache, MAX_WORKFLOW_DEPTH } from './resolve-workflows.js';
-import { expandForEach, compileSimplePhase, substituteTemplateVars } from './expand-foreach.js';
+import { expandForEach, compileSimplePhase, substituteTemplateVars, ModelContext } from './expand-foreach.js';
 import {
   validateSprintDefinition,
   validateStandardModeSprint,
@@ -69,6 +70,31 @@ export function formatYamlError(err: unknown, filePath: string): string {
 
   // For non-YAML errors, return the message as-is
   return err instanceof Error ? err.message : String(err);
+}
+
+/**
+ * Resolve the model to use for a phase based on override priority.
+ *
+ * Priority (highest to lowest):
+ * 1. Step-level model (from SprintStep.model)
+ * 2. Phase-level model (from WorkflowPhase.model)
+ * 3. Sprint-level model (from SprintDefinition.model)
+ * 4. Workflow-level model (from WorkflowDefinition.model)
+ * 5. undefined if none specified
+ *
+ * @param step - Optional step with model
+ * @param phase - Optional phase with model
+ * @param sprint - Optional sprint with model
+ * @param workflow - Optional workflow with model
+ * @returns Resolved model or undefined
+ */
+export function resolveModel(
+  step?: { model?: ClaudeModel },
+  phase?: { model?: ClaudeModel },
+  sprint?: { model?: ClaudeModel },
+  workflow?: { model?: ClaudeModel }
+): ClaudeModel | undefined {
+  return step?.model ?? phase?.model ?? sprint?.model ?? workflow?.model;
 }
 
 /**
@@ -213,6 +239,12 @@ export async function compile(config: CompilerConfig): Promise<CompilerResult> {
     }
   }
 
+  // Create model context with workflow and sprint models
+  const modelContext: ModelContext = {
+    workflowModel: mainWorkflow.definition.model,
+    sprintModel: sprintDef.model
+  };
+
   for (const phase of workflowPhases) {
     if (phase['for-each'] === 'step') {
       // Expand for-each phase into steps
@@ -222,7 +254,8 @@ export async function compile(config: CompilerConfig): Promise<CompilerResult> {
         config.workflowsDir,
         defaultStepWorkflow,
         context,
-        errors
+        errors,
+        modelContext
       );
       compiledPhases.push(expandedPhase);
     } else if (phase.workflow && !phase['for-each']) {
@@ -234,12 +267,13 @@ export async function compile(config: CompilerConfig): Promise<CompilerResult> {
         context,
         errors,
         new Set([sprintDef.workflow]),
-        1
+        1,
+        modelContext
       );
       compiledPhases.push(...expandedPhases);
     } else {
       // Simple phase with prompt
-      const simplePhase = compileSimplePhase(phase, context);
+      const simplePhase = compileSimplePhase(phase, context, modelContext);
       compiledPhases.push(simplePhase);
     }
   }
@@ -314,6 +348,7 @@ export async function compile(config: CompilerConfig): Promise<CompilerResult> {
  * @param errors - Error accumulator
  * @param visited - Set of visited workflows for cycle detection
  * @param depth - Current nesting depth
+ * @param modelContext - Model context for resolution
  * @returns Array of compiled phases from the referenced workflow
  */
 function expandWorkflowReference(
@@ -322,7 +357,8 @@ function expandWorkflowReference(
   context: TemplateContext,
   errors: CompilerError[],
   visited: Set<string>,
-  depth: number
+  depth: number,
+  modelContext: ModelContext = {}
 ): CompiledTopPhase[] {
   if (!phase.workflow) {
     return [];
@@ -377,7 +413,8 @@ function expandWorkflowReference(
         context,
         errors,
         newVisited,
-        depth + 1
+        depth + 1,
+        modelContext
       );
       expandedPhases.push(...nestedPhases);
     } else if (refPhase.prompt) {
@@ -392,11 +429,15 @@ function expandWorkflowReference(
 
       const prompt = substituteTemplateVars(refPhase.prompt, phaseContext);
 
+      // Resolve model for this phase
+      const resolvedModel = refPhase.model ?? modelContext.phaseModel ?? modelContext.sprintModel ?? modelContext.workflowModel;
+
       expandedPhases.push({
         id: prefixedId,
         status: 'pending' as const,
         prompt,
-        'wait-for-parallel': refPhase['wait-for-parallel']
+        'wait-for-parallel': refPhase['wait-for-parallel'],
+        model: resolvedModel
       });
     }
   }
