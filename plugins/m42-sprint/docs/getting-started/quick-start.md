@@ -6,14 +6,10 @@ Get your first sprint running in under 5 minutes.
 
 ## Prerequisites
 
-Before starting, verify you have these tools installed:
+Before starting, verify you have Node.js installed:
 
 ```bash
-# Check yq (required for YAML processing)
-yq --version
-# Expected: yq (https://github.com/mikefarah/yq/) version v4.x
-
-# Check Node.js (required for compilation - workflow mode only)
+# Check Node.js (required for compilation and runtime)
 node --version
 # Expected: v18.x or higher
 ```
@@ -21,11 +17,13 @@ node --version
 **Install if missing:**
 ```bash
 # macOS
-brew install yq node
+brew install node
 
 # Linux (Ubuntu/Debian)
-sudo snap install yq
 sudo apt install nodejs npm
+
+# Or use nvm (recommended)
+nvm install --lts
 ```
 
 ---

@@ -37,7 +37,7 @@ Using the sprint directory identified in preflight, use the Read tool to read:
    status: paused
    ```
 
-   The sprint-loop.sh background process checks PROGRESS.yaml status after
+   The sprint runtime background process checks PROGRESS.yaml status after
    each task iteration. When it sees "paused", it exits gracefully.
 
 3. **Output confirmation:**
@@ -58,7 +58,7 @@ Using the sprint directory identified in preflight, use the Read tool to read:
 ## How Pausing Works
 
 The sprint loop follows the Ralph Loop pattern with fresh context per task.
-It runs as a background bash loop that:
+It runs as a background TypeScript runtime that:
 
 1. Invokes `claude -p` for ONE task
 2. Waits for Claude to complete and exit

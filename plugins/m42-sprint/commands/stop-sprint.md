@@ -42,7 +42,7 @@ Read `<sprint-dir>/PROGRESS.yaml` to get current status.
 
    b. Remove any `pause-requested: true` flag if present
 
-   c. The sprint-loop.sh background process will detect status change
+   c. The sprint runtime background process will detect status change
       on next iteration and exit gracefully.
 
    d. Remove sprint hook from settings:

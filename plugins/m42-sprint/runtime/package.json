@@ -1,0 +1,30 @@
+{
+  "name": "@m42/sprint-runtime",
+  "version": "1.0.0",
+  "description": "TypeScript runtime for m42-sprint plugin",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "sprint": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "test": "npm run build && node dist/transition.test.js && node dist/yaml-ops.test.js && node dist/prompt-builder.test.js && node dist/claude-runner.test.js && node dist/executor.test.js && node dist/loop.test.js && node dist/cli.test.js",
+    "test:integration": "npm run build && node dist/integration.test.js"
+  },
+  "dependencies": {
+    "commander": "^12.0.0",
+    "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

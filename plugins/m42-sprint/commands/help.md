@@ -98,11 +98,11 @@ The sprint uses a **compilation model**:
 The sprint uses the **Ralph Loop pattern** with fresh context per phase:
 
 1. `/run-sprint` compiles SPRINT.yaml to PROGRESS.yaml
-2. Launches sprint-loop.sh in background
-3. Bash loop invokes `claude -p` for ONE phase (fresh context)
+2. Launches TypeScript sprint runtime in background
+3. Runtime invokes `claude -p` for ONE phase (fresh context)
 4. Claude executes the phase and updates pointer
 5. Claude exits, releasing context
-6. Bash loop checks PROGRESS.yaml status
+6. Runtime checks PROGRESS.yaml status
 7. If not complete, starts NEW Claude with fresh context
 8. Continues until complete, blocked, or paused
 
@@ -138,5 +138,5 @@ The sprint uses the **Ralph Loop pattern** with fresh context per phase:
 - Use `/stop-sprint` for immediate stops
 - Check `/sprint-status` to monitor hierarchical progress
 - Keep sprints focused: 5-10 related steps
-- Requires `yq` installed for YAML processing
+- Requires Node.js >=18.0.0
 - Recompilation happens automatically on `/run-sprint`

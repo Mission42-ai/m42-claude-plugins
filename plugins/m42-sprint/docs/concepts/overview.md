@@ -59,7 +59,7 @@ The M42 Sprint system follows a **Three-Tier Architecture** that separates what 
 │                     Ralph Loop (Sprint Loop)                          │
 │                                                                       │
 │   ┌─────────────────────────────────────────────────────────────┐    │
-│   │                    scripts/sprint-loop.sh                    │    │
+│   │                 TypeScript Runtime (runtime/)                │    │
 │   │                                                              │    │
 │   │  while not_done:                                             │    │
 │   │    1. Read PROGRESS.yaml current pointer                     │    │
@@ -162,11 +162,20 @@ plugins/m42-sprint/
 │       ├── validate.ts          Schema validation
 │       └── types.ts             TypeScript definitions
 │
-├── scripts/                      # Bash execution scripts
-│   ├── sprint-loop.sh           The Ralph Loop implementation
-│   ├── build-sprint-prompt.sh   Construct prompts from PROGRESS.yaml
-│   ├── preflight-check.sh       Pre-execution validation
-│   └── compile.sh               Wrapper for TypeScript compiler
+├── runtime/                      # TypeScript execution runtime
+│   └── src/
+│       ├── cli.ts               Entry point (node dist/cli.js run)
+│       ├── loop.ts              The Ralph Loop implementation
+│       ├── prompt-builder.ts    Construct prompts from PROGRESS.yaml
+│       ├── transition.ts        State machine transitions
+│       ├── executor.ts          Action execution
+│       └── yaml-ops.ts          Atomic YAML operations
+│
+├── scripts/                      # Integration tests
+│   ├── test-sprint-features.sh
+│   ├── test-skip-spawned.sh
+│   ├── test-skip-parallel-task-id.sh
+│   └── test-normal-subphase.sh
 │
 ├── docs/                         # Documentation (you are here)
 │   ├── index.md                 Navigation hub

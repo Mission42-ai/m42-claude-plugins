@@ -64,10 +64,10 @@ The Ralph Loop solves this by giving each phase a **completely fresh context**:
                                 │ Read pointer
                                 ▼
      ┌────────────────────────────────────────────────────────────┐
-     │                   sprint-loop.sh                           │
+     │               TypeScript Sprint Runtime                     │
      │                                                            │
      │   while status == "in-progress":                           │
-     │       prompt = build_prompt(PROGRESS.yaml)                 │
+     │       prompt = buildPrompt(PROGRESS.yaml)                  │
      │       ┌───────────────────────────────────────────────┐    │
      │       │    claude -p "$prompt"                        │    │
      │       │         ▲                                     │    │
@@ -107,8 +107,8 @@ Each `claude -p` invocation receives only:
 
 ```
 ┌──────────────┐    ┌────────────────┐    ┌─────────────────┐    ┌────────────┐
-│ sprint-loop  │    │ build-prompt   │    │   claude -p     │    │ PROGRESS   │
-│    .sh       │    │    .sh         │    │  (Claude CLI)   │    │   .yaml    │
+│   sprint     │    │ prompt-builder │    │   claude -p     │    │ PROGRESS   │
+│   runtime    │    │    (TS)        │    │  (Claude CLI)   │    │   .yaml    │
 └──────┬───────┘    └───────┬────────┘    └────────┬────────┘    └─────┬──────┘
        │                    │                      │                   │
        │  Read current      │                      │                   │
@@ -199,114 +199,122 @@ Phase 5:  1,500 tokens input  ───►  $0.005
 
 ## Implementation Details
 
-The Ralph Loop is implemented in `scripts/sprint-loop.sh`. Here are the key components:
+The Ralph Loop is implemented as a TypeScript runtime in `runtime/`. Here are the key components:
 
 ### 1. The Main Loop
 
-```bash
-# Main loop - iterate until done (unlimited by default)
-for ((i=1; i<=MAX_ITERATIONS; i++)); do
-    echo "=== Iteration $i (unlimited mode) ==="
+```typescript
+// Main loop - iterate until done (unlimited by default)
+async function runLoop(options: LoopOptions): Promise<LoopResult> {
+  while (true) {
+    const progress = await readProgress(options.sprintDir);
 
-    # Build prompt for current position
-    PROMPT=$("$SCRIPT_DIR/build-sprint-prompt.sh" "$SPRINT_DIR" "$i")
+    if (progress.status !== 'in-progress') {
+      return { status: progress.status, iterations: iteration };
+    }
 
-    if [[ -z "$PROMPT" ]]; then
-        echo "No more work to do. Sprint complete."
-        yq -i '.status = "completed"' "$PROGRESS_FILE"
-        exit 0
-    fi
+    // Build prompt for current position
+    const prompt = buildPrompt(progress, iteration);
 
-    # Execute with FRESH context - this is the key!
-    claude -p "$PROMPT" --dangerously-skip-permissions 2>&1 | tee "$LOG_FILE"
+    if (!prompt) {
+      await writeProgress({ ...progress, status: 'completed' });
+      return { status: 'completed', iterations: iteration };
+    }
 
-    # Check status and loop
-    STATUS=$(yq -r '.status' "$PROGRESS_FILE")
-    # ... handle status
-done
+    // Execute with FRESH context - this is the key!
+    await spawnClaude(prompt);
+
+    // Check status and loop
+    iteration++;
+  }
+}
 ```
 
-The critical line is `claude -p "$PROMPT"`. The `-p` flag means "prompt mode" - Claude receives only the prompt, not conversation history. Each invocation is independent.
+The critical function is `spawnClaude(prompt)`. It invokes Claude with `-p` flag meaning "prompt mode" - Claude receives only the prompt, not conversation history. Each invocation is independent.
 
 ### 2. Prompt Construction
 
-The `build-sprint-prompt.sh` script reads the current pointer from PROGRESS.yaml and constructs a self-contained prompt:
+The `prompt-builder.ts` module reads the current pointer from PROGRESS.yaml and constructs a self-contained prompt:
 
-```bash
-# Read current pointer
-PHASE_IDX=$(yq -r '.current.phase // 0' "$PROGRESS_FILE")
-STEP_IDX=$(yq -r '.current.step // "null"' "$PROGRESS_FILE")
-SUB_PHASE_IDX=$(yq -r '.current."sub-phase" // "null"' "$PROGRESS_FILE")
+```typescript
+function buildPrompt(progress: CompiledProgress, iteration: number): string {
+  const { current } = progress;
+  const phase = progress.phases[current.phase];
+  const step = phase.steps?.[current.step ?? 0];
+  const subPhase = step?.phases?.[current['sub-phase'] ?? 0];
 
-# Get phase details and build prompt
-PHASE_ID=$(yq -r ".phases[$PHASE_IDX].id" "$PROGRESS_FILE")
-SUB_PHASE_PROMPT=$(yq -r ".phases[$PHASE_IDX].steps[$STEP_IDX].phases[$SUB_PHASE_IDX].prompt" "$PROGRESS_FILE")
-
-# Generate complete, self-contained prompt
-cat <<EOF
-# Sprint Workflow Execution
-Sprint: $SPRINT_ID | Iteration: $ITERATION
+  return `# Sprint Workflow Execution
+Sprint: ${progress['sprint-id']} | Iteration: ${iteration}
 
 ## Current Position
-- Phase: **$PHASE_ID** ($((PHASE_IDX + 1))/$TOTAL_PHASES)
-- Step: **$STEP_ID** ($((STEP_IDX + 1))/$TOTAL_STEPS)
-- Sub-Phase: **$SUB_PHASE_ID** ($((SUB_PHASE_IDX + 1))/$TOTAL_SUB_PHASES)
+- Phase: **${phase.id}** (${current.phase + 1}/${progress.phases.length})
+- Step: **${step?.id}** (${(current.step ?? 0) + 1}/${phase.steps?.length ?? 0})
+- Sub-Phase: **${subPhase?.id}**
 
-## Your Task: $SUB_PHASE_ID
+## Your Task: ${subPhase?.id}
 
-$SUB_PHASE_PROMPT
+${subPhase?.prompt}
 
 ## Instructions
 
 1. Execute this sub-phase task
 2. When complete, update PROGRESS.yaml
 3. Commit your changes
-4. **EXIT immediately** - do NOT continue to next task
-EOF
+4. **EXIT immediately** - do NOT continue to next task`;
+}
 ```
 
 Each prompt contains everything Claude needs to execute that one phase - no external context required.
 
-### 3. Pointer Advancement
+### 3. State Transitions
 
-After completing a phase, Claude updates the pointer in PROGRESS.yaml:
+After completing a phase, Claude updates the pointer in PROGRESS.yaml. The runtime uses a state machine for type-safe transitions:
 
-```bash
-# Mark current sub-phase as completed
-yq -i '.phases[1].steps[0].phases[0].status = "completed"' PROGRESS.yaml
-yq -i '.phases[1].steps[0].phases[0]."completed-at" = "2026-01-16T10:30:00Z"' PROGRESS.yaml
-
-# Advance the pointer to next sub-phase
-yq -i '.current."sub-phase" = 1' PROGRESS.yaml
+```typescript
+// Pure transition function
+function transition(
+  state: SprintState,
+  event: SprintEvent,
+  context: CompiledProgress
+): TransitionResult {
+  switch (event.type) {
+    case 'PHASE_COMPLETED':
+      return advancePointer(state, context);
+    case 'PHASE_FAILED':
+      return handleFailure(state, event.error);
+    // ...
+  }
+}
 ```
 
-The next loop iteration reads this updated pointer and builds a prompt for the next phase.
+The next loop iteration reads the updated pointer and builds a prompt for the next phase.
 
 ### 4. Error Handling and Retries
 
-```bash
-# Classify errors for appropriate handling
-classify_error() {
-    local exit_code="$1"
-    local error_output="$2"
-
-    # Network errors, rate limits, timeouts → retry with backoff
-    # Validation errors → skip phase
-    # Logic errors → needs human intervention
+```typescript
+// Classify errors for appropriate handling
+function classifyError(error: Error): ErrorCategory {
+  // Network errors, rate limits, timeouts → retry with backoff
+  // Validation errors → skip phase
+  // Logic errors → needs human intervention
 }
 
-# Handle failure with exponential backoff
-handle_phase_failure() {
-    if is_retryable "$ERROR_TYPE"; then
-        if [[ "$retry_count" -lt "$MAX_RETRIES" ]]; then
-            backoff_delay=$(get_backoff_delay "$new_retry_count")
-            apply_backoff "$backoff_delay"
-            return 0  # Continue loop for retry
-        fi
-    fi
-    # Block if non-retryable or retries exhausted
-    yq -i "$phase_path.status = \"blocked\"" "$PROGRESS_FILE"
-    return 1
+// Handle failure with exponential backoff
+async function handlePhaseFailure(
+  error: Error,
+  retryCount: number
+): Promise<boolean> {
+  const errorType = classifyError(error);
+
+  if (isRetryable(errorType) && retryCount < MAX_RETRIES) {
+    const backoffDelay = getBackoffDelay(retryCount);
+    await sleep(backoffDelay);
+    return true; // Continue loop for retry
+  }
+
+  // Block if non-retryable or retries exhausted
+  await updatePhaseStatus('blocked');
+  return false;
 }
 ```
 

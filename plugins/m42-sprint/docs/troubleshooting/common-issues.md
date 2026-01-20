@@ -19,8 +19,7 @@ cat .claude/sprints/*/PROGRESS.yaml | head -50
 ls .claude/workflows/
 
 # Verify dependencies
-node --version  # Need Node.js for compiler
-which yq        # Optional but recommended for YAML manipulation
+node --version  # Need Node.js for compiler and runtime
 ```
 
 ---
@@ -112,6 +111,40 @@ node: command not found
    ```
 
 **Prevention:** Include Node.js in your development environment setup.
+
+---
+
+### TypeScript Runtime Build Errors
+
+**Symptom:**
+```
+Error: Cannot find module './transition.js'
+```
+
+**Cause:** TypeScript runtime not compiled.
+
+**Solution:**
+```bash
+cd plugins/m42-sprint/runtime && npm run build
+```
+
+---
+
+### TypeScript Runtime Type Errors
+
+**Symptom:**
+```
+TypeError: Cannot read properties of undefined
+```
+
+**Cause:** PROGRESS.yaml may be malformed or missing required fields.
+
+**Solution:**
+1. Validate PROGRESS.yaml structure
+2. Delete PROGRESS.yaml and recompile:
+   ```bash
+   /run-sprint .claude/sprints/your-sprint --recompile
+   ```
 
 ---
 

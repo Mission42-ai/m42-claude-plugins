@@ -1,5 +1,5 @@
 ---
-allowed-tools: Bash(ls:*), Bash(test:*), Bash(grep:*), Bash(cat:*), Bash(sleep:*), Bash(rm:*), Bash(node:*), Bash(${CLAUDE_PLUGIN_ROOT}/scripts/sprint-loop.sh:*), Read(*), Edit(*)
+allowed-tools: Bash(ls:*), Bash(test:*), Bash(grep:*), Bash(cat:*), Bash(sleep:*), Bash(rm:*), Bash(node:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/runtime/dist/cli.js:*), Read(*), Edit(*)
 argument-hint: <sprint-directory> [--max-iterations N] [--dry-run] [--recompile] [--no-status] [--no-browser]
 description: Start sprint execution loop (fresh context per task)
 model: sonnet
@@ -208,7 +208,7 @@ Then STOP - do not start the loop or modify any files.
    Execute the sprint loop as a **background task** with the hook config:
 
    ```bash
-   "${CLAUDE_PLUGIN_ROOT}/scripts/sprint-loop.sh" "$SPRINT_DIR" --max-iterations [N] --hook-config "$SPRINT_DIR/.sprint-hooks.json"
+   node "${CLAUDE_PLUGIN_ROOT}/runtime/dist/cli.js" run "$SPRINT_DIR" --max-iterations [N] --hook-config "$SPRINT_DIR/.sprint-hooks.json"
    ```
 
    Use `run_in_background: true` when calling the Bash tool. This allows:
@@ -303,7 +303,7 @@ The sprint loop follows the Ralph Loop pattern:
         │                 │
         ▼                 ▼
 ┌──────────────────┐   ┌──────────────────────────────┐
-│ sprint-loop.sh   │   │ sprint-status-server         │
+│ sprint runtime   │   │ sprint-status-server         │
 │ (background)     │   │ (background, optional)       │
 │                  │   │                              │
 │ Controls loop,   │   │ Watches PROGRESS.yaml,       │

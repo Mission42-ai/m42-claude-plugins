@@ -215,7 +215,7 @@ To start execution, run without --dry-run:
 **How it works:**
 1. Compiles SPRINT.yaml through referenced workflow(s)
 2. Generates PROGRESS.yaml with hierarchical phases
-3. Launches sprint-loop.sh in background
+3. Launches TypeScript runtime in background
 4. Starts live status server (unless `--no-status`)
 5. Loop invokes `claude -p` for each task with fresh context
 
@@ -674,8 +674,7 @@ The sprint loop monitors PROGRESS.yaml for these status values:
 
 ## Environment Requirements
 
-- **yq**: Required for YAML processing in sprint-loop.sh
-- **Node.js**: Required for workflow compilation and status server
+- **Node.js >= 18.0.0**: Required for workflow compilation, runtime execution, and status server
 - **gh CLI**: Required only for `/import-steps issues` command
 - **Workflows**: At least one workflow in `.claude/workflows/` directory
 
