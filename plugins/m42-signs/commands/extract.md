@@ -1,6 +1,6 @@
 ---
 allowed-tools: Bash(test:*, mkdir:*, ls:*, find:*, wc:*), Read(*), Write(*), Edit(*), Glob(*), Grep(*)
-argument-hint: "<transcript-path> [--dry-run] [--focus <area>]"
+argument-hint: "<transcript-path> [--dry-run] [--focus <area>] [--preprocess-only] [--parallel]"
 description: Extract learnings from session transcript using LLM analysis
 model: sonnet
 ---
@@ -159,7 +159,7 @@ Extract learnings across ALL these categories:
 
 ### Step 1: Read and Parse Transcript
 
-Read the transcript file. For large transcripts (>25k tokens), process in chunks using offset/limit.
+Read the transcript file. For large transcripts (>100 lines or >500KB), use the Large Transcript Handling workflow below.
 
 ```bash
 wc -l "$TRANSCRIPT_PATH"  # Check line count
@@ -312,7 +312,7 @@ Written to: .claude/learnings/backlog.yaml
 
 | Scenario | Handling |
 |----------|----------|
-| Transcript too large | Process in chunks with offset/limit |
+| Transcript too large | Use Large Transcript Handling workflow |
 | No learning-worthy content | Report "No significant learnings found" |
 | Focus area specified | Prioritize learnings in that area |
 | Target CLAUDE.md missing | Note in output, suggest creation |
