@@ -83,6 +83,9 @@ export function loadWorkflow(
   }
 }
 
+/** Maximum allowed workflow nesting depth */
+export const MAX_WORKFLOW_DEPTH = 5;
+
 /**
  * Resolve all workflow references recursively
  *
@@ -90,25 +93,39 @@ export function loadWorkflow(
  * @param workflowsDir - Directory containing workflow files
  * @param visited - Set of already visited workflow names (for cycle detection)
  * @param errors - Array to collect errors
+ * @param depth - Current nesting depth (default 0)
  * @returns Map of workflow name to loaded workflow
  */
 export function resolveWorkflowRefs(
   workflow: WorkflowDefinition,
   workflowsDir: string,
   visited: Set<string> = new Set(),
-  errors: CompilerError[] = []
+  errors: CompilerError[] = [],
+  depth: number = 0
 ): Map<string, LoadedWorkflow> {
   const resolved = new Map<string, LoadedWorkflow>();
 
   for (const phase of workflow.phases ?? []) {
     if (phase.workflow) {
-      // Check for cycles
+      // Check for cycles - include full path in message
       if (visited.has(phase.workflow)) {
+        const cyclePath = Array.from(visited).concat(phase.workflow);
         errors.push({
           code: 'CYCLE_DETECTED',
-          message: `Circular workflow reference detected: ${phase.workflow}`,
+          message: `Circular workflow reference detected: ${cyclePath.join(' → ')}`,
           path: `phases[${phase.id}].workflow`,
-          details: { cycle: Array.from(visited).concat(phase.workflow) }
+          details: { cycle: cyclePath }
+        });
+        continue;
+      }
+
+      // Check max depth
+      if (depth >= MAX_WORKFLOW_DEPTH) {
+        errors.push({
+          code: 'MAX_DEPTH_EXCEEDED',
+          message: `Workflow nesting depth exceeded maximum of ${MAX_WORKFLOW_DEPTH}`,
+          path: `phases[${phase.id}].workflow`,
+          details: { depth: depth + 1, maxDepth: MAX_WORKFLOW_DEPTH }
         });
         continue;
       }
@@ -138,7 +155,8 @@ export function resolveWorkflowRefs(
         loaded.definition,
         workflowsDir,
         newVisited,
-        errors
+        errors,
+        depth + 1
       );
 
       for (const [name, wf] of nested) {
