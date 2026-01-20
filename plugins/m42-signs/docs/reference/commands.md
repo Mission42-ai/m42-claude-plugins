@@ -178,6 +178,8 @@ Extract learnings from a Claude session transcript by analyzing error patterns a
 | `--dry-run` | No | false | Preview extracted learnings without writing to backlog |
 | `--confidence-min` | No | `low` | Minimum confidence level to include: `low`, `medium`, or `high` |
 | `--auto-approve` | No | false | Automatically approve high-confidence learnings |
+| `--preprocess-only` | No | false | Generate preprocessing artifacts without LLM analysis |
+| `--parallel` | No | false | Enable parallel chunk processing for large transcripts |
 
 ### Examples
 
@@ -204,6 +206,16 @@ Extract learnings from a Claude session transcript by analyzing error patterns a
 ```bash
 # Extract and auto-approve high confidence
 /m42-signs:extract abc123def --auto-approve
+```
+
+```bash
+# Preprocess only - generate artifacts without LLM analysis
+/m42-signs:extract large-session.jsonl --preprocess-only
+```
+
+```bash
+# Parallel processing for very large transcripts (100+ reasoning blocks)
+/m42-signs:extract huge-session.jsonl --parallel
 ```
 
 ### What Gets Extracted
