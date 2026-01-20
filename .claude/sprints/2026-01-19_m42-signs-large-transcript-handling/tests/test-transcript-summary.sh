@@ -14,7 +14,7 @@ FAIL=0
 
 pass() {
   echo "  ✓ $1"
-  ((PASS++))
+  ((PASS++)) || true
 }
 
 fail() {

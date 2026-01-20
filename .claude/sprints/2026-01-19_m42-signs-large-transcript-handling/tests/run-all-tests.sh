@@ -24,13 +24,13 @@ run_test() {
 
   if "$test_script"; then
     echo "RESULT: PASS"
-    ((TOTAL_PASS++))
+    ((TOTAL_PASS++)) || true
   else
     echo "RESULT: FAIL"
-    ((TOTAL_FAIL++))
+    ((TOTAL_FAIL++)) || true
   fi
 
-  ((SCRIPTS_TESTED++))
+  ((SCRIPTS_TESTED++)) || true
   echo ""
 }
 
