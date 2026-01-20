@@ -21,7 +21,7 @@ echo ""
 echo -n "Scenario 1: Agents directory exists... "
 if test -d plugins/m42-signs/agents; then
     echo "PASS"
-    ((SCORE++))
+    SCORE=$((SCORE + 1))
 else
     echo "FAIL"
 fi
@@ -30,7 +30,7 @@ fi
 echo -n "Scenario 2: Subagent file exists... "
 if test -f "$SUBAGENT_PATH"; then
     echo "PASS"
-    ((SCORE++))
+    SCORE=$((SCORE + 1))
 else
     echo "FAIL"
 fi
@@ -40,7 +40,7 @@ echo -n "Scenario 3: Valid YAML frontmatter... "
 if head -1 "$SUBAGENT_PATH" 2>/dev/null | grep -q "^---$" && \
    head -20 "$SUBAGENT_PATH" | tail -n +2 | grep -q "^---$"; then
     echo "PASS"
-    ((SCORE++))
+    SCORE=$((SCORE + 1))
 else
     echo "FAIL"
 fi
@@ -53,7 +53,7 @@ if grep -q "^name: chunk-analyzer" "$SUBAGENT_PATH" 2>/dev/null && \
    grep -q "^model:" "$SUBAGENT_PATH" && \
    grep -q "^color:" "$SUBAGENT_PATH"; then
     echo "PASS"
-    ((SCORE++))
+    SCORE=$((SCORE + 1))
 else
     echo "FAIL"
 fi
@@ -63,7 +63,7 @@ echo -n "Scenario 5: Correct tool permissions... "
 if grep "^tools:" "$SUBAGENT_PATH" 2>/dev/null | grep -q "Read" && \
    grep "^tools:" "$SUBAGENT_PATH" | grep -q "Bash"; then
     echo "PASS"
-    ((SCORE++))
+    SCORE=$((SCORE + 1))
 else
     echo "FAIL"
 fi
@@ -74,7 +74,7 @@ if grep -qi "yaml" "$SUBAGENT_PATH" 2>/dev/null && \
    grep -qi "learning" "$SUBAGENT_PATH" && \
    grep -qi "chunk" "$SUBAGENT_PATH"; then
     echo "PASS"
-    ((SCORE++))
+    SCORE=$((SCORE + 1))
 else
     echo "FAIL"
 fi
