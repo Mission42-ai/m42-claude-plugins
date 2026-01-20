@@ -25,7 +25,7 @@ import { isActivityEvent, DEFAULT_ACTIVITY_TAIL_LINES, type ActivityEvent } from
 import { ProgressWatcher } from './watcher.js';
 import { ActivityWatcher } from './activity-watcher.js';
 import { TranscriptionWatcher } from './transcription-watcher.js';
-import { toStatusUpdate, generateDiffLogEntries, createLogEntry, type TimingInfo } from './transforms.js';
+import { toStatusUpdate, generateDiffLogEntries, createLogEntry, isSprintStale, type TimingInfo } from './transforms.js';
 import { getPageHtml, type SprintNavigation } from './page.js';
 import { TimingTracker } from './timing-tracker.js';
 import { SprintScanner, type SprintSummary } from './sprint-scanner.js';
@@ -1078,11 +1078,9 @@ export class StatusServer extends EventEmitter {
     try {
       const progress = this.loadProgress();
 
-      // Only allow resuming interrupted or stale (in-progress with old last-activity) sprints
+      // Only allow resuming interrupted or stale sprints
       const isInterrupted = progress.status === 'interrupted';
-      const lastActivity = (progress as unknown as { 'last-activity'?: string })['last-activity'];
-      const isStale = progress.status === 'in-progress' && lastActivity &&
-        (Date.now() - new Date(lastActivity).getTime() > 15 * 60 * 1000);
+      const isStale = isSprintStale(progress);
 
       if (!isInterrupted && !isStale) {
         res.writeHead(400, { 'Content-Type': 'application/json' });

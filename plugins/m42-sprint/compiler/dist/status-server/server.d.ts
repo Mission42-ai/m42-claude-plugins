@@ -160,6 +160,11 @@ export declare class StatusServer extends EventEmitter {
      */
     private handleStopRequest;
     /**
+     * Handle POST /api/sprint/:id/resume request
+     * Creates .resume-requested signal file for stale or interrupted sprints
+     */
+    private handleSprintResumeRequest;
+    /**
      * Find a phase by its path (e.g., "execute-all > step-0 > plan")
      * Returns the location information including indices for updating
      */
