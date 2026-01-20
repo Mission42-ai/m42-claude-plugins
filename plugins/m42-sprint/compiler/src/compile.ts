@@ -11,6 +11,7 @@ import { YAMLException } from 'js-yaml';
 import type {
   SprintDefinition,
   WorkflowDefinition,
+  WorkflowPhase,
   CompiledProgress,
   CompiledTopPhase,
   CurrentPointer,
@@ -316,7 +317,7 @@ export async function compile(config: CompilerConfig): Promise<CompilerResult> {
  * @returns Array of compiled phases from the referenced workflow
  */
 function expandWorkflowReference(
-  phase: { id: string; workflow?: string; prompt?: string },
+  phase: WorkflowPhase,
   workflowsDir: string,
   context: TemplateContext,
   errors: CompilerError[],
@@ -368,9 +369,10 @@ function expandWorkflowReference(
     const prefixedId = `${phase.id}-${refPhase.id}`;
 
     if (refPhase.workflow && !refPhase['for-each']) {
-      // Nested workflow reference - recurse
+      // Nested workflow reference - recurse with prefixed ID
+      const nestedPhase: WorkflowPhase = { id: prefixedId, workflow: refPhase.workflow };
       const nestedPhases = expandWorkflowReference(
-        { id: prefixedId, workflow: refPhase.workflow },
+        nestedPhase,
         workflowsDir,
         context,
         errors,
