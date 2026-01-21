@@ -100,18 +100,18 @@ async function createPdfDocument(progress, options = {}) {
         doc.on('error', reject);
         // Title
         const title = options.title || 'Sprint Summary';
-        doc.fontSize(24).text(title, { align: 'center' });
+        doc.fontSize(exports.DEFAULT_LAYOUT_CONFIG.titleFontSize).text(title, { align: 'center' });
         doc.moveDown();
         // Sprint ID and Status
-        doc.fontSize(14).text(`Sprint ID: ${progress['sprint-id']}`);
-        doc.fontSize(12).text(`Status: ${progress.status}`);
+        doc.fontSize(exports.DEFAULT_LAYOUT_CONFIG.phaseFontSize).text(`Sprint ID: ${progress['sprint-id']}`);
+        doc.fontSize(exports.DEFAULT_LAYOUT_CONFIG.stepFontSize).text(`Status: ${progress.status}`);
         doc.moveDown();
         // Statistics
         renderStats(doc, progress.stats);
         doc.moveDown();
         // Phases
         if (progress.phases && progress.phases.length > 0) {
-            doc.fontSize(16).text('Phases', { underline: true });
+            doc.fontSize(exports.DEFAULT_LAYOUT_CONFIG.sectionFontSize).text('Phases', { underline: true });
             doc.moveDown(0.5);
             for (const phase of progress.phases) {
                 renderPhase(doc, phase);
@@ -124,9 +124,9 @@ async function createPdfDocument(progress, options = {}) {
  * Renders sprint statistics section
  */
 function renderStats(doc, stats) {
-    doc.fontSize(14).text('Statistics', { underline: true });
+    doc.fontSize(exports.DEFAULT_LAYOUT_CONFIG.phaseFontSize).text('Statistics', { underline: true });
     doc.moveDown(0.5);
-    doc.fontSize(10);
+    doc.fontSize(exports.DEFAULT_LAYOUT_CONFIG.bodyFontSize);
     if (stats['started-at']) {
         doc.text(`Started: ${stats['started-at']}`);
     }
@@ -145,16 +145,16 @@ function renderStats(doc, stats) {
  * Renders a top-level phase
  */
 function renderPhase(doc, phase) {
-    doc.fontSize(12).text(`${phase.id} [${phase.status}]`, { continued: false });
+    doc.fontSize(exports.DEFAULT_LAYOUT_CONFIG.stepFontSize).text(`${phase.id} [${phase.status}]`, { continued: false });
     if (phase.prompt) {
-        doc.fontSize(10).text(phase.prompt, { indent: 20 });
+        doc.fontSize(exports.DEFAULT_LAYOUT_CONFIG.bodyFontSize).text(phase.prompt, { indent: exports.DEFAULT_LAYOUT_CONFIG.stepIndent });
     }
     if (phase.summary) {
-        doc.fontSize(9).fillColor('gray').text(`Summary: ${phase.summary}`, { indent: 20 });
+        doc.fontSize(exports.DEFAULT_LAYOUT_CONFIG.metaFontSize).fillColor('gray').text(`Summary: ${phase.summary}`, { indent: exports.DEFAULT_LAYOUT_CONFIG.stepIndent });
         doc.fillColor('black');
     }
     if (phase.elapsed) {
-        doc.fontSize(9).fillColor('gray').text(`Elapsed: ${phase.elapsed}`, { indent: 20 });
+        doc.fontSize(exports.DEFAULT_LAYOUT_CONFIG.metaFontSize).fillColor('gray').text(`Elapsed: ${phase.elapsed}`, { indent: exports.DEFAULT_LAYOUT_CONFIG.stepIndent });
         doc.fillColor('black');
     }
     // Render steps if present
@@ -169,10 +169,13 @@ function renderPhase(doc, phase) {
  * Renders a step within a phase
  */
 function renderStep(doc, step) {
-    doc.fontSize(11).text(`  ${step.id} [${step.status}]`, { indent: 20 });
-    doc.fontSize(9).text(step.prompt, { indent: 40 });
+    // Step header with slight size reduction from phase header
+    const stepHeaderSize = exports.DEFAULT_LAYOUT_CONFIG.stepFontSize - 1; // 11pt
+    doc.fontSize(stepHeaderSize).text(`  ${step.id} [${step.status}]`, { indent: exports.DEFAULT_LAYOUT_CONFIG.stepIndent });
+    doc.fontSize(exports.DEFAULT_LAYOUT_CONFIG.metaFontSize).text(step.prompt, { indent: exports.DEFAULT_LAYOUT_CONFIG.subPhaseIndent });
     if (step.elapsed) {
-        doc.fontSize(8).fillColor('gray').text(`Elapsed: ${step.elapsed}`, { indent: 40 });
+        const timingSize = exports.DEFAULT_LAYOUT_CONFIG.metaFontSize - 1; // 8pt for timing
+        doc.fontSize(timingSize).fillColor('gray').text(`Elapsed: ${step.elapsed}`, { indent: exports.DEFAULT_LAYOUT_CONFIG.subPhaseIndent });
         doc.fillColor('black');
     }
     // Render sub-phases if present
@@ -186,10 +189,13 @@ function renderStep(doc, step) {
  * Renders a sub-phase within a step
  */
 function renderSubPhase(doc, phase) {
-    doc.fontSize(9).text(`    ${phase.id} [${phase.status}]`, { indent: 40 });
-    doc.fontSize(8).text(phase.prompt, { indent: 60 });
+    const subPhaseHeaderSize = exports.DEFAULT_LAYOUT_CONFIG.metaFontSize; // 9pt
+    const subPhaseBodySize = exports.DEFAULT_LAYOUT_CONFIG.metaFontSize - 1; // 8pt
+    const subPhaseDeepIndent = exports.DEFAULT_LAYOUT_CONFIG.subPhaseIndent + exports.DEFAULT_LAYOUT_CONFIG.stepIndent; // 60pt
+    doc.fontSize(subPhaseHeaderSize).text(`    ${phase.id} [${phase.status}]`, { indent: exports.DEFAULT_LAYOUT_CONFIG.subPhaseIndent });
+    doc.fontSize(subPhaseBodySize).text(phase.prompt, { indent: subPhaseDeepIndent });
     if (phase.summary) {
-        doc.fillColor('gray').text(`Summary: ${phase.summary}`, { indent: 60 });
+        doc.fillColor('gray').text(`Summary: ${phase.summary}`, { indent: subPhaseDeepIndent });
         doc.fillColor('black');
     }
 }
