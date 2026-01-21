@@ -1535,7 +1535,7 @@ phases:
           - Use charting library compatible with PDF generation (e.g., chart.js with canvas, SVG-based)
 
           Output: PDF now includes visual progress chart.
-        status: in-progress
+        status: completed
         phases:
           - id: context
             status: completed
@@ -2114,7 +2114,7 @@ phases:
             started-at: '2026-01-21T15:43:30.411Z'
             completed-at: '2026-01-21T15:45:16.815Z'
           - id: verify
-            status: pending
+            status: completed
             prompt: |
               Final integration verification for the step.
 
@@ -2169,7 +2169,10 @@ phases:
               - ✓ REFACTOR: Code cleaned up
               - ✓ QA: All scenarios pass
               - ✓ VERIFY: Integration confirmed
+            started-at: '2026-01-21T15:45:18.843Z'
+            completed-at: '2026-01-21T15:46:55.248Z'
         started-at: '2026-01-21T15:27:05.756Z'
+        completed-at: '2026-01-21T15:46:55.248Z'
       - id: step-3
         prompt: |
           Step 4: Create command/skill for PDF export.
@@ -2182,10 +2185,10 @@ phases:
           - Ensure command works from CLI
 
           Output: Working /export-pdf command or --pdf flag on existing command.
-        status: pending
+        status: in-progress
         phases:
           - id: context
-            status: pending
+            status: completed
             prompt: |
               Prepare context for TDD development.
 
@@ -2221,8 +2224,10 @@ phases:
               - Test patterns and locations
               - Build/test commands
               - The step requirements
+            started-at: '2026-01-21T15:46:57.277Z'
+            completed-at: '2026-01-21T15:48:40.593Z'
           - id: red
-            status: pending
+            status: completed
             prompt: |
               Write tests and gherkin scenarios BEFORE any implementation.
 
@@ -2362,8 +2367,10 @@ phases:
               - Do NOT write any implementation code in this phase
               - Tests SHOULD fail - that's the point of RED
               - Each gherkin scenario should have corresponding unit test(s)
+            started-at: '2026-01-21T15:48:42.631Z'
+            completed-at: '2026-01-21T15:52:41.311Z'
           - id: green-context
-            status: pending
+            status: completed
             prompt: |
               Gather step-specific context for implementation.
 
@@ -2471,8 +2478,10 @@ phases:
               git add context/step-3-context.md
               git commit -m "context(step-3): gather implementation context"
               ```
+            started-at: '2026-01-21T15:52:43.361Z'
+            completed-at: '2026-01-21T15:54:24.871Z'
           - id: green
-            status: pending
+            status: completed
             prompt: |
               Implement MINIMAL code to make tests pass.
 
@@ -2547,8 +2556,10 @@ phases:
               - Tests MUST pass before moving to REFACTOR
               - Don't refactor yet - that's the next phase
               - "Quick and dirty" is OK - we'll clean up next
+            started-at: '2026-01-21T15:54:26.907Z'
+            completed-at: '2026-01-21T15:57:20.923Z'
           - id: refactor
-            status: pending
+            status: completed
             prompt: |
               Refactor implementation while keeping tests green.
 
@@ -2633,8 +2644,10 @@ phases:
               ```
 
               All must pass before completing this phase.
+            started-at: '2026-01-21T15:57:22.960Z'
+            completed-at: '2026-01-21T15:59:58.114Z'
           - id: qa
-            status: pending
+            status: completed
             prompt: |
               Verify implementation against gherkin scenarios.
 
@@ -2748,6 +2761,8 @@ phases:
                 (.status = "failed" | .error = "QA failed - fix phase injected")
               ' "$PROGRESS_FILE"
               ```
+            started-at: '2026-01-21T16:00:00.145Z'
+            completed-at: '2026-01-21T16:03:38.635Z'
           - id: verify
             status: pending
             prompt: |
@@ -2804,6 +2819,7 @@ phases:
               - ✓ REFACTOR: Code cleaned up
               - ✓ QA: All scenarios pass
               - ✓ VERIFY: Integration confirmed
+        started-at: '2026-01-21T15:46:57.277Z'
       - id: step-4
         prompt: |
           Step 5: Documentation and final polish.
@@ -4323,7 +4339,7 @@ phases:
       Note: Do NOT remove the worktree until the PR is merged!
 current:
   phase: 2
-  step: 2
+  step: 3
   sub-phase: 6
 stats:
   started-at: '2026-01-21T14:49:30.136Z'
@@ -4331,6 +4347,6 @@ stats:
   completed-phases: 0
   total-steps: 5
   completed-steps: 0
-  current-iteration: 23
+  current-iteration: 30
 parallel-tasks: []
-last-activity: '2026-01-21T15:45:18.834Z'
+last-activity: '2026-01-21T16:03:40.657Z'
