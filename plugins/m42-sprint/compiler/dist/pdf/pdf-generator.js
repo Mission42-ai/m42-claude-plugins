@@ -109,6 +109,11 @@ async function createPdfDocument(progress, options = {}) {
         // Statistics
         renderStats(doc, progress.stats);
         doc.moveDown();
+        // Progress Chart (when includeCharts is true)
+        if (options.includeCharts) {
+            renderProgressChart(doc, progress);
+            doc.moveDown();
+        }
         // Phases
         if (progress.phases && progress.phases.length > 0) {
             doc.fontSize(exports.DEFAULT_LAYOUT_CONFIG.sectionFontSize).text('Phases', { underline: true });
@@ -140,6 +145,160 @@ function renderStats(doc, stats) {
     if (stats['total-steps'] !== undefined) {
         doc.text(`Steps: ${stats['completed-steps'] || 0}/${stats['total-steps']}`);
     }
+}
+/**
+ * Renders a progress chart using PDFKit native drawing
+ */
+function renderProgressChart(doc, progress) {
+    doc.fontSize(exports.DEFAULT_LAYOUT_CONFIG.phaseFontSize).text('Progress Chart', { underline: true });
+    doc.moveDown(0.5);
+    // Calculate status counts from phases
+    const chartData = calculateChartData(progress);
+    const total = chartData.total;
+    if (total === 0) {
+        doc.fontSize(exports.DEFAULT_LAYOUT_CONFIG.bodyFontSize).text('No data available');
+        return;
+    }
+    // Draw segments
+    const segments = [
+        { count: chartData.completed, color: '#2E7D32', label: 'Completed' },
+        { count: chartData.inProgress, color: '#1565C0', label: 'In Progress' },
+        { count: chartData.pending, color: '#757575', label: 'Pending' },
+        { count: chartData.failed, color: '#C62828', label: 'Failed' },
+        { count: chartData.blocked, color: '#E65100', label: 'Blocked' },
+        { count: chartData.skipped, color: '#9E9E9E', label: 'Skipped' },
+    ];
+    // Draw pie chart
+    const pieX = 130;
+    const pieY = doc.y + 50;
+    const pieRadius = 45;
+    renderPieChartNative(doc, segments, total, pieX, pieY, pieRadius);
+    // Draw progress bar next to pie chart
+    const barX = 200;
+    const barY = pieY - 10;
+    const barWidth = 280;
+    const barHeight = 20;
+    renderProgressBarNative(doc, segments, total, barX, barY, barWidth, barHeight);
+    // Move below the charts
+    doc.y = pieY + pieRadius + 20;
+    // Draw legend
+    let legendX = 50;
+    let legendY = doc.y;
+    for (const segment of segments) {
+        if (segment.count > 0) {
+            doc.rect(legendX, legendY, 10, 10).fill(segment.color);
+            doc.fillColor('black').fontSize(8).text(`${segment.label}: ${segment.count}`, legendX + 14, legendY, { continued: false });
+            legendX += 100;
+            if (legendX > 350) {
+                legendX = 50;
+                legendY += 15;
+            }
+        }
+    }
+    doc.y = legendY + 20;
+    doc.fillColor('black');
+    // Add completion summary text
+    const completedPct = total > 0 ? Math.round((chartData.completed / total) * 100) : 0;
+    const failedPct = total > 0 ? Math.round((chartData.failed / total) * 100) : 0;
+    const pendingPct = total > 0 ? Math.round((chartData.pending / total) * 100) : 0;
+    doc.fontSize(exports.DEFAULT_LAYOUT_CONFIG.bodyFontSize).text(`Overall Progress: ${completedPct}% completed (${chartData.completed} of ${total} phases)`, { align: 'left' });
+    if (chartData.failed > 0) {
+        doc.fontSize(exports.DEFAULT_LAYOUT_CONFIG.metaFontSize).fillColor('#C62828').text(`Warning: ${failedPct}% failed (${chartData.failed} phases require attention)`, { align: 'left' });
+        doc.fillColor('black');
+    }
+    if (chartData.pending > 0) {
+        doc.fontSize(exports.DEFAULT_LAYOUT_CONFIG.metaFontSize).fillColor('#757575').text(`Remaining: ${pendingPct}% pending (${chartData.pending} phases)`, { align: 'left' });
+        doc.fillColor('black');
+    }
+    doc.moveDown();
+}
+/**
+ * Renders a pie chart segment using PDFKit native drawing
+ */
+function renderPieChartNative(doc, segments, total, cx, cy, radius) {
+    let startAngle = -Math.PI / 2; // Start from top
+    for (const segment of segments) {
+        if (segment.count > 0) {
+            const sweepAngle = (segment.count / total) * 2 * Math.PI;
+            const endAngle = startAngle + sweepAngle;
+            // Draw pie slice
+            const x1 = cx + radius * Math.cos(startAngle);
+            const y1 = cy + radius * Math.sin(startAngle);
+            const x2 = cx + radius * Math.cos(endAngle);
+            const y2 = cy + radius * Math.sin(endAngle);
+            const largeArc = sweepAngle > Math.PI;
+            doc.save();
+            doc.moveTo(cx, cy);
+            doc.lineTo(x1, y1);
+            // Use arc approximation with bezier curves for PDFKit
+            if (sweepAngle < 2 * Math.PI - 0.01) {
+                // For segments less than full circle, draw arc path
+                const midAngle = startAngle + sweepAngle / 2;
+                const mx = cx + radius * Math.cos(midAngle);
+                const my = cy + radius * Math.sin(midAngle);
+                // Simple arc approximation
+                doc.quadraticCurveTo(cx + radius * 1.2 * Math.cos(midAngle), cy + radius * 1.2 * Math.sin(midAngle), x2, y2);
+            }
+            else {
+                // Full circle
+                doc.circle(cx, cy, radius);
+            }
+            doc.lineTo(cx, cy);
+            doc.fill(segment.color);
+            doc.restore();
+            startAngle = endAngle;
+        }
+    }
+}
+/**
+ * Renders a horizontal progress bar using PDFKit native drawing
+ */
+function renderProgressBarNative(doc, segments, total, startX, startY, barWidth, barHeight) {
+    let currentX = startX;
+    for (const segment of segments) {
+        if (segment.count > 0) {
+            const segmentWidth = (segment.count / total) * barWidth;
+            doc.rect(currentX, startY, segmentWidth, barHeight).fill(segment.color);
+            currentX += segmentWidth;
+        }
+    }
+}
+/**
+ * Calculates chart data from compiled progress
+ */
+function calculateChartData(progress) {
+    let completed = 0;
+    let pending = 0;
+    let failed = 0;
+    let inProgress = 0;
+    let blocked = 0;
+    let skipped = 0;
+    if (progress.phases) {
+        for (const phase of progress.phases) {
+            switch (phase.status) {
+                case 'completed':
+                    completed++;
+                    break;
+                case 'pending':
+                    pending++;
+                    break;
+                case 'failed':
+                    failed++;
+                    break;
+                case 'in-progress':
+                    inProgress++;
+                    break;
+                case 'blocked':
+                    blocked++;
+                    break;
+                case 'skipped':
+                    skipped++;
+                    break;
+            }
+        }
+    }
+    const total = completed + pending + failed + inProgress + blocked + skipped;
+    return { completed, pending, failed, inProgress, blocked, skipped, total };
 }
 /**
  * Renders a top-level phase
