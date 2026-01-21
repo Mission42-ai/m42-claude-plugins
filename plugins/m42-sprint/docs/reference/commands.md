@@ -16,6 +16,7 @@ Complete reference for all M42-Sprint commands organized by category.
 | `/add-step <prompt>` | Add step to SPRINT.yaml | Step Management |
 | `/import-steps issues --label <label>` | Import GitHub issues as steps | Step Management |
 | `/import-steps file <path>` | Import steps from YAML file | Step Management |
+| `/export-pdf <sprint-path> [options]` | Export sprint summary as PDF | Export |
 | `/sprint-help` | Show help and documentation | Help |
 
 ---
@@ -567,6 +568,74 @@ Note: Run /run-sprint to compile and execute
 - Requires `gh` CLI for GitHub issues import
 - Automatically finds the most recent sprint
 - Requires recompilation via `/run-sprint` to take effect
+
+---
+
+## Export Commands
+
+Commands for exporting sprint data and reports.
+
+### /export-pdf
+
+Export a sprint's progress and summary as a PDF document.
+
+**Usage:**
+```bash
+/export-pdf <sprint-path> [options]
+```
+
+**Arguments:**
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `<sprint-path>` | Yes | Path to the sprint directory containing PROGRESS.yaml |
+
+**Options:**
+| Option | Default | Description |
+|--------|---------|-------------|
+| `-c, --charts` | false | Include visual progress charts in the PDF |
+| `-o, --output <path>` | `<sprint>/artifacts/<sprint-id>.pdf` | Custom output path for the PDF |
+| `-h, --help` | - | Show help information |
+| `--version` | - | Show version number |
+
+**Examples:**
+```bash
+# Basic export - saves to sprint's artifacts directory
+/export-pdf .claude/sprints/2026-01-15_my-sprint
+
+# Export with visual progress charts
+/export-pdf .claude/sprints/2026-01-15_my-sprint --charts
+
+# Export to custom location
+/export-pdf .claude/sprints/2026-01-15_my-sprint --output ~/reports/sprint-summary.pdf
+
+# Combine options
+/export-pdf .claude/sprints/2026-01-15_my-sprint -c -o ~/reports/sprint.pdf
+```
+
+**Output:**
+```
+PDF exported successfully!
+
+Output: /home/user/.claude/sprints/2026-01-15_my-sprint/artifacts/2026-01-15_my-sprint.pdf
+Sprint: 2026-01-15_my-sprint
+Status: completed
+Phases: 12/12 (100%)
+```
+
+**PDF Contents:**
+- Sprint ID and status overview
+- Progress statistics (phases completed, time elapsed)
+- Phase-by-phase breakdown with summaries
+- Optional visual progress charts (with `--charts` flag)
+
+**Requirements:**
+- Sprint must have a compiled PROGRESS.yaml file
+- Run `/run-sprint` at least once to generate PROGRESS.yaml
+
+**Notes:**
+- Creates the `artifacts/` directory if it doesn't exist
+- PDF filename includes the sprint-id for easy identification
+- Use `--charts` for shareable reports with visual progress indicators
 
 ---
 
