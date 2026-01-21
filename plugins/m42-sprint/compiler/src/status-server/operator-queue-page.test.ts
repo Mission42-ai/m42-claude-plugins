@@ -71,7 +71,10 @@ interface QueuedRequest extends OperatorRequest {
       workflow?: string;
       idPrefix: string;
     };
+    rejectionReason?: string;
+    deferredUntil?: 'end-of-phase' | 'end-of-sprint' | 'next-sprint';
   };
+  'decision-source'?: 'operator' | 'manual';
 }
 
 interface BacklogItem {
@@ -545,7 +548,7 @@ test('manual decision updates request status', async () => {
 
   assertEqual(updated.status, 'approved', 'status should be approved');
   assert(updated.decision !== undefined, 'should have decision object');
-  assert(updated.decision?.reasoning.includes('Manual'), 'should include manual reasoning');
+  assert(updated.decision?.reasoning.includes('Manual') === true, 'should include manual reasoning');
   assert(updated['decided-at'] !== undefined, 'should have decided-at timestamp');
 });
 

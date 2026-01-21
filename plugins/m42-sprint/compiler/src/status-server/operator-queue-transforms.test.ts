@@ -439,7 +439,7 @@ test('applyManualDecision sets reject status with reason', async () => {
   const result = applyManualDecision(request, decision);
 
   assertEqual(result.status, 'rejected', 'status should be rejected');
-  assert(result.decision?.reasoning.includes('Not needed'), 'should include rejection reasoning');
+  assert(result.decision?.reasoning.includes('Not needed') === true, 'should include rejection reasoning');
 });
 
 test('applyManualDecision sets defer status with timing', async () => {
