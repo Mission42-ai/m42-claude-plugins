@@ -31,6 +31,7 @@ M42 Sprint enables autonomous, goal-driven development where Claude thinks deepl
 - **Model selection**: Override Claude model (sonnet/opus/haiku) at sprint or step level
 - **Stale detection**: Automatic alerts and recovery when phases become unresponsive
 - **Workflow composition**: Reference and compose workflows for complex pipelines
+- **PDF export**: Generate PDF summaries of sprint progress and results
 
 ## Quick Links
 
@@ -120,6 +121,7 @@ The sprint runtime is built with TypeScript and runs on Node.js. No additional Y
 | `/pause-sprint` | Pause after current task |
 | `/resume-sprint` | Resume paused or stale sprint |
 | `/stop-sprint` | Stop immediately |
+| `/export-pdf <sprint-path>` | Export sprint summary as PDF |
 
 ## Sprint Structure
 
