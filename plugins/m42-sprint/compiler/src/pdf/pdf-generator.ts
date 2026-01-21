@@ -10,6 +10,7 @@ import type {
   CompiledTopPhase,
   CompiledStep,
   CompiledPhase,
+  PhaseStatus,
 } from '../types.js';
 
 // ============================================================================
@@ -42,6 +43,90 @@ export interface PdfOptions {
 export interface SprintPdfData extends CompiledProgress {
   /** Optional override for document title */
   documentTitle?: string;
+}
+
+/**
+ * Layout configuration for PDF generation
+ */
+export interface PdfLayoutConfig {
+  titleFontSize: number;      // 24pt - Document title (H1)
+  sectionFontSize: number;    // 16pt - Section headers (H2)
+  phaseFontSize: number;      // 14pt - Phase headers (H3)
+  stepFontSize: number;       // 12pt - Step headers
+  bodyFontSize: number;       // 10pt - Body text
+  metaFontSize: number;       // 9pt - Metadata/timing
+  sectionSpacing: number;     // 1.5 - Line breaks between sections
+  phaseSpacing: number;       // 1 - Line break between phases
+  stepIndent: number;         // 20pt - Step indentation
+  subPhaseIndent: number;     // 40pt - Sub-phase indentation
+}
+
+/**
+ * Default layout configuration
+ */
+export const DEFAULT_LAYOUT_CONFIG: PdfLayoutConfig = {
+  titleFontSize: 24,
+  sectionFontSize: 16,
+  phaseFontSize: 14,
+  stepFontSize: 12,
+  bodyFontSize: 10,
+  metaFontSize: 9,
+  sectionSpacing: 1.5,
+  phaseSpacing: 1,
+  stepIndent: 20,
+  subPhaseIndent: 40,
+};
+
+// ============================================================================
+// Status Helper Functions
+// ============================================================================
+
+/**
+ * Returns a visual status indicator character for the given phase status.
+ *
+ * @param status - The phase status
+ * @returns Unicode character representing the status
+ */
+export function getStatusIndicator(status: PhaseStatus): string {
+  const indicators: Record<PhaseStatus, string> = {
+    'completed': '\u2713',    // ✓ checkmark
+    'in-progress': '\u25C9',  // ◉ filled circle
+    'pending': '\u25CB',      // ○ empty circle
+    'failed': '\u2717',       // ✗ x mark
+    'blocked': '\u2298',      // ⊘ blocked symbol
+    'skipped': '\u229D',      // ⊝ skipped symbol
+  };
+  return indicators[status] || '?';
+}
+
+/**
+ * Returns a hex color code for the given phase status.
+ *
+ * @param status - The phase status
+ * @returns Hex color code string
+ */
+export function getStatusColor(status: PhaseStatus): string {
+  const colors: Record<PhaseStatus, string> = {
+    'completed': '#2E7D32',   // Green
+    'in-progress': '#1565C0', // Blue
+    'pending': '#757575',     // Gray
+    'failed': '#C62828',      // Red
+    'blocked': '#E65100',     // Orange
+    'skipped': '#9E9E9E',     // Light gray
+  };
+  return colors[status] || '#000000';
+}
+
+/**
+ * Formats a completion percentage string from completed and total counts.
+ *
+ * @param completed - Number of completed items
+ * @param total - Total number of items
+ * @returns Formatted percentage string (e.g., "75%")
+ */
+export function formatCompletionPercentage(completed: number, total: number): string {
+  if (total === 0) return '0%';
+  return `${Math.round((completed / total) * 100)}%`;
 }
 
 // ============================================================================
