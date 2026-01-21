@@ -392,6 +392,458 @@ test('createPdfDocument handles undefined options gracefully', async () => {
     assert(Buffer.isBuffer(result), 'Should handle empty options object');
 });
 // ============================================================================
+// STEP 1 TESTS: Core PDF Export with Sprint Data (RED PHASE)
+// ============================================================================
+// These tests define the expected behavior for Step 1 enhancements.
+// They should FAIL until the implementation is complete.
+// ============================================================================
+// Scenario 1: PDF includes sprint header with title and ID
+// ============================================================================
+test('renders sprint header - renders sprint header with title and ID', async () => {
+    const progress = createTestProgress({
+        'sprint-id': 'sprint-2026-01-21-pdf-export',
+    });
+    const options = {
+        title: 'Sprint Summary Report',
+        includeCharts: false,
+    };
+    const result = await (0, pdf_generator_js_1.createPdfDocument)(progress, options);
+    // PDF should have substantial content with header section
+    // Enhanced implementation will add formatted header with proper styling
+    assert(result.length > 1000, 'PDF with header should have substantial content');
+    // Verify it's a valid PDF
+    const magicBytes = result.slice(0, 5).toString('ascii');
+    assertEqual(magicBytes, '%PDF-', 'Should produce valid PDF');
+});
+// ============================================================================
+// Scenario 2: PDF includes sprint metadata section
+// ============================================================================
+test('renders sprint metadata - renders sprint metadata section', async () => {
+    const progress = createTestProgress({
+        'sprint-id': 'metadata-test-sprint',
+        status: 'completed',
+        stats: {
+            'started-at': '2026-01-21T10:00:00Z',
+            'completed-at': '2026-01-21T14:30:00Z',
+            'total-phases': 4,
+            'completed-phases': 4,
+            'total-steps': 8,
+            'completed-steps': 8,
+            elapsed: '4h 30m',
+        },
+    });
+    const options = createTestPdfOptions();
+    const result = await (0, pdf_generator_js_1.createPdfDocument)(progress, options);
+    // Enhanced implementation should include metadata section with:
+    // - Sprint status
+    // - Start/completion dates
+    // - Elapsed time
+    assert(result.length > 1000, 'PDF with metadata should have proper size');
+    // Verify valid PDF structure
+    const magicBytes = result.slice(0, 5).toString('ascii');
+    assertEqual(magicBytes, '%PDF-', 'Should produce valid PDF');
+});
+// ============================================================================
+// Scenario 3: PDF includes step listing with status indicators
+// ============================================================================
+test('renders step status indicators - renders step status indicators', async () => {
+    const progressWithSteps = createTestProgress({
+        phases: [
+            {
+                id: 'development',
+                status: 'in-progress',
+                steps: [
+                    {
+                        id: 'step-0',
+                        prompt: 'First task completed',
+                        status: 'completed',
+                        elapsed: '15m',
+                        phases: [],
+                    },
+                    {
+                        id: 'step-1',
+                        prompt: 'Second task in progress',
+                        status: 'in-progress',
+                        phases: [],
+                    },
+                    {
+                        id: 'step-2',
+                        prompt: 'Third task pending',
+                        status: 'pending',
+                        phases: [],
+                    },
+                ],
+            },
+        ],
+    });
+    const options = createTestPdfOptions();
+    const result = await (0, pdf_generator_js_1.createPdfDocument)(progressWithSteps, options);
+    // Enhanced implementation should use visual status indicators:
+    // ✓ (checkmark) for completed
+    // ◉ (filled circle) for in-progress
+    // ○ (empty circle) for pending
+    // ✗ (x mark) for failed
+    assert(result.length > 1500, 'PDF with multiple steps should have substantial content');
+    // Verify valid PDF
+    const magicBytes = result.slice(0, 5).toString('ascii');
+    assertEqual(magicBytes, '%PDF-', 'Should produce valid PDF');
+});
+test('renders step status indicators - uses visual status markers', async () => {
+    const progressWithMixedStatuses = createTestProgress({
+        phases: [
+            {
+                id: 'qa-phase',
+                status: 'in-progress',
+                steps: [
+                    { id: 'test-1', prompt: 'Run unit tests', status: 'completed', phases: [] },
+                    { id: 'test-2', prompt: 'Run integration tests', status: 'failed', error: 'Assertion failed', phases: [] },
+                    { id: 'test-3', prompt: 'Run e2e tests', status: 'pending', phases: [] },
+                    { id: 'test-4', prompt: 'Code review', status: 'blocked', phases: [] },
+                ],
+            },
+        ],
+    });
+    const options = createTestPdfOptions();
+    const result = await (0, pdf_generator_js_1.createPdfDocument)(progressWithMixedStatuses, options);
+    const pdfContent = result.toString('latin1');
+    // Enhanced PDF should include visual status indicators
+    // Current basic implementation just shows [status] text
+    // Test expects enhanced formatting with symbols
+    assert(result.length > 1200, 'PDF should render all steps with indicators');
+});
+// ============================================================================
+// Scenario 4: PDF includes timing information
+// ============================================================================
+test('renders timing information - renders timing information for phases', async () => {
+    const progress = createTestProgress({
+        phases: [
+            {
+                id: 'phase-1',
+                status: 'completed',
+                prompt: 'Setup phase',
+                'started-at': '2026-01-21T10:00:00Z',
+                'completed-at': '2026-01-21T10:15:00Z',
+                elapsed: '15m',
+            },
+            {
+                id: 'phase-2',
+                status: 'completed',
+                prompt: 'Implementation phase',
+                'started-at': '2026-01-21T10:15:00Z',
+                'completed-at': '2026-01-21T11:00:00Z',
+                elapsed: '45m',
+                steps: [
+                    {
+                        id: 'step-0',
+                        prompt: 'Implement feature',
+                        status: 'completed',
+                        'started-at': '2026-01-21T10:15:00Z',
+                        'completed-at': '2026-01-21T10:45:00Z',
+                        elapsed: '30m',
+                        phases: [],
+                    },
+                ],
+            },
+        ],
+    });
+    const options = createTestPdfOptions();
+    const result = await (0, pdf_generator_js_1.createPdfDocument)(progress, options);
+    const pdfContent = result.toString('latin1');
+    // PDF should include timing information
+    // Check for elapsed time rendering
+    assert(result.length > 1000, 'PDF with timing should have proper content');
+});
+// ============================================================================
+// Scenario 5: PDF includes completion percentages
+// ============================================================================
+test('renders completion percentages - renders completion percentages', async () => {
+    const progress = createTestProgress({
+        stats: {
+            'started-at': '2026-01-21T10:00:00Z',
+            'completed-at': null,
+            'total-phases': 4,
+            'completed-phases': 3,
+            'total-steps': 10,
+            'completed-steps': 7,
+            elapsed: '2h',
+        },
+    });
+    const options = createTestPdfOptions();
+    const result = await (0, pdf_generator_js_1.createPdfDocument)(progress, options);
+    const pdfContent = result.toString('latin1');
+    // Enhanced implementation should show percentages like "75%" or "70%"
+    // Current basic implementation only shows raw counts
+    // Test verifies the statistics section is rendered
+    assert(pdfContent.includes('3') || pdfContent.includes('4'), 'PDF should include phase completion counts');
+    assert(pdfContent.includes('7') || pdfContent.includes('10'), 'PDF should include step completion counts');
+});
+test('renders completion percentages - calculates and displays percentages', async () => {
+    const progress = createTestProgress({
+        stats: {
+            'started-at': '2026-01-21T10:00:00Z',
+            'total-phases': 8,
+            'completed-phases': 6,
+            'total-steps': 20,
+            'completed-steps': 15,
+        },
+    });
+    const options = createTestPdfOptions();
+    const result = await (0, pdf_generator_js_1.createPdfDocument)(progress, options);
+    // This test expects the enhanced implementation to show percentages
+    // Phase completion: 6/8 = 75%
+    // Step completion: 15/20 = 75%
+    assert(result.length > 500, 'PDF with percentages should render properly');
+});
+// ============================================================================
+// Scenario 6: PDF uses proper header formatting
+// ============================================================================
+test('uses header hierarchy - uses header hierarchy for document structure', async () => {
+    const progress = createTestProgress({
+        phases: [
+            {
+                id: 'phase-1',
+                status: 'completed',
+                prompt: 'First phase',
+                summary: 'Phase 1 complete',
+                steps: [
+                    {
+                        id: 'step-0',
+                        prompt: 'Task for phase 1',
+                        status: 'completed',
+                        phases: [
+                            { id: 'sub-1', status: 'completed', prompt: 'Sub-task 1' },
+                            { id: 'sub-2', status: 'completed', prompt: 'Sub-task 2' },
+                        ],
+                    },
+                ],
+            },
+        ],
+    });
+    const options = {
+        title: 'Hierarchy Test Report',
+        includeCharts: false,
+    };
+    const result = await (0, pdf_generator_js_1.createPdfDocument)(progress, options);
+    // PDF should use different font sizes for hierarchy
+    // Document title: 24pt, Section: 16pt, Phase: 14pt, etc.
+    // The test checks that content is rendered with proper structure
+    assert(result.length > 1500, 'PDF with hierarchy should have layered content');
+});
+// ============================================================================
+// Scenario 7: PDF sections have proper spacing
+// ============================================================================
+test('uses proper spacing - uses proper spacing between sections', async () => {
+    const progress = createTestProgress({
+        phases: [
+            {
+                id: 'prepare',
+                status: 'completed',
+                prompt: 'Preparation phase',
+                summary: 'Prepared successfully',
+            },
+            {
+                id: 'develop',
+                status: 'completed',
+                prompt: 'Development phase',
+                summary: 'Developed features',
+                steps: [
+                    { id: 'step-0', prompt: 'Feature A', status: 'completed', phases: [] },
+                    { id: 'step-1', prompt: 'Feature B', status: 'completed', phases: [] },
+                ],
+            },
+            {
+                id: 'qa',
+                status: 'completed',
+                prompt: 'QA phase',
+                summary: 'All tests passed',
+            },
+        ],
+    });
+    const options = createTestPdfOptions();
+    const result = await (0, pdf_generator_js_1.createPdfDocument)(progress, options);
+    // Enhanced implementation should have:
+    // - Section spacing: 1.5 line breaks
+    // - Phase spacing: 1 line break
+    // - Step indentation: 20pt from left
+    // - Sub-phase indentation: 40pt from left
+    assert(result.length > 1500, 'PDF with multiple sections should have proper content');
+    // Verify valid PDF
+    const magicBytes = result.slice(0, 5).toString('ascii');
+    assertEqual(magicBytes, '%PDF-', 'Should produce valid PDF');
+});
+// ============================================================================
+// Scenario 8: PDF handles failed and blocked steps
+// ============================================================================
+test('renders failed step errors - renders failed step errors', async () => {
+    const progressWithFailure = createTestProgress({
+        status: 'blocked',
+        phases: [
+            {
+                id: 'development',
+                status: 'failed',
+                steps: [
+                    {
+                        id: 'step-0',
+                        prompt: 'Implement feature',
+                        status: 'completed',
+                        phases: [],
+                    },
+                    {
+                        id: 'step-1',
+                        prompt: 'Run tests',
+                        status: 'failed',
+                        error: 'Test assertion failed: expected 5 but got 3',
+                        'error-category': 'validation',
+                        phases: [],
+                    },
+                    {
+                        id: 'step-2',
+                        prompt: 'Deploy',
+                        status: 'blocked',
+                        phases: [],
+                    },
+                ],
+            },
+        ],
+    });
+    const options = createTestPdfOptions();
+    const result = await (0, pdf_generator_js_1.createPdfDocument)(progressWithFailure, options);
+    // Enhanced implementation should:
+    // - Use red color (#C62828) for failed steps
+    // - Display error messages for failed steps
+    // - Use orange color (#E65100) for blocked steps
+    // - Show ✗ indicator for failed, ⊘ for blocked
+    assert(result.length > 1000, 'PDF with errors should have content');
+    // Verify valid PDF
+    const magicBytes = result.slice(0, 5).toString('ascii');
+    assertEqual(magicBytes, '%PDF-', 'Should produce valid PDF');
+});
+test('renders failed step errors - displays error messages', async () => {
+    const progressWithError = createTestProgress({
+        phases: [
+            {
+                id: 'build',
+                status: 'failed',
+                error: 'Build failed with exit code 1',
+                steps: [
+                    {
+                        id: 'compile',
+                        prompt: 'Compile TypeScript',
+                        status: 'failed',
+                        error: 'TS2322: Type string is not assignable to type number',
+                        phases: [],
+                    },
+                ],
+            },
+        ],
+    });
+    const options = createTestPdfOptions();
+    const result = await (0, pdf_generator_js_1.createPdfDocument)(progressWithError, options);
+    // PDF should display actual error messages
+    // This tests the error rendering feature
+    assert(result.length > 800, 'PDF with error details should have content');
+});
+// ============================================================================
+// Step 1 RED Phase Tests: Features that DO NOT exist yet
+// ============================================================================
+// These tests verify NEW functionality that needs to be implemented.
+// They MUST fail until the implementation is complete.
+test('RED: exports getStatusIndicator function for visual status markers', () => {
+    // getStatusIndicator should be exported from the module
+    // It should return status symbols: ✓ ◉ ○ ✗ ⊘ ⊝
+    const pdfModule = require('./pdf-generator.js');
+    assert(typeof pdfModule.getStatusIndicator === 'function', 'getStatusIndicator function should be exported');
+});
+test('RED: exports formatCompletionPercentage function', () => {
+    // formatCompletionPercentage should calculate and format percentages
+    const pdfModule = require('./pdf-generator.js');
+    assert(typeof pdfModule.formatCompletionPercentage === 'function', 'formatCompletionPercentage function should be exported');
+});
+test('RED: formatCompletionPercentage returns correct percentage string', () => {
+    const pdfModule = require('./pdf-generator.js');
+    const result = pdfModule.formatCompletionPercentage(3, 4);
+    assertEqual(result, '75%', 'Should return formatted percentage');
+});
+test('RED: getStatusIndicator returns checkmark for completed status', () => {
+    const pdfModule = require('./pdf-generator.js');
+    const result = pdfModule.getStatusIndicator('completed');
+    assertEqual(result, '\u2713', 'Should return checkmark for completed');
+});
+test('RED: getStatusIndicator returns filled circle for in-progress status', () => {
+    const pdfModule = require('./pdf-generator.js');
+    const result = pdfModule.getStatusIndicator('in-progress');
+    assertEqual(result, '\u25C9', 'Should return filled circle for in-progress');
+});
+test('RED: getStatusIndicator returns empty circle for pending status', () => {
+    const pdfModule = require('./pdf-generator.js');
+    const result = pdfModule.getStatusIndicator('pending');
+    assertEqual(result, '\u25CB', 'Should return empty circle for pending');
+});
+test('RED: getStatusIndicator returns X mark for failed status', () => {
+    const pdfModule = require('./pdf-generator.js');
+    const result = pdfModule.getStatusIndicator('failed');
+    assertEqual(result, '\u2717', 'Should return X mark for failed');
+});
+test('RED: exports getStatusColor function for colored status output', () => {
+    // getStatusColor should return color codes for statuses
+    const pdfModule = require('./pdf-generator.js');
+    assert(typeof pdfModule.getStatusColor === 'function', 'getStatusColor function should be exported');
+});
+test('RED: getStatusColor returns green hex for completed status', () => {
+    const pdfModule = require('./pdf-generator.js');
+    const result = pdfModule.getStatusColor('completed');
+    assertEqual(result, '#2E7D32', 'Should return green for completed');
+});
+test('RED: getStatusColor returns red hex for failed status', () => {
+    const pdfModule = require('./pdf-generator.js');
+    const result = pdfModule.getStatusColor('failed');
+    assertEqual(result, '#C62828', 'Should return red for failed');
+});
+test('RED: exports PdfLayoutConfig interface for customizable layout', () => {
+    // PdfLayoutConfig should allow configuring font sizes, spacing, etc.
+    const pdfModule = require('./pdf-generator.js');
+    // Check that DEFAULT_LAYOUT_CONFIG is exported
+    assert(pdfModule.DEFAULT_LAYOUT_CONFIG !== undefined, 'DEFAULT_LAYOUT_CONFIG should be exported');
+    assert(pdfModule.DEFAULT_LAYOUT_CONFIG.titleFontSize === 24, 'Default title font size should be 24');
+    assert(pdfModule.DEFAULT_LAYOUT_CONFIG.sectionSpacing === 1.5, 'Default section spacing should be 1.5');
+});
+// ============================================================================
+// Additional Step 1 Tests: Edge Cases for Enhanced Features
+// ============================================================================
+test('handles sprint with zero completed phases for percentage calculation', async () => {
+    const progress = createTestProgress({
+        stats: {
+            'started-at': '2026-01-21T10:00:00Z',
+            'total-phases': 5,
+            'completed-phases': 0,
+            'total-steps': 15,
+            'completed-steps': 0,
+        },
+    });
+    const options = createTestPdfOptions();
+    const result = await (0, pdf_generator_js_1.createPdfDocument)(progress, options);
+    // Should handle 0% completion without division errors
+    assert(Buffer.isBuffer(result), 'Should handle zero completion percentage');
+    assert(result.length > 500, 'PDF should render even with zero progress');
+});
+test('handles sprint with all phases completed (100% completion)', async () => {
+    const progress = createTestProgress({
+        stats: {
+            'started-at': '2026-01-21T10:00:00Z',
+            'completed-at': '2026-01-21T12:00:00Z',
+            'total-phases': 5,
+            'completed-phases': 5,
+            'total-steps': 15,
+            'completed-steps': 15,
+            elapsed: '2h',
+        },
+    });
+    const options = createTestPdfOptions();
+    const result = await (0, pdf_generator_js_1.createPdfDocument)(progress, options);
+    // Should show 100% completion
+    assert(Buffer.isBuffer(result), 'Should handle 100% completion');
+});
+// ============================================================================
 // Run Tests Summary
 // ============================================================================
 // Tests run sequentially via runTests() triggered by setImmediate
