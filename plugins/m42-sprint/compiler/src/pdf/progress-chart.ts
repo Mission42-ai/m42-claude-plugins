@@ -72,6 +72,35 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 // ============================================================================
+// Chart Dimension Defaults
+// ============================================================================
+
+const PIE_CHART_DEFAULTS = {
+  width: 200,
+  height: 200,
+  padding: 10,
+  legendHeight: 60,
+};
+
+const PROGRESS_BAR_DEFAULTS = {
+  width: 400,
+  height: 40,
+  barHeight: 30,
+  barY: 5,
+  legendHeight: 40,
+  minLabelWidth: 30,
+};
+
+const TIMELINE_DEFAULTS = {
+  width: 400,
+  rowHeight: 25,
+  labelWidth: 100,
+  labelPadding: 10,
+  barMinWidth: 5,
+  emptyHeight: 50,
+};
+
+// ============================================================================
 // Helper Functions
 // ============================================================================
 
@@ -166,20 +195,22 @@ function dataToSegments(data: ChartData): ChartSegment[] {
  * @returns SVG string
  */
 export function createPieChart(segments: ChartSegment[], options: ChartOptions = {}): string {
-  const width = options.width || 200;
-  const height = options.height || 200;
+  const width = options.width || PIE_CHART_DEFAULTS.width;
+  const height = options.height || PIE_CHART_DEFAULTS.height;
   const showLegend = options.showLegend !== false;
   const showLabels = options.showLabels !== false;
 
   const cx = width / 2;
   const cy = height / 2;
-  const radius = Math.min(width, height) / 2 - 10;
+  const radius = Math.min(width, height) / 2 - PIE_CHART_DEFAULTS.padding;
 
   const total = segments.reduce((sum, s) => sum + s.value, 0);
 
+  const legendHeight = showLegend ? PIE_CHART_DEFAULTS.legendHeight : 0;
+
   // Handle empty data
   if (total === 0 || segments.length === 0) {
-    return `<svg viewBox="0 0 ${width} ${height + (showLegend ? 60 : 0)}" xmlns="http://www.w3.org/2000/svg">
+    return `<svg viewBox="0 0 ${width} ${height + legendHeight}" xmlns="http://www.w3.org/2000/svg">
   <circle cx="${cx}" cy="${cy}" r="${radius}" fill="#E0E0E0" />
   <text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="middle" font-size="12" fill="#757575">No data</text>
 </svg>`;
@@ -192,7 +223,7 @@ export function createPieChart(segments: ChartSegment[], options: ChartOptions =
     if (showLegend) {
       legendSvg = renderLegend(segments, total, width, height, showLabels);
     }
-    return `<svg viewBox="0 0 ${width} ${height + (showLegend ? 60 : 0)}" xmlns="http://www.w3.org/2000/svg">
+    return `<svg viewBox="0 0 ${width} ${height + legendHeight}" xmlns="http://www.w3.org/2000/svg">
   <circle cx="${cx}" cy="${cy}" r="${radius}" fill="${segment.color}" />
 ${legendSvg}</svg>`;
   }
@@ -213,7 +244,7 @@ ${legendSvg}</svg>`;
     legendSvg = renderLegend(segments, total, width, height, showLabels);
   }
 
-  return `<svg viewBox="0 0 ${width} ${height + (showLegend ? 60 : 0)}" xmlns="http://www.w3.org/2000/svg">
+  return `<svg viewBox="0 0 ${width} ${height + legendHeight}" xmlns="http://www.w3.org/2000/svg">
 ${paths.join('\n')}
 ${legendSvg}</svg>`;
 }
@@ -252,19 +283,21 @@ function renderLegend(segments: ChartSegment[], total: number, width: number, ch
  * @returns SVG string
  */
 export function createProgressBar(data: ChartData, options: ChartOptions = {}): string {
-  const width = options.width || 400;
-  const height = options.height || 40;
+  const width = options.width || PROGRESS_BAR_DEFAULTS.width;
+  const height = options.height || PROGRESS_BAR_DEFAULTS.height;
   const showLabels = options.showLabels !== false;
   const showLegend = options.showLegend !== false;
 
-  const barHeight = 30;
-  const barY = 5;
+  const barHeight = PROGRESS_BAR_DEFAULTS.barHeight;
+  const barY = PROGRESS_BAR_DEFAULTS.barY;
 
   const total = data.total || (data.completed + data.pending + data.failed + data.inProgress + data.blocked + data.skipped);
 
+  const legendHeight = showLegend ? PROGRESS_BAR_DEFAULTS.legendHeight : 0;
+
   // Handle empty data
   if (total === 0) {
-    return `<svg viewBox="0 0 ${width} ${height + (showLegend ? 40 : 0)}" xmlns="http://www.w3.org/2000/svg">
+    return `<svg viewBox="0 0 ${width} ${height + legendHeight}" xmlns="http://www.w3.org/2000/svg">
   <rect x="0" y="${barY}" width="${width}" height="${barHeight}" fill="#E0E0E0" rx="4" />
   <text x="${width / 2}" y="${barY + barHeight / 2 + 4}" text-anchor="middle" font-size="12" fill="#757575">No data</text>
 </svg>`;
@@ -281,7 +314,7 @@ export function createProgressBar(data: ChartData, options: ChartOptions = {}): 
     rects.push(`  <rect x="${x}" y="${barY}" width="${segmentWidth}" height="${barHeight}" fill="${segment.color}" />`);
 
     // Add percentage label if segment is wide enough
-    if (showLabels && segmentWidth > 30) {
+    if (showLabels && segmentWidth > PROGRESS_BAR_DEFAULTS.minLabelWidth) {
       const percentage = Math.round((segment.value / total) * 100);
       labels.push(`  <text x="${x + segmentWidth / 2}" y="${barY + barHeight / 2 + 4}" text-anchor="middle" font-size="10" fill="white">${percentage}%</text>`);
     }
@@ -294,7 +327,7 @@ export function createProgressBar(data: ChartData, options: ChartOptions = {}): 
     legendSvg = renderBarLegend(segments, total, width, height);
   }
 
-  return `<svg viewBox="0 0 ${width} ${height + (showLegend ? 40 : 0)}" xmlns="http://www.w3.org/2000/svg">
+  return `<svg viewBox="0 0 ${width} ${height + legendHeight}" xmlns="http://www.w3.org/2000/svg">
 ${rects.join('\n')}
 ${labels.join('\n')}
 ${legendSvg}</svg>`;
@@ -327,15 +360,15 @@ function renderBarLegend(segments: Array<{ value: number; color: string; label: 
  * @returns SVG string
  */
 export function createTimelineChart(entries: TimelineEntry[], options: ChartOptions = {}): string {
-  const width = options.width || 400;
-  const rowHeight = 25;
-  const labelWidth = 100;
-  const barStartX = labelWidth + 10;
-  const barWidth = width - barStartX - 10;
+  const width = options.width || TIMELINE_DEFAULTS.width;
+  const rowHeight = TIMELINE_DEFAULTS.rowHeight;
+  const labelWidth = TIMELINE_DEFAULTS.labelWidth;
+  const barStartX = labelWidth + TIMELINE_DEFAULTS.labelPadding;
+  const barWidth = width - barStartX - TIMELINE_DEFAULTS.labelPadding;
 
   // Handle empty entries
   if (entries.length === 0) {
-    return `<svg viewBox="0 0 ${width} 50" xmlns="http://www.w3.org/2000/svg">
+    return `<svg viewBox="0 0 ${width} ${TIMELINE_DEFAULTS.emptyHeight}" xmlns="http://www.w3.org/2000/svg">
   <text x="${width / 2}" y="25" text-anchor="middle" font-size="12" fill="#757575">No timeline data</text>
 </svg>`;
   }
@@ -363,7 +396,7 @@ export function createTimelineChart(entries: TimelineEntry[], options: ChartOpti
     const startOffset = new Date(entry.startTime).getTime() - minTime;
     const duration = new Date(entry.endTime).getTime() - new Date(entry.startTime).getTime();
     const barX = barStartX + (startOffset / timeRange) * barWidth;
-    const barW = Math.max((duration / timeRange) * barWidth, 5); // Minimum width of 5
+    const barW = Math.max((duration / timeRange) * barWidth, TIMELINE_DEFAULTS.barMinWidth);
     const color = STATUS_COLORS[entry.status] || STATUS_COLORS.pending;
 
     bars.push(`  <rect x="${barX}" y="${y}" width="${barW}" height="20" fill="${color}" rx="3" />`);
