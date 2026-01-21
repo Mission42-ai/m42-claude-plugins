@@ -28,6 +28,25 @@ function escapeHtml(str: string): string {
 }
 
 // ============================================================================
+// Constants
+// ============================================================================
+
+/** CSS classes for priority badges */
+const PRIORITY_CLASSES: Record<string, string> = {
+  critical: 'priority-critical danger',
+  high: 'priority-high',
+  medium: 'priority-medium',
+  low: 'priority-low',
+};
+
+/** Status icons for decision history */
+const STATUS_ICONS: Record<string, string> = {
+  approved: '✅',
+  rejected: '❌',
+  deferred: '⏸️',
+};
+
+// ============================================================================
 // Priority Badge Component
 // ============================================================================
 
@@ -35,27 +54,8 @@ function escapeHtml(str: string): string {
  * Render a priority badge with appropriate color
  */
 export function renderPriorityBadge(priority: string): string {
-  const priorityUpper = priority.toUpperCase();
-  let colorClass = '';
-
-  switch (priority) {
-    case 'critical':
-      colorClass = 'priority-critical danger';
-      break;
-    case 'high':
-      colorClass = 'priority-high';
-      break;
-    case 'medium':
-      colorClass = 'priority-medium';
-      break;
-    case 'low':
-      colorClass = 'priority-low';
-      break;
-    default:
-      colorClass = 'priority-low';
-  }
-
-  return `<span class="priority-badge ${colorClass}">${priorityUpper}</span>`;
+  const colorClass = PRIORITY_CLASSES[priority] ?? 'priority-low';
+  return `<span class="priority-badge ${colorClass}">${priority.toUpperCase()}</span>`;
 }
 
 // ============================================================================
@@ -164,16 +164,7 @@ export function renderPendingRequestsSection(requests: QueuedRequest[]): string 
  * Get status icon for a decision
  */
 function getStatusIcon(status: string): string {
-  switch (status) {
-    case 'approved':
-      return '✅';
-    case 'rejected':
-      return '❌';
-    case 'deferred':
-      return '⏸️';
-    default:
-      return '🔔';
-  }
+  return STATUS_ICONS[status] ?? '🔔';
 }
 
 /**
@@ -214,49 +205,37 @@ function renderDecisionCard(request: QueuedRequest): string {
 // Decision History Section
 // ============================================================================
 
+/** History filter dropdown HTML */
+const HISTORY_FILTER_CONTROLS = `
+  <div class="filter-controls">
+    <select id="history-filter" class="filter-select">
+      <option value="all">All</option>
+      <option value="approved">Approved</option>
+      <option value="rejected">Rejected</option>
+      <option value="deferred">Deferred</option>
+    </select>
+  </div>`;
+
 /**
  * Render the decision history section with filter controls
  */
 export function renderDecisionHistorySection(history: QueuedRequest[]): string {
-  if (history.length === 0) {
-    return `
-      <section class="queue-section history-section">
-        <div class="section-header">
-          <h2>Decision History</h2>
-          <div class="filter-controls">
-            <select id="history-filter" class="filter-select">
-              <option value="all">All</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
-              <option value="deferred">Deferred</option>
-            </select>
-          </div>
-        </div>
-        <div class="empty-state">
-          <span class="empty-icon">📋</span>
-          <span class="empty-message">No decisions yet</span>
-        </div>
-      </section>`;
-  }
-
-  const cards = history.map(r => renderDecisionCard(r)).join('');
+  const content = history.length === 0
+    ? `<div class="empty-state">
+        <span class="empty-icon">📋</span>
+        <span class="empty-message">No decisions yet</span>
+      </div>`
+    : `<div class="request-list" id="history-list">
+        ${history.map(r => renderDecisionCard(r)).join('')}
+      </div>`;
 
   return `
     <section class="queue-section history-section">
       <div class="section-header">
         <h2>Decision History</h2>
-        <div class="filter-controls">
-          <select id="history-filter" class="filter-select">
-            <option value="all">All</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
-            <option value="deferred">Deferred</option>
-          </select>
-        </div>
+        ${HISTORY_FILTER_CONTROLS}
       </div>
-      <div class="request-list" id="history-list">
-        ${cards}
-      </div>
+      ${content}
     </section>`;
 }
 
