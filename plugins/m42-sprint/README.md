@@ -24,6 +24,14 @@ M42 Sprint enables autonomous, goal-driven development where Claude thinks deepl
 
 **The Ralph Loop** solves context accumulation: each iteration runs in a fresh Claude session, preventing slowdown during long sprints.
 
+### Key Features
+
+- **Chat-like activity feed**: Watch Claude's reasoning and tool calls in real-time
+- **Elapsed time tracking**: See time spent on each phase and total sprint duration
+- **Model selection**: Override Claude model (sonnet/opus/haiku) at sprint or step level
+- **Stale detection**: Automatic alerts and recovery when phases become unresponsive
+- **Workflow composition**: Reference and compose workflows for complex pipelines
+
 ## Quick Links
 
 | Getting Started | Deep Dives | Reference |
@@ -49,11 +57,24 @@ goal: |
 # 3. Run it
 /run-sprint .claude/sprints/2026-01-16_my-feature
 
-# 4. Watch progress
+# 4. Watch progress (chat-like view with elapsed time)
 /sprint-watch
 ```
 
 Ralph thinks deeply, creates steps dynamically, and signals when the goal is complete.
+
+### Model Selection
+
+Override the model for complex or simple tasks:
+
+```yaml
+# SPRINT.yaml
+model: sonnet  # Sprint-level default
+
+steps:
+  - prompt: Design architecture
+    model: opus    # Use opus for complex reasoning
+```
 
 ### Workflow Mode
 
@@ -93,11 +114,11 @@ The sprint runtime is built with TypeScript and runs on Node.js. No additional Y
 | `/start-sprint <name> [--ralph\|--workflow <name>] [--worktree]` | Initialize new sprint (add `--worktree` for [parallel development](docs/guides/worktree-sprints.md)) |
 | `/add-step <prompt>` | Add step to queue (workflow mode) |
 | `/import-steps` | Bulk import from GitHub |
-| `/run-sprint <dir>` | Start execution loop |
-| `/sprint-watch` | Open live status dashboard |
+| `/run-sprint <dir> [--model <model>]` | Start execution loop (model: sonnet/opus/haiku) |
+| `/sprint-watch` | Open live dashboard (chat view, elapsed time, progress) |
 | `/sprint-status` | View progress summary |
 | `/pause-sprint` | Pause after current task |
-| `/resume-sprint` | Resume paused sprint |
+| `/resume-sprint` | Resume paused or stale sprint |
 | `/stop-sprint` | Stop immediately |
 
 ## Sprint Structure
