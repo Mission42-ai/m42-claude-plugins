@@ -1,0 +1,167 @@
+"use strict";
+/**
+ * Transform functions for Operator Queue data
+ * Converts PROGRESS.yaml operator-queue and BACKLOG.yaml to display format
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.sortByPriority = sortByPriority;
+exports.calculateQueueStats = calculateQueueStats;
+exports.formatRelativeTime = formatRelativeTime;
+exports.applyManualDecision = applyManualDecision;
+exports.toOperatorQueueData = toOperatorQueueData;
+// ============================================================================
+// Constants
+// ============================================================================
+const PRIORITY_ORDER = {
+    critical: 0,
+    high: 1,
+    medium: 2,
+    low: 3,
+};
+/** Statuses that represent decided (non-pending) requests */
+const DECIDED_STATUSES = new Set(['approved', 'rejected', 'deferred']);
+/**
+ * Sort requests by priority (critical first, low last)
+ */
+function sortByPriority(requests) {
+    return [...requests].sort((a, b) => {
+        const aPriority = PRIORITY_ORDER[a.priority] ?? 999;
+        const bPriority = PRIORITY_ORDER[b.priority] ?? 999;
+        return aPriority - bPriority;
+    });
+}
+/**
+ * Sort history by decided-at descending (most recent first)
+ */
+function sortHistoryByDecidedAt(history) {
+    return [...history].sort((a, b) => {
+        const aTime = a['decided-at'] ? new Date(a['decided-at']).getTime() : 0;
+        const bTime = b['decided-at'] ? new Date(b['decided-at']).getTime() : 0;
+        return bTime - aTime;
+    });
+}
+// ============================================================================
+// Stats Calculation
+// ============================================================================
+/**
+ * Calculate queue statistics from requests and backlog
+ */
+function calculateQueueStats(queue, backlog) {
+    const stats = {
+        pending: 0,
+        approved: 0,
+        rejected: 0,
+        deferred: 0,
+        backlog: backlog.length,
+    };
+    for (const request of queue) {
+        switch (request.status) {
+            case 'pending':
+                stats.pending++;
+                break;
+            case 'approved':
+                stats.approved++;
+                break;
+            case 'rejected':
+                stats.rejected++;
+                break;
+            case 'deferred':
+                stats.deferred++;
+                break;
+            // 'backlog' status in queue is counted via backlog array
+        }
+    }
+    return stats;
+}
+// ============================================================================
+// Time Formatting
+// ============================================================================
+/**
+ * Format an ISO timestamp to a human-readable relative time
+ * e.g., "2 min ago", "just now", "1 hour ago"
+ */
+function formatRelativeTime(isoTimestamp) {
+    const date = new Date(isoTimestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffSeconds = Math.floor(diffMs / 1000);
+    if (diffSeconds < 5)
+        return 'just now';
+    if (diffSeconds < 60)
+        return `${diffSeconds}s ago`;
+    const diffMinutes = Math.floor(diffSeconds / 60);
+    if (diffMinutes < 60)
+        return `${diffMinutes} min ago`;
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24)
+        return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+}
+// ============================================================================
+// Manual Decision Application
+// ============================================================================
+/**
+ * Apply a manual decision to a request
+ * Updates status, adds decision object, and marks as manual
+ */
+function applyManualDecision(request, decision) {
+    const updated = { ...request };
+    const now = new Date().toISOString();
+    // Map decision to status
+    switch (decision.decision) {
+        case 'approve':
+            updated.status = 'approved';
+            break;
+        case 'reject':
+            updated.status = 'rejected';
+            break;
+        case 'defer':
+            updated.status = 'deferred';
+            if (decision.deferredUntil) {
+                updated['deferred-until'] = decision.deferredUntil;
+            }
+            break;
+    }
+    updated['decided-at'] = now;
+    updated['decision-source'] = 'manual';
+    updated.decision = {
+        requestId: request.id,
+        decision: decision.decision,
+        reasoning: `Manual: ${decision.reasoning}`,
+        deferredUntil: decision.deferredUntil,
+    };
+    return updated;
+}
+/**
+ * Convert CompiledProgress and BacklogFile to OperatorQueueData
+ * Separates pending requests from history, sorts appropriately
+ */
+function toOperatorQueueData(progress, backlog) {
+    const queue = progress['operator-queue'] ?? [];
+    const backlogItems = backlog.items ?? [];
+    // Separate pending from decided requests
+    const pending = [];
+    const history = [];
+    for (const request of queue) {
+        if (request.status === 'pending') {
+            pending.push(request);
+        }
+        else if (DECIDED_STATUSES.has(request.status)) {
+            history.push(request);
+        }
+    }
+    // Sort pending by priority (critical first)
+    const sortedPending = sortByPriority(pending);
+    // Sort history by decided-at descending (most recent first)
+    const sortedHistory = sortHistoryByDecidedAt(history);
+    // Calculate stats
+    const stats = calculateQueueStats(queue, backlogItems);
+    return {
+        pending: sortedPending,
+        history: sortedHistory,
+        backlog: backlogItems,
+        stats,
+    };
+}
+//# sourceMappingURL=operator-queue-transforms.js.map

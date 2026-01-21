@@ -1,108 +1,100 @@
+"use strict";
 /**
  * Operator Queue Page Generator
  * Generates HTML page for viewing and managing operator requests
  */
-
-import type {
-  OperatorQueueData,
-  OperatorQueueStats,
-  QueuedRequest,
-  BacklogItem,
-} from './operator-queue-transforms.js';
-import { formatRelativeTime } from './operator-queue-transforms.js';
-
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.renderPriorityBadge = renderPriorityBadge;
+exports.renderReasoningBlock = renderReasoningBlock;
+exports.renderActionButtons = renderActionButtons;
+exports.renderPendingRequestCard = renderPendingRequestCard;
+exports.renderPendingRequestsSection = renderPendingRequestsSection;
+exports.renderDecisionHistorySection = renderDecisionHistorySection;
+exports.renderBacklogSection = renderBacklogSection;
+exports.renderQueueStats = renderQueueStats;
+exports.renderOperatorNavBadge = renderOperatorNavBadge;
+exports.generateOperatorQueuePage = generateOperatorQueuePage;
+const operator_queue_transforms_js_1 = require("./operator-queue-transforms.js");
 // ============================================================================
 // Utility Functions
 // ============================================================================
-
 /**
  * Escape HTML special characters
  */
-function escapeHtml(str: string | undefined | null): string {
-  if (str == null) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+function escapeHtml(str) {
+    if (str == null)
+        return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
 }
-
 // ============================================================================
 // Constants
 // ============================================================================
-
 /** CSS classes for priority badges */
-const PRIORITY_CLASSES: Record<string, string> = {
-  critical: 'priority-critical danger',
-  high: 'priority-high',
-  medium: 'priority-medium',
-  low: 'priority-low',
+const PRIORITY_CLASSES = {
+    critical: 'priority-critical danger',
+    high: 'priority-high',
+    medium: 'priority-medium',
+    low: 'priority-low',
 };
-
 /** Status icons for decision history */
-const STATUS_ICONS: Record<string, string> = {
-  approved: '✅',
-  rejected: '❌',
-  deferred: '⏸️',
+const STATUS_ICONS = {
+    approved: '✅',
+    rejected: '❌',
+    deferred: '⏸️',
 };
-
 // ============================================================================
 // Priority Badge Component
 // ============================================================================
-
 /**
  * Render a priority badge with appropriate color
  */
-export function renderPriorityBadge(priority: string): string {
-  const colorClass = PRIORITY_CLASSES[priority] ?? 'priority-low';
-  return `<span class="priority-badge ${colorClass}">${priority.toUpperCase()}</span>`;
+function renderPriorityBadge(priority) {
+    const colorClass = PRIORITY_CLASSES[priority] ?? 'priority-low';
+    return `<span class="priority-badge ${colorClass}">${priority.toUpperCase()}</span>`;
 }
-
 // ============================================================================
 // Reasoning Block Component
 // ============================================================================
-
 /**
  * Render a collapsible reasoning block
  */
-export function renderReasoningBlock(reasoning: string): string {
-  return `
+function renderReasoningBlock(reasoning) {
+    return `
     <details class="reasoning-block collapsible">
       <summary class="reasoning-header">Operator Reasoning</summary>
       <div class="reasoning-content">${escapeHtml(reasoning)}</div>
     </details>`;
 }
-
 // ============================================================================
 // Action Buttons Component
 // ============================================================================
-
 /**
  * Render action buttons for a pending request
  */
-export function renderActionButtons(requestId: string): string {
-  return `
+function renderActionButtons(requestId) {
+    return `
     <div class="action-buttons">
       <button class="btn btn-approve" data-action="approve" data-request-id="${escapeHtml(requestId)}">Approve</button>
       <button class="btn btn-reject" data-action="reject" data-request-id="${escapeHtml(requestId)}">Reject</button>
       <button class="btn btn-defer" data-action="defer" data-request-id="${escapeHtml(requestId)}">Defer</button>
     </div>`;
 }
-
 // ============================================================================
 // Pending Request Card Component
 // ============================================================================
-
 /**
  * Render a single pending request card with all details
  */
-export function renderPendingRequestCard(request: QueuedRequest): string {
-  const relativeTime = formatRelativeTime(request['created-at']);
-  const files = request.context?.relatedFiles ?? [];
-  const suggestedWorkflow = request.context?.suggestedWorkflow;
-
-  return `
+function renderPendingRequestCard(request) {
+    const relativeTime = (0, operator_queue_transforms_js_1.formatRelativeTime)(request['created-at']);
+    const files = request.context?.relatedFiles ?? [];
+    const suggestedWorkflow = request.context?.suggestedWorkflow;
+    return `
     <div class="request-card pending-card" data-request-id="${escapeHtml(request.id)}">
       <div class="request-header">
         ${renderPriorityBadge(request.priority)}
@@ -121,17 +113,15 @@ export function renderPendingRequestCard(request: QueuedRequest): string {
       ${renderActionButtons(request.id)}
     </div>`;
 }
-
 // ============================================================================
 // Pending Requests Section
 // ============================================================================
-
 /**
  * Render the pending requests section
  */
-export function renderPendingRequestsSection(requests: QueuedRequest[]): string {
-  if (requests.length === 0) {
-    return `
+function renderPendingRequestsSection(requests) {
+    if (requests.length === 0) {
+        return `
       <section class="queue-section pending-section">
         <div class="section-header">
           <h2>Pending Requests (0)</h2>
@@ -141,11 +131,9 @@ export function renderPendingRequestsSection(requests: QueuedRequest[]): string 
           <span class="empty-message">No pending requests</span>
         </div>
       </section>`;
-  }
-
-  const cards = requests.map(r => renderPendingRequestCard(r)).join('');
-
-  return `
+    }
+    const cards = requests.map(r => renderPendingRequestCard(r)).join('');
+    return `
     <section class="queue-section pending-section">
       <div class="section-header">
         <h2>Pending Requests (${requests.length})</h2>
@@ -156,38 +144,33 @@ export function renderPendingRequestsSection(requests: QueuedRequest[]): string 
       </div>
     </section>`;
 }
-
 // ============================================================================
 // Decision History Card Component
 // ============================================================================
-
 /**
  * Get status icon for a decision
  */
-function getStatusIcon(status: string): string {
-  return STATUS_ICONS[status] ?? '🔔';
+function getStatusIcon(status) {
+    return STATUS_ICONS[status] ?? '🔔';
 }
-
 /**
  * Render a single decision history card
  */
-function renderDecisionCard(request: QueuedRequest): string {
-  const relativeTime = request['decided-at']
-    ? formatRelativeTime(request['decided-at'])
-    : 'unknown';
-  const statusClass = request.status;
-  const statusLabel = request.status.toUpperCase();
-  const reasoning = request.decision?.reasoning ?? '';
-
-  let extraInfo = '';
-  if (request.status === 'approved' && request.decision?.injection) {
-    extraInfo = `<div class="injected-after">Injected after: ${escapeHtml(request['discovered-in'])}</div>`;
-  }
-  if (request.status === 'deferred' && request['deferred-until']) {
-    extraInfo = `<div class="deferred-until">Deferred until: ${escapeHtml(request['deferred-until'])}</div>`;
-  }
-
-  return `
+function renderDecisionCard(request) {
+    const relativeTime = request['decided-at']
+        ? (0, operator_queue_transforms_js_1.formatRelativeTime)(request['decided-at'])
+        : 'unknown';
+    const statusClass = request.status;
+    const statusLabel = request.status.toUpperCase();
+    const reasoning = request.decision?.reasoning ?? '';
+    let extraInfo = '';
+    if (request.status === 'approved' && request.decision?.injection) {
+        extraInfo = `<div class="injected-after">Injected after: ${escapeHtml(request['discovered-in'])}</div>`;
+    }
+    if (request.status === 'deferred' && request['deferred-until']) {
+        extraInfo = `<div class="deferred-until">Deferred until: ${escapeHtml(request['deferred-until'])}</div>`;
+    }
+    return `
     <div class="request-card history-card ${statusClass}" data-request-id="${escapeHtml(request.id)}">
       <div class="request-header">
         <span class="status-icon">${getStatusIcon(request.status)}</span>
@@ -201,11 +184,9 @@ function renderDecisionCard(request: QueuedRequest): string {
       ${reasoning ? renderReasoningBlock(reasoning) : ''}
     </div>`;
 }
-
 // ============================================================================
 // Decision History Section
 // ============================================================================
-
 /** History filter dropdown HTML */
 const HISTORY_FILTER_CONTROLS = `
   <div class="filter-controls">
@@ -216,21 +197,19 @@ const HISTORY_FILTER_CONTROLS = `
       <option value="deferred">Deferred</option>
     </select>
   </div>`;
-
 /**
  * Render the decision history section with filter controls
  */
-export function renderDecisionHistorySection(history: QueuedRequest[]): string {
-  const content = history.length === 0
-    ? `<div class="empty-state">
+function renderDecisionHistorySection(history) {
+    const content = history.length === 0
+        ? `<div class="empty-state">
         <span class="empty-icon">📋</span>
         <span class="empty-message">No decisions yet</span>
       </div>`
-    : `<div class="request-list" id="history-list">
+        : `<div class="request-list" id="history-list">
         ${history.map(r => renderDecisionCard(r)).join('')}
       </div>`;
-
-  return `
+    return `
     <section class="queue-section history-section">
       <div class="section-header">
         <h2>Decision History</h2>
@@ -239,19 +218,16 @@ export function renderDecisionHistorySection(history: QueuedRequest[]): string {
       ${content}
     </section>`;
 }
-
 // ============================================================================
 // Backlog Item Card Component
 // ============================================================================
-
 /**
  * Render a single backlog item card
  */
-function renderBacklogItemCard(item: BacklogItem): string {
-  const relativeTime = formatRelativeTime(item['created-at']);
-  const statusClass = item.status;
-
-  return `
+function renderBacklogItemCard(item) {
+    const relativeTime = (0, operator_queue_transforms_js_1.formatRelativeTime)(item['created-at']);
+    const statusClass = item.status;
+    return `
     <div class="request-card backlog-card ${statusClass}" data-item-id="${escapeHtml(item.id)}">
       <div class="request-header">
         <span class="backlog-icon">📌</span>
@@ -275,22 +251,19 @@ function renderBacklogItemCard(item: BacklogItem): string {
       </div>
     </div>`;
 }
-
 // ============================================================================
 // Backlog Section
 // ============================================================================
-
 /**
  * Render the backlog section
  */
-export function renderBacklogSection(backlog: BacklogItem[]): string {
-  const header = `
+function renderBacklogSection(backlog) {
+    const header = `
     <div class="backlog-notice">
       Items in backlog will <strong>NOT</strong> be auto-implemented. Review and convert to GitHub issues or add to future sprints manually.
     </div>`;
-
-  if (backlog.length === 0) {
-    return `
+    if (backlog.length === 0) {
+        return `
       <section class="queue-section backlog-section">
         <div class="section-header">
           <h2>Backlog (For Human Review)</h2>
@@ -302,11 +275,9 @@ export function renderBacklogSection(backlog: BacklogItem[]): string {
           <span class="empty-message">No backlog items</span>
         </div>
       </section>`;
-  }
-
-  const cards = backlog.map(item => renderBacklogItemCard(item)).join('');
-
-  return `
+    }
+    const cards = backlog.map(item => renderBacklogItemCard(item)).join('');
+    return `
     <section class="queue-section backlog-section">
       <div class="section-header">
         <h2>Backlog (For Human Review)</h2>
@@ -318,16 +289,14 @@ export function renderBacklogSection(backlog: BacklogItem[]): string {
       </div>
     </section>`;
 }
-
 // ============================================================================
 // Queue Stats Component
 // ============================================================================
-
 /**
  * Render queue statistics summary bar
  */
-export function renderQueueStats(stats: OperatorQueueStats): string {
-  return `
+function renderQueueStats(stats) {
+    return `
     <div class="queue-stats">
       <div class="stat-item pending">
         <span class="stat-label">Pending</span>
@@ -351,27 +320,23 @@ export function renderQueueStats(stats: OperatorQueueStats): string {
       </div>
     </div>`;
 }
-
 // ============================================================================
 // Navigation Badge Component
 // ============================================================================
-
 /**
  * Render navigation badge with pending count
  */
-export function renderOperatorNavBadge(pendingCount: number): string {
-  if (pendingCount === 0) {
-    return `<span class="nav-item">Operator</span>`;
-  }
-  return `<span class="nav-item">Operator <span class="badge">${pendingCount}</span></span>`;
+function renderOperatorNavBadge(pendingCount) {
+    if (pendingCount === 0) {
+        return `<span class="nav-item">Operator</span>`;
+    }
+    return `<span class="nav-item">Operator <span class="badge">${pendingCount}</span></span>`;
 }
-
 // ============================================================================
 // CSS Styles
 // ============================================================================
-
-function getOperatorQueueStyles(): string {
-  return `
+function getOperatorQueueStyles() {
+    return `
     :root {
       --bg-primary: #0d1117;
       --bg-secondary: #161b22;
@@ -796,13 +761,11 @@ function getOperatorQueueStyles(): string {
     }
   `;
 }
-
 // ============================================================================
 // JavaScript for Interactivity
 // ============================================================================
-
-function getOperatorQueueScript(sprintId: string): string {
-  return `
+function getOperatorQueueScript(sprintId) {
+    return `
     (function() {
       'use strict';
 
@@ -923,19 +886,14 @@ function getOperatorQueueScript(sprintId: string): string {
     })();
   `;
 }
-
 // ============================================================================
 // Main Page Generator
 // ============================================================================
-
 /**
  * Generate the complete operator queue page HTML
  */
-export function generateOperatorQueuePage(
-  queueData: OperatorQueueData,
-  sprintId: string
-): string {
-  return `<!DOCTYPE html>
+function generateOperatorQueuePage(queueData, sprintId) {
+    return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -963,3 +921,4 @@ ${getOperatorQueueScript(sprintId)}
 </body>
 </html>`;
 }
+//# sourceMappingURL=operator-queue-page.js.map
