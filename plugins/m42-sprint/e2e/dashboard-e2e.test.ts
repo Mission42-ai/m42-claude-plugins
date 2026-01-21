@@ -18,8 +18,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import * as yaml from 'js-yaml';
-import * as http from 'http';
 
 // Import test helpers
 import {
@@ -31,7 +29,6 @@ import {
   copyFixture,
   compileSprint,
   readProgress,
-  writeProgress,
   createSuccessMock,
 } from './test-helpers.js';
 
@@ -42,12 +39,6 @@ const __dirname = path.dirname(__filename);
 // ============================================================================
 // Types
 // ============================================================================
-
-interface LoopOptions {
-  maxIterations?: number;
-  delay?: number;
-  verbose?: boolean;
-}
 
 interface StatusUpdate {
   header: {
@@ -66,40 +57,6 @@ interface StatusUpdate {
   };
   phaseTree: unknown[];
   logs: unknown[];
-}
-
-// ============================================================================
-// Helper Functions
-// ============================================================================
-
-/**
- * Make an HTTP GET request and return the response body
- */
-function httpGet(url: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    http.get(url, (res) => {
-      let data = '';
-      res.on('data', (chunk) => (data += chunk));
-      res.on('end', () => resolve(data));
-      res.on('error', reject);
-    }).on('error', reject);
-  });
-}
-
-/**
- * Check if a server is listening on a port
- */
-function checkServerRunning(port: number): Promise<boolean> {
-  return new Promise((resolve) => {
-    const req = http.get(`http://localhost:${port}/`, () => {
-      resolve(true);
-    });
-    req.on('error', () => resolve(false));
-    req.setTimeout(1000, () => {
-      req.destroy();
-      resolve(false);
-    });
-  });
 }
 
 // ============================================================================
