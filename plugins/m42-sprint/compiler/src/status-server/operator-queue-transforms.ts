@@ -96,7 +96,7 @@ export interface ManualDecision {
 }
 
 // ============================================================================
-// Priority Ordering
+// Constants
 // ============================================================================
 
 const PRIORITY_ORDER: Record<string, number> = {
@@ -106,6 +106,9 @@ const PRIORITY_ORDER: Record<string, number> = {
   low: 3,
 };
 
+/** Statuses that represent decided (non-pending) requests */
+const DECIDED_STATUSES = new Set(['approved', 'rejected', 'deferred']);
+
 /**
  * Sort requests by priority (critical first, low last)
  */
@@ -114,6 +117,17 @@ export function sortByPriority(requests: QueuedRequest[]): QueuedRequest[] {
     const aPriority = PRIORITY_ORDER[a.priority] ?? 999;
     const bPriority = PRIORITY_ORDER[b.priority] ?? 999;
     return aPriority - bPriority;
+  });
+}
+
+/**
+ * Sort history by decided-at descending (most recent first)
+ */
+function sortHistoryByDecidedAt(history: QueuedRequest[]): QueuedRequest[] {
+  return [...history].sort((a, b) => {
+    const aTime = a['decided-at'] ? new Date(a['decided-at']).getTime() : 0;
+    const bTime = b['decided-at'] ? new Date(b['decided-at']).getTime() : 0;
+    return bTime - aTime;
   });
 }
 
@@ -256,11 +270,7 @@ export function toOperatorQueueData(
   for (const request of queue) {
     if (request.status === 'pending') {
       pending.push(request);
-    } else if (
-      request.status === 'approved' ||
-      request.status === 'rejected' ||
-      request.status === 'deferred'
-    ) {
+    } else if (DECIDED_STATUSES.has(request.status)) {
       history.push(request);
     }
   }
@@ -269,11 +279,7 @@ export function toOperatorQueueData(
   const sortedPending = sortByPriority(pending);
 
   // Sort history by decided-at descending (most recent first)
-  const sortedHistory = [...history].sort((a, b) => {
-    const aTime = a['decided-at'] ? new Date(a['decided-at']).getTime() : 0;
-    const bTime = b['decided-at'] ? new Date(b['decided-at']).getTime() : 0;
-    return bTime - aTime;
-  });
+  const sortedHistory = sortHistoryByDecidedAt(history);
 
   // Calculate stats
   const stats = calculateQueueStats(queue, backlogItems);
