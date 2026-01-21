@@ -71,9 +71,6 @@ goal: |
   - All tests pass
   - Code compiles without errors
 
-per-iteration-hooks:
-  learning:
-    enabled: true  # Extract learnings after each iteration
 ```
 
 ### Step 3: Run the Sprint
@@ -95,9 +92,10 @@ per-iteration-hooks:
 ```
 
 Opens a live dashboard showing:
-- Current iteration and step being executed
-- Dynamically created steps
-- Hook task status
+- **Chat-like activity feed**: Assistant messages and tool calls in real-time
+- **Elapsed time**: Time spent on each phase and total sprint duration
+- **Progress bar**: Visual progress through steps with completion percentage
+- **Stale detection**: Automatic alerts if a phase becomes unresponsive
 
 ---
 
@@ -155,6 +153,24 @@ Phases:
 
 ---
 
+## Model Selection (Optional)
+
+Override the Claude model for specific steps or the entire sprint:
+
+```yaml
+# Sprint-level default
+model: sonnet
+
+steps:
+  - prompt: Complex architecture decision
+    model: opus    # Use stronger model for complex reasoning
+
+  - prompt: Simple formatting fix
+    model: haiku   # Use faster model for simple tasks
+```
+
+---
+
 ## What Just Happened?
 
 Both modes use the **Fresh Context Pattern**:
@@ -194,8 +210,11 @@ Both modes use the **Fresh Context Pattern**:
 # Run sprint
 /run-sprint <directory>
 
+# Run with specific model
+/run-sprint <directory> --model opus
+
 # Monitor
-/sprint-watch    # Live dashboard
+/sprint-watch    # Live dashboard (chat-like view, elapsed time, progress)
 /sprint-status   # Quick status
 
 # Control

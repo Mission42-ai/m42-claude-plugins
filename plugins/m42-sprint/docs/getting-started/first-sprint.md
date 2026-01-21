@@ -177,7 +177,30 @@ steps:
   - prompt: Create a feature
     id: feature-creation
     workflow: custom-workflow  # Optional: use different workflow for this step
+    model: opus                # Optional: use specific model (sonnet|opus|haiku)
 ```
+
+### Model Selection
+
+Override the Claude model at sprint or step level:
+
+```yaml
+# Sprint-level default (applies to all steps)
+model: sonnet
+
+steps:
+  - prompt: Design system architecture
+    model: opus    # Use opus for complex reasoning
+
+  - prompt: Fix typo in comments
+    model: haiku   # Use haiku for simple tasks
+```
+
+**Model resolution order** (highest priority first):
+1. Step-level `model` field
+2. Workflow phase-level `model` field
+3. Sprint-level `model` field
+4. Default (CLI default)
 
 ---
 
@@ -336,9 +359,21 @@ Current: execute-all > step-1 > qa
 ### Using the Live Status Page
 
 Open `http://localhost:3100` in your browser for:
-- Real-time progress visualization
-- Activity feed showing what Claude is doing
-- Phase timing information
+- **Chat-like activity feed**: Assistant messages and tool calls displayed in real-time
+- **Elapsed time**: Time spent on each phase and total sprint duration
+- **Progress bar**: Visual progress with completion percentage
+- **Stale detection**: Automatic alerts when a phase becomes unresponsive (>2 min without activity)
+
+#### Stale Sprint Recovery
+
+If the dashboard shows a "stale" warning:
+
+1. The phase may have hung or the Claude process crashed
+2. Click the **Resume** button in the dashboard, or run:
+   ```bash
+   /resume-sprint
+   ```
+3. The sprint will restart from the current phase with fresh context
 
 ---
 
@@ -617,14 +652,15 @@ You've completed your first sprint. Here's where to explore next:
 /run-sprint <dir>                 # Compile and execute
 /run-sprint <dir> --dry-run       # Preview without executing
 /run-sprint <dir> --recompile     # Force recompilation
+/run-sprint <dir> --model opus    # Run with specific model
 
 # Monitoring
 /sprint-status                    # View progress
-http://localhost:3100             # Live status page
+http://localhost:3100             # Live status page (chat view, elapsed time)
 
 # Control
 /pause-sprint                     # Graceful pause
-/resume-sprint                    # Continue paused sprint
+/resume-sprint                    # Continue paused or stale sprint
 /stop-sprint                      # Immediate stop
 
 # Debugging
