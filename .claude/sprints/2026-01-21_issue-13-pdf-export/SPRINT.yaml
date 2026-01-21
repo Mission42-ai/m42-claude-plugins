@@ -1,0 +1,71 @@
+# SPRINT.yaml - Workflow-based Sprint Definition
+# This file is compiled into PROGRESS.yaml by /run-sprint
+
+workflow: plugin-development    # Reference to .claude/workflows/plugin-development.yaml
+
+steps:
+  - prompt: |
+      Step 1: Research and setup PDF generation infrastructure.
+
+      Tasks:
+      - Analyze existing sprint summary structure and data available
+      - Research PDF generation options (puppeteer, pdfkit, jspdf, etc.)
+      - Choose library that supports both text and chart/image embedding
+      - Add required dependencies to the plugin
+      - Create basic PDF generation utility module
+
+      Output: Working PDF generation setup with dependency installed.
+
+  - prompt: |
+      Step 2: Implement core PDF export with sprint data.
+
+      Tasks:
+      - Create PDF template/layout for sprint summary
+      - Include sprint metadata (name, dates, status)
+      - Add step listing with status indicators
+      - Include timing information and completion percentages
+      - Format text content for readability (headers, sections, spacing)
+
+      Output: Basic PDF export that renders sprint text content.
+
+  - prompt: |
+      Step 3: Add visual progress chart to PDF.
+
+      Tasks:
+      - Generate visual chart showing sprint progress (e.g., pie chart, progress bar, or timeline)
+      - Chart should display: completed vs pending vs failed steps
+      - Consider adding timeline visualization if timestamps available
+      - Ensure chart renders cleanly in PDF format
+      - Use charting library compatible with PDF generation (e.g., chart.js with canvas, SVG-based)
+
+      Output: PDF now includes visual progress chart.
+
+  - prompt: |
+      Step 4: Create command/skill for PDF export.
+
+      Tasks:
+      - Add new command or extend existing command with --pdf flag
+      - Command should accept sprint path as argument
+      - Output PDF to sprint's artifacts/ directory
+      - Add proper error handling and user feedback
+      - Ensure command works from CLI
+
+      Output: Working /export-pdf command or --pdf flag on existing command.
+
+  - prompt: |
+      Step 5: Documentation and final polish.
+
+      Tasks:
+      - Add documentation for PDF export feature
+      - Update README or relevant docs
+      - Add usage examples
+      - Test end-to-end workflow
+      - Close GitHub Issue #13 with summary of implementation
+
+      Output: Feature complete with documentation, issue closed.
+
+# Sprint metadata
+sprint-id: 2026-01-21_issue-13-pdf-export
+name: issue-13-pdf-export
+created: 2026-01-21T14:46:08Z
+github-issue: 13
