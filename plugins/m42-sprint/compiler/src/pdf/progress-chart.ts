@@ -129,31 +129,33 @@ export function createProgressChart(data: ChartData, options: ChartOptions = {})
 }
 
 /**
+ * Segment definition for building chart segments from ChartData
+ */
+interface SegmentDefinition {
+  key: keyof Omit<ChartData, 'total'>;
+  color: string;
+  label: string;
+}
+
+/**
+ * Ordered list of status segments for chart rendering
+ */
+const SEGMENT_DEFINITIONS: SegmentDefinition[] = [
+  { key: 'completed', color: STATUS_COLORS.completed, label: 'Completed' },
+  { key: 'inProgress', color: STATUS_COLORS.inProgress, label: 'In Progress' },
+  { key: 'pending', color: STATUS_COLORS.pending, label: 'Pending' },
+  { key: 'failed', color: STATUS_COLORS.failed, label: 'Failed' },
+  { key: 'blocked', color: STATUS_COLORS.blocked, label: 'Blocked' },
+  { key: 'skipped', color: STATUS_COLORS.skipped, label: 'Skipped' },
+];
+
+/**
  * Converts ChartData to ChartSegment array, filtering out zero values
  */
 function dataToSegments(data: ChartData): ChartSegment[] {
-  const segments: ChartSegment[] = [];
-
-  if (data.completed > 0) {
-    segments.push({ value: data.completed, color: STATUS_COLORS.completed, label: 'Completed' });
-  }
-  if (data.inProgress > 0) {
-    segments.push({ value: data.inProgress, color: STATUS_COLORS.inProgress, label: 'In Progress' });
-  }
-  if (data.pending > 0) {
-    segments.push({ value: data.pending, color: STATUS_COLORS.pending, label: 'Pending' });
-  }
-  if (data.failed > 0) {
-    segments.push({ value: data.failed, color: STATUS_COLORS.failed, label: 'Failed' });
-  }
-  if (data.blocked > 0) {
-    segments.push({ value: data.blocked, color: STATUS_COLORS.blocked, label: 'Blocked' });
-  }
-  if (data.skipped > 0) {
-    segments.push({ value: data.skipped, color: STATUS_COLORS.skipped, label: 'Skipped' });
-  }
-
-  return segments;
+  return SEGMENT_DEFINITIONS
+    .filter(def => data[def.key] > 0)
+    .map(def => ({ value: data[def.key], color: def.color, label: def.label }));
 }
 
 /**
@@ -268,13 +270,7 @@ export function createProgressBar(data: ChartData, options: ChartOptions = {}): 
 </svg>`;
   }
 
-  const segments: Array<{ value: number; color: string; label: string }> = [];
-  if (data.completed > 0) segments.push({ value: data.completed, color: STATUS_COLORS.completed, label: 'Completed' });
-  if (data.inProgress > 0) segments.push({ value: data.inProgress, color: STATUS_COLORS.inProgress, label: 'In Progress' });
-  if (data.pending > 0) segments.push({ value: data.pending, color: STATUS_COLORS.pending, label: 'Pending' });
-  if (data.failed > 0) segments.push({ value: data.failed, color: STATUS_COLORS.failed, label: 'Failed' });
-  if (data.blocked > 0) segments.push({ value: data.blocked, color: STATUS_COLORS.blocked, label: 'Blocked' });
-  if (data.skipped > 0) segments.push({ value: data.skipped, color: STATUS_COLORS.skipped, label: 'Skipped' });
+  const segments = dataToSegments(data);
 
   const rects: string[] = [];
   const labels: string[] = [];
