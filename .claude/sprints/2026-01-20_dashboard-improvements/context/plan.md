@@ -159,6 +159,10 @@ export interface ActivityEvent {
 5. **Step count**: Verify "Step X of Y" displays
 6. **Stale detection**: Kill sprint process, wait 15 min, verify "Stale" badge + "Resume" button
 7. **Model selection**: Verify model override works at step > phase > sprint > workflow levels
+8. **Workflow reference**: Verify single-phase workflow references expand correctly
+9. **Operator requests**: Agents can submit requests, operator processes with reasoning
+10. **Dynamic injection**: Verify steps can be injected at various positions
+11. **Operator queue view**: Pending/decided requests display with full reasoning
 
 ---
 
@@ -198,3 +202,238 @@ phases:
 | `runtime/src/loop.ts` | Pass resolved model to claude-runner |
 | `runtime/src/claude-runner.ts` | Add --model flag to CLI invocation |
 | `status-server/page.ts` | Display model indicator (optional) |
+
+---
+
+## Issue 8: Workflow Reference for Single Phases (NEW)
+
+**Problem**: `workflow:` can only be used with `for-each:` iterations, not for single phases.
+**Desired**: Allow referencing a workflow for a single phase, making workflows composable.
+
+### Current vs Desired
+
+```yaml
+# Current - only works with for-each
+phases:
+  - id: development
+    for-each: step
+    workflow: tdd-step-workflow  # ✓ Works
+
+# Desired - also work without for-each
+phases:
+  - id: documentation
+    workflow: documentation-workflow  # NEW: Run entire workflow as one phase
+```
+
+### Use Cases
+1. Reuse documentation workflow across multiple parent workflows
+2. Compose complex workflows from smaller building blocks
+3. Create "meta-workflows" that orchestrate other workflows
+
+### Implementation
+- Phase has EITHER `prompt` OR `workflow` (mutually exclusive)
+- Compiler expands referenced workflow phases inline
+- Phase IDs prefixed: `{parent-id}-{child-id}` to avoid collisions
+- Recursive reference detection (prevent infinite loops)
+
+### Files to Modify
+
+| File | Changes |
+|------|---------|
+| `compiler/src/compile.ts` | Expand workflow references without for-each |
+| `compiler/src/types.ts` | Update Phase type validation |
+| `compiler/src/workflow-loader.ts` | Recursive workflow loading with cycle detection |
+
+---
+
+## Issue 9: Operator Request System (NEW)
+
+**Problem**: Claude may discover issues during execution but has no way to report them structurally.
+**Desired**: Agents submit requests to operator queue. Operator reviews, decides with reasoning, and injects work.
+
+### Agent Response Schema (operatorRequests)
+```typescript
+interface PhaseResult {
+  status: 'completed' | 'failed' | 'blocked';
+  summary: string;
+  operatorRequests?: OperatorRequest[];  // NEW
+}
+
+interface OperatorRequest {
+  id: string;
+  title: string;
+  description: string;
+  priority: 'critical' | 'high' | 'medium' | 'low';
+  type: 'bug' | 'improvement' | 'refactor' | 'test' | 'docs' | 'security';
+  context?: {
+    discoveredIn: string;
+    relatedFiles?: string[];
+    suggestedWorkflow?: string;
+  };
+}
+```
+
+### Operator Response Schema (with reasoning)
+```typescript
+interface OperatorDecision {
+  requestId: string;
+  decision: 'approve' | 'reject' | 'defer' | 'backlog';  // NEW: backlog option
+  reasoning: string;  // REQUIRED: Explain why
+  injection?: {       // If approved
+    workflow?: string;
+    prompt?: string;
+    position: InsertPosition;
+  };
+  deferredUntil?: 'end-of-phase' | 'end-of-sprint' | 'next-sprint';
+  backlogEntry?: {    // NEW: If backlog
+    category: string;
+    suggestedPriority: 'high' | 'medium' | 'low';
+    notes: string;    // Context for human reviewer
+  };
+  rejectionReason?: string;
+}
+```
+
+### Decision Types
+| Decision | Behavior |
+|----------|----------|
+| `approve` | Inject step/workflow immediately |
+| `reject` | Decline with reason |
+| `defer` | Queue for later in sprint |
+| `backlog` | **NEW**: Add to BACKLOG.yaml for human review (NOT auto-implemented) |
+
+### Operator as Skill
+Default operator is a **skill** (`sprint-operator`) that can be overridden:
+```yaml
+operator:
+  skill: sprint-operator  # Default skill
+  # OR
+  prompt: |               # Override with custom prompt
+    Custom instructions...
+```
+
+### Backlog Storage
+```yaml
+# BACKLOG.yaml
+items:
+  - id: req_abc123
+    title: "Upgrade to OAuth2"
+    category: tech-debt
+    suggested-priority: medium
+    operator-notes: "Valid but significant scope..."
+    status: pending-review  # pending-review | acknowledged | converted-to-issue
+```
+
+### Files to Modify
+
+| File | Changes |
+|------|---------|
+| `runtime/src/claude-runner.ts` | Parse operatorRequests from JSON |
+| `runtime/src/loop.ts` | Queue requests, trigger operator |
+| `runtime/src/operator.ts` | NEW: Operator logic with skill loading |
+| `runtime/src/backlog.ts` | NEW: Backlog management |
+| `skills/sprint-operator/skill.md` | NEW: Default operator skill |
+| `compiler/src/types.ts` | Workflow schema with operator config |
+
+---
+
+## Issue 10: Dynamic Step Injection (NEW)
+
+**Problem**: Cannot add steps to a running sprint at runtime.
+**Desired**: API to inject steps at specific positions, supporting both single steps and compiled workflows.
+
+### Injection API
+```typescript
+// Single step
+await injector.injectStep({
+  step: { id: 'hotfix-1', prompt: 'Fix bug' },
+  position: { type: 'after-current' }
+});
+
+// Workflow expansion
+await injector.injectWorkflow({
+  workflow: 'bugfix-workflow',
+  position: { type: 'end-of-phase', phaseId: 'development' },
+  idPrefix: 'hotfix'
+});
+```
+
+### Position Options
+| Type | Description |
+|------|-------------|
+| `after-current` | After currently executing step |
+| `after-step` | After specific step by ID |
+| `before-step` | Before specific step by ID |
+| `end-of-phase` | At end of specific phase |
+| `end-of-workflow` | At very end |
+
+### Files to Modify
+
+| File | Changes |
+|------|---------|
+| `runtime/src/progress-injector.ts` | NEW: Injection logic |
+| `runtime/src/loop.ts` | Integrate injector |
+| `runtime/src/cli.ts` | Add inject-step command |
+| `status-server/page.ts` | Show injected badge |
+
+---
+
+## Issue 11: Operator Queue View UI (NEW)
+
+**Problem**: No visibility into operator decisions and reasoning.
+**Desired**: Dedicated per-sprint view showing pending requests, decision history, and backlog for human review.
+
+### UX Requirements
+- **Navigation**: Tab/link from sprint detail, badge with pending count
+- **Pending Section**: Cards showing request details, priority, context, action buttons
+- **History Section**: Decided requests with collapsible reasoning blocks
+- **Backlog Section**: Items for human review (NOT auto-implemented)
+- **Manual Override**: Human can approve/reject bypassing operator
+
+### Three Sections
+```
+┌─────────────────────────────────────────────────────────────┐
+│ 🔔 Pending Requests (3)                      [Process All] │
+├─────────────────────────────────────────────────────────────┤
+│ 🔴 CRITICAL  Fix SQL injection...     [Approve][Reject]    │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│ 📋 Decision History                    [Filter ▼] [Search] │
+├─────────────────────────────────────────────────────────────┤
+│ ✅ APPROVED  Fix null pointer...                           │
+│    Reasoning: Blocking bug, injecting before QA...         │
+│ ❌ REJECTED  Refactor utils...                             │
+│    Reasoning: Invalid - adds unnecessary dependency        │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│ 📝 Backlog (For Human Review)               [Export CSV]   │
+├─────────────────────────────────────────────────────────────┤
+│ 📌 Upgrade to OAuth2 • tech-debt • medium                  │
+│    Notes: Valid but significant scope, needs arch review   │
+│    [Create Issue] [Acknowledge] [Delete]                   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### API Endpoints
+```
+GET  /api/sprint/:id/operator-queue           # All requests
+POST /api/sprint/:id/operator-queue/:id/decide # Manual decision
+POST /api/sprint/:id/operator/process          # Trigger operator
+```
+
+### Implementation Approach
+1. **Research & Design** (Explore subagent) - Study patterns, create wireframes
+2. **Backend** - Queue storage, API endpoints, SSE events
+3. **Frontend** - Components, navigation, real-time updates
+4. **Polish** - Animations, empty states, mobile
+
+### Files to Modify
+
+| File | Changes |
+|------|---------|
+| `status-server/page.ts` | Add queue view navigation |
+| `status-server/server.ts` | Add API endpoints |
+| `status-server/operator-queue-page.ts` | NEW: Dedicated view |
+| `status-server/transforms.ts` | Transform queue data |
