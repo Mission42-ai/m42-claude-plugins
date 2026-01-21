@@ -147,15 +147,17 @@ phases:
 | `name` | string | **Yes** | - | Human-readable workflow name |
 | `phases` | list | **Yes** | - | Ordered list of phase definitions |
 | `description` | string | No | - | Brief description of workflow purpose |
+| `model` | string | No | - | Default model for all phases (`'sonnet'` \| `'opus'` \| `'haiku'`) |
 
 ### Phase Types
 
-Workflows support two types of phases:
+Workflows support three types of phases:
 
 | Type | Identifying Fields | Description |
 |------|-------------------|-------------|
 | **Simple Phase** | `id` + `prompt` | Executes once with a direct prompt |
 | **For-Each Phase** | `id` + `for-each` + `workflow` | Iterates over steps, runs workflow per step |
+| **Workflow Reference Phase** | `id` + `workflow` (no `for-each`) | Expands another workflow inline (single execution) |
 
 ### Simple Phase Fields
 
@@ -163,6 +165,7 @@ Workflows support two types of phases:
 |-------|------|----------|-------------|
 | `id` | string | **Yes** | Unique phase identifier (kebab-case recommended) |
 | `prompt` | string | **Yes** | Instructions for phase execution |
+| `model` | string | No | Model override (`'sonnet'` \| `'opus'` \| `'haiku'`) |
 
 ### For-Each Phase Fields
 
@@ -171,6 +174,17 @@ Workflows support two types of phases:
 | `id` | string | **Yes** | Unique phase identifier (kebab-case recommended) |
 | `for-each` | `'step'` | **Yes** | Iteration mode (only `step` supported) |
 | `workflow` | string | **Yes** | Workflow reference (without `.yaml` extension) |
+| `model` | string | No | Model override (inherited by nested phases) |
+
+### Workflow Reference Phase Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `id` | string | **Yes** | Unique phase identifier (kebab-case recommended) |
+| `workflow` | string | **Yes** | Workflow reference (without `.yaml` extension) |
+| `model` | string | No | Model override (inherited by nested phases) |
+
+**Note**: A workflow reference phase (no `for-each`) expands the referenced workflow's phases inline, executing once. This is useful for composing reusable workflow fragments.
 
 ## Phase Type Details
 
@@ -330,6 +344,53 @@ sprint-workflow → step-workflow → (simple phases)
 # Avoid: 3+ levels becomes hard to debug
 sprint-workflow → step-workflow → task-workflow → ...
 ```
+
+### Single-Phase Workflow Reference
+
+You can reference a workflow without `for-each` to expand it inline once:
+
+```yaml
+# main-workflow.yaml
+name: Main Workflow
+phases:
+  - id: setup
+    prompt: "Initialize environment"
+
+  - id: validation
+    workflow: validation-checks    # ← Expands inline (no for-each)
+
+  - id: cleanup
+    prompt: "Clean up resources"
+
+# validation-checks.yaml
+name: Validation Checks
+phases:
+  - id: lint
+    prompt: "Run linting"
+  - id: test
+    prompt: "Run tests"
+```
+
+**Result**: The `validation` phase expands to include `lint` and `test` as nested phases.
+
+### Cycle Detection
+
+The compiler prevents circular workflow references with a maximum depth of 5 levels.
+
+```yaml
+# INVALID: Circular reference
+# workflow-a.yaml
+phases:
+  - id: step
+    workflow: workflow-b
+
+# workflow-b.yaml
+phases:
+  - id: step
+    workflow: workflow-a    # Error: circular reference detected
+```
+
+**Error**: `Circular workflow reference detected: workflow-a → workflow-b → workflow-a`
 
 ## Workflow Patterns
 
@@ -596,23 +657,36 @@ Workflow files live in `.claude/workflows/`:
 For developers building tools around workflow files:
 
 ```typescript
+/** Valid Claude model identifiers */
+type ClaudeModel = 'sonnet' | 'opus' | 'haiku';
+
 interface WorkflowDefinition {
   name: string;
   description?: string;
   phases: WorkflowPhase[];
+  model?: ClaudeModel;
 }
 
-type WorkflowPhase = SimplePhase | ForEachPhase;
+type WorkflowPhase = SimplePhase | ForEachPhase | WorkflowRefPhase;
 
 interface SimplePhase {
   id: string;
   prompt: string;
+  model?: ClaudeModel;
 }
 
 interface ForEachPhase {
   id: string;
   'for-each': 'step';
   workflow: string;
+  model?: ClaudeModel;
+}
+
+interface WorkflowRefPhase {
+  id: string;
+  workflow: string;
+  model?: ClaudeModel;
+  // Note: No 'for-each' field - expands workflow inline once
 }
 ```
 

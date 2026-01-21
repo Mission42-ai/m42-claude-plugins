@@ -28,6 +28,9 @@ Default port is 3100. Configure via `/run-sprint` or status server options.
 | `/api/skip/:phaseId` | POST | Skip a phase |
 | `/api/retry/:phaseId` | POST | Retry a failed phase |
 | `/api/force-retry/:phaseId` | POST | Force retry bypassing backoff |
+| `/api/sprint/:id/resume` | POST | Resume a stale or interrupted sprint |
+| `/api/sprint/:id/operator-queue` | GET | Get operator queue for a sprint |
+| `/api/sprint/:id/operator-queue/:reqId/decide` | POST | Submit manual decision for operator request |
 | `/api/logs/:phaseId` | GET | Get log content for a phase |
 | `/api/logs/download/:phaseId` | GET | Download log file |
 | `/api/logs/download-all` | GET | Download all logs as gzip archive |
@@ -460,13 +463,179 @@ SSE endpoint for real-time updates.
 |-------|-------------|
 | `status-update` | Sprint status changed |
 | `log-entry` | New log entry |
-| `activity-event` | Activity from sprint execution |
+| `activity-event` | Activity from sprint execution (tool calls, assistant messages) |
+| `operator-decision` | Operator queue decision made |
+| `sprint-complete` | Sprint reached terminal state |
 | `keep-alive` | Connection keep-alive (every 15s) |
 
-**Example Event**:
+**Example Events**:
+
+Status update:
 ```
 event: status-update
 data: {"type":"status-update","data":{...},"timestamp":"2026-01-18T10:00:00Z"}
+```
+
+Activity event (tool call):
+```
+event: activity-event
+data: {"type":"activity-event","data":{"ts":"2026-01-18T10:00:00Z","type":"tool","tool":"Read","file":"src/index.ts"},"timestamp":"2026-01-18T10:00:00Z"}
+```
+
+Activity event (assistant message):
+```
+event: activity-event
+data: {"type":"activity-event","data":{"ts":"2026-01-18T10:00:01Z","type":"assistant","text":"Let me analyze the codebase..."},"timestamp":"2026-01-18T10:00:01Z"}
+```
+
+Operator decision:
+```
+event: operator-decision
+data: {"type":"operator-decision","data":{"request":{"id":"req-123",...},"decision":"approve"},"timestamp":"2026-01-18T10:00:00Z"}
+```
+
+---
+
+## Stale Sprint Recovery
+
+### POST /api/sprint/:id/resume
+
+Resume a stale or interrupted sprint. A sprint is considered stale if no activity has been recorded for 5+ minutes while in "in-progress" status.
+
+**URL Parameters**:
+- `id`: Sprint ID
+
+**Response** (success):
+```json
+{
+  "success": true,
+  "action": "resume",
+  "sprintId": "2026-01-20_feature-auth",
+  "message": "Resume requested - sprint will be restarted"
+}
+```
+
+**Response** (invalid state):
+```json
+{
+  "success": false,
+  "action": "resume",
+  "error": "Cannot resume - sprint status is \"completed\" and is not stale"
+}
+```
+
+**Notes**:
+- Only stale or interrupted sprints can be resumed via this endpoint
+- Creates a `.resume-requested` signal file for the sprint runner to pick up
+
+---
+
+## Operator Queue Endpoints
+
+### GET /api/sprint/:id/operator-queue
+
+Get the operator queue for a sprint, including pending requests, recent decisions, and backlog items.
+
+**URL Parameters**:
+- `id`: Sprint ID
+
+**Response**:
+```json
+{
+  "pending": [
+    {
+      "id": "req-abc123",
+      "title": "Fix null pointer in auth module",
+      "description": "Discovered during login implementation...",
+      "priority": "high",
+      "type": "bug",
+      "status": "pending",
+      "created-at": "2026-01-20T10:30:00Z",
+      "discovered-in": "development > step-2 > implement"
+    }
+  ],
+  "decided": [
+    {
+      "id": "req-xyz789",
+      "title": "Add input validation",
+      "status": "approved",
+      "decided-at": "2026-01-20T10:25:00Z",
+      "decision": {
+        "decision": "approve",
+        "reasoning": "Critical for security"
+      }
+    }
+  ],
+  "backlog": [
+    {
+      "id": "req-def456",
+      "title": "Refactor database layer",
+      "status": "pending-review",
+      "category": "tech-debt",
+      "suggested-priority": "low"
+    }
+  ],
+  "stats": {
+    "pendingCount": 1,
+    "approvedCount": 3,
+    "rejectedCount": 1,
+    "deferredCount": 2,
+    "backlogCount": 1
+  }
+}
+```
+
+---
+
+### POST /api/sprint/:id/operator-queue/:reqId/decide
+
+Submit a manual decision for a pending operator request.
+
+**URL Parameters**:
+- `id`: Sprint ID
+- `reqId`: Request ID
+
+**Request Body**:
+```json
+{
+  "decision": "approve",
+  "reasoning": "Critical bug that blocks user flow",
+  "deferredUntil": "end-of-phase"
+}
+```
+
+**Decision Values**:
+
+| Decision | Description |
+|----------|-------------|
+| `approve` | Inject as new step(s) in current sprint |
+| `reject` | Decline with reason |
+| `defer` | Delay until `deferredUntil` time |
+
+**`deferredUntil` Values** (required for defer):
+
+| Value | Description |
+|-------|-------------|
+| `end-of-phase` | Review at end of current phase |
+| `end-of-sprint` | Review at sprint completion |
+| `next-sprint` | Defer to future sprint |
+
+**Response** (success):
+```json
+{
+  "success": true,
+  "requestId": "req-abc123",
+  "decision": "approve",
+  "message": "Request approved"
+}
+```
+
+**Response** (already decided):
+```json
+{
+  "success": false,
+  "error": "Request already decided: approved"
+}
 ```
 
 ---
@@ -477,6 +646,7 @@ data: {"type":"status-update","data":{...},"timestamp":"2026-01-18T10:00:00Z"}
 |-------|-------------|
 | `/` or `/dashboard` | Sprint dashboard with all sprints |
 | `/sprint/:id` | Sprint detail view |
+| `/sprint/:id/operator` | Operator queue view |
 
 ---
 

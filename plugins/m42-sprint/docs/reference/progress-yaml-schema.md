@@ -196,6 +196,8 @@ The TypeScript runtime uses a pointer-based system to track position:
 | `phases` | CompiledTopPhase[] | Compiled phase hierarchy |
 | `current` | CurrentPointer | Execution position pointer |
 | `stats` | SprintStats | Execution statistics |
+| `operator-queue` | QueuedRequest[] | Operator requests pending decision |
+| `last-activity` | ISO 8601 | Heartbeat timestamp for stale detection |
 
 ### CompiledTopPhase (Top-Level Phase)
 
@@ -205,6 +207,7 @@ The TypeScript runtime uses a pointer-based system to track position:
 | `status` | PhaseStatus | Yes | Phase execution status |
 | `prompt` | string | Simple only | Execution prompt (simple phases) |
 | `steps` | CompiledStep[] | For-each only | Expanded steps (for-each phases) |
+| `model` | ClaudeModel | No | Resolved model for execution |
 | `started-at` | ISO 8601 | No | When phase started |
 | `completed-at` | ISO 8601 | No | When phase completed |
 | `elapsed` | string | No | Human-readable duration |
@@ -220,6 +223,7 @@ The TypeScript runtime uses a pointer-based system to track position:
 | `prompt` | string | Yes | Original prompt from SPRINT.yaml |
 | `status` | PhaseStatus | Yes | Step execution status |
 | `phases` | CompiledPhase[] | Yes | Sub-phases from workflow |
+| `model` | ClaudeModel | No | Step-level model override |
 | `started-at` | ISO 8601 | No | When step started |
 | `completed-at` | ISO 8601 | No | When step completed |
 | `elapsed` | string | No | Human-readable duration |
@@ -233,6 +237,9 @@ The TypeScript runtime uses a pointer-based system to track position:
 | `id` | string | Yes | Phase identifier |
 | `status` | PhaseStatus | Yes | Phase execution status |
 | `prompt` | string | Yes | Interpolated execution prompt |
+| `model` | ClaudeModel | No | Resolved model for execution |
+| `injected` | boolean | No | True if phase was dynamically injected |
+| `injected-at` | ISO 8601 | No | When phase was injected (if injected) |
 | `started-at` | ISO 8601 | No | When phase started |
 | `completed-at` | ISO 8601 | No | When phase completed |
 | `elapsed` | string | No | Human-readable duration |
@@ -375,6 +382,79 @@ stats:
   max-iterations: 30
 ```
 
+## Operator Queue
+
+The operator queue tracks discovered issues pending review.
+
+### QueuedRequest Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique request identifier (nanoid) |
+| `title` | string | Short description |
+| `description` | string | Full description |
+| `priority` | string | `'critical'` \| `'high'` \| `'medium'` \| `'low'` |
+| `type` | string | `'bug'` \| `'improvement'` \| `'refactor'` \| `'test'` \| `'docs'` \| `'security'` |
+| `status` | string | `'pending'` \| `'approved'` \| `'rejected'` \| `'deferred'` \| `'backlog'` |
+| `created-at` | ISO 8601 | When request was created |
+| `discovered-in` | string | Phase path where issue was found |
+| `decided-at` | ISO 8601 | When decision was made (optional) |
+| `decision` | object | Decision details (optional) |
+| `rejection-reason` | string | Why rejected (if rejected) |
+| `deferred-until` | string | When to revisit (if deferred) |
+
+### Example Operator Queue
+
+```yaml
+operator-queue:
+  - id: req-abc123
+    title: "Fix null pointer in auth module"
+    description: "The login function crashes when email is undefined"
+    priority: high
+    type: bug
+    status: pending
+    created-at: "2026-01-20T10:30:00Z"
+    discovered-in: "development > step-2 > implement"
+    context:
+      relatedFiles:
+        - src/auth/login.ts
+      codeSnippet: "user.email.toLowerCase()"
+
+  - id: req-xyz789
+    title: "Add input validation"
+    description: "..."
+    priority: medium
+    type: improvement
+    status: approved
+    created-at: "2026-01-20T10:25:00Z"
+    discovered-in: "development > step-1 > implement"
+    decided-at: "2026-01-20T10:26:00Z"
+    decision:
+      decision: approve
+      reasoning: "Critical for security"
+      injection:
+        position:
+          type: after-current
+        prompt: "Add input validation..."
+        idPrefix: "fix-req-xyz789"
+```
+
+## Injected Phases
+
+Phases created via operator approval or dynamic step injection are marked with `injected: true`:
+
+```yaml
+phases:
+  - id: fix-req-xyz789-0
+    status: pending
+    prompt: "Add input validation..."
+    model: sonnet
+    injected: true
+    injected-at: "2026-01-20T10:26:00Z"
+```
+
+---
+
 ## Human Intervention
 
 When a phase requires human intervention:
@@ -399,15 +479,20 @@ For developers building tools around PROGRESS.yaml:
 
 ```typescript
 type SprintStatus = 'not-started' | 'in-progress' | 'completed'
-                  | 'blocked' | 'paused' | 'needs-human';
+                  | 'blocked' | 'paused' | 'needs-human' | 'interrupted';
 
 type PhaseStatus = 'pending' | 'in-progress' | 'completed'
                  | 'blocked' | 'skipped' | 'failed';
+
+type ClaudeModel = 'sonnet' | 'opus' | 'haiku';
 
 interface CompiledPhase {
   id: string;
   status: PhaseStatus;
   prompt: string;
+  model?: ClaudeModel;
+  injected?: boolean;
+  'injected-at'?: string;
   'started-at'?: string;
   'completed-at'?: string;
   elapsed?: string;
@@ -422,6 +507,7 @@ interface CompiledStep {
   prompt: string;
   status: PhaseStatus;
   phases: CompiledPhase[];
+  model?: ClaudeModel;
   'started-at'?: string;
   'completed-at'?: string;
   elapsed?: string;
@@ -434,6 +520,7 @@ interface CompiledTopPhase {
   status: PhaseStatus;
   prompt?: string;           // Simple phases only
   steps?: CompiledStep[];    // For-each phases only
+  model?: ClaudeModel;
   'started-at'?: string;
   'completed-at'?: string;
   elapsed?: string;
@@ -460,12 +547,37 @@ interface SprintStats {
   'max-iterations'?: number;
 }
 
+interface QueuedRequest {
+  id: string;
+  title: string;
+  description: string;
+  priority: 'critical' | 'high' | 'medium' | 'low';
+  type: 'bug' | 'improvement' | 'refactor' | 'test' | 'docs' | 'security';
+  status: 'pending' | 'approved' | 'rejected' | 'deferred' | 'backlog';
+  'created-at': string;
+  'discovered-in': string;
+  'decided-at'?: string;
+  decision?: OperatorDecision;
+  'rejection-reason'?: string;
+  'deferred-until'?: 'end-of-phase' | 'end-of-sprint' | 'next-sprint';
+}
+
+interface OperatorDecision {
+  decision: 'approve' | 'reject' | 'defer' | 'backlog';
+  reasoning: string;
+  injection?: InjectionConfig;
+  deferredUntil?: string;
+  rejectionReason?: string;
+}
+
 interface CompiledProgress {
   'sprint-id': string;
   status: SprintStatus;
-  phases: CompiledTopPhase[];
+  phases?: CompiledTopPhase[];
   current: CurrentPointer;
   stats: SprintStats;
+  'operator-queue'?: QueuedRequest[];
+  'last-activity'?: string;
 }
 ```
 
