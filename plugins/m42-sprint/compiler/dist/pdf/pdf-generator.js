@@ -226,17 +226,13 @@ function renderPieChartNative(doc, segments, total, cx, cy, radius) {
             const y1 = cy + radius * Math.sin(startAngle);
             const x2 = cx + radius * Math.cos(endAngle);
             const y2 = cy + radius * Math.sin(endAngle);
-            const largeArc = sweepAngle > Math.PI;
             doc.save();
             doc.moveTo(cx, cy);
             doc.lineTo(x1, y1);
             // Use arc approximation with bezier curves for PDFKit
             if (sweepAngle < 2 * Math.PI - 0.01) {
-                // For segments less than full circle, draw arc path
+                // For segments less than full circle, draw arc path using midpoint control
                 const midAngle = startAngle + sweepAngle / 2;
-                const mx = cx + radius * Math.cos(midAngle);
-                const my = cy + radius * Math.sin(midAngle);
-                // Simple arc approximation
                 doc.quadraticCurveTo(cx + radius * 1.2 * Math.cos(midAngle), cy + radius * 1.2 * Math.sin(midAngle), x2, y2);
             }
             else {
