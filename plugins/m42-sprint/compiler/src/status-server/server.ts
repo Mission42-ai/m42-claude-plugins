@@ -32,6 +32,14 @@ import { SprintScanner, type SprintSummary } from './sprint-scanner.js';
 import { MetricsAggregator, type AggregateMetrics } from './metrics-aggregator.js';
 import { generateDashboardPage } from './dashboard-page.js';
 import { detectWorktree, listWorktrees, type WorktreeInfo } from './worktree.js';
+import { generateOperatorQueuePage } from './operator-queue-page.js';
+import {
+  toOperatorQueueData,
+  applyManualDecision,
+  type BacklogFile,
+  type QueuedRequest,
+  type ManualDecision,
+} from './operator-queue-transforms.js';
 
 /**
  * Response type for phase actions (skip/retry)
@@ -355,7 +363,9 @@ export class StatusServer extends EventEmitter {
     const forceRetryMatch = url.match(/^\/api\/force-retry\/(.+)$/);
     // Check for sprint resume endpoint: /api/sprint/:id/resume
     const sprintResumeMatch = url.match(/^\/api\/sprint\/([^/]+)\/resume$/);
-    const isPhaseActionEndpoint = skipMatch || retryMatch || forceRetryMatch || sprintResumeMatch;
+    // Check for operator queue decide endpoint: /api/sprint/:id/operator-queue/:reqId/decide
+    const operatorDecideMatch = url.match(/^\/api\/sprint\/([^/]+)\/operator-queue\/([^/]+)\/decide$/);
+    const isPhaseActionEndpoint = skipMatch || retryMatch || forceRetryMatch || sprintResumeMatch || operatorDecideMatch;
 
     // Allow POST for control endpoints and phase action endpoints, GET for everything else
     if (isControlEndpoint || isPhaseActionEndpoint) {
@@ -395,6 +405,13 @@ export class StatusServer extends EventEmitter {
       return;
     }
 
+    if (operatorDecideMatch) {
+      const sprintId = decodeURIComponent(operatorDecideMatch[1]);
+      const requestId = decodeURIComponent(operatorDecideMatch[2]);
+      this.handleOperatorDecideRequest(req, res, sprintId, requestId);
+      return;
+    }
+
     // Log endpoints (GET only)
     const logContentMatch = url.match(/^\/api\/logs\/([^/]+)$/);
     const logDownloadMatch = url.match(/^\/api\/logs\/download\/([^/]+)$/);
@@ -418,6 +435,10 @@ export class StatusServer extends EventEmitter {
 
     // Match sprint detail route: /sprint/:id
     const sprintDetailMatch = url.match(/^\/sprint\/([^/?]+)/);
+    // Match operator queue page: /sprint/:id/operator
+    const operatorQueuePageMatch = url.match(/^\/sprint\/([^/]+)\/operator$/);
+    // Match operator queue API: /api/sprint/:id/operator-queue
+    const operatorQueueApiMatch = url.match(/^\/api\/sprint\/([^/]+)\/operator-queue$/);
 
     // Parse URL for query parameters
     const urlObj = new URL(url, `http://${this.config.host}:${this.config.port}`);
@@ -459,7 +480,13 @@ export class StatusServer extends EventEmitter {
         break;
       default:
         // Handle dynamic routes
-        if (sprintDetailMatch) {
+        if (operatorQueuePageMatch) {
+          const sprintId = decodeURIComponent(operatorQueuePageMatch[1]);
+          this.handleOperatorQueuePageRequest(res, sprintId);
+        } else if (operatorQueueApiMatch) {
+          const sprintId = decodeURIComponent(operatorQueueApiMatch[1]);
+          this.handleOperatorQueueApiRequest(res, sprintId);
+        } else if (sprintDetailMatch) {
           const sprintId = decodeURIComponent(sprintDetailMatch[1]);
           this.handleSprintDetailPageRequest(res, sprintId);
         } else {
@@ -765,6 +792,167 @@ export class StatusServer extends EventEmitter {
         message: error instanceof Error ? error.message : String(error),
       }));
     }
+  }
+
+  /**
+   * Load backlog from BACKLOG.yaml
+   */
+  private loadBacklog(): BacklogFile {
+    const backlogPath = path.join(this.config.sprintDir, 'BACKLOG.yaml');
+    try {
+      if (fs.existsSync(backlogPath)) {
+        const content = fs.readFileSync(backlogPath, 'utf-8');
+        const backlog = yaml.load(content) as BacklogFile;
+        return backlog && backlog.items ? backlog : { items: [] };
+      }
+    } catch {
+      // Ignore errors reading backlog
+    }
+    return { items: [] };
+  }
+
+  /**
+   * Handle GET /sprint/:id/operator - Operator queue page
+   */
+  private handleOperatorQueuePageRequest(res: http.ServerResponse, sprintId: string): void {
+    try {
+      const progress = this.loadProgress();
+      const backlog = this.loadBacklog();
+      const queueData = toOperatorQueueData(progress as any, backlog);
+
+      const html = generateOperatorQueuePage(queueData, sprintId);
+
+      res.writeHead(200, {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-cache',
+      });
+      res.end(html);
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(`<html><body><h1>Error loading operator queue</h1><p>${error instanceof Error ? error.message : String(error)}</p></body></html>`);
+    }
+  }
+
+  /**
+   * Handle GET /api/sprint/:id/operator-queue - Operator queue API
+   */
+  private handleOperatorQueueApiRequest(res: http.ServerResponse, sprintId: string): void {
+    try {
+      const progress = this.loadProgress();
+      const backlog = this.loadBacklog();
+      const queueData = toOperatorQueueData(progress as any, backlog);
+
+      res.writeHead(200, {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+      });
+      res.end(JSON.stringify(queueData, null, 2));
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        error: 'Failed to load operator queue',
+        message: error instanceof Error ? error.message : String(error),
+      }));
+    }
+  }
+
+  /**
+   * Handle POST /api/sprint/:id/operator-queue/:reqId/decide - Manual decision
+   */
+  private handleOperatorDecideRequest(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    sprintId: string,
+    requestId: string
+  ): void {
+    let body = '';
+    req.on('data', chunk => {
+      body += chunk.toString();
+    });
+
+    req.on('end', () => {
+      try {
+        const { decision, reasoning, deferredUntil } = JSON.parse(body) as ManualDecision;
+
+        if (!decision || !reasoning) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            success: false,
+            error: 'Missing required fields: decision and reasoning',
+          }));
+          return;
+        }
+
+        if (!['approve', 'reject', 'defer'].includes(decision)) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            success: false,
+            error: 'Invalid decision. Must be: approve, reject, or defer',
+          }));
+          return;
+        }
+
+        const progress = this.loadProgress();
+        const queue = (progress as any)['operator-queue'] as QueuedRequest[] | undefined;
+
+        if (!queue) {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            success: false,
+            error: 'No operator queue found',
+          }));
+          return;
+        }
+
+        const requestIndex = queue.findIndex(r => r.id === requestId);
+        if (requestIndex === -1) {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            success: false,
+            error: `Request not found: ${requestId}`,
+          }));
+          return;
+        }
+
+        const request = queue[requestIndex];
+        if (request.status !== 'pending') {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            success: false,
+            error: `Request already decided: ${request.status}`,
+          }));
+          return;
+        }
+
+        // Apply the manual decision
+        const manualDecision: ManualDecision = { decision, reasoning, deferredUntil };
+        const updatedRequest = applyManualDecision(request, manualDecision);
+        queue[requestIndex] = updatedRequest;
+
+        // Save the updated progress
+        this.saveProgress(progress);
+
+        // Broadcast the decision event
+        this.broadcast('operator-decision', {
+          request: updatedRequest,
+          decision: updatedRequest.decision,
+        });
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: true,
+          requestId,
+          decision,
+          message: `Request ${decision}${decision === 'defer' ? ` until ${deferredUntil || 'later'}` : ''}`,
+        }));
+      } catch (error) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        }));
+      }
+    });
   }
 
   /**
