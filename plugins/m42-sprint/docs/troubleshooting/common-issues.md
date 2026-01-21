@@ -433,6 +433,65 @@ Status server failed to start. Sprint continues without live status.
 
 ---
 
+### Stale Sprint Detection
+
+**Symptom:** Dashboard shows "Stale - no activity for X minutes" warning.
+
+**Cause:** Sprint status is "in-progress" but no activity has been recorded for 5+ minutes. This usually means the Claude process crashed or was terminated.
+
+**Solution:**
+1. **Via Dashboard**: Click the "Resume" button shown in the stale warning
+2. **Via API**:
+   ```bash
+   curl -X POST http://localhost:3100/api/sprint/<sprint-id>/resume
+   ```
+3. **Via CLI**:
+   ```bash
+   /resume-sprint
+   ```
+
+**What happens:** The resume signal creates a `.resume-requested` file that the sprint runner picks up to restart execution from the current position.
+
+**Prevention:** Monitor `/sprint-watch` during execution; use process managers for long-running sprints.
+
+---
+
+### Model Not Applied
+
+**Symptom:** Sprint runs with wrong model despite setting `model` field.
+
+**Cause:** Model selection uses precedence; a higher-priority setting may override yours.
+
+**Solution:**
+1. Check the model precedence order (highest to lowest):
+   - Step-level `model` in SPRINT.yaml
+   - Workflow phase-level `model`
+   - Sprint-level `model` in SPRINT.yaml
+   - Workflow-level `model`
+   - CLI default
+
+2. Verify your setting is at the appropriate level:
+   ```yaml
+   # Sprint-level (applies to all phases without override)
+   model: opus
+   steps:
+     - Design architecture  # Uses opus
+
+   # Step-level (highest priority)
+   steps:
+     - prompt: Complex task
+       model: opus  # Definitely uses opus
+   ```
+
+3. Check compiled PROGRESS.yaml to see resolved model:
+   ```bash
+   grep -A2 "model:" PROGRESS.yaml
+   ```
+
+**Prevention:** Set model at step-level when you need guaranteed model selection.
+
+---
+
 ## Recovery Procedures
 
 ### Full Reset
@@ -559,8 +618,9 @@ If these solutions don't resolve your issue:
 
 1. Check the [Architecture Overview](../concepts/overview.md) to understand how components interact
 2. Review the [Ralph Loop Pattern](../concepts/ralph-loop.md) for execution model details
-3. Inspect sprint logs in the `artifacts/` directory
-4. Open an issue on GitHub with:
+3. Review the [Operator System](../concepts/operator-system.md) for dynamic work injection
+4. Inspect sprint logs in the `artifacts/` directory
+5. Open an issue on GitHub with:
    - Your SPRINT.yaml (sanitized)
    - Relevant PROGRESS.yaml sections
    - Error messages

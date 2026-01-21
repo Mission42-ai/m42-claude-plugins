@@ -95,6 +95,7 @@ steps:
 | `sprint-id` | string | No | auto | Unique identifier (generated from directory name if absent) |
 | `created` | string | No | - | ISO 8601 timestamp of sprint creation |
 | `owner` | string | No | - | Sprint owner identifier |
+| `model` | string | No | - | Default Claude model for all phases (`'sonnet'` \| `'opus'` \| `'haiku'`) |
 | `config` | object | No | {} | Sprint configuration options |
 | `worktree` | object | No | - | Worktree isolation configuration (see [Worktree Fields](#worktree-fields)) |
 
@@ -107,6 +108,7 @@ Steps can be either strings or objects. String steps are normalized to objects d
 | `prompt` | string | **Yes** | - | Step description and instructions |
 | `id` | string | No | step-N | Unique step identifier (auto: step-0, step-1, etc.) |
 | `workflow` | string | No | - | Per-step workflow override |
+| `model` | string | No | - | Model override for this step (`'sonnet'` \| `'opus'` \| `'haiku'`) |
 
 ### Config Fields
 
@@ -289,6 +291,36 @@ steps:
     workflow: gherkin-verified-execution  # Needs verification
 ```
 
+### Model Selection Sprint
+
+Use model overrides for different task complexities:
+
+```yaml
+name: Architecture and Implementation
+workflow: sprint-default
+model: sonnet                    # Default for most phases
+
+steps:
+  - prompt: Design system architecture and document key decisions
+    model: opus                  # Use opus for complex reasoning
+
+  - prompt: Implement the core module
+    # Uses sonnet (sprint default)
+
+  - prompt: Validate implementation with quick checks
+    model: haiku                 # Use haiku for fast validation
+
+  - prompt: Write comprehensive tests
+    # Uses sonnet (sprint default)
+```
+
+Model selection follows precedence (highest to lowest):
+1. Step-level `model` field
+2. Workflow phase-level `model` field
+3. Sprint-level `model` field
+4. Workflow-level `model` field
+5. CLI default (typically sonnet)
+
 ### Documentation Sprint
 
 ```yaml
@@ -415,6 +447,9 @@ Sprint files live in `.claude/sprints/` with this structure:
 For developers building tools around SPRINT.yaml:
 
 ```typescript
+/** Valid Claude model identifiers */
+type ClaudeModel = 'sonnet' | 'opus' | 'haiku';
+
 interface SprintDefinition {
   workflow: string;
   steps: SprintStep[];
@@ -422,6 +457,7 @@ interface SprintDefinition {
   name?: string;
   created?: string;
   owner?: string;
+  model?: ClaudeModel;
   config?: SprintConfig;
   worktree?: WorktreeConfig;
 }
@@ -430,6 +466,7 @@ interface SprintStep {
   prompt: string;
   workflow?: string;
   id?: string;
+  model?: ClaudeModel;
 }
 
 interface SprintConfig {

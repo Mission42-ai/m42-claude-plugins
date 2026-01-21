@@ -116,85 +116,150 @@ ls .claude/workflows/   # Verify workflow exists
 
 ---
 
-## Activity Logging & Hooks
+## Live Activity Feed
 
-The sprint system includes automatic activity logging that captures tool usage during execution, providing visibility into what Claude is doing in real-time.
+The dashboard includes a real-time activity feed showing what Claude is doing during sprint execution.
 
-### How Activity Logging Works
+### Chat-Like Display
 
-When you run `/run-sprint`, the system automatically:
-1. Generates a `.sprint-hooks.json` configuration file in the sprint directory
-2. Configures a PostToolCall hook that triggers after each tool invocation
-3. Logs activity events to `.sprint-activity.jsonl` in the sprint directory
-4. Streams events to the status page for live display
-5. Cleans up the hook config file when the sprint completes or stops
+The activity feed shows two types of content:
 
-### Hook Configuration
+1. **Assistant Messages**: Claude's thinking and explanations displayed as chat bubbles
+2. **Tool Calls**: Operations like Read, Edit, Bash displayed with relevant details
 
-The auto-generated `.sprint-hooks.json` uses this format:
+This provides visibility into Claude's reasoning process alongside the actual actions being taken.
 
-```json
-{
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash /path/to/plugin/hooks/sprint-activity-hook.sh /path/to/sprint"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
+### Activity Sources
 
-This configuration:
-- Matches all tool calls (empty matcher string)
-- Triggers the `sprint-activity-hook.sh` script after each tool use
-- Passes the sprint directory as an argument
+Activity is captured directly from Claude's transcript files (`transcriptions/` directory), parsing:
+- Tool invocations with names and parameters
+- Text content from Claude's responses
+- Timestamps for elapsed time calculation
 
-### Verbosity Levels
+### Dashboard Features
 
-Control the detail level of activity logging via the `SPRINT_ACTIVITY_VERBOSITY` environment variable:
+The status page (`http://localhost:3100`) displays:
+- **Progress Bar**: Visual completion percentage with step count
+- **Elapsed Time**: How long the current phase/step has been running
+- **Stale Detection**: Warning if a sprint appears stuck (no activity for 5+ minutes)
+- **Sprint Switcher**: Dropdown to quickly navigate between sprints
+- **Live Activity Panel**: Auto-scrolling feed of Claude's activity
 
-| Level | Description |
-|-------|-------------|
-| `minimal` | Tool names only (e.g., "Read", "Bash") |
-| `basic` | Tool names + file paths (default) |
-| `detailed` | Full input summaries |
-| `verbose` | Complete tool data |
+### Stale Sprint Recovery
 
-Example:
+If a sprint becomes stale (e.g., Claude process crashed), the dashboard shows:
+- A warning indicator with time since last activity
+- A "Resume" button to restart the sprint from where it left off
+
+Use the resume endpoint to restart:
 ```bash
-export SPRINT_ACTIVITY_VERBOSITY=detailed
-/run-sprint .claude/sprints/my-sprint
+curl -X POST http://localhost:3100/api/sprint/<sprint-id>/resume
 ```
 
-If not set, defaults to "basic".
+---
 
-### Activity Log Format
+## Operator Queue
 
-Events are stored in JSONL format (one JSON object per line) in `.sprint-activity.jsonl`:
+The operator system allows Claude to discover issues during execution and queue them for review. This enables dynamic work injection without derailing the current task.
 
-```jsonl
-{"timestamp":"2026-01-16T10:30:00.123Z","tool":"Read","summary":"file: src/index.ts","level":"basic"}
-{"timestamp":"2026-01-16T10:30:01.456Z","tool":"Edit","summary":"file: src/index.ts","level":"basic"}
+### How It Works
+
+1. **Discovery**: During phase execution, Claude may discover bugs, tech debt, or improvements
+2. **Request**: Claude creates an operator request with priority, type, and context
+3. **Queue**: Requests are added to the operator queue in PROGRESS.yaml
+4. **Decision**: Requests are auto-triaged or manually reviewed
+5. **Action**: Approved requests get injected as new steps; rejected/deferred/backlogged items are tracked
+
+### Viewing the Queue
+
+Access the operator queue view:
+- **Web UI**: Navigate to `/sprint/<sprint-id>/operator`
+- **API**: `GET /api/sprint/<sprint-id>/operator-queue`
+
+The queue view shows:
+- Pending requests awaiting decision
+- Recent decisions (approved, rejected, deferred)
+- Backlog items for human review
+
+### Manual Decisions
+
+Submit manual decisions via the dashboard or API:
+```bash
+curl -X POST http://localhost:3100/api/sprint/<sprint-id>/operator-queue/<request-id>/decide \
+  -H "Content-Type: application/json" \
+  -d '{"decision": "approve", "reasoning": "Critical bug fix needed"}'
 ```
 
-### Live Activity Panel
+Decision options:
+- `approve`: Inject as new step(s) in the current sprint
+- `reject`: Decline the request with reason
+- `defer`: Delay until end-of-phase, end-of-sprint, or next-sprint
+- `backlog`: Add to BACKLOG.yaml for human review
 
-The status page (`http://localhost:3100`) includes a live activity panel that:
-- Displays real-time tool activity as it happens
-- Shows activity filtered by your selected verbosity level
-- Auto-scrolls to latest activity
-- Provides visual icons for different tool types
+### BACKLOG.yaml
 
-### Manual Hook Configuration
+Items sent to backlog are stored in `BACKLOG.yaml` for later review:
+```yaml
+items:
+  - id: req-abc123
+    title: "Refactor authentication module"
+    description: "..."
+    category: tech-debt
+    suggested-priority: medium
+    operator-notes: "Valid improvement but out of scope"
+    source:
+      request-id: req-abc123
+      discovered-in: "development > step-2 > implement"
+      discovered-at: "2026-01-20T10:30:00Z"
+    status: pending-review
+```
 
-You can also run sprints without automatic activity logging by using the `--no-status` flag. If you want custom hook behavior, create your own `.sprint-hooks.json` before running the sprint.
+---
+
+## Model Selection
+
+Control which Claude model executes each phase with the `model` field.
+
+### Available Models
+
+| Model | Use Case |
+|-------|----------|
+| `sonnet` | Default - balanced speed and capability |
+| `opus` | Complex reasoning, architecture decisions |
+| `haiku` | Fast, simple tasks, validation |
+
+### Resolution Order
+
+Model selection follows a precedence hierarchy (highest to lowest priority):
+
+1. **Step-level**: `model` field in SPRINT.yaml step
+2. **Workflow phase-level**: `model` field in workflow phase
+3. **Sprint-level**: Top-level `model` in SPRINT.yaml
+4. **Workflow-level**: Top-level `model` in workflow definition
+5. **Default**: No override (uses CLI default, typically sonnet)
+
+### Examples
+
+**Sprint-level default:**
+```yaml
+workflow: sprint-default
+model: opus  # All phases use opus unless overridden
+
+steps:
+  - Design the architecture
+  - Implement the solution
+```
+
+**Step-level override:**
+```yaml
+workflow: sprint-default
+model: sonnet
+
+steps:
+  - prompt: Design the architecture
+    model: opus  # This step uses opus
+  - Implement the solution  # Uses sonnet (sprint default)
+```
 
 ---
 
@@ -223,6 +288,9 @@ You can also run sprints without automatic activity logging by using the `--no-s
 1. **Monitor with `/sprint-watch`**: Real-time dashboard is better than polling
 2. **Trust the loop**: Default unlimited iterations - loop exits on completion or error status
 3. **Use worktrees for parallel work**: Run multiple sprints simultaneously with `--worktree` flag
+4. **Use model selection wisely**: Use opus for architecture/design, sonnet for implementation, haiku for validation
+5. **Review operator queue**: Check `/sprint/<id>/operator` for discovered issues during execution
+6. **Handle stale sprints**: If dashboard shows stale warning, use the Resume button to restart
 
 ---
 
