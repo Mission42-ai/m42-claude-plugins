@@ -7,7 +7,7 @@ Complete reference for all M42-Sprint commands organized by category.
 | Command | Description | Category |
 |---------|-------------|----------|
 | `/start-sprint <name> [--ralph \| --workflow <name>]` | Initialize new sprint directory | Lifecycle |
-| `/run-sprint <dir> [options]` | Compile and execute sprint | Lifecycle |
+| `/run-sprint <dir> [--model <model>] [options]` | Compile and execute sprint | Lifecycle |
 | `/stop-sprint` | Forcefully stop sprint loop | Control |
 | `/pause-sprint` | Pause after current task | Control |
 | `/resume-sprint` | Resume paused sprint | Control |
@@ -129,6 +129,7 @@ Compile SPRINT.yaml through workflows and start the execution loop with fresh co
 | Option | Default | Description |
 |--------|---------|-------------|
 | `--max-iterations N` | unlimited | Maximum loop iterations (0 = unlimited) |
+| `--model <model>` | - | Claude model override (`sonnet`, `opus`, or `haiku`) |
 | `--dry-run` | - | Preview workflow without executing |
 | `--recompile` | - | Force recompilation even if PROGRESS.yaml exists |
 | `--no-status` | - | Skip launching the live status server |
@@ -140,6 +141,9 @@ Compile SPRINT.yaml through workflows and start the execution loop with fresh co
 
 # With iteration limit
 /run-sprint .claude/sprints/2026-01-15_my-sprint --max-iterations 50
+
+# Run with specific model
+/run-sprint .claude/sprints/2026-01-15_my-sprint --model opus
 
 # Preview without executing
 /run-sprint .claude/sprints/2026-01-15_my-sprint --dry-run
