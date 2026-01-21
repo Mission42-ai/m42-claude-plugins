@@ -26,7 +26,7 @@
     {
       "name": "m42-sprint",
       "description": "Sprint orchestration with ralph-loop driven task queue processing, polymorphic task types, and progress tracking",
-      "version": "2.1.0",
+      "version": "2.2.0",
       "source": "./plugins/m42-sprint",
       "category": "productivity",
       "keywords": ["sprint", "task-queue", "ralph-loop", "automation", "progress-tracking"]
