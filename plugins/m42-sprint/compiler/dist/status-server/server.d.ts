@@ -118,6 +118,22 @@ export declare class StatusServer extends EventEmitter {
      */
     private handleWorktreesApiRequest;
     /**
+     * Load backlog from BACKLOG.yaml
+     */
+    private loadBacklog;
+    /**
+     * Handle GET /sprint/:id/operator - Operator queue page
+     */
+    private handleOperatorQueuePageRequest;
+    /**
+     * Handle GET /api/sprint/:id/operator-queue - Operator queue API
+     */
+    private handleOperatorQueueApiRequest;
+    /**
+     * Handle POST /api/sprint/:id/operator-queue/:reqId/decide - Manual decision
+     */
+    private handleOperatorDecideRequest;
+    /**
      * Handle SSE connection
      */
     private handleSSERequest;
