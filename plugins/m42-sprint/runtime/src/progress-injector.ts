@@ -204,30 +204,25 @@ export class ProgressInjector {
    * Recalculate stats after injection
    */
   private updateStats(progress: CompiledProgress): void {
-    const phases = (progress.phases ?? []) as {
+    type PhaseWithSteps = {
       status?: string;
       steps?: { phases: { status?: string }[] }[];
-    }[];
+    };
+    const phases = (progress.phases ?? []) as PhaseWithSteps[];
 
     let totalPhases = 0;
     let completedPhases = 0;
 
     for (const phase of phases) {
-      // Count the phase itself
       totalPhases++;
       if (phase.status === 'completed') {
         completedPhases++;
       }
 
       if (phase.steps) {
-        // For-each phase: also count sub-phases within steps
         for (const step of phase.steps) {
           totalPhases += step.phases.length;
-          for (const subPhase of step.phases) {
-            if (subPhase.status === 'completed') {
-              completedPhases++;
-            }
-          }
+          completedPhases += step.phases.filter((p) => p.status === 'completed').length;
         }
       }
     }
