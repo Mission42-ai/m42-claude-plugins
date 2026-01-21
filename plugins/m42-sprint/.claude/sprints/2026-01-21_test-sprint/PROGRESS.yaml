@@ -1,0 +1,17 @@
+sprint-id: 2026-01-21_test-sprint
+status: completed
+phases:
+  - id: test-phase
+    status: completed
+    prompt: "Test phase for PDF export"
+    started-at: '2026-01-21T10:00:00.000Z'
+    completed-at: '2026-01-21T10:30:00.000Z'
+current:
+  phase: 0
+  step: null
+  sub-phase: null
+stats:
+  started-at: '2026-01-21T10:00:00.000Z'
+  completed-at: '2026-01-21T10:30:00.000Z'
+  total-phases: 1
+  completed-phases: 1

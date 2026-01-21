@@ -1,0 +1,36 @@
+sprint-id: test-sprint-2026-01-21
+status: completed
+current:
+  phase: 2
+  step: null
+  sub-phase: null
+stats:
+  started-at: '2026-01-21T10:00:00Z'
+  completed-at: '2026-01-21T12:30:00Z'
+  total-phases: 3
+  completed-phases: 3
+  total-steps: 5
+  completed-steps: 5
+  elapsed: '2h 30m'
+phases:
+  - id: phase-1
+    status: completed
+    prompt: Set up project infrastructure
+    started-at: '2026-01-21T10:00:00Z'
+    completed-at: '2026-01-21T10:30:00Z'
+    elapsed: '30m'
+    summary: Infrastructure setup complete
+  - id: phase-2
+    status: completed
+    prompt: Implement core features
+    started-at: '2026-01-21T10:30:00Z'
+    completed-at: '2026-01-21T11:45:00Z'
+    elapsed: '1h 15m'
+    summary: Core features implemented
+  - id: phase-3
+    status: completed
+    prompt: Write documentation
+    started-at: '2026-01-21T11:45:00Z'
+    completed-at: '2026-01-21T12:30:00Z'
+    elapsed: '45m'
+    summary: Documentation written
