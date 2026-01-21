@@ -2,6 +2,8 @@
  * TypeScript interfaces for the Sprint Workflow System
  */
 export type PhaseStatus = 'pending' | 'in-progress' | 'completed' | 'blocked' | 'skipped' | 'failed';
+/** Valid Claude model identifiers */
+export type ClaudeModel = 'sonnet' | 'opus' | 'haiku';
 /**
  * @deprecated Use SprintState discriminated union instead for type-safe state handling.
  * This type is kept for backwards compatibility with existing code.
@@ -263,6 +265,8 @@ export interface SprintStep {
     workflow?: string;
     /** Optional: Custom ID for this step */
     id?: string;
+    /** Optional: Model override for this step (highest priority) */
+    model?: ClaudeModel;
 }
 /**
  * Error category types for classification and retry configuration
@@ -292,6 +296,8 @@ export interface SprintDefinition {
     name?: string;
     created?: string;
     owner?: string;
+    /** Optional model to use for all phases (overrides workflow model) */
+    model?: ClaudeModel;
     /** Optional configuration */
     config?: {
         'max-tasks'?: number;
@@ -341,6 +347,8 @@ export interface WorkflowPhase {
     parallel?: boolean;
     /** If true, wait for all parallel tasks to complete before continuing */
     'wait-for-parallel'?: boolean;
+    /** Optional model override for this phase */
+    model?: ClaudeModel;
 }
 /**
  * Workflow Definition - the reusable workflow template
@@ -362,6 +370,8 @@ export interface WorkflowDefinition {
     'per-iteration-hooks'?: PerIterationHook[];
     /** Orchestration configuration for dynamic step injection */
     orchestration?: OrchestrationConfig;
+    /** Optional model to use for all phases (lowest priority default) */
+    model?: ClaudeModel;
 }
 /**
  * A parallel task running in the background
@@ -413,6 +423,8 @@ export interface CompiledPhase {
     parallel?: boolean;
     /** ID of the parallel task if this phase was spawned */
     'parallel-task-id'?: string;
+    /** Resolved model to use for execution */
+    model?: ClaudeModel;
 }
 /**
  * A compiled step (contains sub-phases from the step's workflow)
@@ -436,6 +448,8 @@ export interface CompiledStep {
     'next-retry-at'?: string;
     /** Classified error category */
     'error-category'?: ErrorCategory;
+    /** Step-level model override (for sub-phase resolution) */
+    model?: ClaudeModel;
 }
 /**
  * A top-level phase that may contain steps (for for-each phases)
@@ -462,6 +476,8 @@ export interface CompiledTopPhase {
     'error-category'?: ErrorCategory;
     /** If true, wait for all parallel tasks to complete before continuing */
     'wait-for-parallel'?: boolean;
+    /** Resolved model to use for execution */
+    model?: ClaudeModel;
 }
 /**
  * Current position pointer in the workflow

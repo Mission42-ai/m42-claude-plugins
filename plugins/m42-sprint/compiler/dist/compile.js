@@ -192,21 +192,26 @@ async function compile(config) {
             break;
         }
     }
+    // Create model context with workflow and sprint models
+    const modelContext = {
+        workflowModel: mainWorkflow.definition.model,
+        sprintModel: sprintDef.model
+    };
     for (const phase of workflowPhases) {
         if (phase['for-each'] === 'step') {
             // Expand for-each phase into steps
-            const expandedPhase = (0, expand_foreach_js_1.expandForEach)(phase, sprintDef.steps ?? [], config.workflowsDir, defaultStepWorkflow, context, errors);
+            const expandedPhase = (0, expand_foreach_js_1.expandForEach)(phase, sprintDef.steps ?? [], config.workflowsDir, defaultStepWorkflow, context, errors, modelContext);
             compiledPhases.push(expandedPhase);
         }
         else if (phase.workflow && !phase['for-each']) {
             // Expand workflow reference (no for-each) - inline the referenced workflow's phases
             // Start at depth 1 since main workflow is at depth 0
-            const expandedPhases = expandWorkflowReference(phase, config.workflowsDir, context, errors, new Set([sprintDef.workflow]), 1);
+            const expandedPhases = expandWorkflowReference(phase, config.workflowsDir, context, errors, new Set([sprintDef.workflow]), 1, modelContext);
             compiledPhases.push(...expandedPhases);
         }
         else {
             // Simple phase with prompt
-            const simplePhase = (0, expand_foreach_js_1.compileSimplePhase)(phase, context);
+            const simplePhase = (0, expand_foreach_js_1.compileSimplePhase)(phase, context, modelContext);
             compiledPhases.push(simplePhase);
         }
     }
@@ -269,9 +274,10 @@ async function compile(config) {
  * @param errors - Error accumulator
  * @param visited - Set of visited workflows for cycle detection
  * @param depth - Current nesting depth
+ * @param modelContext - Model context for resolution
  * @returns Array of compiled phases from the referenced workflow
  */
-function expandWorkflowReference(phase, workflowsDir, context, errors, visited, depth) {
+function expandWorkflowReference(phase, workflowsDir, context, errors, visited, depth, modelContext = {}) {
     if (!phase.workflow) {
         return [];
     }
@@ -312,7 +318,7 @@ function expandWorkflowReference(phase, workflowsDir, context, errors, visited, 
         if (refPhase.workflow && !refPhase['for-each']) {
             // Nested workflow reference - recurse with prefixed ID
             const nestedPhase = { id: prefixedId, workflow: refPhase.workflow };
-            const nestedPhases = expandWorkflowReference(nestedPhase, workflowsDir, context, errors, newVisited, depth + 1);
+            const nestedPhases = expandWorkflowReference(nestedPhase, workflowsDir, context, errors, newVisited, depth + 1, modelContext);
             expandedPhases.push(...nestedPhases);
         }
         else if (refPhase.prompt) {
@@ -325,11 +331,17 @@ function expandWorkflowReference(phase, workflowsDir, context, errors, visited, 
                 }
             };
             const prompt = (0, expand_foreach_js_1.substituteTemplateVars)(refPhase.prompt, phaseContext);
+            // Resolve model for this phase using consistent priority: step > phase > sprint > workflow
+            const resolvedModel = (0, expand_foreach_js_1.resolveModelFromContext)({
+                ...modelContext,
+                phaseModel: refPhase.model
+            });
             expandedPhases.push({
                 id: prefixedId,
                 status: 'pending',
                 prompt,
-                'wait-for-parallel': refPhase['wait-for-parallel']
+                'wait-for-parallel': refPhase['wait-for-parallel'],
+                model: resolvedModel
             });
         }
     }
