@@ -221,7 +221,7 @@ export function createPieChart(segments: ChartSegment[], options: ChartOptions =
     const segment = segments[0];
     let legendSvg = '';
     if (showLegend) {
-      legendSvg = renderLegend(segments, total, width, height, showLabels);
+      legendSvg = renderLegend(segments, width, height, showLabels);
     }
     return `<svg viewBox="0 0 ${width} ${height + legendHeight}" xmlns="http://www.w3.org/2000/svg">
   <circle cx="${cx}" cy="${cy}" r="${radius}" fill="${segment.color}" />
@@ -241,7 +241,7 @@ ${legendSvg}</svg>`;
 
   let legendSvg = '';
   if (showLegend) {
-    legendSvg = renderLegend(segments, total, width, height, showLabels);
+    legendSvg = renderLegend(segments, width, height, showLabels);
   }
 
   return `<svg viewBox="0 0 ${width} ${height + legendHeight}" xmlns="http://www.w3.org/2000/svg">
@@ -252,7 +252,7 @@ ${legendSvg}</svg>`;
 /**
  * Renders legend section for charts
  */
-function renderLegend(segments: ChartSegment[], total: number, width: number, chartHeight: number, showLabels: boolean): string {
+function renderLegend(segments: ChartSegment[], width: number, chartHeight: number, showLabels: boolean): string {
   const legendY = chartHeight + 10;
   const itemWidth = width / Math.min(segments.length, 3);
   const items: string[] = [];
@@ -324,7 +324,7 @@ export function createProgressBar(data: ChartData, options: ChartOptions = {}): 
 
   let legendSvg = '';
   if (showLegend) {
-    legendSvg = renderBarLegend(segments, total, width, height);
+    legendSvg = renderBarLegend(segments, width, height);
   }
 
   return `<svg viewBox="0 0 ${width} ${height + legendHeight}" xmlns="http://www.w3.org/2000/svg">
@@ -336,7 +336,7 @@ ${legendSvg}</svg>`;
 /**
  * Renders legend for progress bar
  */
-function renderBarLegend(segments: Array<{ value: number; color: string; label: string }>, total: number, width: number, barHeight: number): string {
+function renderBarLegend(segments: ChartSegment[], width: number, barHeight: number): string {
   const legendY = barHeight + 10;
   const itemWidth = width / Math.min(segments.length, 4);
   const items: string[] = [];
