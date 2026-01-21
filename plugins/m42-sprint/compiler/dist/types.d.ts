@@ -2,6 +2,8 @@
  * TypeScript interfaces for the Sprint Workflow System
  */
 export type PhaseStatus = 'pending' | 'in-progress' | 'completed' | 'blocked' | 'skipped' | 'failed';
+/** Valid Claude model identifiers */
+export type ClaudeModel = 'sonnet' | 'opus' | 'haiku';
 /**
  * @deprecated Use SprintState discriminated union instead for type-safe state handling.
  * This type is kept for backwards compatibility with existing code.
@@ -207,73 +209,6 @@ export interface RalphExitInfo {
     /** Final summary from Claude */
     'final-summary'?: string;
 }
-/** Cleanup mode for worktrees */
-export type WorktreeCleanup = 'never' | 'on-complete' | 'on-merge';
-/**
- * Worktree configuration for sprint or workflow level
- *
- * Supports variable substitution in branch and path:
- * - {sprint-id} → e.g., "2026-01-20_feature-auth"
- * - {sprint-name} → e.g., "feature-auth"
- * - {date} → e.g., "2026-01-20"
- * - {workflow} → e.g., "feature-development"
- */
-export interface WorktreeConfig {
-    /** Enable dedicated worktree for this sprint */
-    enabled: boolean;
-    /** Branch name for the worktree (default: sprint/{sprint-id}) */
-    branch?: string;
-    /** Path for the worktree relative to repo root (default: ../{sprint-id}-worktree) */
-    path?: string;
-    /** When to clean up the worktree (default: on-complete) */
-    cleanup?: WorktreeCleanup;
-}
-/**
- * Workflow-level worktree defaults
- * Uses prefix patterns instead of full templates
- */
-export interface WorkflowWorktreeDefaults {
-    /** Enable worktree for all sprints using this workflow */
-    enabled: boolean;
-    /** Branch prefix (e.g., "sprint/" → "sprint/{sprint-id}") */
-    'branch-prefix'?: string;
-    /** Path prefix for worktrees (e.g., "../worktrees/" → "../worktrees/{sprint-id}") */
-    'path-prefix'?: string;
-    /** Default cleanup mode */
-    cleanup?: WorktreeCleanup;
-}
-/**
- * Compiled worktree configuration in PROGRESS.yaml
- * Contains resolved paths and runtime state
- */
-export interface CompiledWorktreeConfig {
-    /** Whether worktree is enabled */
-    enabled: boolean;
-    /** Resolved branch name (variables substituted) */
-    branch: string;
-    /** Resolved worktree path (variables substituted) */
-    path: string;
-    /** Cleanup mode */
-    cleanup: WorktreeCleanup;
-    /** When the worktree was created (ISO timestamp) */
-    'created-at'?: string;
-    /** Whether worktree has been cleaned up */
-    'cleaned-up'?: boolean;
-    /** Working directory for Claude execution (worktree root or sprint dir) */
-    'working-dir'?: string;
-}
-/**
- * Runtime worktree isolation metadata
- * Added to PROGRESS.yaml to track which worktree a sprint is running in
- */
-export interface WorktreeIsolationMeta {
-    /** Unique identifier for this worktree (12-char hash of worktree path) */
-    'worktree-id': string;
-    /** Absolute path to the worktree root (for debugging) */
-    'worktree-path': string;
-    /** Whether this is a linked worktree (true) or main repo (false) */
-    'is-worktree': boolean;
-}
 /**
  * Orchestration configuration for dynamic step injection
  * Enables Claude to propose new steps during execution
@@ -330,6 +265,8 @@ export interface SprintStep {
     workflow?: string;
     /** Optional: Custom ID for this step */
     id?: string;
+    /** Optional: Model override for this step (highest priority) */
+    model?: ClaudeModel;
 }
 /**
  * Error category types for classification and retry configuration
@@ -359,6 +296,8 @@ export interface SprintDefinition {
     name?: string;
     created?: string;
     owner?: string;
+    /** Optional model to use for all phases (overrides workflow model) */
+    model?: ClaudeModel;
     /** Optional configuration */
     config?: {
         'max-tasks'?: number;
@@ -375,8 +314,6 @@ export interface SprintDefinition {
     }>;
     /** Custom prompt templates for runtime */
     prompts?: SprintPrompts;
-    /** Optional worktree configuration for isolated execution */
-    worktree?: WorktreeConfig;
 }
 /**
  * Customizable runtime prompt templates for sprint execution
@@ -410,6 +347,8 @@ export interface WorkflowPhase {
     parallel?: boolean;
     /** If true, wait for all parallel tasks to complete before continuing */
     'wait-for-parallel'?: boolean;
+    /** Optional model override for this phase */
+    model?: ClaudeModel;
 }
 /**
  * Workflow Definition - the reusable workflow template
@@ -431,8 +370,8 @@ export interface WorkflowDefinition {
     'per-iteration-hooks'?: PerIterationHook[];
     /** Orchestration configuration for dynamic step injection */
     orchestration?: OrchestrationConfig;
-    /** Default worktree configuration for sprints using this workflow */
-    worktree?: WorkflowWorktreeDefaults;
+    /** Optional model to use for all phases (lowest priority default) */
+    model?: ClaudeModel;
 }
 /**
  * A parallel task running in the background
@@ -484,6 +423,8 @@ export interface CompiledPhase {
     parallel?: boolean;
     /** ID of the parallel task if this phase was spawned */
     'parallel-task-id'?: string;
+    /** Resolved model to use for execution */
+    model?: ClaudeModel;
 }
 /**
  * A compiled step (contains sub-phases from the step's workflow)
@@ -507,6 +448,8 @@ export interface CompiledStep {
     'next-retry-at'?: string;
     /** Classified error category */
     'error-category'?: ErrorCategory;
+    /** Step-level model override (for sub-phase resolution) */
+    model?: ClaudeModel;
 }
 /**
  * A top-level phase that may contain steps (for for-each phases)
@@ -533,6 +476,8 @@ export interface CompiledTopPhase {
     'error-category'?: ErrorCategory;
     /** If true, wait for all parallel tasks to complete before continuing */
     'wait-for-parallel'?: boolean;
+    /** Resolved model to use for execution */
+    model?: ClaudeModel;
 }
 /**
  * Current position pointer in the workflow
@@ -597,10 +542,6 @@ export interface CompiledProgress {
     prompts?: SprintPrompts;
     /** Retry configuration for error recovery */
     retry?: RetryConfig;
-    /** Compiled worktree configuration (resolved from sprint + workflow defaults) */
-    worktree?: CompiledWorktreeConfig;
-    /** Runtime worktree isolation tracking (auto-populated on sprint start) */
-    'worktree-isolation'?: WorktreeIsolationMeta;
 }
 /**
  * Context for template variable substitution

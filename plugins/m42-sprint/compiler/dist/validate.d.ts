@@ -5,6 +5,14 @@
  */
 import type { SprintDefinition, WorkflowDefinition, CompiledProgress, CompilerError } from './types.js';
 /**
+ * Validate that a model value is valid
+ *
+ * @param model - The model value to validate
+ * @param path - Path for error messages
+ * @returns Array of validation errors (empty if valid)
+ */
+export declare function validateModel(model: unknown, path: string): CompilerError[];
+/**
  * Validate a sprint definition (SPRINT.yaml) - basic validation
  *
  * This performs minimal validation before workflow is loaded.

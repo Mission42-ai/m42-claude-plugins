@@ -3,7 +3,24 @@
  *
  * Handles expansion of for-each: step phases into concrete steps
  */
-import type { WorkflowPhase, WorkflowDefinition, SprintStep, CompiledTopPhase, CompiledStep, LoadedWorkflow, TemplateContext, CompilerError } from './types.js';
+import type { WorkflowPhase, WorkflowDefinition, SprintStep, CompiledTopPhase, CompiledStep, LoadedWorkflow, TemplateContext, CompilerError, ClaudeModel } from './types.js';
+/**
+ * Model context for resolving models during compilation
+ */
+export interface ModelContext {
+    /** Workflow-level model (lowest priority) */
+    workflowModel?: ClaudeModel;
+    /** Sprint-level model (overrides workflow) */
+    sprintModel?: ClaudeModel;
+    /** Phase-level model (overrides sprint) */
+    phaseModel?: ClaudeModel;
+    /** Step-level model (highest priority) */
+    stepModel?: ClaudeModel;
+}
+/**
+ * Resolve model using priority: step > phase > sprint > workflow
+ */
+export declare function resolveModelFromContext(ctx: ModelContext): ClaudeModel | undefined;
 /**
  * Substitute template variables in a string
  *
@@ -33,9 +50,10 @@ export declare function findUnresolvedVars(text: string): string[];
  * @param stepIndex - Index of this step
  * @param workflow - The workflow to use for expansion
  * @param context - Template context
+ * @param modelContext - Model context for resolution
  * @returns Compiled step with expanded sub-phases
  */
-export declare function expandStep(step: SprintStep, stepIndex: number, workflow: WorkflowDefinition, context: TemplateContext): CompiledStep;
+export declare function expandStep(step: SprintStep, stepIndex: number, workflow: WorkflowDefinition, context: TemplateContext, modelContext?: ModelContext): CompiledStep;
 /**
  * Expand a for-each phase into concrete steps
  *
@@ -45,15 +63,17 @@ export declare function expandStep(step: SprintStep, stepIndex: number, workflow
  * @param defaultWorkflow - Default workflow to use if step doesn't specify one
  * @param context - Template context
  * @param errors - Array to collect errors
+ * @param modelContext - Model context for resolution
  * @returns Compiled top phase with expanded steps
  */
-export declare function expandForEach(phase: WorkflowPhase, steps: SprintStep[], workflowsDir: string, defaultWorkflow: LoadedWorkflow | null, context: TemplateContext, errors: CompilerError[]): CompiledTopPhase;
+export declare function expandForEach(phase: WorkflowPhase, steps: SprintStep[], workflowsDir: string, defaultWorkflow: LoadedWorkflow | null, context: TemplateContext, errors: CompilerError[], modelContext?: ModelContext): CompiledTopPhase;
 /**
  * Compile a simple phase (no for-each)
  *
  * @param phase - The phase to compile
  * @param context - Template context
+ * @param modelContext - Model context for resolution
  * @returns Compiled top phase
  */
-export declare function compileSimplePhase(phase: WorkflowPhase, context: TemplateContext): CompiledTopPhase;
+export declare function compileSimplePhase(phase: WorkflowPhase, context: TemplateContext, modelContext?: ModelContext): CompiledTopPhase;
 //# sourceMappingURL=expand-foreach.d.ts.map

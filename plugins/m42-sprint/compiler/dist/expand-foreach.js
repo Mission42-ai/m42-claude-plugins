@@ -5,12 +5,19 @@
  * Handles expansion of for-each: step phases into concrete steps
  */
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.resolveModelFromContext = resolveModelFromContext;
 exports.substituteTemplateVars = substituteTemplateVars;
 exports.findUnresolvedVars = findUnresolvedVars;
 exports.expandStep = expandStep;
 exports.expandForEach = expandForEach;
 exports.compileSimplePhase = compileSimplePhase;
 const resolve_workflows_js_1 = require("./resolve-workflows.js");
+/**
+ * Resolve model using priority: step > phase > sprint > workflow
+ */
+function resolveModelFromContext(ctx) {
+    return ctx.stepModel ?? ctx.phaseModel ?? ctx.sprintModel ?? ctx.workflowModel;
+}
 /**
  * Substitute template variables in a string
  *
@@ -64,9 +71,10 @@ function findUnresolvedVars(text) {
  * @param stepIndex - Index of this step
  * @param workflow - The workflow to use for expansion
  * @param context - Template context
+ * @param modelContext - Model context for resolution
  * @returns Compiled step with expanded sub-phases
  */
-function expandStep(step, stepIndex, workflow, context) {
+function expandStep(step, stepIndex, workflow, context, modelContext = {}) {
     const stepId = step.id || `step-${stepIndex}`;
     // Update context with step info
     const stepContext = {
@@ -76,6 +84,11 @@ function expandStep(step, stepIndex, workflow, context) {
             id: stepId,
             index: stepIndex
         }
+    };
+    // Create step-level model context (step model has highest priority)
+    const stepModelContext = {
+        ...modelContext,
+        stepModel: step.model
     };
     // Expand each phase in the step's workflow
     const compiledPhases = (workflow.phases ?? []).map((phase, phaseIndex) => {
@@ -90,18 +103,27 @@ function expandStep(step, stepIndex, workflow, context) {
         const prompt = phase.prompt
             ? substituteTemplateVars(phase.prompt, phaseContext)
             : `Execute phase: ${phase.id}`;
+        // Resolve model for this sub-phase
+        // Priority: step.model > phase.model > sprint.model > workflow.model
+        const subPhaseModelContext = {
+            ...stepModelContext,
+            phaseModel: phase.model
+        };
+        const resolvedModel = resolveModelFromContext(subPhaseModelContext);
         return {
             id: phase.id,
             status: 'pending',
             prompt,
-            parallel: phase.parallel
+            parallel: phase.parallel,
+            model: resolvedModel
         };
     });
     return {
         id: stepId,
         prompt: step.prompt,
         status: 'pending',
-        phases: compiledPhases
+        phases: compiledPhases,
+        model: step.model
     };
 }
 /**
@@ -113,9 +135,10 @@ function expandStep(step, stepIndex, workflow, context) {
  * @param defaultWorkflow - Default workflow to use if step doesn't specify one
  * @param context - Template context
  * @param errors - Array to collect errors
+ * @param modelContext - Model context for resolution
  * @returns Compiled top phase with expanded steps
  */
-function expandForEach(phase, steps, workflowsDir, defaultWorkflow, context, errors) {
+function expandForEach(phase, steps, workflowsDir, defaultWorkflow, context, errors, modelContext = {}) {
     const compiledSteps = [];
     for (let i = 0; i < steps.length; i++) {
         const step = steps[i];
@@ -177,8 +200,8 @@ function expandForEach(phase, steps, workflowsDir, defaultWorkflow, context, err
                 phases: [{ id: 'execute', prompt: '{{step.prompt}}' }]
             };
         }
-        // Expand this step
-        const compiledStep = expandStep(step, i, stepWorkflow, context);
+        // Expand this step with model context
+        const compiledStep = expandStep(step, i, stepWorkflow, context, modelContext);
         compiledSteps.push(compiledStep);
     }
     return {
@@ -193,9 +216,10 @@ function expandForEach(phase, steps, workflowsDir, defaultWorkflow, context, err
  *
  * @param phase - The phase to compile
  * @param context - Template context
+ * @param modelContext - Model context for resolution
  * @returns Compiled top phase
  */
-function compileSimplePhase(phase, context) {
+function compileSimplePhase(phase, context, modelContext = {}) {
     const phaseContext = {
         ...context,
         phase: {
@@ -206,11 +230,19 @@ function compileSimplePhase(phase, context) {
     const prompt = phase.prompt
         ? substituteTemplateVars(phase.prompt, phaseContext)
         : `Execute phase: ${phase.id}`;
+    // Resolve model for this phase
+    // Priority: phase.model > sprint.model > workflow.model
+    const phaseModelContext = {
+        ...modelContext,
+        phaseModel: phase.model
+    };
+    const resolvedModel = resolveModelFromContext(phaseModelContext);
     return {
         id: phase.id,
         status: 'pending',
         prompt,
-        'wait-for-parallel': phase['wait-for-parallel']
+        'wait-for-parallel': phase['wait-for-parallel'],
+        model: resolvedModel
     };
 }
 //# sourceMappingURL=expand-foreach.js.map
