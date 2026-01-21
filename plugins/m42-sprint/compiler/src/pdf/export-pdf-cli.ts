@@ -286,9 +286,8 @@ async function main(): Promise<void> {
 }
 
 // Run if executed directly
-const isMain = process.argv[1]?.endsWith('export-pdf-cli.js') ||
-               process.argv[1]?.endsWith('export-pdf-cli.ts');
-if (isMain) {
+const scriptName = path.basename(process.argv[1] || '');
+if (scriptName === 'export-pdf-cli.js' || scriptName === 'export-pdf-cli.ts') {
   main().catch((err) => {
     console.error('Fatal error:', err);
     process.exit(1);
