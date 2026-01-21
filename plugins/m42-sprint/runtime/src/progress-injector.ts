@@ -86,69 +86,74 @@ export class ProgressInjector {
    * Inject a single step into the progress file
    */
   async injectStep(injection: StepInjection): Promise<void> {
-    const progress = readProgress(this.progressPath);
-    const insertIndex = this.resolvePosition(progress, injection.position);
+    await this.modifyProgress((progress) => {
+      const insertIndex = this.resolvePosition(progress, injection.position);
+      const phase = this.createInjectedPhase(injection.step);
 
-    // Create injected phase
-    const phase: InjectedPhase = {
-      id: injection.step.id,
-      status: 'pending',
-      prompt: injection.step.prompt,
-      injected: true,
-      'injected-at': new Date().toISOString(),
-    };
-
-    if (injection.step.model) {
-      phase.model = injection.step.model;
-    }
-
-    // Insert at position
-    const phases = (progress.phases ?? []) as unknown[];
-    phases.splice(insertIndex, 0, phase);
-    progress.phases = phases;
-
-    // Recalculate stats
-    this.updateStats(progress);
-
-    // Write atomically
-    backupProgress(this.progressPath);
-    await writeProgressAtomic(this.progressPath, progress);
-    cleanupBackup(this.progressPath);
+      const phases = (progress.phases ?? []) as unknown[];
+      phases.splice(insertIndex, 0, phase);
+      progress.phases = phases;
+    });
   }
 
   /**
    * Inject a compiled workflow into the progress file
    */
   async injectWorkflow(injection: WorkflowInjection): Promise<void> {
-    // Load workflow phases
     const workflowPhases = this.loadWorkflowPhases(injection.workflow);
 
+    await this.modifyProgress((progress) => {
+      const insertIndex = this.resolvePosition(progress, injection.position);
+      const now = new Date().toISOString();
+
+      const injectedPhases = workflowPhases.map((p) =>
+        this.createInjectedPhase(
+          { id: `${injection.idPrefix}-${p.id}`, prompt: p.prompt, model: p.model },
+          now
+        )
+      );
+
+      const phases = (progress.phases ?? []) as unknown[];
+      phases.splice(insertIndex, 0, ...injectedPhases);
+      progress.phases = phases;
+    });
+  }
+
+  /**
+   * Read progress, apply modifications, update stats, and write atomically
+   */
+  private async modifyProgress(
+    modifier: (progress: CompiledProgress) => void
+  ): Promise<void> {
     const progress = readProgress(this.progressPath);
-    const insertIndex = this.resolvePosition(progress, injection.position);
-
-    // Create injected phases with prefix
-    const now = new Date().toISOString();
-    const injectedPhases: InjectedPhase[] = workflowPhases.map((p) => ({
-      id: `${injection.idPrefix}-${p.id}`,
-      status: 'pending' as const,
-      prompt: p.prompt,
-      injected: true as const,
-      'injected-at': now,
-      ...(p.model ? { model: p.model } : {}),
-    }));
-
-    // Insert all phases at position
-    const phases = (progress.phases ?? []) as unknown[];
-    phases.splice(insertIndex, 0, ...injectedPhases);
-    progress.phases = phases;
-
-    // Recalculate stats
+    modifier(progress);
     this.updateStats(progress);
 
-    // Write atomically
     backupProgress(this.progressPath);
     await writeProgressAtomic(this.progressPath, progress);
     cleanupBackup(this.progressPath);
+  }
+
+  /**
+   * Create an injected phase with metadata
+   */
+  private createInjectedPhase(
+    step: { id: string; prompt: string; model?: string },
+    timestamp?: string
+  ): InjectedPhase {
+    const phase: InjectedPhase = {
+      id: step.id,
+      status: 'pending',
+      prompt: step.prompt,
+      injected: true,
+      'injected-at': timestamp ?? new Date().toISOString(),
+    };
+
+    if (step.model) {
+      phase.model = step.model;
+    }
+
+    return phase;
   }
 
   /**
