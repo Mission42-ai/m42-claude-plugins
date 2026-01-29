@@ -140,6 +140,8 @@ async function compile(config) {
         errors.push(...workflowErrors);
         return { success: false, errors, warnings };
     }
+    // Check schema version and add warnings if missing or outdated
+    (0, validate_js_1.validateSchemaVersion)(mainWorkflow.definition, sprintDef.workflow, warnings);
     // Check for Ralph mode and use separate compilation path
     const isRalphMode = mainWorkflow.definition.mode === 'ralph';
     if (isRalphMode) {
@@ -173,6 +175,8 @@ async function compile(config) {
     for (const [name, loaded] of referencedWorkflows) {
         const refErrors = (0, validate_js_1.validateWorkflowDefinition)(loaded.definition, name);
         errors.push(...refErrors);
+        // Check schema version for referenced workflows too
+        (0, validate_js_1.validateSchemaVersion)(loaded.definition, name, warnings);
     }
     if (errors.length > 0) {
         return { success: false, errors, warnings };

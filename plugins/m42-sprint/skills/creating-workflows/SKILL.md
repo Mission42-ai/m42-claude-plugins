@@ -7,6 +7,73 @@ description: Guide for creating sprint workflow definitions. This skill should b
 
 Guide for authoring sprint workflow definitions in `.claude/workflows/`.
 
+## Before You Start
+
+For complete reference, read these files:
+1. **Schema**: `references/workflow-schema.md` - Full field definitions
+2. **Examples**: `.claude/workflows/` - Working workflow files
+
+The Quick Reference below covers common cases. For edge cases, consult the schema.
+
+## Quick Reference (Cheat Sheet)
+
+### Workflow Structure
+```yaml
+name: <string>           # Required
+description: <string>    # Optional
+phases:                  # Required - list of phases
+  - id: <string>         # Required, unique identifier
+    prompt: <string>     # For simple phases (direct execution)
+    # OR
+    for-each: <string>   # Collection name to iterate
+    workflow: <string>   # Workflow to run per item
+```
+
+### Phase Types
+| Type | Required Fields | Use Case |
+|------|-----------------|----------|
+| Simple | `id`, `prompt` | Direct execution of instructions |
+| For-Each | `id`, `for-each`, `workflow` | Iterate over collection items |
+
+### Template Variables
+| Variable | Description |
+|----------|-------------|
+| `{{item.prompt}}` | Current item's prompt |
+| `{{item.id}}` | Current item's ID |
+| `{{sprint.id}}` | Sprint identifier |
+| `{{sprint.name}}` | Sprint name |
+
+### Optional Phase Fields
+| Field | Type | Description |
+|-------|------|-------------|
+| `parallel` | boolean | Run in background (item workflows only) |
+| `wait-for-parallel` | boolean | Sync point for parallel tasks |
+| `break` | boolean | Pause for human review after completion |
+| `gate` | object | Quality gate script + on-fail handling |
+
+## Current Workflow Patterns
+
+### sprint-default.yaml
+**Phases**: prepare → development (for-each) → qa → deploy
+**Use for**: Standard sprint execution with QA gates
+
+### plugin-development.yaml
+**Phases**: preflight → development (TDD) → docs → tooling → version → qa → summary → pr
+**Use for**: Plugin development with TDD and documentation
+
+### feature-standard.yaml
+**Phases**: planning → implement → test → document
+**Use for**: Single feature implementation
+
+### bugfix-workflow.yaml
+**Phases**: diagnose → fix → verify
+**Use for**: Bug investigation and fixing
+
+### ralph mode
+**Type**: Goal-driven autonomous mode
+**Use for**: Complex, research-heavy, open-ended goals
+**Note**: Uses `mode: ralph` instead of predefined phases
+
 ## What is a Workflow?
 
 | Concept | Description |

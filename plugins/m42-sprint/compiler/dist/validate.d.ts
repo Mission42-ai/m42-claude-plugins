@@ -13,6 +13,14 @@ import type { SprintDefinition, WorkflowDefinition, CompiledProgress, CompilerEr
  */
 export declare function validateModel(model: unknown, path: string): CompilerError[];
 /**
+ * Validate schema version of a workflow and produce warnings if missing or outdated
+ *
+ * @param workflow - The workflow definition to validate
+ * @param workflowName - Name of the workflow (for warning messages)
+ * @param warnings - Array to push warning messages to
+ */
+export declare function validateSchemaVersion(workflow: WorkflowDefinition, workflowName: string, warnings: string[]): void;
+/**
  * Validate a sprint definition (SPRINT.yaml) - basic validation
  *
  * This performs minimal validation before workflow is loaded.

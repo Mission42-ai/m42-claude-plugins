@@ -200,6 +200,50 @@ per-iteration-hooks:
     enabled: true
 ```
 
+### Template Variables
+
+Hook prompts support template variable substitution:
+
+| Variable | Description | Example Value |
+|----------|-------------|---------------|
+| `$ITERATION_TRANSCRIPT` | Path to current iteration's transcript log file | `/sprints/test/transcriptions/phase-0.log` |
+| `$SPRINT_ID` | Sprint identifier | `2026-01-18_auth-feature` |
+| `$ITERATION` | Current iteration number (1-based) | `5` |
+| `$PHASE_ID` | Current phase identifier | `development` |
+
+Example prompt using template variables:
+```yaml
+- id: learning
+  prompt: |
+    /m42-signs:extract $ITERATION_TRANSCRIPT --auto-apply-high --sprint $SPRINT_ID --phase $PHASE_ID
+  parallel: true
+  enabled: true
+```
+
+### Runtime Hook Execution
+
+The TypeScript runtime (`loop.ts`) executes per-iteration hooks after each successful phase completion:
+
+1. **After Phase Completion**: Hooks execute after the phase prompt completes but before advancing to the next phase
+2. **Sequential Hooks** (`parallel: false`): Execute in order, blocking the next iteration until complete
+3. **Parallel Hooks** (`parallel: true`): Spawn in background without blocking the next iteration
+4. **Hook Tracking**: Each hook execution is tracked in `hook-tasks[]` with status, timestamps, and exit code
+5. **Failure Handling**: Hook failures are logged but don't crash the sprint - the main workflow continues
+
+**Hook Task Lifecycle:**
+```text
+spawned (running) → completed | failed
+```
+
+**Execution Order Per Iteration:**
+```text
+1. Execute phase prompt
+2. Run sequential hooks (blocking)
+3. Spawn parallel hooks (non-blocking)
+4. Write progress (includes hook task entries)
+5. Advance to next phase
+```
+
 ---
 
 ## Exit Mechanism: JSON Result Reporting

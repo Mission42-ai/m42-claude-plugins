@@ -5,6 +5,7 @@
 # 1. parallel: true flag is set on a sub-phase
 # 2. The flag propagates correctly during compilation
 
+schema-version: "2.0"
 name: Test Parallel Step Workflow
 description: |
   Test step workflow that includes a parallel sub-phase.

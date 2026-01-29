@@ -8,6 +8,7 @@
 # 4. qa      - Verify each scenario with 1/0 result, inject fixes on failure
 # 5. verify  - End-to-end integration verification
 
+schema-version: "2.0"
 name: Gherkin Step Workflow
 description: |
   Per-step workflow that generates binary-verifiable gherkin scenarios before

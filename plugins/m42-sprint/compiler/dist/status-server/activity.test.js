@@ -1,11 +1,31 @@
 "use strict";
 /**
- * Tests for Activity Feature
+ * Tests for Activity Feature - BUG-003: Live Activity Always Shows "Waiting for activity"
  *
- * Verifies that:
- * - ActivityWatcher correctly parses JSONL activity events
- * - StatusServer broadcasts activity events to SSE clients
- * - Events contain correct data structure
+ * Issue: The Live Activity panel on the Sprint Detail page always shows
+ * "Waiting for activity..." even when activity events are being written
+ * to .sprint-activity.jsonl.
+ *
+ * ROOT CAUSE: The sprint-activity-hook.sh uses `jq -n` without the `-c` flag,
+ * producing multi-line pretty-printed JSON instead of compact single-line JSONL.
+ * The ActivityWatcher expects one JSON object per line, so it fails to parse
+ * multi-line output and emits zero valid events.
+ *
+ * FIX: Change all `jq -n` to `jq -cn` in sprint-activity-hook.sh to produce
+ * compact single-line JSON output.
+ *
+ * Expected Behavior:
+ * - Activity events written to .sprint-activity.jsonl should be:
+ *   1. Written as single-line compact JSON (one per line)
+ *   2. Detected by ActivityWatcher
+ *   3. Parsed as valid ActivityEvent objects
+ *   4. Emitted as 'activity' events
+ *   5. Broadcast to SSE clients as 'activity-event' SSE events
+ *   6. Displayed in the Live Activity panel
+ *
+ * This test verifies:
+ * 1. The hook produces correct JSONL format (single-line JSON)
+ * 2. Backend components (ActivityWatcher, StatusServer) work correctly
  */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -45,6 +65,7 @@ const path = __importStar(require("path"));
 const fs = __importStar(require("fs"));
 const os = __importStar(require("os"));
 const http = __importStar(require("http"));
+const child_process_1 = require("child_process");
 const activity_watcher_js_1 = require("./activity-watcher.js");
 const activity_types_js_1 = require("./activity-types.js");
 const server_js_1 = require("./server.js");
@@ -134,6 +155,105 @@ function cleanupTestDir(dir) {
     }
 }
 // ============================================================================
+// BUG-003 Root Cause Test: Hook Script JSONL Format
+// ============================================================================
+/**
+ * Get the path to the sprint-activity-hook.sh script
+ */
+function getHookScriptPath() {
+    // Try relative path from compiler/src/status-server/
+    const paths = [
+        path.resolve(__dirname, '../../../../hooks/sprint-activity-hook.sh'),
+        path.resolve(__dirname, '../../../hooks/sprint-activity-hook.sh'),
+        '/home/konstantin/projects/m42-claude-plugins/plugins/m42-sprint/hooks/sprint-activity-hook.sh',
+    ];
+    for (const p of paths) {
+        if (fs.existsSync(p)) {
+            return p;
+        }
+    }
+    throw new Error('Could not find sprint-activity-hook.sh');
+}
+test('BUG-003: sprint-activity-hook.sh produces single-line JSONL output', async () => {
+    const tmpDir = await createTestSprintDir();
+    try {
+        const hookPath = getHookScriptPath();
+        // Simulate a tool use event
+        const toolEvent = JSON.stringify({
+            tool_name: 'Read',
+            tool_input: { file_path: '/test/file.ts' },
+            tool_response: { success: true },
+        });
+        // Run the hook script
+        try {
+            (0, child_process_1.execSync)(`echo '${toolEvent}' | bash "${hookPath}" "${tmpDir}"`, {
+                encoding: 'utf8',
+                env: { ...process.env, SPRINT_ACTIVITY_VERBOSITY: 'basic' },
+            });
+        }
+        catch (error) {
+            // Hook may fail if jq not found, skip test
+            console.log('  (skipping - jq not available)');
+            return;
+        }
+        const activityFile = path.join(tmpDir, '.sprint-activity.jsonl');
+        // Check file exists
+        assert(fs.existsSync(activityFile), 'Activity file should be created');
+        // Read the file content
+        const content = fs.readFileSync(activityFile, 'utf-8').trim();
+        const lines = content.split('\n');
+        // BUG-003: The hook produces multi-line pretty-printed JSON instead of single-line JSONL
+        // This test will FAIL until we add -c flag to jq commands in the hook
+        assert(lines.length === 1, `JSONL should have exactly 1 line per event. ` +
+            `Got ${lines.length} lines. ` +
+            `This is BUG-003: hook produces pretty-printed JSON instead of compact JSONL. ` +
+            `Content:\n${content}`);
+        // Verify the single line is valid JSON
+        let parsed;
+        try {
+            parsed = JSON.parse(lines[0]);
+        }
+        catch (e) {
+            assert(false, `Line should be valid JSON: ${lines[0]}`);
+        }
+        // Verify it's a valid ActivityEvent
+        assert((0, activity_types_js_1.isActivityEvent)(parsed), `Output should be a valid ActivityEvent: ${JSON.stringify(parsed)}`);
+    }
+    finally {
+        cleanupTestDir(tmpDir);
+    }
+});
+test('BUG-003: ActivityWatcher fails to parse multi-line JSON entries', async () => {
+    const tmpDir = await createTestSprintDir();
+    const activityFile = path.join(tmpDir, '.sprint-activity.jsonl');
+    try {
+        // Write multi-line pretty-printed JSON (what the buggy hook produces)
+        const prettyPrintedJson = `{
+  "ts": "2026-01-20T12:00:00Z",
+  "type": "tool",
+  "tool": "Read",
+  "level": "basic"
+}`;
+        fs.writeFileSync(activityFile, prettyPrintedJson);
+        const watcher = new activity_watcher_js_1.ActivityWatcher(activityFile, { debounceDelay: 50 });
+        const receivedEvents = [];
+        watcher.on('activity', (event) => {
+            receivedEvents.push(event);
+        });
+        watcher.start();
+        await sleep(200);
+        // BUG-003: ActivityWatcher processes line-by-line, so multi-line JSON fails to parse
+        // This demonstrates why the hook MUST produce single-line JSONL
+        assert(receivedEvents.length === 0, `ActivityWatcher should fail to parse multi-line JSON. ` +
+            `Unexpectedly received ${receivedEvents.length} events. ` +
+            `This test demonstrates the impact of BUG-003.`);
+        watcher.close();
+    }
+    finally {
+        cleanupTestDir(tmpDir);
+    }
+});
+// ============================================================================
 // Unit Tests: ActivityEvent Type Guard
 // ============================================================================
 test('isActivityEvent validates required fields', () => {
@@ -206,8 +326,10 @@ test('ActivityWatcher emits activity events for new JSONL entries', async () => 
         fs.writeFileSync(activityFile, eventJson + '\n');
         // Wait for watcher to detect and emit
         await sleep(300);
+        // BUG-003: This assertion should FAIL if the watcher isn't detecting new events
         assert(receivedEvents.length > 0, `ActivityWatcher should emit events for new JSONL entries. ` +
-            `Received ${receivedEvents.length} events, expected at least 1.`);
+            `Received ${receivedEvents.length} events, expected at least 1. ` +
+            `This indicates BUG-003: activity events are not being detected.`);
         const receivedEvent = receivedEvents[0];
         assert(receivedEvent.tool === 'Read', `Expected tool 'Read', got '${receivedEvent.tool}'`);
         assert(receivedEvent.type === 'tool' && receivedEvent.file === '/test/file.ts', `Expected file '/test/file.ts', got '${receivedEvent.type === 'tool' ? receivedEvent.file : 'N/A'}'`);
@@ -236,6 +358,7 @@ test('ActivityWatcher emits events for appended entries', async () => {
         const event2 = createActivityEventJson({ tool: 'Write', file: '/new/file.ts' });
         fs.appendFileSync(activityFile, event2 + '\n');
         await sleep(300);
+        // BUG-003: Watcher should detect appended entries
         assert(receivedEvents.length > initialCount, `ActivityWatcher should emit events for appended entries. ` +
             `Had ${initialCount} events, now have ${receivedEvents.length}. ` +
             `Expected at least ${initialCount + 1}.`);
@@ -263,8 +386,10 @@ test('ActivityWatcher reads initial content on start', async () => {
         });
         watcher.start();
         await sleep(200);
+        // BUG-003: Watcher should read and emit existing events on start
         assert(receivedEvents.length === 3, `ActivityWatcher should emit ${events.length} initial events. ` +
-            `Received ${receivedEvents.length}.`);
+            `Received ${receivedEvents.length}. ` +
+            `This affects historical activity display.`);
         watcher.close();
     }
     finally {
@@ -323,8 +448,10 @@ test('StatusServer broadcasts activity events to SSE clients', async () => {
             await ssePromise;
         }
         catch (error) {
+            // BUG-003: If we get here, SSE broadcast is not working
             assert(false, `StatusServer should broadcast activity events to SSE clients. ` +
-                `Error: ${error instanceof Error ? error.message : String(error)}.`);
+                `Error: ${error instanceof Error ? error.message : String(error)}. ` +
+                `This is BUG-003: Live Activity shows 'Waiting for activity'.`);
         }
         // Verify we received the activity event
         assert(sseEvents.length > 0, `Should have received at least 1 SSE activity event. ` +
@@ -488,6 +615,7 @@ test('ActivityWatcher handles file not existing initially', async () => {
         const eventJson = createActivityEventJson({ tool: 'Read' });
         fs.writeFileSync(activityFile, eventJson + '\n');
         await sleep(300);
+        // BUG-003: Should detect file creation and new events
         assert(receivedEvents.length > 0, `Watcher should detect file creation and emit events. ` +
             `Expected at least 1 event, got ${receivedEvents.length}.`);
         watcher.close();

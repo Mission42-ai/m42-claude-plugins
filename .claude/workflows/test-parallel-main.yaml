@@ -6,6 +6,7 @@
 # 2. wait-for-parallel: true flag is set on a sync phase
 # 3. Both flags propagate correctly during compilation
 
+schema-version: "2.0"
 name: Test Parallel Main Workflow
 description: |
   Test main workflow that demonstrates parallel execution pattern.

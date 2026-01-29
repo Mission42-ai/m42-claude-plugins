@@ -1,6 +1,7 @@
 # Execute Step Workflow
 # Minimal workflow for direct step execution
 
+schema-version: "2.0"
 name: Execute Step
 description: Single-phase workflow that executes a step directly.
 

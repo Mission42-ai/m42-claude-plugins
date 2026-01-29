@@ -19,6 +19,7 @@ import type {
   ClaudeModel,
   GateCheck
 } from './types.js';
+import { CURRENT_SCHEMA_VERSION, MIN_SCHEMA_VERSION } from './types.js';
 import { findUnresolvedVars } from './expand-foreach.js';
 
 /** Valid model values */
@@ -45,6 +46,36 @@ export function validateModel(model: unknown, path: string): CompilerError[] {
   }
 
   return errors;
+}
+
+/**
+ * Validate schema version of a workflow and produce warnings if missing or outdated
+ *
+ * @param workflow - The workflow definition to validate
+ * @param workflowName - Name of the workflow (for warning messages)
+ * @param warnings - Array to push warning messages to
+ */
+export function validateSchemaVersion(
+  workflow: WorkflowDefinition,
+  workflowName: string,
+  warnings: string[]
+): void {
+  const version = workflow['schema-version'];
+
+  if (!version) {
+    warnings.push(
+      `Workflow '${workflowName}' has no schema-version field. ` +
+      `Consider adding: schema-version: "${CURRENT_SCHEMA_VERSION}"`
+    );
+    return;
+  }
+
+  if (version !== CURRENT_SCHEMA_VERSION) {
+    warnings.push(
+      `Workflow '${workflowName}' uses schema-version ${version}. ` +
+      `Current version is ${CURRENT_SCHEMA_VERSION}. Consider updating.`
+    );
+  }
 }
 
 /**

@@ -1,6 +1,7 @@
 # Bugfix Workflow
 # Streamlined workflow for fixing bugs quickly
 
+schema-version: "2.0"
 name: Bugfix Workflow
 description: Focused workflow for diagnosing and fixing bugs with minimal overhead.
 

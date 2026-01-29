@@ -2,6 +2,7 @@
 # Workflow that executes each step with quality assurance verification
 # Tailored for m42-sprint plugin development
 
+schema-version: "2.0"
 name: Flat For-Each with QA
 description: |
   Workflow that first creates a sprint plan document, then iterates through

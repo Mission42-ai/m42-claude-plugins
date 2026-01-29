@@ -2,6 +2,7 @@
 # Two-phase workflow for m42-sprint plugin development with quality assurance
 # Tailored for: TypeScript compiler + shell scripts + Claude commands/workflows
 
+schema-version: "2.0"
 name: Execute with QA
 description: |
   Two-phase workflow that executes a step and verifies quality against

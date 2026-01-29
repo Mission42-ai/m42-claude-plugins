@@ -6,6 +6,7 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.validateModel = validateModel;
+exports.validateSchemaVersion = validateSchemaVersion;
 exports.validateSprintDefinition = validateSprintDefinition;
 exports.validateStandardModeSprint = validateStandardModeSprint;
 exports.validateCollections = validateCollections;
@@ -22,6 +23,7 @@ exports.validateCompiledProgress = validateCompiledProgress;
 exports.isValidGitBranchName = isValidGitBranchName;
 exports.validateWorktreeConfig = validateWorktreeConfig;
 exports.validateWorkflowWorktreeDefaults = validateWorkflowWorktreeDefaults;
+const types_js_1 = require("./types.js");
 const expand_foreach_js_1 = require("./expand-foreach.js");
 /** Valid model values */
 const VALID_MODELS = ['sonnet', 'opus', 'haiku'];
@@ -44,6 +46,25 @@ function validateModel(model, path) {
         }
     }
     return errors;
+}
+/**
+ * Validate schema version of a workflow and produce warnings if missing or outdated
+ *
+ * @param workflow - The workflow definition to validate
+ * @param workflowName - Name of the workflow (for warning messages)
+ * @param warnings - Array to push warning messages to
+ */
+function validateSchemaVersion(workflow, workflowName, warnings) {
+    const version = workflow['schema-version'];
+    if (!version) {
+        warnings.push(`Workflow '${workflowName}' has no schema-version field. ` +
+            `Consider adding: schema-version: "${types_js_1.CURRENT_SCHEMA_VERSION}"`);
+        return;
+    }
+    if (version !== types_js_1.CURRENT_SCHEMA_VERSION) {
+        warnings.push(`Workflow '${workflowName}' uses schema-version ${version}. ` +
+            `Current version is ${types_js_1.CURRENT_SCHEMA_VERSION}. Consider updating.`);
+    }
 }
 /**
  * Validate a sprint definition (SPRINT.yaml) - basic validation
