@@ -5,15 +5,22 @@ All notable changes to the m42-sprint plugin will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.3.1] - 2026-01-29
+## [2.4.0] - 2026-01-29
 
 ### Added
+- DAG scheduler for parallel step execution with dependency resolution
+- Step dependency support via `depends-on` field in steps
+- `dependency-graph` section in PROGRESS.yaml for tracking execution order
+- Parallel execution config with `max-concurrent` limiting
+- Step injection with dependency awareness
+- Failure policies: `skip-dependents`, `continue`, `fail-phase`
 - Automatic worktree context injection - prepends execution context (working directory, branch, main repo path) to phase prompts when running in worktree mode
 
 ### Fixed
 - Simplified worktree working directory resolution to use `working-dir` field directly
 
 ### Changed
+- Documentation updates for parallel execution and dependency features
 - Added model hints to all commands for optimal model selection
 
 ## [2.3.0] - 2026-01-29
