@@ -55,7 +55,7 @@ Run multiple sprints simultaneously using git worktrees. Each sprint gets its ow
 
 ```bash
 # Start a sprint with dedicated worktree
-/start-sprint feature-auth --ralph --worktree
+/init-sprint feature-auth --ralph --worktree
 
 # Navigate to worktree and run
 cd ../2026-01-20_feature-auth-worktree
@@ -90,7 +90,7 @@ goal: |
 
 | Command | Description |
 |---------|-------------|
-| `/start-sprint <name> --worktree` | Create sprint with dedicated worktree |
+| `/init-sprint <name> --worktree` | Create sprint with dedicated worktree |
 | `/sprint-status --all-worktrees` | View all parallel sprints |
 | `/cleanup-sprint <path>` | Remove worktree and optionally branch |
 
@@ -245,20 +245,22 @@ Model selection follows a precedence hierarchy (highest to lowest priority):
 workflow: sprint-default
 model: opus  # All phases use opus unless overridden
 
-steps:
-  - Design the architecture
-  - Implement the solution
+collections:
+  step:
+    - prompt: Design the architecture
+    - prompt: Implement the solution
 ```
 
-**Step-level override:**
+**Item-level override:**
 ```yaml
 workflow: sprint-default
 model: sonnet
 
-steps:
-  - prompt: Design the architecture
-    model: opus  # This step uses opus
-  - Implement the solution  # Uses sonnet (sprint default)
+collections:
+  step:
+    - prompt: Design the architecture
+      model: opus  # This item uses opus
+    - prompt: Implement the solution  # Uses sonnet (sprint default)
 ```
 
 ---
