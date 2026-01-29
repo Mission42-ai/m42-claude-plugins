@@ -45,7 +45,7 @@ import { runClaude as defaultRunClaude, SPRINT_RESULT_SCHEMA } from './claude-ru
 import type { ClaudeResult, ClaudeRunOptions } from './claude-runner.js';
 
 // Import from worktree module
-import { getProjectRoot } from './worktree.js';
+import { getProjectRoot, getWorktreeInfo } from './worktree.js';
 
 // Import from operator module
 import {
@@ -956,9 +956,16 @@ export async function runLoop(
     const preClaudeChecksum = getFileChecksum(progressPath);
 
     // Determine the correct working directory for Claude execution
-    // For worktree sprints: use the worktree root (working-dir from PROGRESS.yaml)
+    // For worktree sprints: resolve the worktree path relative to main repo root
     // For non-worktree sprints: use the project root (git root or folder containing .claude/)
-    const workingDir = progress.worktree?.['working-dir'] ?? getProjectRoot(sprintDir);
+    let workingDir: string;
+    if (progress.worktree?.enabled && progress.worktree?.path) {
+      // Worktree path is relative to main repo root - resolve it
+      const worktreeInfo = getWorktreeInfo(sprintDir);
+      workingDir = path.resolve(worktreeInfo.mainWorktreePath, progress.worktree.path);
+    } else {
+      workingDir = getProjectRoot(sprintDir);
+    }
 
     // Execute SPAWN_CLAUDE action directly
     // Use --json-schema to enforce validated structured output
