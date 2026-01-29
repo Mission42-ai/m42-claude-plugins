@@ -11,6 +11,7 @@ phases: <list>           # Ordered list of phase definitions
 
 # Optional fields
 description: <string>    # Brief description of workflow purpose
+worktree: <object>       # Default worktree settings for sprints using this workflow
 ```
 
 ## How Workflows Fit the Architecture
@@ -147,6 +148,7 @@ phases:
 | `name` | string | **Yes** | - | Human-readable workflow name |
 | `phases` | list | **Yes** | - | Ordered list of phase definitions |
 | `description` | string | No | - | Brief description of workflow purpose |
+| `worktree` | object | No | - | Default worktree settings for sprints using this workflow |
 
 ### Phase Types
 
@@ -171,6 +173,37 @@ Workflows support two types of phases:
 | `id` | string | **Yes** | Unique phase identifier (kebab-case recommended) |
 | `for-each` | `'step'` | **Yes** | Iteration mode (only `step` supported) |
 | `workflow` | string | **Yes** | Workflow reference (without `.yaml` extension) |
+
+### Worktree Default Fields
+
+Set default worktree behavior for all sprints using this workflow. Sprint-level settings override these defaults.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | boolean | `false` | Enable dedicated worktree by default |
+| `branch-prefix` | string | `sprint/` | Prefix for generated branch names |
+| `path-prefix` | string | `../` | Prefix for generated worktree paths |
+| `cleanup` | string | `on-complete` | Default cleanup mode: `never`, `on-complete`, `on-merge` |
+
+**Example:**
+
+```yaml
+name: Feature Development
+description: Workflow with automatic worktree isolation
+
+worktree:
+  enabled: true
+  branch-prefix: feature/
+  path-prefix: ../features/
+  cleanup: on-complete
+
+phases:
+  - id: develop
+    for-each: step
+    workflow: plan-execute-verify
+```
+
+When a sprint uses this workflow, it automatically gets a worktree unless the sprint explicitly sets `worktree.enabled: false`.
 
 ## Phase Type Details
 
@@ -434,7 +467,43 @@ phases:
 
 **Use when:** Running full development sprints with multiple steps.
 
-### Pattern 5: Bug Fix
+### Pattern 5: Parallel Feature Development
+
+Workflow with automatic worktree isolation for parallel execution:
+
+```yaml
+name: Parallel Feature
+description: Isolated feature development in dedicated worktrees
+
+worktree:
+  enabled: true
+  branch-prefix: feature/
+  path-prefix: ../features/
+  cleanup: on-complete
+
+phases:
+  - id: setup
+    prompt: |
+      Initialize feature environment:
+      1. Review existing codebase
+      2. Identify integration points
+      3. Document in context/setup.md
+
+  - id: develop
+    for-each: step
+    workflow: plan-execute-verify
+
+  - id: finalize
+    prompt: |
+      Finalize feature:
+      1. Run full test suite
+      2. Create PR: gh pr create
+      3. Request review
+```
+
+**Use when:** Running parallel sprints that shouldn't interfere with each other.
+
+### Pattern 6: Bug Fix
 
 Focused workflow for diagnosing and fixing bugs.
 
@@ -600,6 +669,7 @@ interface WorkflowDefinition {
   name: string;
   description?: string;
   phases: WorkflowPhase[];
+  worktree?: WorkflowWorktreeDefaults;
 }
 
 type WorkflowPhase = SimplePhase | ForEachPhase;
@@ -614,6 +684,14 @@ interface ForEachPhase {
   'for-each': 'step';
   workflow: string;
 }
+
+// Default worktree settings applied to sprints using this workflow
+interface WorkflowWorktreeDefaults {
+  enabled: boolean;
+  'branch-prefix'?: string;   // e.g., "feature/"
+  'path-prefix'?: string;     // e.g., "../features/"
+  cleanup?: 'never' | 'on-complete' | 'on-merge';
+}
 ```
 
 **Source of Truth:** `compiler/src/types.ts`
@@ -624,4 +702,5 @@ interface ForEachPhase {
 - [PROGRESS.yaml Schema](./progress-yaml-schema.md) - Generated execution state
 - [Commands Reference](./commands.md) - Sprint management commands
 - [Writing Workflows Guide](../guides/writing-workflows.md) - Best practices
+- [Worktree Sprints Guide](../guides/worktree-sprints.md) - Parallel development with git worktrees
 - [Workflow Compilation](../concepts/workflow-compilation.md) - How workflows are processed

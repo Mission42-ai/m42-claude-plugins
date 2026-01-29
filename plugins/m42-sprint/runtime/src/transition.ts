@@ -209,6 +209,23 @@ export interface CompiledTopPhase {
   'wait-for-parallel'?: boolean;
 }
 
+/** Worktree cleanup mode */
+export type WorktreeCleanup = 'never' | 'on-complete' | 'on-merge';
+
+/**
+ * Compiled worktree configuration in PROGRESS.yaml
+ */
+export interface CompiledWorktreeConfig {
+  enabled: boolean;
+  branch: string;
+  path: string;
+  cleanup: WorktreeCleanup;
+  'created-at'?: string;
+  'cleaned-up'?: boolean;
+  /** Working directory for Claude execution (worktree root or project root) */
+  'working-dir'?: string;
+}
+
 /**
  * Compiled Progress - the runtime format
  */
@@ -230,6 +247,7 @@ export interface CompiledProgress {
   'step-queue'?: StepQueueItem[];
   prompts?: unknown;
   retry?: RetryConfig;
+  worktree?: CompiledWorktreeConfig;
 }
 
 /**

@@ -84,4 +84,28 @@ export declare function checkUnresolvedVariables(progress: CompiledProgress): Co
  * @returns Array of validation errors
  */
 export declare function validateCompiledProgress(progress: CompiledProgress): CompilerError[];
+/**
+ * Validate a git branch name according to git ref rules
+ * @see https://git-scm.com/docs/git-check-ref-format
+ *
+ * @param branch - The branch name to validate (may contain variables like {sprint-id})
+ * @returns true if the branch name is valid
+ */
+export declare function isValidGitBranchName(branch: string): boolean;
+/**
+ * Validate worktree configuration from SPRINT.yaml
+ *
+ * @param worktree - The worktree configuration to validate
+ * @param configPath - Path prefix for error messages (e.g., 'worktree' or 'workflow.worktree')
+ * @returns Array of validation errors
+ */
+export declare function validateWorktreeConfig(worktree: unknown, configPath: string): CompilerError[];
+/**
+ * Validate workflow-level worktree defaults
+ *
+ * @param worktree - The workflow worktree defaults to validate
+ * @param workflowName - Name of the workflow (for error messages)
+ * @returns Array of validation errors
+ */
+export declare function validateWorkflowWorktreeDefaults(worktree: unknown, workflowName: string): CompilerError[];
 //# sourceMappingURL=validate.d.ts.map

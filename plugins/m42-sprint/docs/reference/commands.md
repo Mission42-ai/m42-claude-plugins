@@ -6,8 +6,9 @@ Complete reference for all M42-Sprint commands organized by category.
 
 | Command | Description | Category |
 |---------|-------------|----------|
-| `/start-sprint <name> [--ralph \| --workflow <name>]` | Initialize new sprint directory | Lifecycle |
+| `/start-sprint <name> [--ralph \| --workflow <name>] [--worktree]` | Initialize new sprint directory | Lifecycle |
 | `/run-sprint <dir> [options]` | Compile and execute sprint | Lifecycle |
+| `/cleanup-sprint [dir] [--force]` | Remove worktree and clean up sprint | Lifecycle |
 | `/stop-sprint` | Forcefully stop sprint loop | Control |
 | `/pause-sprint` | Pause after current task | Control |
 | `/resume-sprint` | Resume paused sprint | Control |
@@ -26,11 +27,11 @@ Commands for creating and running sprints.
 
 ### /start-sprint
 
-Initialize a new sprint directory with either **Ralph mode** (autonomous goal-driven) or **workflow-based** configuration.
+Initialize a new sprint directory with either **Ralph mode** (autonomous goal-driven) or **workflow-based** configuration. Optionally create a dedicated git worktree for parallel development.
 
 **Usage:**
 ```bash
-/start-sprint <sprint-name> [--ralph | --workflow <name>]
+/start-sprint <sprint-name> [--ralph | --workflow <name>] [--worktree] [--reuse-branch]
 ```
 
 **Arguments:**
@@ -43,6 +44,8 @@ Initialize a new sprint directory with either **Ralph mode** (autonomous goal-dr
 |--------|-------------|
 | `--ralph` | Create Ralph mode sprint (autonomous, goal-driven) |
 | `--workflow <name>` | Create workflow-based sprint with specified workflow |
+| `--worktree` | Create dedicated git worktree for isolated parallel development |
+| `--reuse-branch` | Reuse existing branch if it exists (for worktree mode) |
 
 **Sprint Modes:**
 
@@ -69,6 +72,12 @@ Initialize a new sprint directory with either **Ralph mode** (autonomous goal-dr
 
 # If mode not specified, you'll be asked to choose
 /start-sprint my-sprint
+
+# Create sprint with dedicated worktree (parallel development)
+/start-sprint feature-auth --ralph --worktree
+
+# Worktree with workflow (inherits workflow's worktree defaults)
+/start-sprint feature-dashboard --workflow feature-development --worktree
 ```
 
 **Output (Ralph Mode):**
@@ -103,11 +112,107 @@ Next steps:
   3. Use --dry-run first to preview the workflow
 ```
 
+**Output (Worktree Mode):**
+```
+Sprint initialized with dedicated worktree!
+
+Location: .claude/sprints/2026-01-20_feature-auth/
+Worktree: ../2026-01-20_feature-auth-worktree
+Branch: sprint/2026-01-20_feature-auth
+
+To run the sprint:
+  cd ../2026-01-20_feature-auth-worktree
+  /run-sprint .claude/sprints/2026-01-20_feature-auth
+
+Note: The sprint directory exists in the worktree, not the main repo.
+All file operations will be relative to the worktree root.
+```
+
 **Notes:**
 - Creates sprint with current date prefix: `YYYY-MM-DD_<name>`
 - Ralph mode: Uses `workflow: ralph` with `goal:` field
 - Workflow mode: Uses `workflow: <name>` with `steps:` array
 - PROGRESS.yaml is NOT created here - it's compiled when running `/run-sprint`
+- Worktree mode: Creates isolated git branch and working directory
+  - Default branch: `sprint/<sprint-id>`
+  - Default path: `../<sprint-id>-worktree`
+  - Configure in SPRINT.yaml `worktree:` section or workflow defaults
+
+---
+
+### /cleanup-sprint
+
+Remove worktree and clean up sprint resources after completion.
+
+**Usage:**
+```bash
+/cleanup-sprint [sprint-directory] [options]
+```
+
+**Arguments:**
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `[sprint-directory]` | No | Path to sprint (defaults to most recent) |
+
+**Options:**
+| Option | Description |
+|--------|-------------|
+| `--force` | Bypass safety checks (uncommitted changes, unpushed commits) |
+| `--keep-branch` | Remove worktree but preserve git branch |
+| `--archive` | Archive sprint directory before cleanup |
+| `--dry-run` | Preview cleanup actions without executing |
+
+**Examples:**
+```bash
+# Cleanup most recent sprint
+/cleanup-sprint
+
+# Cleanup specific sprint
+/cleanup-sprint .claude/sprints/2026-01-20_feature-auth
+
+# Preview cleanup without executing
+/cleanup-sprint --dry-run
+
+# Force cleanup (ignore safety checks)
+/cleanup-sprint --force
+
+# Keep branch for future reference
+/cleanup-sprint --keep-branch
+
+# Archive before cleanup
+/cleanup-sprint --archive
+```
+
+**Output:**
+```
+Cleanup: 2026-01-20_feature-auth
+=================================
+
+Safety Checks:
+  [x] Sprint status: completed
+  [x] No uncommitted changes
+  [x] All commits pushed
+
+Actions:
+  [x] Removed worktree: ../2026-01-20_feature-auth-worktree
+  [x] Deleted branch: sprint/2026-01-20_feature-auth
+
+Cleanup complete.
+```
+
+**Safety checks:**
+- Sprint must be in terminal state (completed, blocked, or paused)
+- Warns if worktree has uncommitted changes
+- Warns if branch has unpushed commits
+- Use `--force` to bypass (with caution)
+
+**Notes:**
+- Only applicable to worktree sprints
+- For non-worktree sprints, just removes sprint directory metadata
+- Automatic cleanup based on `worktree.cleanup` setting:
+  - `never`: Manual cleanup required
+  - `on-complete`: Auto-cleanup when sprint completes
+  - `on-merge`: Auto-cleanup after branch merged to main
 
 ---
 
@@ -353,8 +458,13 @@ Display current sprint progress with hierarchical phase/step/sub-phase status.
 
 **Usage:**
 ```bash
-/sprint-status
+/sprint-status [options]
 ```
+
+**Options:**
+| Option | Description |
+|--------|-------------|
+| `--all-worktrees` | Show sprints across all git worktrees |
 
 **Output:**
 ```
@@ -378,6 +488,22 @@ Phases:
 Current: development > step-2 > implement
 ```
 
+**Output (--all-worktrees):**
+```
+Active Sprints Across Worktrees:
+
+* /home/user/project (main)
+  └─ No active sprint
+
+  /home/user/2026-01-20_feature-auth-worktree (sprint/2026-01-20_feature-auth)
+  └─ feature-auth: in-progress (3/8 phases)
+
+  /home/user/2026-01-20_bugfix-login-worktree (sprint/2026-01-20_bugfix-login)
+  └─ bugfix-login: completed (5/5 phases)
+
+Legend: * = current worktree
+```
+
 **Status indicators:**
 | Symbol | Meaning |
 |--------|---------|
@@ -387,9 +513,10 @@ Current: development > step-2 > implement
 | `[!]` | Blocked |
 
 **Notes:**
-- Automatically finds the most recent sprint
+- Automatically finds the most recent sprint in current worktree
 - Shows hierarchical progress with indentation
 - Displays stats and current pointer position
+- With `--all-worktrees`: discovers sprints across all git worktrees for parallel execution monitoring
 
 ---
 
@@ -656,6 +783,28 @@ Display comprehensive help about the M42-Sprint plugin.
 /run-sprint .claude/sprints/2026-01-15_bugfix-batch --max-iterations 50
 ```
 
+### Parallel Development with Worktrees
+
+```bash
+# Terminal 1: Start first feature in worktree
+/start-sprint feature-auth --ralph --worktree
+cd ../2026-01-20_feature-auth-worktree
+/run-sprint .claude/sprints/2026-01-20_feature-auth
+
+# Terminal 2: Start second feature in separate worktree
+/start-sprint feature-payments --ralph --worktree
+cd ../2026-01-20_feature-payments-worktree
+/run-sprint .claude/sprints/2026-01-20_feature-payments
+
+# Monitor all sprints from any terminal
+/sprint-status --all-worktrees
+
+# After completion, merge and cleanup
+git checkout main
+git merge sprint/2026-01-20_feature-auth
+/cleanup-sprint .claude/sprints/2026-01-20_feature-auth
+```
+
 ---
 
 ## Status Values Reference
@@ -687,4 +836,5 @@ The sprint loop monitors PROGRESS.yaml for these status values:
 - [Workflow Compilation](../concepts/workflow-compilation.md) - How SPRINT.yaml compiles
 - [SPRINT.yaml Schema](sprint-yaml-schema.md) - Sprint configuration reference
 - [PROGRESS.yaml Schema](progress-yaml-schema.md) - Progress tracking reference
+- [Worktree Sprints Guide](../guides/worktree-sprints.md) - Parallel development with git worktrees
 - [API Reference](api.md) - Status server REST API for worktree-aware monitoring

@@ -11,7 +11,10 @@ import type {
   SprintStep,
   CompiledProgress,
   CompilerError,
-  PerIterationHook
+  PerIterationHook,
+  WorktreeConfig,
+  WorkflowWorktreeDefaults,
+  WorktreeCleanup
 } from './types.js';
 import { findUnresolvedVars } from './expand-foreach.js';
 
@@ -56,6 +59,12 @@ export function validateSprintDefinition(sprint: unknown): CompilerError[] {
       const stepErrors = validateSprintStep(step, index);
       errors.push(...stepErrors);
     });
+  }
+
+  // Validate worktree configuration if present
+  if (s.worktree !== undefined) {
+    const worktreeErrors = validateWorktreeConfig(s.worktree, 'worktree');
+    errors.push(...worktreeErrors);
   }
 
   return errors;
@@ -179,6 +188,12 @@ export function validateWorkflowDefinition(
       message: `Workflow ${name} has invalid mode: must be 'standard' or 'ralph'`,
       path: `${name}.mode`
     });
+  }
+
+  // Validate worktree defaults if present (applies to both modes)
+  if (w.worktree !== undefined) {
+    const worktreeErrors = validateWorkflowWorktreeDefaults(w.worktree, name);
+    errors.push(...worktreeErrors);
   }
 
   // Ralph mode workflows don't require phases
@@ -528,6 +543,256 @@ export function validateCompiledProgress(progress: CompiledProgress): CompilerEr
       code: 'MISSING_CURRENT',
       message: 'Compiled progress must have a current pointer'
     });
+  }
+
+  return errors;
+}
+
+// ============================================================================
+// Worktree Configuration Validation
+// ============================================================================
+
+/** Valid cleanup modes for worktrees */
+const VALID_CLEANUP_MODES: WorktreeCleanup[] = ['never', 'on-complete', 'on-merge'];
+
+/**
+ * Validate a git branch name according to git ref rules
+ * @see https://git-scm.com/docs/git-check-ref-format
+ *
+ * @param branch - The branch name to validate (may contain variables like {sprint-id})
+ * @returns true if the branch name is valid
+ */
+export function isValidGitBranchName(branch: string): boolean {
+  // Allow variable placeholders - they'll be substituted at runtime
+  // Remove placeholders for validation
+  const withoutVars = branch.replace(/\{[^}]+\}/g, 'placeholder');
+
+  // Empty after removing vars is invalid
+  if (withoutVars.length === 0) {
+    return false;
+  }
+
+  // Cannot start or end with /
+  if (withoutVars.startsWith('/') || withoutVars.endsWith('/')) {
+    return false;
+  }
+
+  // Cannot have consecutive slashes
+  if (withoutVars.includes('//')) {
+    return false;
+  }
+
+  // Cannot start with -
+  if (withoutVars.startsWith('-')) {
+    return false;
+  }
+
+  // Cannot end with .lock
+  if (withoutVars.endsWith('.lock')) {
+    return false;
+  }
+
+  // Cannot contain certain characters
+  const invalidChars = /[~^:?*\[\]\\@{}\s]/;
+  if (invalidChars.test(withoutVars)) {
+    return false;
+  }
+
+  // Cannot have consecutive dots
+  if (withoutVars.includes('..')) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * Validate worktree configuration from SPRINT.yaml
+ *
+ * @param worktree - The worktree configuration to validate
+ * @param configPath - Path prefix for error messages (e.g., 'worktree' or 'workflow.worktree')
+ * @returns Array of validation errors
+ */
+export function validateWorktreeConfig(
+  worktree: unknown,
+  configPath: string
+): CompilerError[] {
+  const errors: CompilerError[] = [];
+
+  // Worktree config is optional - undefined/null is valid
+  if (worktree === undefined || worktree === null) {
+    return errors;
+  }
+
+  if (typeof worktree !== 'object') {
+    errors.push({
+      code: 'INVALID_WORKTREE_CONFIG',
+      message: 'Worktree configuration must be an object',
+      path: configPath
+    });
+    return errors;
+  }
+
+  const w = worktree as Record<string, unknown>;
+
+  // Validate 'enabled' field (required)
+  if (w.enabled === undefined) {
+    errors.push({
+      code: 'WORKTREE_MISSING_ENABLED',
+      message: 'Worktree configuration must specify enabled: true or false',
+      path: `${configPath}.enabled`
+    });
+  } else if (typeof w.enabled !== 'boolean') {
+    errors.push({
+      code: 'WORKTREE_INVALID_ENABLED',
+      message: 'Worktree enabled must be a boolean',
+      path: `${configPath}.enabled`
+    });
+  }
+
+  // Validate 'branch' field (optional string)
+  if (w.branch !== undefined) {
+    if (typeof w.branch !== 'string') {
+      errors.push({
+        code: 'WORKTREE_INVALID_BRANCH',
+        message: 'Worktree branch must be a string',
+        path: `${configPath}.branch`
+      });
+    } else if (w.branch.trim().length === 0) {
+      errors.push({
+        code: 'WORKTREE_EMPTY_BRANCH',
+        message: 'Worktree branch cannot be empty',
+        path: `${configPath}.branch`
+      });
+    } else if (!isValidGitBranchName(w.branch)) {
+      errors.push({
+        code: 'WORKTREE_INVALID_BRANCH_NAME',
+        message: `Worktree branch '${w.branch}' is not a valid git branch name`,
+        path: `${configPath}.branch`
+      });
+    }
+  }
+
+  // Validate 'path' field (optional string)
+  if (w.path !== undefined) {
+    if (typeof w.path !== 'string') {
+      errors.push({
+        code: 'WORKTREE_INVALID_PATH',
+        message: 'Worktree path must be a string',
+        path: `${configPath}.path`
+      });
+    } else if (w.path.trim().length === 0) {
+      errors.push({
+        code: 'WORKTREE_EMPTY_PATH',
+        message: 'Worktree path cannot be empty',
+        path: `${configPath}.path`
+      });
+    }
+  }
+
+  // Validate 'cleanup' field (optional enum)
+  if (w.cleanup !== undefined) {
+    if (typeof w.cleanup !== 'string') {
+      errors.push({
+        code: 'WORKTREE_INVALID_CLEANUP',
+        message: 'Worktree cleanup must be a string',
+        path: `${configPath}.cleanup`
+      });
+    } else if (!VALID_CLEANUP_MODES.includes(w.cleanup as WorktreeCleanup)) {
+      errors.push({
+        code: 'WORKTREE_INVALID_CLEANUP_MODE',
+        message: `Worktree cleanup must be one of: ${VALID_CLEANUP_MODES.join(', ')}`,
+        path: `${configPath}.cleanup`
+      });
+    }
+  }
+
+  return errors;
+}
+
+/**
+ * Validate workflow-level worktree defaults
+ *
+ * @param worktree - The workflow worktree defaults to validate
+ * @param workflowName - Name of the workflow (for error messages)
+ * @returns Array of validation errors
+ */
+export function validateWorkflowWorktreeDefaults(
+  worktree: unknown,
+  workflowName: string
+): CompilerError[] {
+  const errors: CompilerError[] = [];
+  const configPath = `${workflowName}.worktree`;
+
+  // Worktree defaults are optional
+  if (worktree === undefined || worktree === null) {
+    return errors;
+  }
+
+  if (typeof worktree !== 'object') {
+    errors.push({
+      code: 'INVALID_WORKFLOW_WORKTREE',
+      message: 'Workflow worktree configuration must be an object',
+      path: configPath
+    });
+    return errors;
+  }
+
+  const w = worktree as Record<string, unknown>;
+
+  // Validate 'enabled' field (required)
+  if (w.enabled === undefined) {
+    errors.push({
+      code: 'WORKFLOW_WORKTREE_MISSING_ENABLED',
+      message: 'Workflow worktree configuration must specify enabled: true or false',
+      path: `${configPath}.enabled`
+    });
+  } else if (typeof w.enabled !== 'boolean') {
+    errors.push({
+      code: 'WORKFLOW_WORKTREE_INVALID_ENABLED',
+      message: 'Workflow worktree enabled must be a boolean',
+      path: `${configPath}.enabled`
+    });
+  }
+
+  // Validate 'branch-prefix' field (optional string)
+  if (w['branch-prefix'] !== undefined) {
+    if (typeof w['branch-prefix'] !== 'string') {
+      errors.push({
+        code: 'WORKFLOW_WORKTREE_INVALID_BRANCH_PREFIX',
+        message: 'Workflow worktree branch-prefix must be a string',
+        path: `${configPath}.branch-prefix`
+      });
+    }
+    // Note: We don't validate the prefix as a git branch name since it's just a prefix
+  }
+
+  // Validate 'path-prefix' field (optional string)
+  if (w['path-prefix'] !== undefined) {
+    if (typeof w['path-prefix'] !== 'string') {
+      errors.push({
+        code: 'WORKFLOW_WORKTREE_INVALID_PATH_PREFIX',
+        message: 'Workflow worktree path-prefix must be a string',
+        path: `${configPath}.path-prefix`
+      });
+    }
+  }
+
+  // Validate 'cleanup' field (optional enum)
+  if (w.cleanup !== undefined) {
+    if (typeof w.cleanup !== 'string') {
+      errors.push({
+        code: 'WORKFLOW_WORKTREE_INVALID_CLEANUP',
+        message: 'Workflow worktree cleanup must be a string',
+        path: `${configPath}.cleanup`
+      });
+    } else if (!VALID_CLEANUP_MODES.includes(w.cleanup as WorktreeCleanup)) {
+      errors.push({
+        code: 'WORKFLOW_WORKTREE_INVALID_CLEANUP_MODE',
+        message: `Workflow worktree cleanup must be one of: ${VALID_CLEANUP_MODES.join(', ')}`,
+        path: `${configPath}.cleanup`
+      });
+    }
   }
 
   return errors;

@@ -2,7 +2,13 @@
  * Tests for validation module
  */
 
-import { validateWorkflowDefinition } from './validate.js';
+import {
+  validateWorkflowDefinition,
+  validateWorktreeConfig,
+  validateWorkflowWorktreeDefaults,
+  isValidGitBranchName,
+  validateSprintDefinition
+} from './validate.js';
 
 // Simple test runner
 function test(name: string, fn: () => void): void {
@@ -149,6 +155,235 @@ test('PARALLEL_FOREACH_WARNING: should not warn when parallel false with for-eac
 
   const warningErrors = errors.filter(e => e.code === 'PARALLEL_FOREACH_WARNING');
   assert(warningErrors.length === 0, `Should have no PARALLEL_FOREACH_WARNING errors, got ${warningErrors.length}`);
+});
+
+// ============================================================================
+// Worktree Configuration Validation Tests
+// ============================================================================
+
+// Git branch name validation tests
+test('isValidGitBranchName: should accept valid branch names', () => {
+  assert(isValidGitBranchName('main'), 'main should be valid');
+  assert(isValidGitBranchName('feature/auth'), 'feature/auth should be valid');
+  assert(isValidGitBranchName('sprint/{sprint-id}'), 'sprint/{sprint-id} should be valid (with variable)');
+  assert(isValidGitBranchName('release-1.0'), 'release-1.0 should be valid');
+  assert(isValidGitBranchName('user/john/feature'), 'nested paths should be valid');
+});
+
+test('isValidGitBranchName: should reject invalid branch names', () => {
+  assert(!isValidGitBranchName('/leading-slash'), 'leading slash should be invalid');
+  assert(!isValidGitBranchName('trailing-slash/'), 'trailing slash should be invalid');
+  assert(!isValidGitBranchName('double//slash'), 'double slash should be invalid');
+  assert(!isValidGitBranchName('-starts-with-hyphen'), 'leading hyphen should be invalid');
+  assert(!isValidGitBranchName('ends-with.lock'), '.lock suffix should be invalid');
+  assert(!isValidGitBranchName('has..dots'), 'consecutive dots should be invalid');
+  assert(!isValidGitBranchName('has spaces'), 'spaces should be invalid');
+  assert(!isValidGitBranchName('has~tilde'), 'tilde should be invalid');
+});
+
+// Sprint worktree config validation tests
+test('WORKTREE_MISSING_ENABLED: should fail when enabled is missing', () => {
+  const worktree = {
+    branch: 'sprint/test'
+  };
+
+  const errors = validateWorktreeConfig(worktree, 'worktree');
+
+  const enabledErrors = errors.filter(e => e.code === 'WORKTREE_MISSING_ENABLED');
+  assert(enabledErrors.length === 1, `Expected 1 WORKTREE_MISSING_ENABLED error, got ${enabledErrors.length}`);
+});
+
+test('WORKTREE_INVALID_ENABLED: should fail when enabled is not boolean', () => {
+  const worktree = {
+    enabled: 'yes'
+  };
+
+  const errors = validateWorktreeConfig(worktree, 'worktree');
+
+  const enabledErrors = errors.filter(e => e.code === 'WORKTREE_INVALID_ENABLED');
+  assert(enabledErrors.length === 1, `Expected 1 WORKTREE_INVALID_ENABLED error, got ${enabledErrors.length}`);
+});
+
+test('WORKTREE_INVALID_BRANCH: should fail when branch is not string', () => {
+  const worktree = {
+    enabled: true,
+    branch: 123
+  };
+
+  const errors = validateWorktreeConfig(worktree, 'worktree');
+
+  const branchErrors = errors.filter(e => e.code === 'WORKTREE_INVALID_BRANCH');
+  assert(branchErrors.length === 1, `Expected 1 WORKTREE_INVALID_BRANCH error, got ${branchErrors.length}`);
+});
+
+test('WORKTREE_EMPTY_BRANCH: should fail when branch is empty string', () => {
+  const worktree = {
+    enabled: true,
+    branch: '   '
+  };
+
+  const errors = validateWorktreeConfig(worktree, 'worktree');
+
+  const emptyErrors = errors.filter(e => e.code === 'WORKTREE_EMPTY_BRANCH');
+  assert(emptyErrors.length === 1, `Expected 1 WORKTREE_EMPTY_BRANCH error, got ${emptyErrors.length}`);
+});
+
+test('WORKTREE_INVALID_BRANCH_NAME: should fail for invalid git branch names', () => {
+  const worktree = {
+    enabled: true,
+    branch: 'has spaces/invalid'
+  };
+
+  const errors = validateWorktreeConfig(worktree, 'worktree');
+
+  const nameErrors = errors.filter(e => e.code === 'WORKTREE_INVALID_BRANCH_NAME');
+  assert(nameErrors.length === 1, `Expected 1 WORKTREE_INVALID_BRANCH_NAME error, got ${nameErrors.length}`);
+});
+
+test('WORKTREE_INVALID_CLEANUP_MODE: should fail for invalid cleanup mode', () => {
+  const worktree = {
+    enabled: true,
+    cleanup: 'always'
+  };
+
+  const errors = validateWorktreeConfig(worktree, 'worktree');
+
+  const cleanupErrors = errors.filter(e => e.code === 'WORKTREE_INVALID_CLEANUP_MODE');
+  assert(cleanupErrors.length === 1, `Expected 1 WORKTREE_INVALID_CLEANUP_MODE error, got ${cleanupErrors.length}`);
+  assert(cleanupErrors[0].message.includes('never'), 'Error should list valid options');
+  assert(cleanupErrors[0].message.includes('on-complete'), 'Error should list valid options');
+  assert(cleanupErrors[0].message.includes('on-merge'), 'Error should list valid options');
+});
+
+test('validateWorktreeConfig: should pass for valid complete config', () => {
+  const worktree = {
+    enabled: true,
+    branch: 'sprint/{sprint-id}',
+    path: '../{sprint-id}-worktree',
+    cleanup: 'on-complete'
+  };
+
+  const errors = validateWorktreeConfig(worktree, 'worktree');
+  assert(errors.length === 0, `Expected no errors, got ${errors.length}: ${errors.map(e => e.code).join(', ')}`);
+});
+
+test('validateWorktreeConfig: should pass when worktree is undefined', () => {
+  const errors = validateWorktreeConfig(undefined, 'worktree');
+  assert(errors.length === 0, `Expected no errors for undefined worktree, got ${errors.length}`);
+});
+
+test('validateWorktreeConfig: should pass for minimal valid config', () => {
+  const worktree = {
+    enabled: false
+  };
+
+  const errors = validateWorktreeConfig(worktree, 'worktree');
+  assert(errors.length === 0, `Expected no errors, got ${errors.length}: ${errors.map(e => e.code).join(', ')}`);
+});
+
+// Workflow worktree defaults validation tests
+test('WORKFLOW_WORKTREE_MISSING_ENABLED: should fail when workflow worktree enabled is missing', () => {
+  const worktree = {
+    'branch-prefix': 'sprint/'
+  };
+
+  const errors = validateWorkflowWorktreeDefaults(worktree, 'test-workflow');
+
+  const enabledErrors = errors.filter(e => e.code === 'WORKFLOW_WORKTREE_MISSING_ENABLED');
+  assert(enabledErrors.length === 1, `Expected 1 WORKFLOW_WORKTREE_MISSING_ENABLED error, got ${enabledErrors.length}`);
+});
+
+test('WORKFLOW_WORKTREE_INVALID_BRANCH_PREFIX: should fail when branch-prefix is not string', () => {
+  const worktree = {
+    enabled: true,
+    'branch-prefix': 123
+  };
+
+  const errors = validateWorkflowWorktreeDefaults(worktree, 'test-workflow');
+
+  const prefixErrors = errors.filter(e => e.code === 'WORKFLOW_WORKTREE_INVALID_BRANCH_PREFIX');
+  assert(prefixErrors.length === 1, `Expected 1 WORKFLOW_WORKTREE_INVALID_BRANCH_PREFIX error, got ${prefixErrors.length}`);
+});
+
+test('validateWorkflowWorktreeDefaults: should pass for valid workflow defaults', () => {
+  const worktree = {
+    enabled: true,
+    'branch-prefix': 'sprint/',
+    'path-prefix': '../worktrees/',
+    cleanup: 'on-merge'
+  };
+
+  const errors = validateWorkflowWorktreeDefaults(worktree, 'test-workflow');
+  assert(errors.length === 0, `Expected no errors, got ${errors.length}: ${errors.map(e => e.code).join(', ')}`);
+});
+
+// Integration tests - worktree in sprint definition
+test('validateSprintDefinition: should validate worktree config when present', () => {
+  const sprint = {
+    workflow: 'test-workflow',
+    worktree: {
+      enabled: 'yes' // invalid - should be boolean
+    }
+  };
+
+  const errors = validateSprintDefinition(sprint);
+
+  const worktreeErrors = errors.filter(e => e.code === 'WORKTREE_INVALID_ENABLED');
+  assert(worktreeErrors.length === 1, `Expected 1 WORKTREE_INVALID_ENABLED error, got ${worktreeErrors.length}`);
+});
+
+test('validateSprintDefinition: should pass with valid worktree config', () => {
+  const sprint = {
+    workflow: 'test-workflow',
+    worktree: {
+      enabled: true,
+      branch: 'sprint/{sprint-id}'
+    }
+  };
+
+  const errors = validateSprintDefinition(sprint);
+
+  // Should have no worktree-related errors
+  const worktreeErrors = errors.filter(e => e.code.startsWith('WORKTREE_'));
+  assert(worktreeErrors.length === 0, `Should have no worktree errors, got ${worktreeErrors.length}`);
+});
+
+// Integration tests - worktree in workflow definition
+test('validateWorkflowDefinition: should validate worktree defaults when present', () => {
+  const workflow = {
+    name: 'test-workflow',
+    phases: [
+      { id: 'phase-1', prompt: 'Do something' }
+    ],
+    worktree: {
+      enabled: 'true' // invalid - should be boolean
+    }
+  };
+
+  const errors = validateWorkflowDefinition(workflow, 'test-workflow');
+
+  const worktreeErrors = errors.filter(e => e.code === 'WORKFLOW_WORKTREE_INVALID_ENABLED');
+  assert(worktreeErrors.length === 1, `Expected 1 WORKFLOW_WORKTREE_INVALID_ENABLED error, got ${worktreeErrors.length}`);
+});
+
+test('validateWorkflowDefinition: should pass with valid worktree defaults', () => {
+  const workflow = {
+    name: 'test-workflow',
+    phases: [
+      { id: 'phase-1', prompt: 'Do something' }
+    ],
+    worktree: {
+      enabled: true,
+      'branch-prefix': 'sprint/',
+      cleanup: 'on-complete'
+    }
+  };
+
+  const errors = validateWorkflowDefinition(workflow, 'test-workflow');
+
+  // Should have no worktree-related errors
+  const worktreeErrors = errors.filter(e => e.code.includes('WORKTREE'));
+  assert(worktreeErrors.length === 0, `Should have no worktree errors, got ${worktreeErrors.length}: ${worktreeErrors.map(e => e.code).join(', ')}`);
 });
 
 console.log('\nValidation tests completed.'); // intentional

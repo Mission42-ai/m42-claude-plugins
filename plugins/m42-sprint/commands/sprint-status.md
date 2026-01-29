@@ -1,6 +1,6 @@
 ---
-allowed-tools: Bash(ls:*), Read(*)
-argument-hint: ""
+allowed-tools: Bash(ls:* git:worktree:*), Read(*)
+argument-hint: "[--all-worktrees]"
 description: Show sprint progress dashboard
 model: haiku
 ---
@@ -8,6 +8,62 @@ model: haiku
 # Sprint Status Dashboard
 
 Display current sprint progress with hierarchical phase/step/sub-phase status.
+
+## Arguments
+
+- `--all-worktrees` - Show sprints across ALL git worktrees in the repository
+
+## Mode Detection
+
+Check if `--all-worktrees` flag was passed in the arguments.
+
+## Multi-Worktree Mode (--all-worktrees)
+
+When `--all-worktrees` is specified:
+
+1. List all git worktrees:
+   !`git worktree list --porcelain`
+
+2. For each worktree path found, check for sprints:
+   - Look for `.claude/sprints/*/PROGRESS.yaml` in each worktree
+   - Read PROGRESS.yaml from each sprint found
+
+3. Display unified status view:
+
+```text
+Active Sprints Across Worktrees
+================================
+
+* /path/to/main-repo/.claude/sprints/2026-01-20_feature-a/
+  Worktree: main (current)
+  Working Dir: /path/to/main-repo
+  Status: in-progress
+  Phase: 3/8 (development)
+  Worktree ID: abc123def456
+
+  /path/to/worktree-1/.claude/sprints/2026-01-20_feature-b/
+  Worktree: feature-branch
+  Working Dir: /path/to/worktree-1
+  Status: in-progress
+  Phase: 1/8 (preflight)
+  Worktree ID: 789ghi012jkl
+
+Total: 2 sprint(s), 2 active
+```
+
+4. Status display rules:
+   - Mark current worktree with `*` prefix
+   - Show worktree branch name (or "main" for main worktree)
+   - Show `working-dir` from PROGRESS.yaml
+   - Show `worktree-id` for verification
+   - Color-code by status: in-progress=yellow, completed=green, blocked=red, paused=cyan
+
+5. Error handling for multi-worktree mode:
+   - Skip worktrees that don't have `.claude/sprints/` directory
+   - Skip corrupted PROGRESS.yaml files (show error message)
+   - Skip worktrees with permission errors (show warning)
+
+## Single Worktree Mode (default)
 
 ## Preflight Checks
 
@@ -105,3 +161,14 @@ Phases:
 - Completion statistics shown from stats field
 - Parallel tasks displayed with step-id, phase-id, status, elapsed time, PID and log file location
 - Actionable next steps shown based on status
+
+## Multi-Worktree Success Criteria
+
+When `--all-worktrees` is used:
+- All worktrees discovered via `git worktree list`
+- Sprints found in each worktree's `.claude/sprints/` directory
+- Current worktree marked with `*`
+- Worktree path and branch shown for each sprint
+- worktree-id shown for verification
+- Total count of sprints displayed
+- Graceful handling of worktrees without sprints or with errors

@@ -15,6 +15,7 @@ sprint-id: <string>    # Unique identifier (auto-generated)
 created: <string>      # ISO 8601 date
 owner: <string>        # Sprint owner
 config: <object>       # Configuration options
+worktree: <object>     # Worktree isolation settings
 ```
 
 ## Examples
@@ -95,6 +96,7 @@ steps:
 | `created` | string | No | - | ISO 8601 timestamp of sprint creation |
 | `owner` | string | No | - | Sprint owner identifier |
 | `config` | object | No | {} | Sprint configuration options |
+| `worktree` | object | No | - | Worktree isolation configuration (see [Worktree Fields](#worktree-fields)) |
 
 ### Step Fields
 
@@ -114,6 +116,36 @@ Steps can be either strings or objects. String steps are normalized to objects d
 | `time-box` | string | - | Time limit (e.g., "2h", "30m", "1h30m") |
 | `auto-commit` | boolean | false | Automatically commit after each step |
 | `max-iterations` | number|string | null | unlimited | Override max iterations (0, "unlimited", or specific number) |
+
+### Worktree Fields
+
+Configure dedicated git worktree for sprint isolation. Enables parallel sprint execution.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | boolean | `false` | Enable dedicated worktree for this sprint |
+| `branch` | string | `sprint/{sprint-id}` | Git branch name (supports template variables) |
+| `path` | string | `../{sprint-id}-worktree` | Worktree directory path (supports template variables) |
+| `cleanup` | string | `on-complete` | When to remove worktree: `never`, `on-complete`, `on-merge` |
+
+#### Template Variables
+
+Use these variables in `branch` and `path` fields:
+
+| Variable | Example Value | Description |
+|----------|---------------|-------------|
+| `{sprint-id}` | `2026-01-20_feature-auth` | Full sprint identifier |
+| `{sprint-name}` | `feature-auth` | Sprint name (without date prefix) |
+| `{date}` | `2026-01-20` | Sprint creation date |
+| `{workflow}` | `ralph` | Workflow name |
+
+#### Cleanup Modes
+
+| Mode | Behavior |
+|------|----------|
+| `never` | Worktree persists indefinitely; manual cleanup required |
+| `on-complete` | Remove when sprint status becomes `completed` |
+| `on-merge` | Remove after sprint branch is merged to main/master |
 
 ## Step Format Variants
 
@@ -271,6 +303,50 @@ steps:
   - Add troubleshooting section
 ```
 
+### Worktree-Isolated Sprint
+
+Run sprint in a dedicated git worktree for parallel development:
+
+```yaml
+name: User Authentication
+workflow: ralph
+
+worktree:
+  enabled: true
+  branch: feature/{sprint-name}
+  path: ../features/{sprint-name}
+  cleanup: on-complete
+
+goal: |
+  Implement user authentication with JWT tokens.
+  Success: Login, logout, and token refresh working with tests.
+```
+
+When started with `/start-sprint auth --worktree`:
+- Creates branch: `feature/auth`
+- Creates worktree: `../features/auth`
+- Sprint executes in worktree, isolated from main repo
+
+### Minimal Worktree Example
+
+Use defaults for quick worktree setup:
+
+```yaml
+name: Quick Feature
+workflow: sprint-default
+
+worktree:
+  enabled: true
+  # Uses defaults:
+  # branch: sprint/2026-01-20_quick-feature
+  # path: ../2026-01-20_quick-feature-worktree
+  # cleanup: on-complete
+
+steps:
+  - Implement the feature
+  - Add tests
+```
+
 ## Invalid Examples
 
 ### Missing Required Fields
@@ -347,6 +423,7 @@ interface SprintDefinition {
   created?: string;
   owner?: string;
   config?: SprintConfig;
+  worktree?: WorktreeConfig;
 }
 
 interface SprintStep {
@@ -361,6 +438,14 @@ interface SprintConfig {
   'auto-commit'?: boolean;
 }
 
+// Worktree configuration for isolated parallel development
+interface WorktreeConfig {
+  enabled: boolean;
+  branch?: string;   // Default: sprint/{sprint-id}
+  path?: string;     // Default: ../{sprint-id}-worktree
+  cleanup?: 'never' | 'on-complete' | 'on-merge';
+}
+
 // Raw input format (string steps normalized during parsing)
 type RawStep = string | SprintStep;
 ```
@@ -372,4 +457,5 @@ type RawStep = string | SprintStep;
 - [PROGRESS.yaml Schema](./progress-yaml-schema.md) - Generated execution state
 - [Workflow YAML Schema](./workflow-yaml-schema.md) - Workflow definitions
 - [Writing Sprints Guide](../guides/writing-sprints.md) - Best practices
+- [Worktree Sprints Guide](../guides/worktree-sprints.md) - Parallel development with git worktrees
 - [Commands Reference](./commands.md) - Sprint management commands

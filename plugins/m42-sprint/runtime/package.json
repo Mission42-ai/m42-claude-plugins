@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit",
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
-    "test": "npm run build && node dist/transition.test.js && node dist/yaml-ops.test.js && node dist/prompt-builder.test.js && node dist/claude-runner.test.js && node dist/executor.test.js && node dist/loop.test.js && node dist/cli.test.js",
+    "test": "npm run build && node dist/transition.test.js && node dist/yaml-ops.test.js && node dist/prompt-builder.test.js && node dist/claude-runner.test.js && node dist/executor.test.js && node dist/loop.test.js && node dist/cli.test.js && node dist/worktree.test.js && node dist/cleanup.test.js",
     "test:integration": "npm run build && node dist/integration.test.js"
   },
   "dependencies": {

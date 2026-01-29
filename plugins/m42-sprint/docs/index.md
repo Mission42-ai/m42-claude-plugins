@@ -40,6 +40,7 @@ Hands-on guides for creating your own sprints and workflows.
 |-------|-------------|
 | [Writing Sprints](guides/writing-sprints.md) | Creating effective SPRINT.yaml files |
 | [Writing Workflows](guides/writing-workflows.md) | Building reusable workflow templates |
+| [Worktree Sprints](guides/worktree-sprints.md) | Parallel development with git worktrees |
 
 ---
 
@@ -93,6 +94,11 @@ ls .claude/workflows/   # Verify workflow exists
 3. [Writing Workflows](guides/writing-workflows.md) - Create your own
 4. [Workflow YAML Schema](reference/workflow-yaml-schema.md) - Full specification
 
+### Path 4: Parallel Development (30 minutes)
+1. [Quick Start](getting-started/quick-start.md) - Get running
+2. [Worktree Sprints](guides/worktree-sprints.md) - Parallel execution
+3. [Commands Reference](reference/commands.md) - Know your tools
+
 ---
 
 ## Document Map
@@ -122,7 +128,8 @@ docs/
 │
 ├── guides/                     ← How-To
 │   ├── writing-sprints.md      (Sprint creation)
-│   └── writing-workflows.md    (Workflow creation)
+│   ├── writing-workflows.md    (Workflow creation)
+│   └── worktree-sprints.md     (Parallel development)
 │
 └── troubleshooting/
     └── common-issues.md        (Problem solving)
