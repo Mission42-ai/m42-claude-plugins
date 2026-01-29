@@ -127,6 +127,7 @@ Items within collections have these fields:
 | `id` | string | No | step-N | Unique item identifier (auto: step-0, step-1, etc.) |
 | `workflow` | string | No | - | Per-item workflow override |
 | `model` | string | No | - | Model override for this item (`'sonnet'` \| `'opus'` \| `'haiku'`) |
+| `depends-on` | string[] | No | - | IDs of items that must complete before this item starts (for parallel execution) |
 | `<custom>` | any | No | - | Custom properties accessible as `{{item.<custom>}}` |
 
 ### Config Fields
@@ -372,6 +373,51 @@ collections:
     - prompt: Add troubleshooting section
 ```
 
+### Parallel Execution with Dependencies
+
+Use `depends-on` to enable parallel execution of independent steps while maintaining order for dependent ones:
+
+```yaml
+name: Parallel Feature Development
+workflow: sprint-default
+
+collections:
+  step:
+    # Foundation step - no dependencies, runs first
+    - prompt: Set up project structure and shared types
+      id: foundation
+
+    # These two can run in parallel (both depend only on foundation)
+    - prompt: Implement user authentication module
+      id: auth
+      depends-on:
+        - foundation
+
+    - prompt: Implement database layer
+      id: database
+      depends-on:
+        - foundation
+
+    # This depends on both auth and database
+    - prompt: Implement user API endpoints
+      id: user-api
+      depends-on:
+        - auth
+        - database
+
+    # Final step depends on the API
+    - prompt: Write integration tests
+      id: tests
+      depends-on:
+        - user-api
+```
+
+The scheduler will:
+1. Run `foundation` first
+2. Run `auth` and `database` in parallel (both ready once foundation completes)
+3. Run `user-api` after both `auth` and `database` complete
+4. Run `tests` after `user-api` completes
+
 ### Worktree-Isolated Sprint
 
 Run sprint in a dedicated git worktree for parallel development:
@@ -515,7 +561,8 @@ interface CollectionItem {
   workflow?: string;
   id?: string;
   model?: ClaudeModel;
-  [key: string]: unknown;  // Custom properties
+  'depends-on'?: string[];  // Dependencies for parallel execution
+  [key: string]: unknown;   // Custom properties
 }
 
 interface SprintConfig {
