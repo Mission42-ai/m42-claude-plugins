@@ -288,6 +288,52 @@ export interface WorktreeIsolationMeta {
     'is-worktree': boolean;
 }
 /**
+ * Node in a dependency graph for tracking execution order
+ * Used for topological sorting and cycle detection
+ */
+export interface DependencyNode {
+    /** Unique identifier for this node (matches item ID) */
+    id: string;
+    /** IDs of nodes this node depends on (must complete before this can start) */
+    dependencies: string[];
+    /** Current processing state for graph algorithms */
+    state: 'unvisited' | 'visiting' | 'visited';
+}
+/**
+ * Compiled dependency graph node for PROGRESS.yaml
+ * Tracks execution readiness based on dependency completion
+ */
+export interface CompiledDependencyNode {
+    /** Unique identifier for this node (matches step ID) */
+    id: string;
+    /** IDs of nodes this node depends on (from depends-on in SPRINT.yaml) */
+    'depends-on': string[];
+    /** IDs of nodes that are blocking this node (initially same as depends-on, cleared as they complete) */
+    'blocked-by': string[];
+}
+/**
+ * Dependency graph for a for-each phase
+ * Tracks dependencies between steps for parallel execution
+ */
+export interface CompiledDependencyGraph {
+    /** The phase ID this graph belongs to */
+    'phase-id': string;
+    /** Nodes in the dependency graph (one per step) */
+    nodes: CompiledDependencyNode[];
+}
+/**
+ * Configuration for parallel execution within a phase
+ * Controls how items with dependencies are executed concurrently
+ */
+export interface ParallelExecutionConfig {
+    /** Enable parallel execution of items within for-each phases */
+    enabled: boolean;
+    /** Maximum number of concurrent executions (default: unlimited) */
+    maxConcurrency?: number;
+    /** Strategy for handling failed dependencies */
+    onDependencyFailure: 'skip-dependents' | 'fail-phase' | 'continue';
+}
+/**
  * Orchestration configuration for dynamic step injection
  * Enables Claude to propose new steps during execution
  */
@@ -332,6 +378,8 @@ export interface StepQueueItem {
     reasoning?: string;
     /** Priority level */
     priority: 'low' | 'medium' | 'high' | 'critical';
+    /** Optional: Dependencies on other items (by ID) for parallel execution */
+    'depends-on'?: string[];
 }
 /**
  * A generic item in a collection (feature, bug, step, etc.)
@@ -346,6 +394,8 @@ export interface CollectionItem {
     id?: string;
     /** Optional: Model override for this item (highest priority) */
     model?: ClaudeModel;
+    /** Optional: Dependencies on other items (by ID) for parallel execution */
+    'depends-on'?: string[];
     /** Allow custom properties (priority, severity, etc.) */
     [key: string]: unknown;
 }
@@ -611,6 +661,8 @@ export interface CompiledStep {
     'error-category'?: ErrorCategory;
     /** Step-level model override (for sub-phase resolution) */
     model?: ClaudeModel;
+    /** Dependencies on other steps (by ID) for parallel execution */
+    'depends-on'?: string[];
 }
 /**
  * A top-level phase that may contain steps (for for-each phases)
@@ -713,6 +765,8 @@ export interface CompiledProgress {
     worktree?: CompiledWorktreeConfig;
     /** Runtime worktree isolation tracking (auto-populated on sprint start) */
     'worktree-isolation'?: WorktreeIsolationMeta;
+    /** Dependency graphs for for-each phases (one per phase with dependencies) */
+    'dependency-graph'?: CompiledDependencyGraph[];
 }
 /**
  * Item context for template variable substitution
