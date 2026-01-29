@@ -3,6 +3,16 @@
  */
 
 // ============================================================================
+// Schema Version Constants
+// ============================================================================
+
+/** Current workflow schema version */
+export const CURRENT_SCHEMA_VERSION = '2.0';
+
+/** Minimum supported schema version */
+export const MIN_SCHEMA_VERSION = '1.0';
+
+// ============================================================================
 // Status Types (defined early for use in other interfaces)
 // ============================================================================
 
@@ -540,6 +550,8 @@ export interface WorkflowDefinition {
   name: string;
   /** Description of what this workflow does */
   description?: string;
+  /** Schema version for tracking workflow format compatibility */
+  'schema-version'?: string;
   /** The phases in this workflow (optional for Ralph mode) */
   phases?: WorkflowPhase[];
   /** Workflow mode: standard (phase-based) or ralph (goal-driven) */
@@ -552,7 +564,7 @@ export interface WorkflowDefinition {
   'per-iteration-hooks'?: PerIterationHook[];
   /** Orchestration configuration for dynamic step injection */
   orchestration?: OrchestrationConfig;
-/** Default worktree configuration for sprints using this workflow */
+  /** Default worktree configuration for sprints using this workflow */
   worktree?: WorkflowWorktreeDefaults;
   /** Optional model to use for all phases (lowest priority default) */
   model?: ClaudeModel;

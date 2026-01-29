@@ -1,0 +1,2038 @@
+sprint-id: 2026-01-29_workflow-qa-improvements
+status: in-progress
+phases:
+  - id: preflight
+    status: completed
+    prompt: |
+      Prepare sprint context and development plan.
+
+      ## Your Role
+      You are the sprint OPERATOR. Your job is to:
+      1. Understand the sprint scope
+      2. Research the codebase
+      3. Create shared context for development phases
+
+      ## Step 1: Read Sprint Definition
+      Read the SPRINT.yaml to understand:
+      - All steps and their requirements
+      - Dependencies between steps
+      - Overall sprint goal
+
+      ## Step 2: Research Codebase
+      Use the Explore subagent to investigate:
+      - Project architecture and patterns
+      - Test framework and conventions
+      - Build/test/lint commands
+      - Related existing code
+
+      ## Step 3: Create Shared Context
+      Create: context/_shared-context.md
+
+      ```markdown
+      # Sprint Context
+
+      ## Project Info
+      - Test framework: [vitest/jest/etc]
+      - Test location: [pattern]
+      - Build command: `[command]`
+      - Test command: `[command]`
+      - Lint command: `[command]`
+
+      ## Patterns to Follow
+      [Key patterns discovered in codebase]
+
+      ## Sprint Steps Overview
+      [Brief summary of each step and dependencies]
+      ```
+
+      ## Step 4: Commit
+      ```bash
+      git add context/
+      git commit -m "preflight: sprint context prepared"
+      ```
+    started-at: '2026-01-29T20:18:07.607Z'
+    completed-at: '2026-01-29T20:21:45.787Z'
+  - id: development
+    status: completed
+    steps:
+      - id: step-0
+        prompt: |
+          /m42-meta-toolkit:create-skill creating-gherkin-scenarios
+
+          ## Context
+          Root cause: The ralph-mode-implementation sprint tested that
+          `spawn_per_iteration_hooks()` EXISTED (via grep) but not that it WORKED.
+          This structural verification gave false confidence.
+
+          ## Requirements
+
+          ### 1. Skill File Structure
+          Create: .claude/skills/creating-gherkin-scenarios/SKILL.md
+          Note: This is not part of a plugin itself, but our project to create plugins!
+
+          ### 2. Core Principle
+          **Behavioral Testing > Structural Testing**
+
+          Document this anti-pattern:
+          ❌ WRONG - Tests existence, not behavior:
+          - "Function X exists" (grep verification)
+          - "File Y contains pattern Z"
+          - "Module exports function"
+          - "Code compiles without errors"
+
+          ✅ CORRECT - Tests observable behavior:
+          - "When I invoke X with Y, then Z happens"
+          - "Given config A, when event B occurs, then output C"
+          - "After action X, state Y is observable in the file system"
+          - "End-to-end: setup → action → verify outcome"
+
+          ### 3. Gherkin Guidelines
+
+          #### For New Features
+          ```gherkin
+          Scenario: Feature works end-to-end
+            Given [precondition - setup test environment]
+            When [action - invoke the feature]
+            Then [outcome - verify observable result]
+            And [additional verifications]
+          ```
+
+          #### For External Process Interactions
+          Features that spawn processes (hooks, subagents, parallel tasks):
+          ```gherkin
+          Scenario: Hook spawns and executes
+            Given a sprint with learning hook enabled
+            When the sprint completes an iteration
+            Then the hook process is spawned
+            And the hook transcript file exists
+            And the hook output is captured
+          ```
+
+          #### For State Changes
+          ```gherkin
+          Scenario: State persists correctly
+            Given a sprint in progress
+            When I modify the PROGRESS.yaml externally
+            And the sprint continues execution
+            Then the external changes are preserved
+          ```
+
+          ### 4. Integration Test Requirements
+
+          When to require integration tests:
+          - External process spawning (Claude CLI, bash scripts)
+          - File system state changes
+          - Inter-process communication
+          - Async/parallel operations
+          - Transaction/recovery scenarios
+
+          ### 5. Examples Section
+
+          Include real examples from the codebase:
+          - Good: compile.test.ts tests that compilation produces valid PROGRESS.yaml
+          - Bad: "grep for function existence" from ralph-mode-implementation
+          - Good: loop.test.ts with mocked Claude runner
+          - Bad: Any verification that only checks code structure
+
+          ### 6. Triggers
+
+          This skill should trigger on:
+          - "write gherkin"
+          - "create scenarios"
+          - "write acceptance criteria"
+          - "test strategy"
+          - "verification approach"
+
+          ### 7. Integration with Existing Workflows
+
+          Add guidance for each TDD phase:
+          - RED: Write behavioral gherkin BEFORE tests
+          - GREEN: Verify gherkin scenarios pass
+          - REFACTOR: Ensure scenarios still pass
+        status: completed
+        phases:
+          - id: execute
+            status: completed
+            prompt: |
+              /m42-meta-toolkit:create-skill creating-gherkin-scenarios
+
+              ## Context
+              Root cause: The ralph-mode-implementation sprint tested that
+              `spawn_per_iteration_hooks()` EXISTED (via grep) but not that it WORKED.
+              This structural verification gave false confidence.
+
+              ## Requirements
+
+              ### 1. Skill File Structure
+              Create: .claude/skills/creating-gherkin-scenarios/SKILL.md
+              Note: This is not part of a plugin itself, but our project to create plugins!
+
+              ### 2. Core Principle
+              **Behavioral Testing > Structural Testing**
+
+              Document this anti-pattern:
+              ❌ WRONG - Tests existence, not behavior:
+              - "Function X exists" (grep verification)
+              - "File Y contains pattern Z"
+              - "Module exports function"
+              - "Code compiles without errors"
+
+              ✅ CORRECT - Tests observable behavior:
+              - "When I invoke X with Y, then Z happens"
+              - "Given config A, when event B occurs, then output C"
+              - "After action X, state Y is observable in the file system"
+              - "End-to-end: setup → action → verify outcome"
+
+              ### 3. Gherkin Guidelines
+
+              #### For New Features
+              ```gherkin
+              Scenario: Feature works end-to-end
+                Given [precondition - setup test environment]
+                When [action - invoke the feature]
+                Then [outcome - verify observable result]
+                And [additional verifications]
+              ```
+
+              #### For External Process Interactions
+              Features that spawn processes (hooks, subagents, parallel tasks):
+              ```gherkin
+              Scenario: Hook spawns and executes
+                Given a sprint with learning hook enabled
+                When the sprint completes an iteration
+                Then the hook process is spawned
+                And the hook transcript file exists
+                And the hook output is captured
+              ```
+
+              #### For State Changes
+              ```gherkin
+              Scenario: State persists correctly
+                Given a sprint in progress
+                When I modify the PROGRESS.yaml externally
+                And the sprint continues execution
+                Then the external changes are preserved
+              ```
+
+              ### 4. Integration Test Requirements
+
+              When to require integration tests:
+              - External process spawning (Claude CLI, bash scripts)
+              - File system state changes
+              - Inter-process communication
+              - Async/parallel operations
+              - Transaction/recovery scenarios
+
+              ### 5. Examples Section
+
+              Include real examples from the codebase:
+              - Good: compile.test.ts tests that compilation produces valid PROGRESS.yaml
+              - Bad: "grep for function existence" from ralph-mode-implementation
+              - Good: loop.test.ts with mocked Claude runner
+              - Bad: Any verification that only checks code structure
+
+              ### 6. Triggers
+
+              This skill should trigger on:
+              - "write gherkin"
+              - "create scenarios"
+              - "write acceptance criteria"
+              - "test strategy"
+              - "verification approach"
+
+              ### 7. Integration with Existing Workflows
+
+              Add guidance for each TDD phase:
+              - RED: Write behavioral gherkin BEFORE tests
+              - GREEN: Verify gherkin scenarios pass
+              - REFACTOR: Ensure scenarios still pass
+            started-at: '2026-01-29T20:21:47.811Z'
+            completed-at: '2026-01-29T20:32:22.572Z'
+        started-at: '2026-01-29T20:21:47.811Z'
+        completed-at: '2026-01-29T20:32:22.572Z'
+      - id: step-1
+        prompt: |
+          Update plugin-development workflow to enforce integration testing.
+
+          ## Context
+          The per-iteration-hooks feature was implemented without integration tests.
+          Unit tests existed for individual modules but not for the end-to-end hook
+          execution flow.
+
+          ## Requirements
+
+          ### 1. Update Development Phase
+
+          File: .claude/workflows/plugin-development.yaml
+          Phase: development (for-each: step)
+
+          Add to the TDD OPERATOR prompt (after REFACTOR phase):
+
+          ```markdown
+          ### 4. INTEGRATION TEST Phase (if needed)
+
+          Determine if this feature requires integration testing:
+          - ✅ YES if: spawns external processes, modifies file system state,
+            involves async/parallel operations, or inter-process communication
+          - ❌ NO if: pure function, simple data transformation, isolated logic
+
+          If YES, spawn an integration test subagent:
+
+          ```
+          Task: INTEGRATION - Create end-to-end test for {{item.id}}
+
+          Requirements:
+          {{item.prompt}}
+
+          Instructions:
+          1. Identify the end-to-end flow to test
+          2. Create integration test file: {{item.id}}.integration.test.ts
+          3. Test with real dependencies where safe, mocked where necessary
+          4. Verify observable outcomes (files created, processes spawned, state changed)
+          5. Include teardown to clean up test artifacts
+          6. Commit: git commit -m "test({{item.id}}): add integration tests"
+
+          Examples of what to verify:
+          - If feature spawns Claude: verify it's invoked with correct args
+          - If feature writes files: verify files exist with correct content
+          - If feature modifies state: verify state changes are observable
+          - If feature runs in parallel: verify non-blocking behavior
+
+          Common Integration Test Patterns:
+          - Use test fixtures for file system state
+          - Mock external APIs but test real process spawning
+          - Verify error handling with real failure scenarios
+          - Test transaction/recovery with simulated crashes
+          ```
+
+          **Verify INTEGRATION**: Run integration tests, confirm end-to-end flow works.
+          ```
+
+          ### 2. Update Verification Criteria
+
+          Add to the "Final Output" section:
+
+          ```markdown
+          ## Files Changed
+          [List]
+
+          ## Test Coverage
+          - Unit tests: [count]
+          - Integration tests: [count if applicable]
+
+          ## Status: COMPLETE
+          ```
+
+          ### 3. Add to QA Phase Checklist
+
+          File: .claude/workflows/plugin-development.yaml
+          Phase: final-qa
+
+          Add to Step 2:
+
+          ```markdown
+          ## Step 2: Full Test Suite
+          ```bash
+          npm test
+          ```
+
+          All tests must pass. Record coverage if available.
+
+          **Integration Test Verification:**
+          - [ ] If feature spawns processes: integration test verifies spawning
+          - [ ] If feature modifies state: integration test verifies persistence
+          - [ ] If feature has async/parallel: integration test verifies timing
+          ```
+        status: completed
+        phases:
+          - id: execute
+            status: completed
+            prompt: |
+              Update plugin-development workflow to enforce integration testing.
+
+              ## Context
+              The per-iteration-hooks feature was implemented without integration tests.
+              Unit tests existed for individual modules but not for the end-to-end hook
+              execution flow.
+
+              ## Requirements
+
+              ### 1. Update Development Phase
+
+              File: .claude/workflows/plugin-development.yaml
+              Phase: development (for-each: step)
+
+              Add to the TDD OPERATOR prompt (after REFACTOR phase):
+
+              ```markdown
+              ### 4. INTEGRATION TEST Phase (if needed)
+
+              Determine if this feature requires integration testing:
+              - ✅ YES if: spawns external processes, modifies file system state,
+                involves async/parallel operations, or inter-process communication
+              - ❌ NO if: pure function, simple data transformation, isolated logic
+
+              If YES, spawn an integration test subagent:
+
+              ```
+              Task: INTEGRATION - Create end-to-end test for {{item.id}}
+
+              Requirements:
+              {{item.prompt}}
+
+              Instructions:
+              1. Identify the end-to-end flow to test
+              2. Create integration test file: {{item.id}}.integration.test.ts
+              3. Test with real dependencies where safe, mocked where necessary
+              4. Verify observable outcomes (files created, processes spawned, state changed)
+              5. Include teardown to clean up test artifacts
+              6. Commit: git commit -m "test({{item.id}}): add integration tests"
+
+              Examples of what to verify:
+              - If feature spawns Claude: verify it's invoked with correct args
+              - If feature writes files: verify files exist with correct content
+              - If feature modifies state: verify state changes are observable
+              - If feature runs in parallel: verify non-blocking behavior
+
+              Common Integration Test Patterns:
+              - Use test fixtures for file system state
+              - Mock external APIs but test real process spawning
+              - Verify error handling with real failure scenarios
+              - Test transaction/recovery with simulated crashes
+              ```
+
+              **Verify INTEGRATION**: Run integration tests, confirm end-to-end flow works.
+              ```
+
+              ### 2. Update Verification Criteria
+
+              Add to the "Final Output" section:
+
+              ```markdown
+              ## Files Changed
+              [List]
+
+              ## Test Coverage
+              - Unit tests: [count]
+              - Integration tests: [count if applicable]
+
+              ## Status: COMPLETE
+              ```
+
+              ### 3. Add to QA Phase Checklist
+
+              File: .claude/workflows/plugin-development.yaml
+              Phase: final-qa
+
+              Add to Step 2:
+
+              ```markdown
+              ## Step 2: Full Test Suite
+              ```bash
+              npm test
+              ```
+
+              All tests must pass. Record coverage if available.
+
+              **Integration Test Verification:**
+              - [ ] If feature spawns processes: integration test verifies spawning
+              - [ ] If feature modifies state: integration test verifies persistence
+              - [ ] If feature has async/parallel: integration test verifies timing
+              ```
+            started-at: '2026-01-29T20:32:24.593Z'
+            completed-at: '2026-01-29T20:33:30.867Z'
+        started-at: '2026-01-29T20:32:24.593Z'
+        completed-at: '2026-01-29T20:33:30.867Z'
+      - id: step-2
+        prompt: |
+          Implement per-iteration-hooks execution in the TypeScript sprint runtime.
+
+          ## Problem
+
+          The `per-iteration-hooks` feature is defined in the schema and compiled into
+          PROGRESS.yaml, but the TypeScript runtime (loop.ts) never executes them.
+
+          **Current state:**
+          - ✅ Schema defined in workflow-schema.md
+          - ✅ Types defined in types.ts
+          - ✅ Validation in validate.ts
+          - ✅ Compilation in compile.ts
+          - ❌ **Runtime execution missing in loop.ts**
+
+          The bash implementation (sprint-loop.sh) had `spawn_per_iteration_hooks()`
+          but this was lost during TypeScript migration.
+
+          ## Expected Behavior
+
+          When a sprint has enabled per-iteration hooks:
+
+          ```yaml
+          per-iteration-hooks:
+            - id: learning
+              prompt: /m42-signs:extract $ITERATION_TRANSCRIPT --auto-apply-high
+              parallel: true
+              enabled: true
+          ```
+
+          After each iteration, the runtime should:
+          1. Check if any hooks are enabled
+          2. For each enabled hook, spawn a Claude process with the hook's prompt
+          3. Replace template variables ($ITERATION_TRANSCRIPT)
+          4. If `parallel: true`, run in background without blocking next iteration
+          5. Track hook execution in hook-tasks array
+
+          ## Implementation Checklist
+
+          ### 1. Add Hook Execution to Loop
+
+          File: `plugins/m42-sprint/runtime/src/loop.ts`
+
+          In the main loop, after each iteration completes:
+          - [ ] Read `progress['per-iteration-hooks']`
+          - [ ] Filter to enabled hooks
+          - [ ] For each enabled hook:
+            - [ ] Build hook prompt (replace $ITERATION_TRANSCRIPT)
+            - [ ] Spawn Claude via `deps.runClaude()`
+            - [ ] If `parallel: true`, use background execution
+            - [ ] Track in `progress['hook-tasks']`
+
+          ### 2. Add Template Variable Support
+
+          Support these variables in hook prompts:
+          - [ ] `$ITERATION_TRANSCRIPT` → path to current iteration's transcript
+          - [ ] `$SPRINT_ID` → sprint identifier
+          - [ ] `$ITERATION` → iteration number
+          - [ ] `$PHASE_ID` → current phase identifier
+
+          ### 3. Add Hook Task Tracking
+
+          Track hook executions:
+          ```typescript
+          interface HookTask {
+            id: string;
+            hookId: string;
+            iteration: number;
+            status: 'running' | 'completed' | 'failed';
+            startedAt: string;
+            completedAt?: string;
+            output?: string;
+          }
+          ```
+
+          ### 4. Integration Tests
+
+          File: `plugins/m42-sprint/runtime/src/hooks.test.ts`
+
+          - [ ] Test: enabled hook executes after iteration
+          - [ ] Test: disabled hook is skipped
+          - [ ] Test: parallel hook runs non-blocking
+          - [ ] Test: sequential hook blocks next iteration
+          - [ ] Test: template variables are replaced
+          - [ ] Test: hook task is tracked in progress
+
+          ### 5. Documentation Updates
+
+          - [ ] Update docs/concepts/ralph-mode.md with hook execution details
+          - [ ] Update workflow-schema.md with runtime behavior
+          - [ ] Add example workflow demonstrating hook usage
+
+          ## Reference Implementation
+
+          The bash version was in `sprint-loop.sh` (deleted in commit 882922d):
+
+          ```bash
+          spawn_per_iteration_hooks() {
+            local iteration=$1
+            local hooks_count=$(yq -r '.per-iteration-hooks // [] | map(select(.enabled == true)) | length' "$PROGRESS_FILE")
+
+            for ((h=0; h<hooks_count; h++)); do
+              local hook_id=$(yq -r ".per-iteration-hooks | map(select(.enabled == true))[$h].id" "$PROGRESS_FILE")
+              local prompt=$(yq -r ".per-iteration-hooks | map(select(.enabled == true))[$h].prompt // \"\"" "$PROGRESS_FILE")
+              local parallel=$(yq -r ".per-iteration-hooks | map(select(.enabled == true))[$h].parallel // false" "$PROGRESS_FILE")
+
+              # Spawn hook process (with or without background)
+              # ...
+            done
+          }
+          ```
+
+          ## Acceptance Criteria
+
+          - [ ] Integration tests pass
+          - [ ] Real sprint with learning hook enabled works
+          - [ ] Hook transcripts are created in correct location
+          - [ ] Parallel hooks don't block next iteration
+          - [ ] Hook failures don't crash the sprint
+          - [ ] Documentation updated
+        status: completed
+        phases:
+          - id: execute
+            status: completed
+            prompt: |
+              Implement per-iteration-hooks execution in the TypeScript sprint runtime.
+
+              ## Problem
+
+              The `per-iteration-hooks` feature is defined in the schema and compiled into
+              PROGRESS.yaml, but the TypeScript runtime (loop.ts) never executes them.
+
+              **Current state:**
+              - ✅ Schema defined in workflow-schema.md
+              - ✅ Types defined in types.ts
+              - ✅ Validation in validate.ts
+              - ✅ Compilation in compile.ts
+              - ❌ **Runtime execution missing in loop.ts**
+
+              The bash implementation (sprint-loop.sh) had `spawn_per_iteration_hooks()`
+              but this was lost during TypeScript migration.
+
+              ## Expected Behavior
+
+              When a sprint has enabled per-iteration hooks:
+
+              ```yaml
+              per-iteration-hooks:
+                - id: learning
+                  prompt: /m42-signs:extract $ITERATION_TRANSCRIPT --auto-apply-high
+                  parallel: true
+                  enabled: true
+              ```
+
+              After each iteration, the runtime should:
+              1. Check if any hooks are enabled
+              2. For each enabled hook, spawn a Claude process with the hook's prompt
+              3. Replace template variables ($ITERATION_TRANSCRIPT)
+              4. If `parallel: true`, run in background without blocking next iteration
+              5. Track hook execution in hook-tasks array
+
+              ## Implementation Checklist
+
+              ### 1. Add Hook Execution to Loop
+
+              File: `plugins/m42-sprint/runtime/src/loop.ts`
+
+              In the main loop, after each iteration completes:
+              - [ ] Read `progress['per-iteration-hooks']`
+              - [ ] Filter to enabled hooks
+              - [ ] For each enabled hook:
+                - [ ] Build hook prompt (replace $ITERATION_TRANSCRIPT)
+                - [ ] Spawn Claude via `deps.runClaude()`
+                - [ ] If `parallel: true`, use background execution
+                - [ ] Track in `progress['hook-tasks']`
+
+              ### 2. Add Template Variable Support
+
+              Support these variables in hook prompts:
+              - [ ] `$ITERATION_TRANSCRIPT` → path to current iteration's transcript
+              - [ ] `$SPRINT_ID` → sprint identifier
+              - [ ] `$ITERATION` → iteration number
+              - [ ] `$PHASE_ID` → current phase identifier
+
+              ### 3. Add Hook Task Tracking
+
+              Track hook executions:
+              ```typescript
+              interface HookTask {
+                id: string;
+                hookId: string;
+                iteration: number;
+                status: 'running' | 'completed' | 'failed';
+                startedAt: string;
+                completedAt?: string;
+                output?: string;
+              }
+              ```
+
+              ### 4. Integration Tests
+
+              File: `plugins/m42-sprint/runtime/src/hooks.test.ts`
+
+              - [ ] Test: enabled hook executes after iteration
+              - [ ] Test: disabled hook is skipped
+              - [ ] Test: parallel hook runs non-blocking
+              - [ ] Test: sequential hook blocks next iteration
+              - [ ] Test: template variables are replaced
+              - [ ] Test: hook task is tracked in progress
+
+              ### 5. Documentation Updates
+
+              - [ ] Update docs/concepts/ralph-mode.md with hook execution details
+              - [ ] Update workflow-schema.md with runtime behavior
+              - [ ] Add example workflow demonstrating hook usage
+
+              ## Reference Implementation
+
+              The bash version was in `sprint-loop.sh` (deleted in commit 882922d):
+
+              ```bash
+              spawn_per_iteration_hooks() {
+                local iteration=$1
+                local hooks_count=$(yq -r '.per-iteration-hooks // [] | map(select(.enabled == true)) | length' "$PROGRESS_FILE")
+
+                for ((h=0; h<hooks_count; h++)); do
+                  local hook_id=$(yq -r ".per-iteration-hooks | map(select(.enabled == true))[$h].id" "$PROGRESS_FILE")
+                  local prompt=$(yq -r ".per-iteration-hooks | map(select(.enabled == true))[$h].prompt // \"\"" "$PROGRESS_FILE")
+                  local parallel=$(yq -r ".per-iteration-hooks | map(select(.enabled == true))[$h].parallel // false" "$PROGRESS_FILE")
+
+                  # Spawn hook process (with or without background)
+                  # ...
+                done
+              }
+              ```
+
+              ## Acceptance Criteria
+
+              - [ ] Integration tests pass
+              - [ ] Real sprint with learning hook enabled works
+              - [ ] Hook transcripts are created in correct location
+              - [ ] Parallel hooks don't block next iteration
+              - [ ] Hook failures don't crash the sprint
+              - [ ] Documentation updated
+            started-at: '2026-01-29T20:33:30.916Z'
+            completed-at: '2026-01-29T20:39:52.738Z'
+        started-at: '2026-01-29T20:33:30.916Z'
+        completed-at: '2026-01-29T20:39:52.738Z'
+      - id: step-3
+        prompt: |
+          /m42-meta-toolkit:create-skill Improve the creating-workflows skill with inline schema and patterns.
+
+          ## Context
+          Feedback from agent: When invoking creating-workflows, the agent got the
+          SKILL.md but didn't automatically see critical reference files. Had to dig
+          through multiple files to understand current patterns.
+
+          Read context file: context/skill-discoverability-feedback.md
+
+          ## Requirements
+
+          ### 1. Add Quick Reference Section
+
+          File: plugins/m42-sprint/skills/creating-workflows/SKILL.md
+
+          Add a "Quick Reference" section with condensed, copy-paste ready syntax:
+
+          ```markdown
+          ## Quick Reference (Cheat Sheet)
+
+          ### Workflow Structure
+          ```yaml
+          name: <string>           # Required
+          description: <string>    # Optional
+          phases:                  # Required - list of phases
+            - id: <string>         # Required, unique identifier
+              prompt: <string>     # For simple phases (direct execution)
+              # OR
+              for-each: <string>   # Collection name to iterate
+              workflow: <string>   # Workflow to run per item
+          ```
+
+          ### Phase Types
+          | Type | Required Fields | Use Case |
+          |------|-----------------|----------|
+          | Simple | `id`, `prompt` | Direct execution of instructions |
+          | For-Each | `id`, `for-each`, `workflow` | Iterate over collection items |
+
+          ### Template Variables
+          | Variable | Description |
+          |----------|-------------|
+          | `{{item.prompt}}` | Current item's prompt |
+          | `{{item.id}}` | Current item's ID |
+          | `{{sprint.id}}` | Sprint identifier |
+          | `{{sprint.name}}` | Sprint name |
+
+          ### Optional Phase Fields
+          | Field | Type | Description |
+          |-------|------|-------------|
+          | `parallel` | boolean | Run in background (item workflows only) |
+          | `wait-for-parallel` | boolean | Sync point for parallel tasks |
+          | `break` | boolean | Pause for human review after completion |
+          | `gate` | object | Quality gate script + on-fail handling |
+          ```
+
+          ### 2. Add Current Patterns Section
+
+          Add a section showing available workflow patterns:
+
+          ```markdown
+          ## Current Workflow Patterns
+
+          ### sprint-default.yaml
+          **Phases**: prepare → development (for-each) → qa → deploy
+          **Use for**: Standard sprint execution with QA gates
+
+          ### plugin-development.yaml
+          **Phases**: preflight → development (TDD) → docs → tooling → version → qa → summary → pr
+          **Use for**: Plugin development with TDD and documentation
+
+          ### feature-standard.yaml
+          **Phases**: planning → implement → test → document
+          **Use for**: Single feature implementation
+
+          ### bugfix-workflow.yaml
+          **Phases**: diagnose → fix → verify
+          **Use for**: Bug investigation and fixing
+
+          ### ralph.yaml
+          **Type**: Goal-driven autonomous mode
+          **Use for**: Complex, research-heavy, open-ended goals
+          ```
+
+          ### 3. Add "Read These First" Guidance
+
+          At the top of the skill, add explicit guidance:
+
+          ```markdown
+          ## Before You Start
+
+          For complete reference, read these files:
+          1. **Schema**: `references/workflow-schema.md` - Full field definitions
+          2. **Examples**: `.claude/workflows/` - Working workflow files
+
+          The Quick Reference below covers common cases. For edge cases, consult the schema.
+          ```
+
+          ### 4. Verify Integration
+
+          - Reference files should still be the authoritative source
+          - Quick reference is a convenience, not a replacement
+          - Patterns section helps agents choose the right workflow
+        status: completed
+        phases:
+          - id: execute
+            status: completed
+            prompt: |
+              /m42-meta-toolkit:create-skill Improve the creating-workflows skill with inline schema and patterns.
+
+              ## Context
+              Feedback from agent: When invoking creating-workflows, the agent got the
+              SKILL.md but didn't automatically see critical reference files. Had to dig
+              through multiple files to understand current patterns.
+
+              Read context file: context/skill-discoverability-feedback.md
+
+              ## Requirements
+
+              ### 1. Add Quick Reference Section
+
+              File: plugins/m42-sprint/skills/creating-workflows/SKILL.md
+
+              Add a "Quick Reference" section with condensed, copy-paste ready syntax:
+
+              ```markdown
+              ## Quick Reference (Cheat Sheet)
+
+              ### Workflow Structure
+              ```yaml
+              name: <string>           # Required
+              description: <string>    # Optional
+              phases:                  # Required - list of phases
+                - id: <string>         # Required, unique identifier
+                  prompt: <string>     # For simple phases (direct execution)
+                  # OR
+                  for-each: <string>   # Collection name to iterate
+                  workflow: <string>   # Workflow to run per item
+              ```
+
+              ### Phase Types
+              | Type | Required Fields | Use Case |
+              |------|-----------------|----------|
+              | Simple | `id`, `prompt` | Direct execution of instructions |
+              | For-Each | `id`, `for-each`, `workflow` | Iterate over collection items |
+
+              ### Template Variables
+              | Variable | Description |
+              |----------|-------------|
+              | `{{item.prompt}}` | Current item's prompt |
+              | `{{item.id}}` | Current item's ID |
+              | `2026-01-29_workflow-qa-improvements` | Sprint identifier |
+              | `workflow-qa-improvements` | Sprint name |
+
+              ### Optional Phase Fields
+              | Field | Type | Description |
+              |-------|------|-------------|
+              | `parallel` | boolean | Run in background (item workflows only) |
+              | `wait-for-parallel` | boolean | Sync point for parallel tasks |
+              | `break` | boolean | Pause for human review after completion |
+              | `gate` | object | Quality gate script + on-fail handling |
+              ```
+
+              ### 2. Add Current Patterns Section
+
+              Add a section showing available workflow patterns:
+
+              ```markdown
+              ## Current Workflow Patterns
+
+              ### sprint-default.yaml
+              **Phases**: prepare → development (for-each) → qa → deploy
+              **Use for**: Standard sprint execution with QA gates
+
+              ### plugin-development.yaml
+              **Phases**: preflight → development (TDD) → docs → tooling → version → qa → summary → pr
+              **Use for**: Plugin development with TDD and documentation
+
+              ### feature-standard.yaml
+              **Phases**: planning → implement → test → document
+              **Use for**: Single feature implementation
+
+              ### bugfix-workflow.yaml
+              **Phases**: diagnose → fix → verify
+              **Use for**: Bug investigation and fixing
+
+              ### ralph.yaml
+              **Type**: Goal-driven autonomous mode
+              **Use for**: Complex, research-heavy, open-ended goals
+              ```
+
+              ### 3. Add "Read These First" Guidance
+
+              At the top of the skill, add explicit guidance:
+
+              ```markdown
+              ## Before You Start
+
+              For complete reference, read these files:
+              1. **Schema**: `references/workflow-schema.md` - Full field definitions
+              2. **Examples**: `.claude/workflows/` - Working workflow files
+
+              The Quick Reference below covers common cases. For edge cases, consult the schema.
+              ```
+
+              ### 4. Verify Integration
+
+              - Reference files should still be the authoritative source
+              - Quick reference is a convenience, not a replacement
+              - Patterns section helps agents choose the right workflow
+            started-at: '2026-01-29T20:39:54.769Z'
+            completed-at: '2026-01-29T20:44:01.125Z'
+        started-at: '2026-01-29T20:39:54.769Z'
+        completed-at: '2026-01-29T20:44:01.125Z'
+      - id: step-4
+        prompt: |
+          Add schema versioning to workflows with compiler warnings.
+
+          ## Context
+          Feedback: No way to know if local workflows are current or outdated.
+          Workflows created months ago may use deprecated patterns.
+
+          ## Requirements
+
+          ### 1. Add Schema Version Constant
+
+          File: plugins/m42-sprint/compiler/src/types.ts
+
+          Add:
+          ```typescript
+          /** Current workflow schema version */
+          export const CURRENT_SCHEMA_VERSION = '2.0';
+
+          /** Minimum supported schema version */
+          export const MIN_SCHEMA_VERSION = '1.0';
+          ```
+
+          ### 2. Update WorkflowDefinition Type
+
+          File: plugins/m42-sprint/compiler/src/types.ts
+
+          Add optional field:
+          ```typescript
+          interface WorkflowDefinition {
+            name: string;
+            description?: string;
+            'schema-version'?: string;  // Add this field
+            phases?: WorkflowPhase[];
+            // ... rest of fields
+          }
+          ```
+
+          ### 3. Add Version Validation
+
+          File: plugins/m42-sprint/compiler/src/validate.ts
+
+          Add validation function:
+          ```typescript
+          function validateSchemaVersion(
+            workflow: WorkflowDefinition,
+            workflowName: string,
+            warnings: string[]
+          ): void {
+            const version = workflow['schema-version'];
+
+            if (!version) {
+              warnings.push(
+                `Workflow '${workflowName}' has no schema-version field. ` +
+                `Consider adding: schema-version: "${CURRENT_SCHEMA_VERSION}"`
+              );
+              return;
+            }
+
+            if (version !== CURRENT_SCHEMA_VERSION) {
+              warnings.push(
+                `Workflow '${workflowName}' uses schema-version ${version}. ` +
+                `Current version is ${CURRENT_SCHEMA_VERSION}. Consider updating.`
+              );
+            }
+          }
+          ```
+
+          Call this function in the workflow validation.
+
+          ### 4. Update Workflow Templates
+
+          Update all workflow files in .claude/workflows/ to include:
+          ```yaml
+          schema-version: "2.0"
+          name: ...
+          ```
+
+          ### 5. Update Documentation
+
+          File: plugins/m42-sprint/skills/creating-workflows/references/workflow-schema.md
+
+          Add schema-version field documentation:
+          ```markdown
+          | Field | Type | Required | Description |
+          |-------|------|----------|-------------|
+          | `schema-version` | string | Recommended | Schema version (current: "2.0") |
+          ```
+
+          ### 6. Add Tests
+
+          File: plugins/m42-sprint/compiler/src/validate.test.ts
+
+          Add tests:
+          - Test: missing schema-version produces warning
+          - Test: outdated schema-version produces warning
+          - Test: current schema-version produces no warning
+        status: completed
+        phases:
+          - id: execute
+            status: completed
+            prompt: |
+              Add schema versioning to workflows with compiler warnings.
+
+              ## Context
+              Feedback: No way to know if local workflows are current or outdated.
+              Workflows created months ago may use deprecated patterns.
+
+              ## Requirements
+
+              ### 1. Add Schema Version Constant
+
+              File: plugins/m42-sprint/compiler/src/types.ts
+
+              Add:
+              ```typescript
+              /** Current workflow schema version */
+              export const CURRENT_SCHEMA_VERSION = '2.0';
+
+              /** Minimum supported schema version */
+              export const MIN_SCHEMA_VERSION = '1.0';
+              ```
+
+              ### 2. Update WorkflowDefinition Type
+
+              File: plugins/m42-sprint/compiler/src/types.ts
+
+              Add optional field:
+              ```typescript
+              interface WorkflowDefinition {
+                name: string;
+                description?: string;
+                'schema-version'?: string;  // Add this field
+                phases?: WorkflowPhase[];
+                // ... rest of fields
+              }
+              ```
+
+              ### 3. Add Version Validation
+
+              File: plugins/m42-sprint/compiler/src/validate.ts
+
+              Add validation function:
+              ```typescript
+              function validateSchemaVersion(
+                workflow: WorkflowDefinition,
+                workflowName: string,
+                warnings: string[]
+              ): void {
+                const version = workflow['schema-version'];
+
+                if (!version) {
+                  warnings.push(
+                    `Workflow '${workflowName}' has no schema-version field. ` +
+                    `Consider adding: schema-version: "${CURRENT_SCHEMA_VERSION}"`
+                  );
+                  return;
+                }
+
+                if (version !== CURRENT_SCHEMA_VERSION) {
+                  warnings.push(
+                    `Workflow '${workflowName}' uses schema-version ${version}. ` +
+                    `Current version is ${CURRENT_SCHEMA_VERSION}. Consider updating.`
+                  );
+                }
+              }
+              ```
+
+              Call this function in the workflow validation.
+
+              ### 4. Update Workflow Templates
+
+              Update all workflow files in .claude/workflows/ to include:
+              ```yaml
+              schema-version: "2.0"
+              name: ...
+              ```
+
+              ### 5. Update Documentation
+
+              File: plugins/m42-sprint/skills/creating-workflows/references/workflow-schema.md
+
+              Add schema-version field documentation:
+              ```markdown
+              | Field | Type | Required | Description |
+              |-------|------|----------|-------------|
+              | `schema-version` | string | Recommended | Schema version (current: "2.0") |
+              ```
+
+              ### 6. Add Tests
+
+              File: plugins/m42-sprint/compiler/src/validate.test.ts
+
+              Add tests:
+              - Test: missing schema-version produces warning
+              - Test: outdated schema-version produces warning
+              - Test: current schema-version produces no warning
+            started-at: '2026-01-29T20:44:03.152Z'
+            completed-at: '2026-01-29T20:50:59.152Z'
+        started-at: '2026-01-29T20:44:03.152Z'
+        completed-at: '2026-01-29T20:50:59.152Z'
+      - id: step-5
+        prompt: |
+          /m42-meta-toolkit:create-skill validating-workflows
+
+          Create a skill for validating workflow files that Claude can invoke on demand.
+
+          ## Context
+          Users and Claude should be able to validate workflows before running sprints.
+          This skill provides validation with helpful output and can be triggered
+          automatically when Claude detects workflow issues.
+
+          ## Requirements
+
+          ### 1. Skill File Structure
+
+          Create: plugins/m42-sprint/skills/validating-workflows/SKILL.md
+
+          ### 2. Triggers
+
+          This skill should trigger on:
+          - "validate workflow"
+          - "check workflow"
+          - "workflow validation"
+          - "is this workflow valid"
+          - "workflow errors"
+
+          ### 3. Skill Content
+
+          The skill should guide the agent to:
+
+          #### Step 1: Identify Workflow File
+          - Accept workflow path as argument or find from context
+          - Support both relative and absolute paths
+
+          #### Step 2: Run Compiler Validation
+
+          Use the compiler's validation:
+
+          ```bash
+          node "plugins/m42-sprint/compiler/dist/index.js" validate "$WORKFLOW_PATH"
+          ```
+
+          The compiler should output JSON with:
+          ```json
+          {
+            "valid": true|false,
+            "errors": [...],
+            "warnings": [...]
+          }
+          ```
+
+          #### Step 3: Format Output
+
+          Display results in user-friendly format:
+
+          ```
+          Validating: my-workflow.yaml
+
+          ✓ Schema structure valid
+          ✓ Phase IDs unique
+          ✓ Workflow references resolve
+          ⚠ Schema version 1.0 (current: 2.0)
+          ⚠ Consider adding description field
+
+          Validation: PASS (2 warnings)
+          ```
+
+          Or on errors:
+          ```
+          Validating: my-workflow.yaml
+
+          ✗ Missing required field: name
+          ✗ Phase 'dev' has both prompt and for-each
+          ⚠ Schema version not specified
+
+          Validation: FAIL (2 errors, 1 warning)
+          ```
+
+          ### 4. Add Validate Subcommand to Compiler CLI
+
+          File: plugins/m42-sprint/compiler/src/index.ts
+
+          Add a `validate` subcommand that:
+          - Takes a workflow path as argument
+          - Runs validation only (no compilation)
+          - Outputs JSON result
+
+          ```typescript
+          if (args[0] === 'validate') {
+            const workflowPath = args[1];
+            const result = validateWorkflowFile(workflowPath);
+            console.log(JSON.stringify(result, null, 2));
+            process.exit(result.valid ? 0 : 1);
+          }
+          ```
+
+          ### 5. Test the Skill
+
+          Verify with test workflow files:
+          - valid-workflow.yaml (should pass)
+          - invalid-workflow.yaml (should fail)
+          - outdated-workflow.yaml (should warn)
+        status: completed
+        phases:
+          - id: execute
+            status: completed
+            prompt: |
+              /m42-meta-toolkit:create-skill validating-workflows
+
+              Create a skill for validating workflow files that Claude can invoke on demand.
+
+              ## Context
+              Users and Claude should be able to validate workflows before running sprints.
+              This skill provides validation with helpful output and can be triggered
+              automatically when Claude detects workflow issues.
+
+              ## Requirements
+
+              ### 1. Skill File Structure
+
+              Create: plugins/m42-sprint/skills/validating-workflows/SKILL.md
+
+              ### 2. Triggers
+
+              This skill should trigger on:
+              - "validate workflow"
+              - "check workflow"
+              - "workflow validation"
+              - "is this workflow valid"
+              - "workflow errors"
+
+              ### 3. Skill Content
+
+              The skill should guide the agent to:
+
+              #### Step 1: Identify Workflow File
+              - Accept workflow path as argument or find from context
+              - Support both relative and absolute paths
+
+              #### Step 2: Run Compiler Validation
+
+              Use the compiler's validation:
+
+              ```bash
+              node "plugins/m42-sprint/compiler/dist/index.js" validate "$WORKFLOW_PATH"
+              ```
+
+              The compiler should output JSON with:
+              ```json
+              {
+                "valid": true|false,
+                "errors": [...],
+                "warnings": [...]
+              }
+              ```
+
+              #### Step 3: Format Output
+
+              Display results in user-friendly format:
+
+              ```
+              Validating: my-workflow.yaml
+
+              ✓ Schema structure valid
+              ✓ Phase IDs unique
+              ✓ Workflow references resolve
+              ⚠ Schema version 1.0 (current: 2.0)
+              ⚠ Consider adding description field
+
+              Validation: PASS (2 warnings)
+              ```
+
+              Or on errors:
+              ```
+              Validating: my-workflow.yaml
+
+              ✗ Missing required field: name
+              ✗ Phase 'dev' has both prompt and for-each
+              ⚠ Schema version not specified
+
+              Validation: FAIL (2 errors, 1 warning)
+              ```
+
+              ### 4. Add Validate Subcommand to Compiler CLI
+
+              File: plugins/m42-sprint/compiler/src/index.ts
+
+              Add a `validate` subcommand that:
+              - Takes a workflow path as argument
+              - Runs validation only (no compilation)
+              - Outputs JSON result
+
+              ```typescript
+              if (args[0] === 'validate') {
+                const workflowPath = args[1];
+                const result = validateWorkflowFile(workflowPath);
+                console.log(JSON.stringify(result, null, 2));
+                process.exit(result.valid ? 0 : 1);
+              }
+              ```
+
+              ### 5. Test the Skill
+
+              Verify with test workflow files:
+              - valid-workflow.yaml (should pass)
+              - invalid-workflow.yaml (should fail)
+              - outdated-workflow.yaml (should warn)
+            started-at: '2026-01-29T20:51:01.174Z'
+            completed-at: '2026-01-29T21:07:57.578Z'
+        started-at: '2026-01-29T20:51:01.174Z'
+        completed-at: '2026-01-29T21:07:57.578Z'
+      - id: step-6
+        prompt: |
+          /m42-meta-toolkit:create-command run-sprint
+
+          Refactor the existing run-sprint command.
+
+          ## Issue
+          The preflight checks are documented but not directly invoked as executable
+          validation steps. The agent has to interpret the documentation rather than
+          execute structured checks.
+
+          ## Goal
+          Make preflight checks directly executable with clear error messages.
+          Follow creating-commands best practices for the improvement.
+
+          ## Existing Command
+          File: plugins/m42-sprint/commands/run-sprint.md
+        status: completed
+        phases:
+          - id: execute
+            status: completed
+            prompt: |
+              /m42-meta-toolkit:create-command run-sprint
+
+              Refactor the existing run-sprint command.
+
+              ## Issue
+              The preflight checks are documented but not directly invoked as executable
+              validation steps. The agent has to interpret the documentation rather than
+              execute structured checks.
+
+              ## Goal
+              Make preflight checks directly executable with clear error messages.
+              Follow creating-commands best practices for the improvement.
+
+              ## Existing Command
+              File: plugins/m42-sprint/commands/run-sprint.md
+            started-at: '2026-01-29T21:07:59.624Z'
+            completed-at: '2026-01-29T21:15:01.058Z'
+        started-at: '2026-01-29T21:07:59.624Z'
+        completed-at: '2026-01-29T21:15:01.058Z'
+      - id: step-7
+        prompt: |
+          /m42-meta-toolkit:create-command init-sprint
+
+          Refactor the existing init-sprint command.
+
+          ## Issue
+          The preflight checks are documented but not directly invoked as executable
+          validation steps. The agent has to interpret the documentation rather than
+          execute structured checks.
+
+          ## Goal
+          Make preflight checks directly executable with clear error messages.
+          Follow creating-commands best practices for the improvement.
+
+          ## Existing Command
+          File: plugins/m42-sprint/commands/init-sprint.md
+        status: completed
+        phases:
+          - id: execute
+            status: completed
+            prompt: |
+              /m42-meta-toolkit:create-command init-sprint
+
+              Refactor the existing init-sprint command.
+
+              ## Issue
+              The preflight checks are documented but not directly invoked as executable
+              validation steps. The agent has to interpret the documentation rather than
+              execute structured checks.
+
+              ## Goal
+              Make preflight checks directly executable with clear error messages.
+              Follow creating-commands best practices for the improvement.
+
+              ## Existing Command
+              File: plugins/m42-sprint/commands/init-sprint.md
+            started-at: '2026-01-29T21:15:03.076Z'
+            completed-at: '2026-01-29T21:24:34.759Z'
+        started-at: '2026-01-29T21:15:03.076Z'
+        completed-at: '2026-01-29T21:24:34.759Z'
+      - id: step-8
+        prompt: |
+          Fix the worktree continuation bug in the run-sprint command.
+
+          ## Bug Description
+
+          When run-sprint creates a worktree for a sprint, it currently:
+          1. Creates the worktree
+          2. Copies sprint files to the worktree
+          3. **EXITS** with a message telling user to manually cd and re-run
+
+          This is wrong. The command should:
+          1. Create the worktree
+          2. Copy sprint files to the worktree
+          3. **CONTINUE** execution with the worktree path (no manual intervention)
+
+          ## Location
+
+          File: plugins/m42-sprint/commands/run-sprint.md
+          Section: "Worktree Setup (Automatic)" (lines ~81-147)
+
+          ## Current Buggy Code
+
+          ```bash
+          # Copy sprint files to worktree
+          WORKTREE_SPRINT_DIR="${WORKTREE_PATH}/.claude/sprints/${SPRINT_ID}"
+          mkdir -p "$WORKTREE_SPRINT_DIR"
+          cp -r "${SPRINT_DIR}"/* "$WORKTREE_SPRINT_DIR/"
+
+          echo ""
+          echo "Worktree created successfully!"
+          echo "Sprint directory: $WORKTREE_SPRINT_DIR"
+          echo ""
+          echo "To run the sprint in the worktree:"
+          echo "  cd $WORKTREE_PATH && /run-sprint .claude/sprints/${SPRINT_ID}"
+          echo ""
+
+          # Exit here - user should run from worktree
+          exit 0
+          ```
+
+          ## Expected Fix
+
+          After creating the worktree and copying files:
+          1. Update SPRINT_DIR to point to the worktree's sprint directory
+          2. Update WORKFLOWS_DIR to point to the worktree's workflows
+          3. Continue with the "Workflow Compilation" section
+          4. Launch runtime with `cd "$WORKTREE_PATH" && ...`
+
+          ```bash
+          # Copy sprint files to worktree
+          WORKTREE_SPRINT_DIR="${WORKTREE_PATH}/.claude/sprints/${SPRINT_ID}"
+          mkdir -p "$WORKTREE_SPRINT_DIR"
+          cp -r "${SPRINT_DIR}"/* "$WORKTREE_SPRINT_DIR/"
+
+          echo "Worktree created: $WORKTREE_PATH"
+          echo "Sprint directory: $WORKTREE_SPRINT_DIR"
+
+          # Update paths to use worktree - CONTINUE execution, don't exit
+          SPRINT_DIR="$WORKTREE_SPRINT_DIR"
+          WORKFLOWS_DIR="${WORKTREE_PATH}/.claude/workflows"
+          WORKTREE_CWD="$WORKTREE_PATH"  # Use this for runtime launch
+          ```
+
+          Then in the "Launch Sprint Loop" section, use:
+          ```bash
+          cd "$WORKTREE_CWD" && node "${CLAUDE_PLUGIN_ROOT}/runtime/dist/cli.js" run "$SPRINT_DIR" ...
+          ```
+
+          ## Acceptance Criteria
+
+          - [ ] Worktree is created automatically when workflow enables it
+          - [ ] Sprint files are copied to worktree
+          - [ ] Execution continues without manual cd/re-run
+          - [ ] Runtime runs from within the worktree directory
+          - [ ] Status server runs from within the worktree directory
+          - [ ] User sees worktree path in status output
+          - [ ] Remove the "exit 0" and manual instructions
+        status: completed
+        phases:
+          - id: execute
+            status: completed
+            prompt: |
+              Fix the worktree continuation bug in the run-sprint command.
+
+              ## Bug Description
+
+              When run-sprint creates a worktree for a sprint, it currently:
+              1. Creates the worktree
+              2. Copies sprint files to the worktree
+              3. **EXITS** with a message telling user to manually cd and re-run
+
+              This is wrong. The command should:
+              1. Create the worktree
+              2. Copy sprint files to the worktree
+              3. **CONTINUE** execution with the worktree path (no manual intervention)
+
+              ## Location
+
+              File: plugins/m42-sprint/commands/run-sprint.md
+              Section: "Worktree Setup (Automatic)" (lines ~81-147)
+
+              ## Current Buggy Code
+
+              ```bash
+              # Copy sprint files to worktree
+              WORKTREE_SPRINT_DIR="${WORKTREE_PATH}/.claude/sprints/${SPRINT_ID}"
+              mkdir -p "$WORKTREE_SPRINT_DIR"
+              cp -r "${SPRINT_DIR}"/* "$WORKTREE_SPRINT_DIR/"
+
+              echo ""
+              echo "Worktree created successfully!"
+              echo "Sprint directory: $WORKTREE_SPRINT_DIR"
+              echo ""
+              echo "To run the sprint in the worktree:"
+              echo "  cd $WORKTREE_PATH && /run-sprint .claude/sprints/${SPRINT_ID}"
+              echo ""
+
+              # Exit here - user should run from worktree
+              exit 0
+              ```
+
+              ## Expected Fix
+
+              After creating the worktree and copying files:
+              1. Update SPRINT_DIR to point to the worktree's sprint directory
+              2. Update WORKFLOWS_DIR to point to the worktree's workflows
+              3. Continue with the "Workflow Compilation" section
+              4. Launch runtime with `cd "$WORKTREE_PATH" && ...`
+
+              ```bash
+              # Copy sprint files to worktree
+              WORKTREE_SPRINT_DIR="${WORKTREE_PATH}/.claude/sprints/${SPRINT_ID}"
+              mkdir -p "$WORKTREE_SPRINT_DIR"
+              cp -r "${SPRINT_DIR}"/* "$WORKTREE_SPRINT_DIR/"
+
+              echo "Worktree created: $WORKTREE_PATH"
+              echo "Sprint directory: $WORKTREE_SPRINT_DIR"
+
+              # Update paths to use worktree - CONTINUE execution, don't exit
+              SPRINT_DIR="$WORKTREE_SPRINT_DIR"
+              WORKFLOWS_DIR="${WORKTREE_PATH}/.claude/workflows"
+              WORKTREE_CWD="$WORKTREE_PATH"  # Use this for runtime launch
+              ```
+
+              Then in the "Launch Sprint Loop" section, use:
+              ```bash
+              cd "$WORKTREE_CWD" && node "${CLAUDE_PLUGIN_ROOT}/runtime/dist/cli.js" run "$SPRINT_DIR" ...
+              ```
+
+              ## Acceptance Criteria
+
+              - [ ] Worktree is created automatically when workflow enables it
+              - [ ] Sprint files are copied to worktree
+              - [ ] Execution continues without manual cd/re-run
+              - [ ] Runtime runs from within the worktree directory
+              - [ ] Status server runs from within the worktree directory
+              - [ ] User sees worktree path in status output
+              - [ ] Remove the "exit 0" and manual instructions
+            started-at: '2026-01-29T21:24:36.775Z'
+            completed-at: '2026-01-29T21:25:51.506Z'
+        started-at: '2026-01-29T21:24:36.775Z'
+        completed-at: '2026-01-29T21:25:51.506Z'
+    started-at: '2026-01-29T20:21:47.811Z'
+    completed-at: '2026-01-29T21:25:51.506Z'
+  - id: documentation
+    status: completed
+    prompt: |
+      ## Your Role: Documentation OPERATOR
+
+      Update documentation by spawning subagents for each category.
+
+      ## Step 1: Analyze Changes
+      ```bash
+      git diff main..HEAD --name-only
+      git diff main..HEAD --stat
+      ```
+
+      Create a list of what changed and needs documenting.
+
+      ## Step 2: Spawn Subagents (in parallel if independent)
+
+      ### User Guide Subagent
+      ```
+      Task: Update user guide documentation
+
+      Changes made in this sprint:
+      [List relevant changes]
+
+      Instructions:
+      1. Find existing user guide (docs/USER-GUIDE.md or docs/user-guide/)
+      2. Add/update sections for new features
+      3. Update examples if behavior changed
+      4. Keep it task-oriented and example-rich
+      5. Commit: git commit -m "docs(user-guide): update for sprint changes"
+
+      Skip if: No user-facing feature changes
+      ```
+
+      ### Getting Started Subagent
+      ```
+      Task: Update getting started / quickstart docs
+
+      Changes made in this sprint:
+      [List relevant changes]
+
+      Instructions:
+      1. Find quickstart docs (README.md, docs/getting-started/)
+      2. Update installation steps if changed
+      3. Update first-steps examples if affected
+      4. Ensure copy-paste commands work
+      5. Commit: git commit -m "docs(getting-started): update for sprint changes"
+
+      Skip if: No changes affect onboarding flow
+      ```
+
+      ### Reference Docs Subagent
+      ```
+      Task: Update reference documentation
+
+      Changes made in this sprint:
+      [List relevant changes]
+
+      Instructions:
+      1. Find reference docs (docs/reference/, API docs)
+      2. Update command/function signatures
+      3. Update configuration options
+      4. Update type definitions
+      5. Commit: git commit -m "docs(reference): update for sprint changes"
+
+      Skip if: No API/config/type changes
+      ```
+
+      ## Step 3: Verify All Documentation
+      - Run code examples from docs to verify they work
+      - Check internal links are valid
+      - Ensure consistency across all doc updates
+
+      ## Output
+      Create: artifacts/docs-summary.md
+
+      ```markdown
+      # Documentation Summary
+
+      ## Changes Analyzed
+      [What changed in the sprint]
+
+      ## Updates Made
+      | Category | Status | Changes |
+      |----------|--------|---------|
+      | User Guide | Updated/Skipped | [summary] |
+      | Getting Started | Updated/Skipped | [summary] |
+      | Reference | Updated/Skipped | [summary] |
+
+      ## Verification
+      - [ ] Code examples tested
+      - [ ] Links validated
+      ```
+    started-at: '2026-01-29T21:25:51.589Z'
+    completed-at: '2026-01-29T21:27:15.139Z'
+  - id: tooling-update
+    status: completed
+    prompt: |
+      ## Your Role: Tooling OPERATOR
+
+      Ensure all Commands and Skills are up-to-date with implementation changes.
+
+      ## Step 1: Identify Affected Plugin
+      ```bash
+      git diff main..HEAD --name-only | grep "^plugins/" | cut -d'/' -f2 | sort -u
+      ```
+
+      ## Step 2: List All Commands and Skills
+      For each affected plugin:
+      ```bash
+      # List commands
+      ls plugins/<plugin>/commands/*.md 2>/dev/null
+
+      # List skills
+      ls plugins/<plugin>/skills/*.md 2>/dev/null
+      ```
+
+      ## Step 3: Analyze Changes
+      ```bash
+      git diff main..HEAD --name-only
+      git diff main..HEAD --stat
+      ```
+
+      Determine which Commands/Skills might be affected by the changes.
+
+      ## Step 4: Spawn Review Subagents (in parallel)
+
+      For EACH Command file, spawn a subagent:
+      ```
+      Task: Review and update Command - <command-name>
+
+      Implementation changes in this sprint:
+      [Summary of relevant changes]
+
+      Instructions:
+      1. Read the command file: plugins/<plugin>/commands/<command>.md
+      2. Compare against current implementation
+      3. Check if examples, descriptions, or behavior changed
+      4. Update ONLY if necessary - no cosmetic changes
+      5. If updated: git commit -m "docs(<command>): sync with implementation"
+
+      Skip if: Command is unaffected by changes
+      ```
+
+      For EACH Skill file, spawn a subagent:
+      ```
+      Task: Review and update Skill - <skill-name>
+
+      Implementation changes in this sprint:
+      [Summary of relevant changes]
+
+      Instructions:
+      1. Read the skill file: plugins/<plugin>/skills/<skill>.md
+      2. Compare against current implementation
+      3. Check if triggers, examples, or capabilities changed
+      4. Update ONLY if necessary - no cosmetic changes
+      5. If updated: git commit -m "docs(<skill>): sync with implementation"
+
+      Skip if: Skill is unaffected by changes
+      ```
+
+      ## Step 5: Generate Tooling Report
+      Create: artifacts/tooling-update-summary.md
+
+      ```markdown
+      # Tooling Update Summary
+
+      ## Commands Reviewed
+      | Command | Status | Changes |
+      |---------|--------|---------|
+      | <name> | Updated/Unchanged | [summary] |
+
+      ## Skills Reviewed
+      | Skill | Status | Changes |
+      |-------|--------|---------|
+      | <name> | Updated/Unchanged | [summary] |
+
+      ## Verification
+      - All commands reflect current implementation
+      - All skills reflect current capabilities
+      ```
+
+      Commit:
+      ```bash
+      git add artifacts/tooling-update-summary.md
+      git commit -m "tooling: commands and skills synced"
+      ```
+    started-at: '2026-01-29T21:27:17.161Z'
+    completed-at: '2026-01-29T21:29:33.688Z'
+  - id: version-bump
+    status: completed
+    prompt: |
+      ## Your Role: Version OPERATOR
+
+      Update plugin version based on sprint changes following semantic versioning.
+
+      ## Step 1: Identify Affected Plugin
+      ```bash
+      git diff main..HEAD --name-only | grep "^plugins/" | cut -d'/' -f2 | sort -u
+      ```
+
+      For each affected plugin, perform steps 2-5.
+
+      ## Step 2: Analyze Changes for Version Type
+
+      Examine all changes to determine version bump type:
+      ```bash
+      git log main..HEAD --oneline
+      git diff main..HEAD --stat
+      ```
+
+      ### Version Bump Rules (Semantic Versioning)
+
+      **MAJOR (x.0.0)** - Breaking changes:
+      - Schema changes that break existing SPRINT.yaml/workflow files
+      - Removed commands or required flags
+      - Changed behavior that breaks existing usage
+      - API changes requiring user migration
+
+      **MINOR (0.x.0)** - New features (backwards compatible):
+      - New commands or skills added
+      - New optional configuration options
+      - New workflow phases or capabilities
+      - New validation rules (non-breaking)
+
+      **PATCH (0.0.x)** - Bug fixes and maintenance:
+      - Bug fixes
+      - Documentation updates only
+      - Test additions/fixes
+      - Performance improvements
+      - Internal refactoring (no API changes)
+
+      ## Step 3: Read Current Version
+      ```bash
+      cat plugins/<plugin>/.claude-plugin/plugin.json | grep '"version"'
+      ```
+
+      Calculate new version based on bump type.
+
+      ## Step 4: Update plugin.json
+
+      Edit `plugins/<plugin>/.claude-plugin/plugin.json`:
+      - Update the `version` field to the new version
+
+      ## Step 5: Update CHANGELOG.md
+
+      Create or update `plugins/<plugin>/CHANGELOG.md`:
+
+      ```markdown
+      # Changelog
+
+      All notable changes to this plugin will be documented in this file.
+
+      ## [X.Y.Z] - YYYY-MM-DD
+
+      ### Added
+      - [New features added in this sprint]
+
+      ### Changed
+      - [Changes to existing functionality]
+
+      ### Fixed
+      - [Bug fixes]
+
+      ### Removed
+      - [Removed features]
+
+      ---
+      [Previous versions below...]
+      ```
+
+      Guidelines:
+      - Use today's date
+      - Keep entries concise (one line per change)
+      - Group by category (Added/Changed/Fixed/Removed)
+      - Only include user-facing changes
+      - Reference issue numbers if applicable
+
+      ## Step 6: Commit Version Bump
+      ```bash
+      git add plugins/<plugin>/.claude-plugin/plugin.json
+      git add plugins/<plugin>/CHANGELOG.md
+      git commit -m "chore: bump <plugin> version to X.Y.Z"
+      ```
+
+      ## Output
+      Report version changes made:
+      ```
+      Version bump: <plugin> v1.2.3 → v1.3.0 (MINOR)
+      Reason: Added new for-each collection feature
+      ```
+    started-at: '2026-01-29T21:29:35.721Z'
+    completed-at: '2026-01-29T21:30:32.758Z'
+  - id: final-qa
+    status: completed
+    prompt: |
+      ## Your Role: QA OPERATOR
+
+      Verify the entire sprint meets quality standards.
+
+      ## Step 1: Build Verification
+      ```bash
+      npm run build
+      npm run typecheck
+      npm run lint
+      ```
+
+      All must pass. If any fail, spawn fix subagent.
+
+      ## Step 2: Full Test Suite
+      ```bash
+      npm test
+      ```
+
+      All tests must pass. Record coverage if available.
+
+      ## Step 3: Review All Step Artifacts
+      Read each artifacts/{{item.id}}-complete.md to verify all steps finished.
+
+      ## Step 4: Integration Check
+      - Verify modules import correctly
+      - Check for circular dependencies
+      - Run any integration tests
+
+      ## Step 5: Generate QA Report
+      Create: artifacts/sprint-qa-report.md
+
+      ```markdown
+      # Sprint QA Report
+
+      ## Build Status
+      | Check | Status |
+      |-------|--------|
+      | Build | PASS/FAIL |
+      | TypeCheck | PASS/FAIL |
+      | Lint | PASS/FAIL |
+
+      ## Test Results
+      - Total: [N]
+      - Passed: [N]
+      - Failed: [N]
+      - Coverage: [%]
+
+      ## Step Verification
+      | Step | Status |
+      |------|--------|
+      | [step-id] | COMPLETE |
+
+      ## Overall: PASS / FAIL
+      ```
+
+      ## Handle Failures
+      If any check fails:
+      1. Spawn fix subagent with specific error details
+      2. Re-run verification
+      3. If still failing, escalate to human
+
+      Commit:
+      ```bash
+      git add artifacts/sprint-qa-report.md
+      git commit -m "qa: sprint verification complete"
+      ```
+    started-at: '2026-01-29T21:30:34.774Z'
+    completed-at: '2026-01-29T21:34:32.961Z'
+  - id: summary
+    status: completed
+    prompt: |
+      Generate sprint summary for PR.
+
+      ## Collect Information
+      - Read all artifacts/*-complete.md
+      - Read artifacts/sprint-qa-report.md
+      - Get commit history: `git log main..HEAD --oneline`
+      - Get file changes: `git diff main..HEAD --stat`
+
+      ## Create Summary
+      Create: artifacts/sprint-summary.md
+
+      ```markdown
+      # Sprint Summary: 2026-01-29_workflow-qa-improvements
+
+      ## Completed Steps
+      [For each step: what was accomplished]
+
+      ## Test Coverage
+      - Tests added: [N]
+      - All tests passing: Yes
+
+      ## Files Changed
+      [Summary of changes]
+
+      ## Commits
+      [List of commits]
+
+      ## Ready for Review
+      - Build: PASS
+      - Tests: PASS
+      - Lint: PASS
+      - Docs: Updated
+      ```
+
+      Commit:
+      ```bash
+      git add artifacts/sprint-summary.md
+      git commit -m "docs: sprint summary"
+      ```
+    started-at: '2026-01-29T21:34:34.988Z'
+    completed-at: '2026-01-29T21:35:30.844Z'
+  - id: pr-create
+    status: pending
+    prompt: |
+      Push branch and create pull request.
+
+      ## Step 1: Verify Clean State
+      ```bash
+      git status
+      ```
+
+      ## Step 2: Push Branch
+      ```bash
+      git push -u origin HEAD
+      ```
+
+      ## Step 3: Create PR
+      Read artifacts/sprint-summary.md for PR body content.
+
+      ```bash
+      gh pr create \
+        --title "2026-01-29_workflow-qa-improvements" \
+        --body "$(cat <<'EOF'
+      ## Summary
+      [Key points from sprint-summary.md]
+
+      ## Changes
+      [List major changes]
+
+      ## Verification
+      - [x] Build passes
+      - [x] All tests pass
+      - [x] Lint passes
+      - [x] Documentation updated
+
+      ---
+      See `artifacts/sprint-summary.md` for full details.
+      EOF
+      )"
+      ```
+
+      ## Step 4: Output PR URL
+      ```bash
+      gh pr view --json url -q '.url'
+      ```
+current:
+  phase: 7
+  step: null
+  sub-phase: null
+stats:
+  started-at: '2026-01-29T20:18:07.580Z'
+  total-phases: 17
+  completed-phases: 0
+  total-steps: 9
+  completed-steps: 0
+  current-iteration: 16
+parallel-tasks: []
+worktree:
+  enabled: true
+  branch: sprint/2026-01-29_workflow-qa-improvements
+  path: trees/2026-01-29_workflow-qa-improvements
+  cleanup: never
+last-activity: '2026-01-29T21:35:32.886Z'

@@ -19,6 +19,80 @@ program
   .description('Compile sprint workflow definitions into PROGRESS.yaml')
   .version('1.0.0');
 
+// Validate command
+program
+  .command('validate')
+  .description('Validate a workflow file')
+  .argument('<workflow-file>', 'Path to the workflow YAML file to validate')
+  .action(async (workflowFile: string) => {
+    try {
+      // Resolve absolute path
+      const absolutePath = path.resolve(workflowFile);
+
+      // Check if file exists
+      if (!fs.existsSync(absolutePath)) {
+        console.error(JSON.stringify({
+          valid: false,
+          errors: [{
+            code: 'FILE_NOT_FOUND',
+            message: `Workflow file not found: ${absolutePath}`,
+            path: absolutePath
+          }],
+          warnings: []
+        }, null, 2));
+        process.exit(1);
+      }
+
+      // Load and parse the workflow
+      const content = fs.readFileSync(absolutePath, 'utf8');
+      let workflow: unknown;
+      try {
+        workflow = yaml.load(content);
+      } catch (err) {
+        console.error(JSON.stringify({
+          valid: false,
+          errors: [{
+            code: 'YAML_PARSE_ERROR',
+            message: `Failed to parse YAML: ${err instanceof Error ? err.message : String(err)}`,
+            path: absolutePath
+          }],
+          warnings: []
+        }, null, 2));
+        process.exit(1);
+      }
+
+      // Validate the workflow structure
+      const { validateWorkflowDefinition } = await import('./validate.js');
+      const workflowName = path.basename(absolutePath, path.extname(absolutePath));
+      const errors = validateWorkflowDefinition(workflow, workflowName);
+
+      // Separate errors and warnings
+      const actualErrors = errors.filter(e => !e.code.includes('WARNING'));
+      const warnings = errors.filter(e => e.code.includes('WARNING'));
+
+      // Output JSON result
+      const result = {
+        valid: actualErrors.length === 0,
+        errors: actualErrors,
+        warnings: warnings
+      };
+
+      console.log(JSON.stringify(result, null, 2));
+      process.exit(actualErrors.length === 0 ? 0 : 1);
+
+    } catch (error) {
+      console.error(JSON.stringify({
+        valid: false,
+        errors: [{
+          code: 'VALIDATION_ERROR',
+          message: error instanceof Error ? error.message : String(error)
+        }],
+        warnings: []
+      }, null, 2));
+      process.exit(1);
+    }
+  });
+
 program
   .argument('<sprint-dir>', 'Path to the sprint directory containing SPRINT.yaml')
   .option('-w, --workflows <dir>', 'Path to workflows directory', '.claude/workflows')

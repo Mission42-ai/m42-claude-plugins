@@ -9,6 +9,7 @@
 # - Final sprint-level QA review
 # - Summary generation and PR preparation
 
+schema-version: "2.0"
 name: Gherkin-Verified Execution
 description: |
   Comprehensive sprint workflow that autonomously executes complex plans with

@@ -1,6 +1,10 @@
 /**
  * TypeScript interfaces for the Sprint Workflow System
  */
+/** Current workflow schema version */
+export declare const CURRENT_SCHEMA_VERSION = "2.0";
+/** Minimum supported schema version */
+export declare const MIN_SCHEMA_VERSION = "1.0";
 export type PhaseStatus = 'pending' | 'in-progress' | 'completed' | 'blocked' | 'skipped' | 'failed';
 /** Valid Claude model identifiers */
 export type ClaudeModel = 'sonnet' | 'opus' | 'haiku';
@@ -475,6 +479,8 @@ export interface WorkflowDefinition {
     name: string;
     /** Description of what this workflow does */
     description?: string;
+    /** Schema version for tracking workflow format compatibility */
+    'schema-version'?: string;
     /** The phases in this workflow (optional for Ralph mode) */
     phases?: WorkflowPhase[];
     /** Workflow mode: standard (phase-based) or ralph (goal-driven) */

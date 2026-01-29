@@ -7,6 +7,7 @@
 # - RED/GREEN/REFACTOR handled within single development iteration
 # - WORKTREE ISOLATION for parallel development
 
+schema-version: "2.0"
 name: Plugin Development Workflow
 description: |
   Streamlined TDD workflow where Claude operates as an intelligent coordinator.
@@ -166,6 +167,44 @@ phases:
 
       **Verify REFACTOR**: Run tests + lint + typecheck, all must pass.
 
+      ### 4. INTEGRATION TEST Phase (if needed)
+
+      Determine if this feature requires integration testing:
+      - ✅ YES if: spawns external processes, modifies file system state,
+        involves async/parallel operations, or inter-process communication
+      - ❌ NO if: pure function, simple data transformation, isolated logic
+
+      If YES, spawn an integration test subagent:
+
+      ```
+      Task: INTEGRATION - Create end-to-end test for {{item.id}}
+
+      Requirements:
+      {{item.prompt}}
+
+      Instructions:
+      1. Identify the end-to-end flow to test
+      2. Create integration test file: {{item.id}}.integration.test.ts
+      3. Test with real dependencies where safe, mocked where necessary
+      4. Verify observable outcomes (files created, processes spawned, state changed)
+      5. Include teardown to clean up test artifacts
+      6. Commit: git commit -m "test({{item.id}}): add integration tests"
+
+      Examples of what to verify:
+      - If feature spawns Claude: verify it's invoked with correct args
+      - If feature writes files: verify files exist with correct content
+      - If feature modifies state: verify state changes are observable
+      - If feature runs in parallel: verify non-blocking behavior
+
+      Common Integration Test Patterns:
+      - Use test fixtures for file system state
+      - Mock external APIs but test real process spawning
+      - Verify error handling with real failure scenarios
+      - Test transaction/recovery with simulated crashes
+      ```
+
+      **Verify INTEGRATION**: Run integration tests, confirm end-to-end flow works.
+
       ---
 
       ## OPERATOR DECISIONS
@@ -188,6 +227,10 @@ phases:
 
       ## Files Changed
       [List]
+
+      ## Test Coverage
+      - Unit tests: [count]
+      - Integration tests: [count if applicable]
 
       ## Status: COMPLETE
       ```
@@ -522,6 +565,11 @@ phases:
       ```
 
       All tests must pass. Record coverage if available.
+
+      **Integration Test Verification:**
+      - [ ] If feature spawns processes: integration test verifies spawning
+      - [ ] If feature modifies state: integration test verifies persistence
+      - [ ] If feature has async/parallel: integration test verifies timing
 
       ## Step 3: Review All Step Artifacts
       Read each artifacts/{{item.id}}-complete.md to verify all steps finished.

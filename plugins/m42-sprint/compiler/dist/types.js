@@ -3,7 +3,14 @@
  * TypeScript interfaces for the Sprint Workflow System
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.guards = void 0;
+exports.guards = exports.MIN_SCHEMA_VERSION = exports.CURRENT_SCHEMA_VERSION = void 0;
+// ============================================================================
+// Schema Version Constants
+// ============================================================================
+/** Current workflow schema version */
+exports.CURRENT_SCHEMA_VERSION = '2.0';
+/** Minimum supported schema version */
+exports.MIN_SCHEMA_VERSION = '1.0';
 /**
  * Guard functions object - provides reusable condition checks for transitions.
  */

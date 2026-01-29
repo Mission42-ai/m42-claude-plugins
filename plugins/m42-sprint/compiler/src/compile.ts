@@ -36,7 +36,8 @@ import {
   validateCompiledProgress,
   checkUnresolvedVariables,
   validateRalphModeSprint,
-  resolveCollectionName
+  resolveCollectionName,
+  validateSchemaVersion
 } from './validate.js';
 import { mergeWorktreeConfigs } from './worktree-config.js';
 
@@ -144,6 +145,9 @@ export async function compile(config: CompilerConfig): Promise<CompilerResult> {
     return { success: false, errors, warnings };
   }
 
+  // Check schema version and add warnings if missing or outdated
+  validateSchemaVersion(mainWorkflow.definition, sprintDef.workflow, warnings);
+
   // Check for Ralph mode and use separate compilation path
   const isRalphMode = mainWorkflow.definition.mode === 'ralph';
 
@@ -190,6 +194,8 @@ export async function compile(config: CompilerConfig): Promise<CompilerResult> {
   for (const [name, loaded] of referencedWorkflows) {
     const refErrors = validateWorkflowDefinition(loaded.definition, name);
     errors.push(...refErrors);
+    // Check schema version for referenced workflows too
+    validateSchemaVersion(loaded.definition, name, warnings);
   }
 
   if (errors.length > 0) {

@@ -1,6 +1,7 @@
 # Flat For-Each Workflow
 # Simple workflow that iterates through steps without nested phases
 
+schema-version: "2.0"
 name: Flat For-Each
 description: Minimal workflow that executes each step directly in sequence.
 

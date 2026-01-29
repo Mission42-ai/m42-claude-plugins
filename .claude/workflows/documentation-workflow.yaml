@@ -8,6 +8,7 @@
 # 4. REFERENCE - Update technical reference and API docs
 # 5. VALIDATE  - Verify documentation accuracy and completeness
 
+schema-version: "2.0"
 name: Documentation Workflow
 description: |
   Comprehensive documentation update workflow that analyzes code changes

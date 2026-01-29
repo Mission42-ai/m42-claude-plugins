@@ -813,4 +813,54 @@ test('validateWorkflowPhase: should pass with valid gate in phase', () => {
   assert(gateErrors.length === 0, `Expected no gate errors, got ${gateErrors.length}: ${gateErrors.map(e => e.code).join(', ')}`);
 });
 
+// ============================================================================
+// Schema Version Validation Tests
+// ============================================================================
+
+import { validateSchemaVersion } from './validate.js';
+import { CURRENT_SCHEMA_VERSION } from './types.js';
+
+test('validateSchemaVersion: should produce warning when schema-version is missing', () => {
+  const workflow = {
+    name: 'test-workflow',
+    phases: [{ id: 'phase-1', prompt: 'Do something' }]
+  };
+
+  const warnings: string[] = [];
+  validateSchemaVersion(workflow as any, 'test-workflow', warnings);
+
+  assert(warnings.length === 1, `Expected 1 warning, got ${warnings.length}`);
+  assert(warnings[0].includes('no schema-version'), `Warning should mention missing schema-version`);
+  assert(warnings[0].includes(CURRENT_SCHEMA_VERSION), `Warning should mention current version ${CURRENT_SCHEMA_VERSION}`);
+});
+
+test('validateSchemaVersion: should produce warning when schema-version is outdated', () => {
+  const workflow = {
+    name: 'test-workflow',
+    'schema-version': '1.0',
+    phases: [{ id: 'phase-1', prompt: 'Do something' }]
+  };
+
+  const warnings: string[] = [];
+  validateSchemaVersion(workflow as any, 'test-workflow', warnings);
+
+  assert(warnings.length === 1, `Expected 1 warning, got ${warnings.length}`);
+  assert(warnings[0].includes('1.0'), `Warning should mention outdated version`);
+  assert(warnings[0].includes(CURRENT_SCHEMA_VERSION), `Warning should mention current version ${CURRENT_SCHEMA_VERSION}`);
+  assert(warnings[0].includes('Consider updating'), `Warning should suggest updating`);
+});
+
+test('validateSchemaVersion: should produce no warning when schema-version is current', () => {
+  const workflow = {
+    name: 'test-workflow',
+    'schema-version': CURRENT_SCHEMA_VERSION,
+    phases: [{ id: 'phase-1', prompt: 'Do something' }]
+  };
+
+  const warnings: string[] = [];
+  validateSchemaVersion(workflow as any, 'test-workflow', warnings);
+
+  assert(warnings.length === 0, `Expected no warnings, got ${warnings.length}: ${warnings.join(', ')}`);
+});
+
 console.log('\nValidation tests completed.'); // intentional

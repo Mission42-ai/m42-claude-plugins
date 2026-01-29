@@ -1,6 +1,7 @@
 # Standard Sprint Workflow
 # Top-level workflow that orchestrates the entire sprint
 
+schema-version: "2.0"
 name: Standard Sprint
 description: Complete sprint workflow with preparation, development (iterating over steps), QA, and deployment phases.
 

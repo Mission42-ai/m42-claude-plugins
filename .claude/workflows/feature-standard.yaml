@@ -1,6 +1,7 @@
 # Standard Feature Development Workflow
 # Used for implementing individual features/steps within a sprint
 
+schema-version: "2.0"
 name: Standard Feature Development
 description: Multi-phase workflow for implementing a single feature with planning, implementation, testing, and documentation.
 

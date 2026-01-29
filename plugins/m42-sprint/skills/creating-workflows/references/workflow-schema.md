@@ -13,6 +13,7 @@ Workflow files are YAML documents stored in `.claude/workflows/`.
 
 ```yaml
 # .claude/workflows/<workflow-name>.yaml
+schema-version: "2.0"    # Recommended - schema version for compatibility
 name: <string>           # Required
 description: <string>    # Optional
 phases: <list>           # Required
@@ -22,6 +23,7 @@ phases: <list>           # Required
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
+| `schema-version` | string | Recommended | Schema version for compatibility tracking (current: "2.0") |
 | `name` | string | Yes | Human-readable workflow name |
 | `description` | string | No | Brief description of workflow purpose |
 | `phases` | list[Phase] | Yes | Ordered list of phase definitions |
@@ -69,6 +71,7 @@ phases: <list>           # Required
 interface WorkflowDefinition {
   name: string;
   description?: string;
+  'schema-version'?: string;  // Recommended for compatibility tracking
   phases: WorkflowPhase[];
 }
 
@@ -100,6 +103,8 @@ interface GateCheck {
 1. `name` must be non-empty string
 2. `phases` must be non-empty array
 3. File must be valid YAML
+4. `schema-version` should be present (warning if missing)
+5. `schema-version` should match current version "2.0" (warning if outdated)
 
 ### Phase Level
 
@@ -126,6 +131,7 @@ interface GateCheck {
 ### Minimal Workflow
 
 ```yaml
+schema-version: "2.0"
 name: Minimal
 phases:
   - id: execute
@@ -135,6 +141,7 @@ phases:
 ### Sprint Workflow
 
 ```yaml
+schema-version: "2.0"
 name: Standard Sprint
 description: Full sprint lifecycle
 phases:
@@ -153,6 +160,7 @@ phases:
 
 ```yaml
 # sprint-workflow.yaml
+schema-version: "2.0"
 name: Sprint with QA
 phases:
   - id: develop
@@ -160,6 +168,7 @@ phases:
     workflow: step-with-qa
 
 # step-with-qa.yaml (referenced workflow)
+schema-version: "2.0"
 name: Step with QA
 phases:
   - id: implement
@@ -174,6 +183,7 @@ Use `parallel: true` on item workflow phases to run them in background without b
 
 ```yaml
 # sprint-workflow.yaml - Sprint with sync point
+schema-version: "2.0"
 name: Sprint with Parallel Docs
 description: Development with non-blocking documentation updates
 phases:
@@ -191,6 +201,7 @@ phases:
 
 ```yaml
 # feature-with-docs.yaml - Item workflow with parallel sub-phase
+schema-version: "2.0"
 name: Feature with Docs
 phases:
   - id: plan
@@ -212,6 +223,7 @@ phases:
 Use `gate` to run validation scripts after phase completion, with automatic retry on failure:
 
 ```yaml
+schema-version: "2.0"
 name: Workflow with Gate Checks
 phases:
   - id: implement
@@ -256,6 +268,7 @@ phases:
 Use `break: true` to pause execution after a phase completes for human review:
 
 ```yaml
+schema-version: "2.0"
 name: Workflow with Breakpoint
 phases:
   - id: implement
@@ -361,6 +374,7 @@ When creating a Ralph mode workflow, use `mode: ralph` instead of defining `phas
 interface WorkflowDefinition {
   name: string;
   description?: string;
+  'schema-version'?: string;          // Recommended for compatibility tracking
   phases?: WorkflowPhase[];           // Optional for Ralph mode
   mode?: 'standard' | 'ralph';
   'goal-prompt'?: string;
@@ -380,6 +394,7 @@ interface PerIterationHook {
 ### Ralph Mode Workflow Example
 
 ```yaml
+schema-version: "2.0"
 name: Ralph Mode Workflow
 description: Autonomous goal-driven execution with configurable per-iteration hooks
 mode: ralph
@@ -438,6 +453,27 @@ per-iteration-hooks:
 3. Per-iteration hooks must have unique `id` values
 4. Each hook must have either `workflow` or `prompt`, not both
 5. Hook `parallel` and `enabled` fields are required
+
+### Runtime Hook Execution
+
+Per-iteration hooks are executed by the TypeScript runtime (`loop.ts`) with the following behavior:
+
+1. **Execution Timing**: Hooks execute after each successful phase completion (PHASE_COMPLETE event)
+2. **Template Variables**: Hook prompts support variable substitution:
+   - `$ITERATION_TRANSCRIPT` → path to current iteration's transcript file
+   - `$SPRINT_ID` → sprint identifier from PROGRESS.yaml
+   - `$ITERATION` → current iteration number (1-based)
+   - `$PHASE_ID` → current phase/step/sub-phase identifier
+3. **Parallel Execution**: Hooks with `parallel: true` spawn in background without blocking the next iteration
+4. **Sequential Execution**: Hooks with `parallel: false` block until completion
+5. **Hook Task Tracking**: Each hook execution is recorded in `hook-tasks[]` with:
+   - `iteration`: which iteration spawned the hook
+   - `hook-id`: reference to the hook configuration
+   - `status`: `running`, `completed`, or `failed`
+   - `spawned-at`, `completed-at`: timestamps
+   - `transcript`: path to hook's output file
+   - `exit-code`: process exit code
+6. **Failure Handling**: Hook failures are tracked but don't crash the sprint
 
 ---
 

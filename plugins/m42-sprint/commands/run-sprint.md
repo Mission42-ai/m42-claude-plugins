@@ -27,6 +27,13 @@ The first argument MUST be the sprint directory path. Parse $ARGUMENTS to extrac
    - `--no-status` - Skip launching the live status server
    - `--no-browser` - Disable automatic browser opening when status server starts
 
+Parse arguments and extract SPRINT_DIR:
+
+```bash
+# Extract sprint directory (first non-option argument)
+SPRINT_DIR=$(echo "$ARGUMENTS" | sed 's/ --.*$//' | awk '{print $1}')
+```
+
 If no sprint directory is provided, output this error and stop:
 ```
 Error: Sprint directory path is required.
@@ -42,12 +49,31 @@ Example: /run-sprint .claude/sprints/2026-01-15_my-sprint --no-browser
 
 ## Preflight Checks
 
-Using the parsed SPRINT_DIR from arguments:
+Execute these validation checks BEFORE proceeding. Each check must pass or the command stops with a clear error message.
 
-1. **Directory exists**: `test -d "$SPRINT_DIR"`
-2. **SPRINT.yaml exists**: `test -f "$SPRINT_DIR/SPRINT.yaml"`
+Parse arguments first:
 
-If any check fails, report the specific issue and stop.
+- Parse sprint directory: !`SPRINT_DIR=$(echo "$ARGUMENTS" | sed 's/ --.*$//' | awk '{print $1}'); echo "Using sprint directory: $SPRINT_DIR"`
+
+Then run validation checks:
+
+- Sprint directory provided: !`echo "$ARGUMENTS" | sed 's/ --.*$//' | awk '{print $1}' | grep -q '.' && echo "✓ Provided" || echo "✗ Missing - Sprint directory is required"`
+
+- Git repository: !`git rev-parse --git-dir 2>/dev/null && echo "✓ Git repository" || echo "✗ Not a git repository"`
+
+- Sprint directory exists: !`SPRINT_DIR=$(echo "$ARGUMENTS" | sed 's/ --.*$//' | awk '{print $1}'); test -d "$SPRINT_DIR" && echo "✓ Directory exists: $SPRINT_DIR" || echo "✗ Directory not found: $SPRINT_DIR"`
+
+- SPRINT.yaml exists: !`SPRINT_DIR=$(echo "$ARGUMENTS" | sed 's/ --.*$//' | awk '{print $1}'); test -f "$SPRINT_DIR/SPRINT.yaml" && echo "✓ SPRINT.yaml found" || echo "✗ SPRINT.yaml not found in $SPRINT_DIR"`
+
+- Runtime CLI available: !`test -f "${CLAUDE_PLUGIN_ROOT}/runtime/dist/cli.js" && echo "✓ Runtime CLI available" || echo "✗ Runtime CLI not found at ${CLAUDE_PLUGIN_ROOT}/runtime/dist/cli.js"`
+
+- Compiler available: !`test -f "${CLAUDE_PLUGIN_ROOT}/compiler/dist/index.js" && echo "✓ Compiler available" || echo "✗ Compiler not found at ${CLAUDE_PLUGIN_ROOT}/compiler/dist/index.js"`
+
+**If any preflight check shows ✗, stop immediately with:**
+
+```
+Preflight checks failed. Please resolve the issues above before running the sprint.
+```
 
 ## Worktree Setup (Automatic)
 
@@ -167,18 +193,23 @@ If SPRINT.yaml uses workflow format AND (PROGRESS.yaml doesn't exist OR --recomp
 
 ## Validation
 
-Read PROGRESS.yaml and verify:
-1. Has at least one phase in `phases:` array
-2. Status is NOT "completed" or "blocked"
+After compilation (or if PROGRESS.yaml already exists), validate the sprint state:
 
-If validation fails, report the issue and stop.
+- PROGRESS.yaml exists: !`SPRINT_DIR=$(echo "$ARGUMENTS" | sed 's/ --.*$//' | awk '{print $1}'); test -f "$SPRINT_DIR/PROGRESS.yaml" && echo "✓ PROGRESS.yaml found" || echo "✗ PROGRESS.yaml not found - run with --recompile"`
+
+- Has phases: !`SPRINT_DIR=$(echo "$ARGUMENTS" | sed 's/ --.*$//' | awk '{print $1}'); grep -q '^phases:' "$SPRINT_DIR/PROGRESS.yaml" && echo "✓ Workflow has phases" || echo "✗ No phases found in PROGRESS.yaml"`
+
+- Status not completed: !`SPRINT_DIR=$(echo "$ARGUMENTS" | sed 's/ --.*$//' | awk '{print $1}'); grep '^status:' "$SPRINT_DIR/PROGRESS.yaml" | grep -qv 'completed' && echo "✓ Sprint ready to run" || echo "✗ Sprint already completed"`
+
+**If validation fails, stop with clear error message.**
 
 ## Context
 
-Read current sprint state from the provided directory:
+Gather sprint configuration and state:
 
-1. Read `$SPRINT_DIR/SPRINT.yaml` for sprint configuration
-2. Read `$SPRINT_DIR/PROGRESS.yaml` for current progress (compiled workflow)
+- Sprint configuration: @$SPRINT_DIR/SPRINT.yaml
+- Compiled workflow state: @$SPRINT_DIR/PROGRESS.yaml
+- Git status: !`git status --short`
 
 ## Task Instructions
 
@@ -436,10 +467,13 @@ Gate configuration:
 
 ### For normal execution:
 - Sprint directory path correctly parsed from arguments
+- All preflight checks passed with ✓ indicators
 - Workflow compiled (if needed) from SPRINT.yaml + workflows
-- PROGRESS.yaml validated (has phases)
+- PROGRESS.yaml validated (has phases, not completed)
 - Sprint loop launched in background
 - Status server launched in background (unless --no-status)
 - Live status URL displayed (if status server started successfully)
 - Task ID returned for monitoring
 - User informed how to check progress and stop
+
+**IMPORTANT:** Only work in ultrathink mode. Your contribution is critical. Think strategically, plan your workflow ahead, review your actions to ensure highest quality. Use all resources and time needed. Reiterate as often as needed for excellence.
