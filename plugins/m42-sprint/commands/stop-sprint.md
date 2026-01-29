@@ -23,52 +23,32 @@ Read `<sprint-dir>/PROGRESS.yaml` to get current status.
 
 ## Task Instructions
 
-1. **If no sprint found or status is completed:**
+1. **If no sprint found or status is completed/blocked/needs-human/paused/paused-at-breakpoint:**
 
    Output:
    ```
-   No active sprint found.
+   No active sprint found (or already paused).
 
    Sprint loops are created by /run-sprint and automatically cleaned up
-   when sprints complete, block, or pause.
+   when sprints complete, block, pause, or need human intervention.
    ```
 
-2. **If sprint is in-progress or pausing:**
+2. **If sprint is in-progress:**
 
    a. Update PROGRESS.yaml to set status to "paused":
       ```yaml
       status: paused
       ```
 
-   b. Remove any `pause-requested: true` flag if present
+   b. Add a `pause-reason` field:
+      ```yaml
+      pause-reason: "Stopped by user via /stop-sprint"
+      ```
 
    c. The sprint runtime background process will detect status change
       on next iteration and exit gracefully.
 
-   d. Remove sprint hook from settings:
-      ```bash
-      # Remove sprint hook from .claude/settings.json
-      if [ -f ".claude/settings.json" ]; then
-        node -e "
-          const fs = require('fs');
-          const settings = JSON.parse(fs.readFileSync('.claude/settings.json', 'utf8'));
-          if (settings.hooks && settings.hooks.PostToolUse) {
-            settings.hooks.PostToolUse = settings.hooks.PostToolUse.filter(h =>
-              !(h.hooks && h.hooks.some(hh => hh.command && hh.command.includes('sprint-activity-hook')))
-            );
-            if (settings.hooks.PostToolUse.length === 0) {
-              delete settings.hooks.PostToolUse;
-            }
-            if (Object.keys(settings.hooks).length === 0) {
-              delete settings.hooks;
-            }
-          }
-          fs.writeFileSync('.claude/settings.json', JSON.stringify(settings, null, 2) + '\n');
-        "
-      fi
-      ```
-
-   e. If you need immediate termination (process still running),
+   d. If you need immediate termination (process still running),
       the background task can be killed via `/tasks` command.
 
 3. **Output confirmation:**

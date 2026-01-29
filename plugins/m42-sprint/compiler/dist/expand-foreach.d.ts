@@ -3,7 +3,7 @@
  *
  * Handles expansion of for-each: step phases into concrete steps
  */
-import type { WorkflowPhase, WorkflowDefinition, SprintStep, CompiledTopPhase, CompiledStep, LoadedWorkflow, TemplateContext, CompilerError, ClaudeModel } from './types.js';
+import type { WorkflowPhase, WorkflowDefinition, CollectionItem, CompiledTopPhase, CompiledStep, CompiledGate, LoadedWorkflow, TemplateContext, CompilerError, ClaudeModel, GateCheck } from './types.js';
 /**
  * Model context for resolving models during compilation
  */
@@ -25,9 +25,12 @@ export declare function resolveModelFromContext(ctx: ModelContext): ClaudeModel 
  * Substitute template variables in a string
  *
  * Supports:
- * - {{step.prompt}} - The step's prompt text
- * - {{step.id}} - The step's ID
- * - {{step.index}} - The step's index (0-based)
+ * - {{item.prompt}} - The item's prompt text (generic)
+ * - {{item.id}} - The item's ID
+ * - {{item.index}} - The item's index (0-based)
+ * - {{item.<prop>}} - Any custom property from the item
+ * - {{<type>.prompt}} - Type-specific variant (e.g., {{feature.prompt}})
+ * - {{<type>.<prop>}} - Type-specific custom property
  * - {{phase.id}} - Current phase ID
  * - {{sprint.id}} - Sprint ID
  *
@@ -37,6 +40,13 @@ export declare function resolveModelFromContext(ctx: ModelContext): ClaudeModel 
  */
 export declare function substituteTemplateVars(template: string, context: TemplateContext): string;
 /**
+ * Compile gate configuration from workflow phase
+ *
+ * @param gate - The gate configuration from the workflow phase
+ * @returns Compiled gate configuration with defaults applied
+ */
+export declare function compileGate(gate: GateCheck): CompiledGate;
+/**
  * Find unresolved template variables in a string
  *
  * @param text - String to check
@@ -44,29 +54,35 @@ export declare function substituteTemplateVars(template: string, context: Templa
  */
 export declare function findUnresolvedVars(text: string): string[];
 /**
- * Expand a single step using its workflow
+ * Expand a single item using its workflow
  *
- * @param step - The step to expand
- * @param stepIndex - Index of this step
+ * @param item - The collection item to expand
+ * @param itemIndex - Index of this item
+ * @param itemType - Type of the item (collection name, e.g., 'step', 'feature')
  * @param workflow - The workflow to use for expansion
  * @param context - Template context
  * @param modelContext - Model context for resolution
  * @returns Compiled step with expanded sub-phases
  */
-export declare function expandStep(step: SprintStep, stepIndex: number, workflow: WorkflowDefinition, context: TemplateContext, modelContext?: ModelContext): CompiledStep;
+export declare function expandItem(item: CollectionItem, itemIndex: number, itemType: string, workflow: WorkflowDefinition, context: TemplateContext, modelContext?: ModelContext): CompiledStep;
+/**
+ * @deprecated Use expandItem instead. Kept for backwards compatibility.
+ */
+export declare const expandStep: typeof expandItem;
 /**
  * Expand a for-each phase into concrete steps
  *
  * @param phase - The phase with for-each directive
- * @param steps - The steps from SPRINT.yaml
+ * @param items - The items from the collection
+ * @param itemType - The type of items (collection name, e.g., 'step', 'feature')
  * @param workflowsDir - Directory containing workflow definitions
- * @param defaultWorkflow - Default workflow to use if step doesn't specify one
+ * @param defaultWorkflow - Default workflow to use if item doesn't specify one
  * @param context - Template context
  * @param errors - Array to collect errors
  * @param modelContext - Model context for resolution
  * @returns Compiled top phase with expanded steps
  */
-export declare function expandForEach(phase: WorkflowPhase, steps: SprintStep[], workflowsDir: string, defaultWorkflow: LoadedWorkflow | null, context: TemplateContext, errors: CompilerError[], modelContext?: ModelContext): CompiledTopPhase;
+export declare function expandForEach(phase: WorkflowPhase, items: CollectionItem[], itemType: string, workflowsDir: string, defaultWorkflow: LoadedWorkflow | null, context: TemplateContext, errors: CompilerError[], modelContext?: ModelContext): CompiledTopPhase;
 /**
  * Compile a simple phase (no for-each)
  *

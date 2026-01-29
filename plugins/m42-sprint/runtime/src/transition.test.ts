@@ -982,6 +982,158 @@ test('transition: does not mutate input context', () => {
 });
 
 // ============================================================================
+// Test: BREAKPOINT_REACHED Event
+// ============================================================================
+
+console.log('\n=== BREAKPOINT_REACHED Event Tests ===\n');
+
+test('BREAKPOINT_REACHED: transitions in-progress → paused-at-breakpoint', () => {
+  const state: SprintState = {
+    status: 'in-progress',
+    current: { phase: 1, step: null, 'sub-phase': null },
+    iteration: 5,
+    startedAt: '2026-01-20T10:00:00Z',
+  };
+  const event: SprintEvent = { type: 'BREAKPOINT_REACHED', phaseId: 'review-checkpoint' };
+  const context = createMinimalContext();
+
+  const result = transition(state, event, context);
+
+  assertEqual(result.nextState.status, 'paused-at-breakpoint', 'Should transition to paused-at-breakpoint');
+});
+
+test('BREAKPOINT_REACHED: preserves current pointer in pausedAt', () => {
+  const state: SprintState = {
+    status: 'in-progress',
+    current: { phase: 1, step: 2, 'sub-phase': 3 },
+    iteration: 5,
+    startedAt: '2026-01-20T10:00:00Z',
+  };
+  const event: SprintEvent = { type: 'BREAKPOINT_REACHED', phaseId: 'phase-1' };
+  const context = createMinimalContext();
+
+  const result = transition(state, event, context);
+
+  assert(result.nextState.status === 'paused-at-breakpoint', 'Must be paused-at-breakpoint');
+  if (result.nextState.status === 'paused-at-breakpoint') {
+    assertDeepEqual(result.nextState.pausedAt, { phase: 1, step: 2, 'sub-phase': 3 }, 'Should preserve pointer');
+  }
+});
+
+test('BREAKPOINT_REACHED: stores breakpoint phase ID', () => {
+  const state: SprintState = {
+    status: 'in-progress',
+    current: { phase: 0, step: null, 'sub-phase': null },
+    iteration: 1,
+    startedAt: '2026-01-20T10:00:00Z',
+  };
+  const event: SprintEvent = { type: 'BREAKPOINT_REACHED', phaseId: 'review-plans' };
+  const context = createMinimalContext();
+
+  const result = transition(state, event, context);
+
+  assert(result.nextState.status === 'paused-at-breakpoint', 'Must be paused-at-breakpoint');
+  if (result.nextState.status === 'paused-at-breakpoint') {
+    assertEqual(result.nextState.breakpointPhaseId, 'review-plans', 'Should store breakpoint phase ID');
+  }
+});
+
+test('BREAKPOINT_REACHED: returns WRITE_PROGRESS action', () => {
+  const state: SprintState = {
+    status: 'in-progress',
+    current: { phase: 0, step: null, 'sub-phase': null },
+    iteration: 1,
+    startedAt: '2026-01-20T10:00:00Z',
+  };
+  const event: SprintEvent = { type: 'BREAKPOINT_REACHED', phaseId: 'test' };
+  const context = createMinimalContext();
+
+  const result = transition(state, event, context);
+
+  assertContainsAction(result.actions, 'WRITE_PROGRESS');
+});
+
+test('BREAKPOINT_REACHED: no-op if not in-progress', () => {
+  const state: SprintState = {
+    status: 'paused',
+    pausedAt: { phase: 0, step: null, 'sub-phase': null },
+    pauseReason: 'User pause',
+  };
+  const event: SprintEvent = { type: 'BREAKPOINT_REACHED', phaseId: 'test' };
+  const context = createMinimalContext();
+
+  const result = transition(state, event, context);
+
+  assertEqual(result.nextState.status, 'paused', 'Should remain paused');
+  assertNoActions(result);
+});
+
+// ============================================================================
+// Test: RESUME from paused-at-breakpoint
+// ============================================================================
+
+console.log('\n=== RESUME from Breakpoint Tests ===\n');
+
+test('RESUME: transitions paused-at-breakpoint → in-progress', () => {
+  const state: SprintState = {
+    status: 'paused-at-breakpoint',
+    pausedAt: { phase: 0, step: null, 'sub-phase': null },
+    breakpointPhaseId: 'review-checkpoint',
+  };
+  const event: SprintEvent = { type: 'RESUME' };
+  const context = createMinimalContext();
+
+  const result = transition(state, event, context);
+
+  assertEqual(result.nextState.status, 'in-progress', 'Should transition to in-progress');
+});
+
+test('RESUME: advances pointer to next phase after breakpoint', () => {
+  const state: SprintState = {
+    status: 'paused-at-breakpoint',
+    pausedAt: { phase: 0, step: null, 'sub-phase': null },
+    breakpointPhaseId: 'phase-0',
+  };
+  const event: SprintEvent = { type: 'RESUME' };
+  const context = createMinimalContext();
+
+  const result = transition(state, event, context);
+
+  assert(result.nextState.status === 'in-progress', 'Must be in-progress');
+  if (result.nextState.status === 'in-progress') {
+    assertEqual(result.nextState.current.phase, 1, 'Should advance to next phase');
+  }
+});
+
+test('RESUME: breakpoint on last phase completes sprint', () => {
+  const state: SprintState = {
+    status: 'paused-at-breakpoint',
+    pausedAt: { phase: 1, step: null, 'sub-phase': null },
+    breakpointPhaseId: 'phase-1',
+  };
+  const event: SprintEvent = { type: 'RESUME' };
+  const context = createMinimalContext();
+
+  const result = transition(state, event, context);
+
+  assertEqual(result.nextState.status, 'completed', 'Should complete when breakpoint is on last phase');
+});
+
+test('RESUME: breakpoint returns SPAWN_CLAUDE for next phase', () => {
+  const state: SprintState = {
+    status: 'paused-at-breakpoint',
+    pausedAt: { phase: 0, step: null, 'sub-phase': null },
+    breakpointPhaseId: 'phase-0',
+  };
+  const event: SprintEvent = { type: 'RESUME' };
+  const context = createMinimalContext();
+
+  const result = transition(state, event, context);
+
+  assertContainsAction(result.actions, 'SPAWN_CLAUDE');
+});
+
+// ============================================================================
 // Summary
 // ============================================================================
 

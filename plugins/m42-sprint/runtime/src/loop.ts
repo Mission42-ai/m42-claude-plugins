@@ -13,8 +13,13 @@ import {
   SprintState,
   SprintEvent,
   CompiledProgress,
+  CompiledGate,
+  GateTracking,
+  GateStatus,
   transition,
 } from './transition.js';
+
+import { spawn } from 'child_process';
 
 // Import from yaml-ops module
 import {
@@ -114,7 +119,7 @@ const defaultLoopDeps: LoopDependencies = {
 // Constants
 // ============================================================================
 
-const TERMINAL_STATES = ['completed', 'blocked', 'paused', 'needs-human', 'interrupted'] as const;
+const TERMINAL_STATES = ['completed', 'blocked', 'paused', 'paused-at-breakpoint', 'needs-human', 'interrupted'] as const;
 const PAUSE_FILENAME = 'PAUSE';
 const PROGRESS_FILENAME = 'PROGRESS.yaml';
 
@@ -213,6 +218,13 @@ function restoreStateFromProgress(progress: CompiledProgress): SprintState {
         pauseReason: (progress as unknown as { 'pause-reason'?: string })['pause-reason'] ?? 'Unknown',
       };
 
+    case 'paused-at-breakpoint':
+      return {
+        status: 'paused-at-breakpoint',
+        pausedAt: progress.current,
+        breakpointPhaseId: (progress as unknown as { 'breakpoint-phase-id'?: string })['breakpoint-phase-id'] ?? '',
+      };
+
     case 'blocked':
       return {
         status: 'blocked',
@@ -258,6 +270,11 @@ function updateProgressFromState(progress: CompiledProgress, state: SprintState)
     case 'paused':
       progress.current = state.pausedAt;
       (progress as unknown as { 'pause-reason': string })['pause-reason'] = state.pauseReason;
+      break;
+
+    case 'paused-at-breakpoint':
+      progress.current = state.pausedAt;
+      (progress as unknown as { 'breakpoint-phase-id': string })['breakpoint-phase-id'] = state.breakpointPhaseId;
       break;
 
     case 'blocked':
@@ -386,6 +403,245 @@ function getFileChecksum(filePath: string): string {
 function readProgressWithoutChecksumValidation(filePath: string): CompiledProgress {
   const content = fs.readFileSync(filePath, 'utf8');
   return yaml.load(content) as unknown as CompiledProgress;
+}
+
+// ============================================================================
+// Quality Gate Check Functions
+// ============================================================================
+
+/**
+ * Result from running a gate check script
+ */
+export interface GateResult {
+  /** Whether the gate check passed (exit code 0) */
+  passed: boolean;
+  /** Exit code from the script */
+  exitCode: number;
+  /** Combined stdout and stderr output */
+  output: string;
+  /** Error message if execution failed */
+  error?: string;
+}
+
+/**
+ * Run a gate check script and return the result
+ *
+ * @param gate - The compiled gate configuration
+ * @param sprintDir - Sprint directory (working directory for script)
+ * @param phaseId - Phase ID for environment variable
+ * @param attemptNumber - Current attempt number for environment variable
+ * @returns Promise resolving to GateResult
+ */
+export async function runGateScript(
+  gate: CompiledGate,
+  sprintDir: string,
+  phaseId: string,
+  attemptNumber: number
+): Promise<GateResult> {
+  return new Promise((resolve) => {
+    const timeoutMs = gate.timeout * 1000;
+    let output = '';
+    let timedOut = false;
+
+    // Get sprint-id from directory name
+    const sprintId = path.basename(sprintDir);
+
+    // Spawn shell to run the script
+    const child = spawn('sh', ['-c', gate.script], {
+      cwd: sprintDir,
+      env: {
+        ...process.env,
+        SPRINT_ID: sprintId,
+        PHASE_ID: phaseId,
+        ATTEMPT_NUMBER: String(attemptNumber),
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    // Capture stdout
+    child.stdout.on('data', (data: Buffer) => {
+      output += data.toString();
+    });
+
+    // Capture stderr
+    child.stderr.on('data', (data: Buffer) => {
+      output += data.toString();
+    });
+
+    // Set up timeout
+    const timeoutId = setTimeout(() => {
+      timedOut = true;
+      child.kill('SIGTERM');
+    }, timeoutMs);
+
+    child.on('close', (code) => {
+      clearTimeout(timeoutId);
+
+      if (timedOut) {
+        resolve({
+          passed: false,
+          exitCode: -1,
+          output,
+          error: `Gate script timed out after ${gate.timeout} seconds`,
+        });
+        return;
+      }
+
+      const exitCode = code ?? 1;
+      resolve({
+        passed: exitCode === 0,
+        exitCode,
+        output,
+      });
+    });
+
+    child.on('error', (err) => {
+      clearTimeout(timeoutId);
+      resolve({
+        passed: false,
+        exitCode: -1,
+        output,
+        error: `Failed to execute gate script: ${err.message}`,
+      });
+    });
+  });
+}
+
+/**
+ * Initialize or update gate tracking state
+ *
+ * @param tracking - Existing tracking state (or undefined)
+ * @param status - New status to set
+ * @param result - Gate result to store (optional)
+ * @returns Updated gate tracking state
+ */
+function updateGateTracking(
+  tracking: GateTracking | undefined,
+  status: GateStatus,
+  result?: GateResult
+): GateTracking {
+  const current = tracking ?? { attempts: 0, status: 'pending' as GateStatus };
+
+  return {
+    ...current,
+    status,
+    ...(result && {
+      'last-output': result.output.slice(0, 10000), // Cap output at 10KB
+      'last-exit-code': result.exitCode,
+      ...(result.error && { error: result.error }),
+    }),
+  };
+}
+
+/**
+ * Build the fix prompt for a failed gate check
+ *
+ * @param gate - Gate configuration
+ * @param tracking - Current gate tracking state
+ * @returns Prompt string with context for fixing the failure
+ */
+function buildGateFixPrompt(gate: CompiledGate, tracking: GateTracking): string {
+  let prompt = gate['on-fail-prompt'];
+
+  // Append the script output as context
+  if (tracking['last-output']) {
+    prompt += `\n\n## Gate Check Output (Exit Code: ${tracking['last-exit-code']})\n\`\`\`\n${tracking['last-output']}\n\`\`\``;
+  }
+
+  return prompt;
+}
+
+/**
+ * Execute a gate check with retry loop
+ *
+ * @param gate - Gate configuration
+ * @param tracking - Current tracking state (or undefined for first run)
+ * @param sprintDir - Sprint directory
+ * @param phaseId - Current phase ID
+ * @param workingDir - Working directory for Claude execution
+ * @param deps - Dependencies (runClaude function)
+ * @param verbose - Enable verbose logging
+ * @param progressPath - Path to PROGRESS.yaml for intermediate saves
+ * @param progress - Progress object to update
+ * @param outputDir - Directory for transcription logs
+ * @param model - Model to use for fix iterations
+ * @returns Updated tracking state (passed, blocked, or retrying)
+ */
+export async function executeGateCheck(
+  gate: CompiledGate,
+  tracking: GateTracking | undefined,
+  sprintDir: string,
+  phaseId: string,
+  workingDir: string,
+  deps: LoopDependencies,
+  verbose: boolean,
+  progressPath: string,
+  progress: CompiledProgress,
+  outputDir: string,
+  model?: string
+): Promise<GateTracking> {
+  let currentTracking = tracking ?? { attempts: 0, status: 'pending' as GateStatus };
+
+  while (true) {
+    currentTracking.attempts++;
+    currentTracking.status = 'running';
+
+    if (verbose) {
+      console.log(`[loop] Running gate check for phase '${phaseId}', attempt ${currentTracking.attempts}/${gate['max-retries']}`);
+    }
+
+    // Run the gate script
+    const result = await runGateScript(gate, workingDir, phaseId, currentTracking.attempts);
+
+    if (result.passed) {
+      if (verbose) {
+        console.log(`[loop] Gate check passed for phase '${phaseId}'`);
+      }
+      return updateGateTracking(currentTracking, 'passed', result);
+    }
+
+    // Gate failed
+    currentTracking = updateGateTracking(currentTracking, 'retrying', result);
+
+    if (verbose) {
+      console.log(`[loop] Gate check failed for phase '${phaseId}' (exit code ${result.exitCode})`);
+    }
+
+    // Check if we've exceeded max retries
+    if (currentTracking.attempts >= gate['max-retries']) {
+      if (verbose) {
+        console.log(`[loop] Gate check blocked for phase '${phaseId}' after ${currentTracking.attempts} attempts`);
+      }
+      return updateGateTracking(currentTracking, 'blocked', result);
+    }
+
+    // Run fix iteration with Claude
+    const fixPrompt = buildGateFixPrompt(gate, currentTracking);
+    const logFileName = `gate-fix_${phaseId}_attempt-${currentTracking.attempts}.log`;
+    const outputFile = path.join(outputDir, logFileName);
+
+    if (verbose) {
+      console.log(`[loop] Running fix iteration for phase '${phaseId}'`);
+    }
+
+    const fixResult = await deps.runClaude({
+      prompt: fixPrompt,
+      cwd: workingDir,
+      outputFile,
+      jsonSchema: SPRINT_RESULT_SCHEMA,
+      model,
+    });
+
+    if (!fixResult?.success) {
+      // Fix iteration failed, continue to next retry
+      if (verbose) {
+        console.log(`[loop] Fix iteration failed for phase '${phaseId}': ${fixResult?.error}`);
+      }
+    }
+
+    // Save progress after each fix iteration
+    await writeProgressAtomic(progressPath, progress);
+  }
 }
 
 // ============================================================================
@@ -822,14 +1078,158 @@ export async function runLoop(
       }
     }
 
+    // Execute gate check if phase completed successfully and has a gate defined
+    // Gate checks run after the phase prompt completes but before advancing
+    if (event.type === 'PHASE_COMPLETE') {
+      // Determine which level has a gate: sub-phase, phase, or top-level phase
+      // Priority: sub-phase gate > phase gate (for for-each phases, gate runs after ALL items complete)
+      const gateItem = currentSubPhase ?? currentPhase;
+      const gateConfig = (gateItem as { gate?: CompiledGate } | undefined)?.gate;
+
+      // Only run gate for the current item (sub-phase or simple phase without steps)
+      // For for-each phases, the gate runs after all steps complete (phaseIsFullyComplete check below)
+      const shouldRunGate = gateConfig && (
+        currentSubPhase ||
+        (!currentPhase?.steps || currentPhase.steps.length === 0)
+      );
+
+      if (shouldRunGate && gateConfig) {
+        if (verbose) {
+          console.log(`[loop] Running gate check for phase '${phaseId}'`);
+        }
+
+        // Get existing tracking state
+        const gateableItem = gateItem as { 'gate-tracking'?: GateTracking };
+        const existingTracking = gateableItem['gate-tracking'];
+
+        // Execute the gate check with retry loop
+        const gateTracking = await executeGateCheck(
+          gateConfig,
+          existingTracking,
+          sprintDir,
+          phaseId,
+          workingDir,
+          deps,
+          verbose,
+          progressPath,
+          progress,
+          transcriptionsDir,
+          currentModel
+        );
+
+        // Update tracking on the item
+        gateableItem['gate-tracking'] = gateTracking;
+
+        // If gate is blocked, transition to blocked state
+        if (gateTracking.status === 'blocked') {
+          event = {
+            type: 'PHASE_FAILED',
+            error: `Gate check failed after ${gateTracking.attempts} attempts: ${gateTracking.error ?? 'Max retries exceeded'}`,
+            category: 'validation',
+            phaseId,
+          };
+
+          // Mark the item as failed
+          if (currentSubPhase) {
+            currentSubPhase.status = 'failed';
+            currentSubPhase.error = `Gate check blocked: ${gateTracking.error ?? 'Max retries exceeded'}`;
+          } else if (currentPhase) {
+            currentPhase.status = 'failed';
+            currentPhase.error = `Gate check blocked: ${gateTracking.error ?? 'Max retries exceeded'}`;
+          }
+
+          if (verbose) {
+            console.log(`[loop] Gate check blocked for phase '${phaseId}', transitioning to blocked state`);
+          }
+        }
+      }
+
+      // For for-each phases, check if there's a phase-level gate after all steps complete
+      if (currentPhase?.steps && currentPhase.steps.length > 0) {
+        const allStepsComplete = currentPhase.steps.every(
+          (s) => s.status === 'completed' || s.status === 'skipped'
+        );
+        const phaseGate = (currentPhase as { gate?: CompiledGate }).gate;
+
+        if (allStepsComplete && phaseGate && event.type === 'PHASE_COMPLETE') {
+          if (verbose) {
+            console.log(`[loop] Running phase-level gate check for '${currentPhase.id}' after all steps completed`);
+          }
+
+          const phaseTracking = (currentPhase as { 'gate-tracking'?: GateTracking })['gate-tracking'];
+
+          const gateTracking = await executeGateCheck(
+            phaseGate,
+            phaseTracking,
+            sprintDir,
+            currentPhase.id,
+            workingDir,
+            deps,
+            verbose,
+            progressPath,
+            progress,
+            transcriptionsDir,
+            currentModel
+          );
+
+          (currentPhase as { 'gate-tracking'?: GateTracking })['gate-tracking'] = gateTracking;
+
+          if (gateTracking.status === 'blocked') {
+            event = {
+              type: 'PHASE_FAILED',
+              error: `Phase gate check failed after ${gateTracking.attempts} attempts: ${gateTracking.error ?? 'Max retries exceeded'}`,
+              category: 'validation',
+              phaseId: currentPhase.id,
+            };
+
+            currentPhase.status = 'failed';
+            currentPhase.error = `Gate check blocked: ${gateTracking.error ?? 'Max retries exceeded'}`;
+
+            if (verbose) {
+              console.log(`[loop] Phase gate check blocked for '${currentPhase.id}', transitioning to blocked state`);
+            }
+          }
+        }
+      }
+    }
+
     // Process event through transition
-    const result = transition(state, event, progress);
+    let result = transition(state, event, progress);
     state = result.nextState;
     updateProgressFromState(progress, state);
 
     // Execute any resulting actions (excluding SPAWN_CLAUDE since we already did it)
     const nonSpawnActions = result.actions.filter(a => a.type !== 'SPAWN_CLAUDE');
     await executeActions(nonSpawnActions, context, deps);
+
+    // Check for breakpoint after phase completion
+    // Breakpoint triggers AFTER the phase with break: true completes (all iterations for for-each)
+    if (state.status === 'in-progress' && event.type === 'PHASE_COMPLETE' && currentPhase) {
+      // Check if the completed phase has break: true
+      const phaseHasBreak = (currentPhase as { break?: boolean }).break === true;
+
+      // For for-each phases, only trigger breakpoint when ALL iterations are complete
+      // (i.e., the phase status is 'completed')
+      const phaseIsFullyComplete = currentPhase.status === 'completed';
+
+      // For simple phases without steps, check if this is the last iteration of the phase
+      const isSimplePhaseComplete = !currentPhase.steps && !currentStep && !currentSubPhase;
+
+      if (phaseHasBreak && (phaseIsFullyComplete || isSimplePhaseComplete)) {
+        if (verbose) {
+          console.log(`[loop] Breakpoint reached after phase '${currentPhase.id}'`);
+        }
+
+        // Trigger BREAKPOINT_REACHED event
+        const breakpointResult = transition(state, { type: 'BREAKPOINT_REACHED', phaseId: currentPhase.id }, progress);
+        state = breakpointResult.nextState;
+        updateProgressFromState(progress, state);
+
+        // Execute breakpoint actions
+        const breakpointActions = breakpointResult.actions.filter(a => a.type !== 'SPAWN_CLAUDE');
+        await executeActions(breakpointActions, context, deps);
+      }
+    }
 
     // Commit transaction
     await writeProgressAtomic(progressPath, progress);

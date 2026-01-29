@@ -1,5 +1,5 @@
 ---
-allowed-tools: Bash(ls:*), Bash(test:*), Bash(grep:*), Bash(cat:*), Bash(sleep:*), Bash(rm:*), Bash(node:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/runtime/dist/cli.js:*), Read(*), Edit(*)
+allowed-tools: Bash(ls:*), Bash(test:*), Bash(grep:*), Bash(cat:*), Bash(sleep:*), Bash(rm:*), Bash(node:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/runtime/dist/cli.js:*), Bash(git:*), Bash(mkdir:*), Bash(cp:*), Read(*), Edit(*)
 argument-hint: <sprint-directory> [--max-iterations N] [--dry-run] [--recompile] [--no-status] [--no-browser]
 description: Start sprint execution loop (fresh context per task)
 model: sonnet
@@ -50,9 +50,105 @@ Using the parsed SPRINT_DIR from arguments:
 
 If any check fails, report the specific issue and stop.
 
+## Worktree Setup (Automatic)
+
+**Before compilation**, check if the sprint's workflow enables worktree execution:
+
+1. **Load the workflow reference** from SPRINT.yaml:
+   ```bash
+   # Extract workflow name from SPRINT.yaml
+   WORKFLOW_NAME=$(grep '^workflow:' "$SPRINT_DIR/SPRINT.yaml" | sed 's/workflow: *//' | tr -d '"' | tr -d "'")
+   ```
+
+2. **Load the workflow definition** and check for worktree config:
+   ```bash
+   WORKFLOW_FILE=".claude/workflows/${WORKFLOW_NAME}.yaml"
+
+   # Check if workflow has worktree.enabled: true
+   if [ -f "$WORKFLOW_FILE" ]; then
+     WORKTREE_ENABLED=$(grep -A5 '^worktree:' "$WORKFLOW_FILE" | grep 'enabled:' | grep -q 'true' && echo "true" || echo "false")
+   fi
+
+   # Sprint worktree config overrides workflow config
+   SPRINT_WORKTREE=$(grep -A5 '^worktree:' "$SPRINT_DIR/SPRINT.yaml" | grep 'enabled:')
+   if echo "$SPRINT_WORKTREE" | grep -q 'false'; then
+     WORKTREE_ENABLED="false"
+   elif echo "$SPRINT_WORKTREE" | grep -q 'true'; then
+     WORKTREE_ENABLED="true"
+   fi
+   ```
+
+3. **If worktree is enabled** and NOT already in a worktree for this sprint:
+
+   Use the runtime worktree module to create branch and worktree:
+
+   ```bash
+   # Check if worktree already exists for this sprint
+   SPRINT_ID=$(basename "$SPRINT_DIR")
+   WORKTREE_CHECK=$(git worktree list --porcelain | grep -A1 "branch.*sprint/${SPRINT_ID}" || true)
+
+   if [ -z "$WORKTREE_CHECK" ] && [ "$WORKTREE_ENABLED" = "true" ]; then
+     echo "Creating worktree for sprint: $SPRINT_ID"
+
+     # Use the compiler's worktree config resolver to get paths
+     WORKTREE_PATHS=$(node -e "
+       const yaml = require('js-yaml');
+       const fs = require('fs');
+       const { shouldCreateWorktree, resolveWorktreePath } = require('${CLAUDE_PLUGIN_ROOT}/compiler/dist/worktree-config.js');
+
+       const sprintDef = yaml.load(fs.readFileSync('${SPRINT_DIR}/SPRINT.yaml', 'utf8'));
+       const workflowPath = '.claude/workflows/' + sprintDef.workflow + '.yaml';
+       const workflowDef = fs.existsSync(workflowPath) ? yaml.load(fs.readFileSync(workflowPath, 'utf8')) : { name: sprintDef.workflow, phases: [] };
+
+       if (shouldCreateWorktree(sprintDef, workflowDef)) {
+         const sprintId = sprintDef['sprint-id'] || '${SPRINT_ID}';
+         const resolved = resolveWorktreePath(sprintId, workflowDef.worktree, sprintDef.worktree);
+         console.log(JSON.stringify(resolved));
+       } else {
+         console.log('null');
+       }
+     ")
+
+     if [ "$WORKTREE_PATHS" != "null" ]; then
+       BRANCH=$(echo "$WORKTREE_PATHS" | node -e "console.log(JSON.parse(require('fs').readFileSync(0, 'utf8')).branch)")
+       WORKTREE_PATH=$(echo "$WORKTREE_PATHS" | node -e "console.log(JSON.parse(require('fs').readFileSync(0, 'utf8')).path)")
+
+       # Create branch if it doesn't exist
+       if ! git rev-parse --verify "$BRANCH" >/dev/null 2>&1; then
+         git branch "$BRANCH"
+         echo "Created branch: $BRANCH"
+       fi
+
+       # Create worktree
+       if [ ! -d "$WORKTREE_PATH" ]; then
+         git worktree add "$WORKTREE_PATH" "$BRANCH"
+         echo "Created worktree: $WORKTREE_PATH"
+
+         # Copy sprint files to worktree
+         WORKTREE_SPRINT_DIR="${WORKTREE_PATH}/.claude/sprints/${SPRINT_ID}"
+         mkdir -p "$WORKTREE_SPRINT_DIR"
+         cp -r "${SPRINT_DIR}"/* "$WORKTREE_SPRINT_DIR/"
+
+         echo ""
+         echo "Worktree created successfully!"
+         echo "Sprint directory: $WORKTREE_SPRINT_DIR"
+         echo ""
+         echo "To run the sprint in the worktree:"
+         echo "  cd $WORKTREE_PATH && /run-sprint .claude/sprints/${SPRINT_ID}"
+         echo ""
+
+         # Exit here - user should run from worktree
+         exit 0
+       fi
+     fi
+   fi
+   ```
+
+   **Note**: If worktree is enabled but doesn't exist yet, the command creates it and exits with instructions. The user should then cd to the worktree and re-run `/run-sprint` from there.
+
 ## Workflow Compilation
 
-Check if SPRINT.yaml uses the new workflow format (has `workflow:` and `steps:` keys):
+Check if SPRINT.yaml uses the new workflow format (has `workflow:` and `collections:` keys):
 
 ```bash
 # Check if SPRINT.yaml has workflow format
@@ -104,11 +200,11 @@ Workflow Phases:
 1. [phase] {phase-id}
    {prompt preview...}
 
-2. [for-each] {phase-id}
-   Steps ({count}):
-     - step-0: {step prompt preview...}
+2. [for-each] {phase-id} (collection: {collection-name})
+   Items ({count}):
+     - {item-0-id}: {item prompt preview...}
        Sub-phases: planning → implement → test → document
-     - step-1: {step prompt preview...}
+     - {item-1-id}: {item prompt preview...}
        Sub-phases: planning → implement → test → document
 
 3. [phase] {phase-id}
@@ -116,7 +212,7 @@ Workflow Phases:
 
 Summary:
 - Total phases: {count}
-- Total steps: {count}
+- Total items: {count}
 - Total sub-phases: {count}
 - Estimated iterations: {total}
 
@@ -128,87 +224,12 @@ Then STOP - do not start the loop or modify any files.
 
 ### If --dry-run flag is NOT present:
 
-1. **Register Sprint Hooks in Settings**
+1. **Launch Sprint Loop**
 
-   Before launching the sprint loop, register the activity logging hook in the project's `.claude/settings.json`. This enables PostToolUse events to be captured and written to `.sprint-activity.jsonl`.
-
-   **Step 1**: Backup existing settings (if not already backed up):
-   ```bash
-   if [ ! -f ".claude/settings.json.pre-sprint" ]; then
-     cp ".claude/settings.json" ".claude/settings.json.pre-sprint" 2>/dev/null || echo '{}' > ".claude/settings.json.pre-sprint"
-   fi
-   ```
-
-   **Step 2**: Generate the hook configuration and merge into settings:
-   ```bash
-   # Create hook config for this sprint
-   HOOK_COMMAND="bash ${PLUGIN_DIR}/hooks/sprint-activity-hook.sh ${SPRINT_DIR}"
-
-   # Read existing settings or create empty object
-   SETTINGS=$(cat .claude/settings.json 2>/dev/null || echo '{}')
-
-   # Merge hook into settings using node (jq alternative)
-   node -e "
-     const settings = JSON.parse(process.argv[1]);
-     settings.hooks = settings.hooks || {};
-     settings.hooks.PostToolUse = settings.hooks.PostToolUse || [];
-
-     // Add sprint hook if not already present
-     const hookCmd = process.argv[2];
-     const exists = settings.hooks.PostToolUse.some(h =>
-       h.hooks && h.hooks.some(hh => hh.command && hh.command.includes('sprint-activity-hook'))
-     );
-
-     if (!exists) {
-       settings.hooks.PostToolUse.push({
-         matcher: '',
-         hooks: [{ type: 'command', command: hookCmd }]
-       });
-     }
-
-     console.log(JSON.stringify(settings, null, 2));
-   " "$SETTINGS" "$HOOK_COMMAND" > .claude/settings.json.tmp && mv .claude/settings.json.tmp .claude/settings.json
-   ```
-
-   **Important**: Replace `${PLUGIN_DIR}` and `${SPRINT_DIR}` with their actual absolute paths when generating the command.
-
-   The hook captures PostToolUse events and writes them to `.sprint-activity.jsonl` in the sprint directory, enabling the live activity panel in the status page.
-
-   **Verbosity Configuration**: Set the `SPRINT_ACTIVITY_VERBOSITY` environment variable before launching to control detail level:
-   - `minimal` - Tool names only
-   - `basic` - Tool names + file paths (default)
-   - `detailed` - Full input summaries
-   - `verbose` - Complete tool data
-
-   If not set, defaults to "basic".
-
-   Also save the hook config to `.sprint-hooks.json` for reference (this file is informational only):
-   ```bash
-   cat > "$SPRINT_DIR/.sprint-hooks.json" << HOOKEOF
-   {
-     "hooks": {
-       "PostToolUse": [
-         {
-           "matcher": "",
-           "hooks": [
-             {
-               "type": "command",
-               "command": "$HOOK_COMMAND"
-             }
-           ]
-         }
-       ]
-     }
-   }
-   HOOKEOF
-   ```
-
-2. **Launch Sprint Loop**
-
-   Execute the sprint loop as a **background task** with the hook config:
+   Execute the sprint loop as a **background task**:
 
    ```bash
-   node "${CLAUDE_PLUGIN_ROOT}/runtime/dist/cli.js" run "$SPRINT_DIR" --max-iterations [N] --hook-config "$SPRINT_DIR/.sprint-hooks.json"
+   node "${CLAUDE_PLUGIN_ROOT}/runtime/dist/cli.js" run "$SPRINT_DIR" --max-iterations [N]
    ```
 
    Use `run_in_background: true` when calling the Bash tool. This allows:
@@ -216,7 +237,7 @@ Then STOP - do not start the loop or modify any files.
    - Progress monitoring via `/sprint-status`
    - Output checking via TaskOutput tool
 
-3. **Launch Status Server** (unless `--no-status` flag is present)
+2. **Launch Status Server** (unless `--no-status` flag is present)
 
    After starting the sprint loop, launch the status server in background:
 
@@ -249,7 +270,7 @@ Then STOP - do not start the loop or modify any files.
    - Display warning: "Status server failed to start. Sprint continues without live status."
    - The sprint loop is the critical path; status server is enhancement only
 
-4. **Report Launch Status**
+3. **Report Launch Status**
 
    After launching, inform the user:
 
@@ -263,7 +284,7 @@ Then STOP - do not start the loop or modify any files.
 
    Workflow: {workflow-name}
    Phases: {phase-count}
-   Steps: {step-count}
+   Items: {item-count}
 
    Live Status: http://localhost:{port}
    (Open in browser for real-time progress)
@@ -348,7 +369,63 @@ The sprint loop monitors these PROGRESS.yaml status values:
 | `completed` | All tasks done | Exit (success) |
 | `blocked` | Task cannot proceed | Exit (failure) |
 | `paused` | User requested pause | Exit (success) |
+| `paused-at-breakpoint` | Breakpoint phase reached | Exit (human review) |
 | `needs-human` | Human decision required | Exit (intervention) |
+
+## Breakpoints and Quality Gates
+
+Workflows can define two types of human checkpoints:
+
+### Breakpoints (`break: true`)
+
+Phases with `break: true` pause execution after completing, allowing human review before continuing:
+
+```yaml
+# In workflow definition
+phases:
+  - id: implement
+    prompt: "Implement the feature..."
+  - id: review-checkpoint
+    prompt: "Prepare for review..."
+    break: true  # Sprint pauses here after completion
+  - id: deploy
+    prompt: "Deploy to production..."
+```
+
+When a breakpoint is reached:
+- Sprint status becomes `paused-at-breakpoint`
+- Loop exits gracefully
+- User reviews changes and uses `/resume-sprint` to continue
+
+### Quality Gates (`gate:`)
+
+Phases can include quality gate checks that run validation scripts after phase completion:
+
+```yaml
+# In workflow definition
+phases:
+  - id: implement
+    prompt: "Implement the feature..."
+    gate:
+      script: "npm test && npm run lint"
+      on-fail:
+        prompt: "Tests or lint failed. Fix the issues based on this output:"
+        max-retries: 3
+      timeout: 120
+```
+
+Gate behavior:
+- **Pass (exit 0)**: Phase completes, execution continues
+- **Fail (exit non-0)**: Re-runs phase with fix prompt including script output
+- **Max retries exceeded**: Sprint becomes `blocked`
+
+Gate configuration:
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `script` | string | Required | Shell command to validate (exit 0 = pass) |
+| `on-fail.prompt` | string | Required | Instructions for fixing failures |
+| `on-fail.max-retries` | number | 3 | Maximum retry attempts |
+| `timeout` | number | 60 | Script timeout in seconds |
 
 ## Success Criteria
 

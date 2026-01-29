@@ -60,14 +60,16 @@ Each step should have a verifiable outcome:
 
 ```yaml
 # Bad: No clear deliverable
-steps:
-  - Think about authentication
-  - Consider security
+collections:
+  step:
+    - prompt: Think about authentication
+    - prompt: Consider security
 
 # Good: Concrete deliverables
-steps:
-  - Create AuthService with login() and logout() methods
-  - Add JWT middleware that validates tokens on protected routes
+collections:
+  step:
+    - prompt: Create AuthService with login() and logout() methods
+    - prompt: Add JWT middleware that validates tokens on protected routes
 ```
 
 ### Include Success Criteria (When Complex)
@@ -75,13 +77,14 @@ steps:
 For complex steps, embed success criteria:
 
 ```yaml
-steps:
-  - prompt: |
-      Implement rate limiting for API endpoints.
-      Success criteria:
-      - Max 100 requests per minute per IP
-      - Return 429 status when exceeded
-      - Include retry-after header
+collections:
+  step:
+    - prompt: |
+        Implement rate limiting for API endpoints.
+        Success criteria:
+        - Max 100 requests per minute per IP
+        - Return 429 status when exceeded
+        - Include retry-after header
 ```
 
 ### Avoid Research-Only Steps
@@ -102,14 +105,16 @@ Each step should do one thing:
 
 ```yaml
 # Bad: Multiple tasks
-steps:
-  - Implement login, add tests, and deploy
+collections:
+  step:
+    - prompt: Implement login, add tests, and deploy
 
 # Good: Scoped steps
-steps:
-  - Implement login endpoint
-  - Add unit tests for login
-  - Add integration tests for login
+collections:
+  step:
+    - prompt: Implement login endpoint
+    - prompt: Add unit tests for login
+    - prompt: Add integration tests for login
 ```
 
 ### Appropriate Granularity
@@ -127,16 +132,17 @@ Steps should be completable in a bounded time:
 Explicitly state what's in and out of scope if unclear:
 
 ```yaml
-steps:
-  - prompt: |
-      Implement user registration endpoint.
-      Scope:
-      - POST /auth/register
-      - Email/password validation
-      - Password hashing
-      Not in scope:
-      - Email verification (separate step)
-      - Rate limiting (separate step)
+collections:
+  step:
+    - prompt: |
+        Implement user registration endpoint.
+        Scope:
+        - POST /auth/register
+        - Email/password validation
+        - Password hashing
+        Not in scope:
+        - Email verification (separate step)
+        - Rate limiting (separate step)
 ```
 
 ## Step Templates
@@ -245,31 +251,34 @@ Before finalizing a step, verify:
 ### API Development
 
 ```yaml
-steps:
-  - Create User entity with id, email, password, createdAt fields
-  - Implement POST /users endpoint for user creation
-  - Implement GET /users/:id endpoint for user retrieval
-  - Add request validation using class-validator
-  - Add integration tests for user endpoints
+collections:
+  step:
+    - prompt: Create User entity with id, email, password, createdAt fields
+    - prompt: Implement POST /users endpoint for user creation
+    - prompt: Implement GET /users/:id endpoint for user retrieval
+    - prompt: Add request validation using class-validator
+    - prompt: Add integration tests for user endpoints
 ```
 
 ### UI Development
 
 ```yaml
-steps:
-  - Create LoginForm component with email and password inputs
-  - Add form validation with error message display
-  - Implement form submission with loading state
-  - Connect form to authentication API
-  - Add unit tests for LoginForm
+collections:
+  step:
+    - prompt: Create LoginForm component with email and password inputs
+    - prompt: Add form validation with error message display
+    - prompt: Implement form submission with loading state
+    - prompt: Connect form to authentication API
+    - prompt: Add unit tests for LoginForm
 ```
 
 ### Infrastructure
 
 ```yaml
-steps:
-  - Create Dockerfile for Node.js application
-  - Add docker-compose.yml with app and database services
-  - Configure environment variables for containerized deployment
-  - Add health check endpoint for container orchestration
+collections:
+  step:
+    - prompt: Create Dockerfile for Node.js application
+    - prompt: Add docker-compose.yml with app and database services
+    - prompt: Configure environment variables for containerized deployment
+    - prompt: Add health check endpoint for container orchestration
 ```

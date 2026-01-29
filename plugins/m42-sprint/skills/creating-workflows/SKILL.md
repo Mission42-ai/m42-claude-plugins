@@ -13,8 +13,10 @@ Guide for authoring sprint workflow definitions in `.claude/workflows/`.
 |---------|-------------|
 | Workflow | YAML file defining execution phases |
 | Phase | Individual step with prompt or iteration |
-| For-Each | Phase that iterates over sprint steps |
+| For-Each | Phase that iterates over collection items |
 | Template Variables | Dynamic values substituted at runtime |
+| Quality Gate | Validation script with retry-on-fail capability |
+| Breakpoint | Pause point for human review before continuing |
 | Ralph Mode | Autonomous goal-driven workflow (no predefined phases) |
 
 ## Workflow Location
@@ -40,7 +42,7 @@ phases:
   - id: first-phase
     prompt: |
       Instructions for first phase.
-      {{step.prompt}}
+      {{item.prompt}}
 
   - id: second-phase
     prompt: |
@@ -51,17 +53,18 @@ phases:
 
 ```yaml
 workflow: my-workflow
-steps:
-  - Implement feature X
-  - Add tests for feature X
+collections:
+  step:
+    - prompt: Implement feature X
+    - prompt: Add tests for feature X
 ```
 
 ## Phase Types Decision Tree
 
 ```text
-Do you need to process multiple sprint steps?
+Do you need to process multiple collection items?
 ├── YES → Use for-each phase
-│         └── for-each: step
+│         └── for-each: step    # or: feature, bug, etc.
 │             workflow: step-workflow
 │
 └── NO → Use simple phase
@@ -73,7 +76,7 @@ Do you need to process multiple sprint steps?
 | Pattern | Use Case | Example |
 |---------|----------|---------|
 | Simple Sequential | Linear task flow | `prepare → execute → verify` |
-| For-Each Development | Step iteration | `development` phase with `for-each: step` |
+| For-Each Development | Item iteration | `development` phase with `for-each: step` |
 | Nested Workflow | Complex step execution | For-each phase referencing step workflow |
 | Hybrid | Mixed phases | Simple + for-each combined |
 | Ralph Mode | Autonomous goal-driven | `mode: ralph` with dynamic steps |
@@ -82,9 +85,11 @@ Do you need to process multiple sprint steps?
 
 | Variable | Available In | Value |
 |----------|--------------|-------|
-| `{{step.prompt}}` | For-each phases | Step description from SPRINT.yaml |
-| `{{step.id}}` | For-each phases | Step identifier (e.g., step-1) |
-| `{{step.index}}` | For-each phases | 0-based step index |
+| `{{item.prompt}}` | For-each phases | Item description from collection |
+| `{{item.id}}` | For-each phases | Item identifier (e.g., step-0) |
+| `{{item.index}}` | For-each phases | 0-based item index |
+| `{{item.<prop>}}` | For-each phases | Any custom property from the item |
+| `{{<type>.prompt}}` | For-each phases | Type-specific alias (e.g., `{{step.prompt}}` when `for-each: step`) |
 | `{{phase.id}}` | All phases | Current phase identifier |
 | `{{sprint.id}}` | All phases | Sprint identifier |
 | `{{sprint.name}}` | All phases | Sprint name (if set) |
@@ -97,7 +102,7 @@ Do you need to process multiple sprint steps?
 name: Minimal Execute
 phases:
   - id: execute
-    prompt: "Execute the task: {{step.prompt}}"
+    prompt: "Execute the task: {{item.prompt}}"
 ```
 
 ### Sprint Workflow with For-Each
@@ -118,6 +123,40 @@ phases:
   - id: deploy
     prompt: "Create PR and finalize"
 ```
+
+## Quality Gates and Breakpoints
+
+### Quality Gate
+
+Run validation scripts after phase completion with automatic retry:
+
+```yaml
+phases:
+  - id: implement
+    prompt: "Implement the feature..."
+    gate:
+      script: "npm run build && npm test"
+      on-fail:
+        prompt: "Fix build/test failures: {{gate.output}}"
+        max-retries: 3
+      timeout: 120
+```
+
+### Breakpoint
+
+Pause for human review after phase completes:
+
+```yaml
+phases:
+  - id: prepare-release
+    prompt: "Prepare release artifacts..."
+    break: true  # Sprint pauses with status: paused-at-breakpoint
+
+  - id: deploy
+    prompt: "Deploy to production..."  # Runs after /resume-sprint
+```
+
+See `references/workflow-schema.md` for full gate and breakpoint documentation.
 
 ## Ralph Mode Workflows
 
@@ -185,7 +224,7 @@ Before using a workflow:
 |-------|-------|------------|
 | Workflow not found | Missing file | Create in `.claude/workflows/` |
 | Phase skipped | Missing `prompt` or `for-each` | Add required field |
-| Variable not resolved | Wrong context | Check variable availability (step.* only in for-each) |
+| Variable not resolved | Wrong context | Check variable availability (item.* only in for-each) |
 | Compilation error | Invalid YAML | Validate YAML syntax |
 
 ## Related

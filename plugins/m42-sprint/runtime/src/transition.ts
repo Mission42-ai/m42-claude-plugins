@@ -24,7 +24,7 @@ export type ErrorCategory = 'network' | 'rate-limit' | 'timeout' | 'validation' 
 export type PhaseStatus = 'pending' | 'in-progress' | 'completed' | 'blocked' | 'skipped' | 'failed';
 
 /** Sprint status (deprecated, use SprintState) */
-export type SprintStatus = 'not-started' | 'in-progress' | 'completed' | 'blocked' | 'paused' | 'needs-human';
+export type SprintStatus = 'not-started' | 'in-progress' | 'completed' | 'blocked' | 'paused' | 'paused-at-breakpoint' | 'needs-human';
 
 /**
  * Current position pointer in the workflow
@@ -50,6 +50,11 @@ export type SprintState =
       status: 'paused';
       pausedAt: CurrentPointer;
       pauseReason: string;
+    }
+  | {
+      status: 'paused-at-breakpoint';
+      pausedAt: CurrentPointer;
+      breakpointPhaseId: string;
     }
   | {
       status: 'blocked';
@@ -92,6 +97,7 @@ export type SprintEvent =
   | { type: 'STEP_FAILED'; error: string; category: ErrorCategory; stepId: string }
   | { type: 'PROPOSE_STEPS'; steps: ProposedStep[]; proposedBy: string }
   | { type: 'PAUSE'; reason: string }
+  | { type: 'BREAKPOINT_REACHED'; phaseId: string }
   | { type: 'RESUME' }
   | { type: 'HUMAN_NEEDED'; reason: string; details?: string }
   | { type: 'GOAL_COMPLETE'; summary: string };
@@ -155,6 +161,32 @@ export interface OrchestrationConfig {
 }
 
 /**
+ * Gate check status for tracking
+ */
+export type GateStatus = 'pending' | 'running' | 'passed' | 'retrying' | 'failed' | 'blocked';
+
+/**
+ * Gate tracking state
+ */
+export interface GateTracking {
+  attempts: number;
+  status: GateStatus;
+  'last-output'?: string;
+  'last-exit-code'?: number;
+  error?: string;
+}
+
+/**
+ * Compiled gate configuration
+ */
+export interface CompiledGate {
+  script: string;
+  'on-fail-prompt': string;
+  'max-retries': number;
+  timeout: number;
+}
+
+/**
  * A compiled phase (leaf node)
  */
 export interface CompiledPhase {
@@ -171,6 +203,8 @@ export interface CompiledPhase {
   'error-category'?: ErrorCategory;
   parallel?: boolean;
   'parallel-task-id'?: string;
+  gate?: CompiledGate;
+  'gate-tracking'?: GateTracking;
 }
 
 /**
@@ -207,6 +241,12 @@ export interface CompiledTopPhase {
   'next-retry-at'?: string;
   'error-category'?: ErrorCategory;
   'wait-for-parallel'?: boolean;
+  /** If true, pause execution after this phase completes for human review */
+  break?: boolean;
+  /** Quality gate configuration */
+  gate?: CompiledGate;
+  /** Gate check tracking state */
+  'gate-tracking'?: GateTracking;
 }
 
 /** Worktree cleanup mode */
@@ -703,15 +743,74 @@ export function transition(
     }
 
     // ========================================================================
+    // BREAKPOINT_REACHED Event
+    // ========================================================================
+    case 'BREAKPOINT_REACHED': {
+      if (state.status !== 'in-progress') {
+        return createNoOp(state);
+      }
+
+      return {
+        nextState: {
+          status: 'paused-at-breakpoint',
+          pausedAt: state.current,
+          breakpointPhaseId: event.phaseId,
+        },
+        actions: [{ type: 'WRITE_PROGRESS' }],
+        context: {},
+      };
+    }
+
+    // ========================================================================
     // RESUME Event
     // ========================================================================
     case 'RESUME': {
-      if (state.status !== 'paused') {
+      if (state.status !== 'paused' && state.status !== 'paused-at-breakpoint') {
         return createNoOp(state);
       }
 
       const restoredContext = { ...context, current: state.pausedAt };
 
+      // For breakpoint resume, advance to the next phase/step/sub-phase
+      if (state.status === 'paused-at-breakpoint') {
+        const { nextPointer, hasMore } = advancePointer(state.pausedAt, context);
+
+        if (!hasMore) {
+          // Breakpoint was on the last phase - sprint is complete
+          return {
+            nextState: {
+              status: 'completed',
+              summary: 'Sprint completed after breakpoint',
+              completedAt: now,
+              elapsed: '0s',
+            },
+            actions: [{ type: 'WRITE_PROGRESS' }],
+            context: {},
+          };
+        }
+
+        const advancedContext = { ...context, current: nextPointer };
+
+        return {
+          nextState: {
+            status: 'in-progress',
+            current: nextPointer,
+            iteration: 1,
+            startedAt: now,
+          },
+          actions: [
+            {
+              type: 'SPAWN_CLAUDE',
+              prompt: getCurrentPrompt(advancedContext),
+              phaseId: getCurrentPhaseId(advancedContext),
+              onComplete: 'PHASE_COMPLETE',
+            },
+          ],
+          context: {},
+        };
+      }
+
+      // For regular pause resume, continue from the same position
       return {
         nextState: {
           status: 'in-progress',

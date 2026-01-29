@@ -20,6 +20,7 @@ Reusable workflow patterns for common development scenarios.
 | Full Sprint | 4 | Sprint with iteration |
 | Bug Fix | 3 | Diagnosis and repair |
 | Flat For-Each | 1 | Simple step iteration |
+| Gated Deployment | 4 | Quality gates + human approval |
 
 ## Pattern 1: Minimal Execute
 
@@ -301,6 +302,49 @@ phases:
     prompt: "..."
 ```
 
+## Pattern 8: Gated Deployment
+
+Workflow with quality gate validation and human review breakpoint:
+
+```yaml
+name: Gated Deployment
+description: Feature with quality gates and human approval
+phases:
+  - id: implement
+    prompt: |
+      Implement the feature: {{step.prompt}}
+      Follow existing patterns.
+
+  - id: validate
+    prompt: "Run all quality checks..."
+    gate:
+      script: "npm run build && npm run typecheck && npm test"
+      on-fail:
+        prompt: |
+          Quality checks failed. Fix the issues:
+          {{gate.output}}
+        max-retries: 3
+      timeout: 180
+
+  - id: review-checkpoint
+    prompt: |
+      Prepare for human review:
+      - Generate diff summary
+      - List all changes made
+    break: true  # Pauses here for human approval
+
+  - id: deploy
+    prompt: |
+      Human approved. Deploy changes:
+      - Push to remote
+      - Create PR
+```
+
+**Use when:**
+- Critical changes requiring human approval
+- Automated validation before deployment
+- Production releases
+
 ## Customization Tips
 
 1. **Add phases** - Insert phases between existing ones
@@ -308,3 +352,5 @@ phases:
 3. **Merge phases** - Combine simple related phases
 4. **Change iteration** - Switch between simple and for-each
 5. **Reference different workflows** - Swap nested workflow references
+6. **Add quality gates** - Insert `gate` for automated validation
+7. **Add breakpoints** - Use `break: true` for human review checkpoints

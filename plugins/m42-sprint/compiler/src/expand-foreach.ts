@@ -7,14 +7,17 @@
 import type {
   WorkflowPhase,
   WorkflowDefinition,
-  SprintStep,
+  CollectionItem,
   CompiledTopPhase,
   CompiledStep,
   CompiledPhase,
+  CompiledGate,
   LoadedWorkflow,
   TemplateContext,
+  ItemContext,
   CompilerError,
-  ClaudeModel
+  ClaudeModel,
+  GateCheck
 } from './types.js';
 import { loadWorkflow } from './resolve-workflows.js';
 
@@ -43,9 +46,12 @@ export function resolveModelFromContext(ctx: ModelContext): ClaudeModel | undefi
  * Substitute template variables in a string
  *
  * Supports:
- * - {{step.prompt}} - The step's prompt text
- * - {{step.id}} - The step's ID
- * - {{step.index}} - The step's index (0-based)
+ * - {{item.prompt}} - The item's prompt text (generic)
+ * - {{item.id}} - The item's ID
+ * - {{item.index}} - The item's index (0-based)
+ * - {{item.<prop>}} - Any custom property from the item
+ * - {{<type>.prompt}} - Type-specific variant (e.g., {{feature.prompt}})
+ * - {{<type>.<prop>}} - Type-specific custom property
  * - {{phase.id}} - Current phase ID
  * - {{sprint.id}} - Sprint ID
  *
@@ -59,11 +65,23 @@ export function substituteTemplateVars(
 ): string {
   let result = template;
 
-  // Replace step variables
-  if (context.step) {
-    result = result.replace(/\{\{step\.prompt\}\}/g, context.step.prompt);
-    result = result.replace(/\{\{step\.id\}\}/g, context.step.id);
-    result = result.replace(/\{\{step\.index\}\}/g, String(context.step.index));
+  // Replace item variables (generic accessor)
+  if (context.item) {
+    // Replace all {{item.<property>}} patterns
+    result = result.replace(/\{\{item\.(\w+)\}\}/g, (_, prop) => {
+      const value = context.item?.[prop];
+      return value !== undefined ? String(value) : '';
+    });
+
+    // Replace type-specific patterns: {{<type>.<property>}}
+    const itemType = context.item.type;
+    if (itemType) {
+      const typePattern = new RegExp(`\\{\\{${escapeRegExp(itemType)}\\.(\\w+)\\}\\}`, 'g');
+      result = result.replace(typePattern, (_, prop) => {
+        const value = context.item?.[prop];
+        return value !== undefined ? String(value) : '';
+      });
+    }
   }
 
   // Replace phase variables
@@ -84,6 +102,28 @@ export function substituteTemplateVars(
 }
 
 /**
+ * Escape special regex characters in a string
+ */
+function escapeRegExp(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Compile gate configuration from workflow phase
+ *
+ * @param gate - The gate configuration from the workflow phase
+ * @returns Compiled gate configuration with defaults applied
+ */
+export function compileGate(gate: GateCheck): CompiledGate {
+  return {
+    script: gate.script,
+    'on-fail-prompt': gate['on-fail'].prompt,
+    'max-retries': gate['on-fail']['max-retries'] ?? 3,
+    timeout: gate.timeout ?? 60
+  };
+}
+
+/**
  * Find unresolved template variables in a string
  *
  * @param text - String to check
@@ -95,41 +135,49 @@ export function findUnresolvedVars(text: string): string[] {
 }
 
 /**
- * Expand a single step using its workflow
+ * Expand a single item using its workflow
  *
- * @param step - The step to expand
- * @param stepIndex - Index of this step
+ * @param item - The collection item to expand
+ * @param itemIndex - Index of this item
+ * @param itemType - Type of the item (collection name, e.g., 'step', 'feature')
  * @param workflow - The workflow to use for expansion
  * @param context - Template context
  * @param modelContext - Model context for resolution
  * @returns Compiled step with expanded sub-phases
  */
-export function expandStep(
-  step: SprintStep,
-  stepIndex: number,
+export function expandItem(
+  item: CollectionItem,
+  itemIndex: number,
+  itemType: string,
   workflow: WorkflowDefinition,
   context: TemplateContext,
   modelContext: ModelContext = {}
 ): CompiledStep {
-  const stepId = step.id || `step-${stepIndex}`;
+  const itemId = item.id || `${itemType}-${itemIndex}`;
 
-  // Update context with step info
+  // Build item context with all properties from the item
+  // Spread custom properties first, then override with computed values
+  const itemContext: ItemContext = {
+    ...item,           // Custom properties from the item
+    prompt: item.prompt,  // Ensure prompt is the string value
+    id: itemId,           // Computed ID (may override item.id)
+    index: itemIndex,     // Computed index
+    type: itemType        // Collection type
+  };
+
+  // Update context with item info
   const stepContext: TemplateContext = {
     ...context,
-    step: {
-      prompt: step.prompt,
-      id: stepId,
-      index: stepIndex
-    }
+    item: itemContext
   };
 
-  // Create step-level model context (step model has highest priority)
-  const stepModelContext: ModelContext = {
+  // Create item-level model context (item model has highest priority)
+  const itemModelContext: ModelContext = {
     ...modelContext,
-    stepModel: step.model
+    stepModel: item.model
   };
 
-  // Expand each phase in the step's workflow
+  // Expand each phase in the item's workflow
   const compiledPhases: CompiledPhase[] = (workflow.phases ?? []).map((phase, phaseIndex) => {
     const phaseContext: TemplateContext = {
       ...stepContext,
@@ -145,38 +193,48 @@ export function expandStep(
       : `Execute phase: ${phase.id}`;
 
     // Resolve model for this sub-phase
-    // Priority: step.model > phase.model > sprint.model > workflow.model
+    // Priority: item.model > phase.model > sprint.model > workflow.model
     const subPhaseModelContext: ModelContext = {
-      ...stepModelContext,
+      ...itemModelContext,
       phaseModel: phase.model
     };
     const resolvedModel = resolveModelFromContext(subPhaseModelContext);
+
+    // Compile gate configuration if present
+    const compiledGate = phase.gate ? compileGate(phase.gate) : undefined;
 
     return {
       id: phase.id,
       status: 'pending' as const,
       prompt,
       parallel: phase.parallel,
-      model: resolvedModel
+      model: resolvedModel,
+      ...(compiledGate && { gate: compiledGate })
     };
   });
 
   return {
-    id: stepId,
-    prompt: step.prompt,
+    id: itemId,
+    prompt: item.prompt,
     status: 'pending' as const,
     phases: compiledPhases,
-    model: step.model
+    model: item.model
   };
 }
+
+/**
+ * @deprecated Use expandItem instead. Kept for backwards compatibility.
+ */
+export const expandStep = expandItem;
 
 /**
  * Expand a for-each phase into concrete steps
  *
  * @param phase - The phase with for-each directive
- * @param steps - The steps from SPRINT.yaml
+ * @param items - The items from the collection
+ * @param itemType - The type of items (collection name, e.g., 'step', 'feature')
  * @param workflowsDir - Directory containing workflow definitions
- * @param defaultWorkflow - Default workflow to use if step doesn't specify one
+ * @param defaultWorkflow - Default workflow to use if item doesn't specify one
  * @param context - Template context
  * @param errors - Array to collect errors
  * @param modelContext - Model context for resolution
@@ -184,7 +242,8 @@ export function expandStep(
  */
 export function expandForEach(
   phase: WorkflowPhase,
-  steps: SprintStep[],
+  items: CollectionItem[],
+  itemType: string,
   workflowsDir: string,
   defaultWorkflow: LoadedWorkflow | null,
   context: TemplateContext,
@@ -193,35 +252,35 @@ export function expandForEach(
 ): CompiledTopPhase {
   const compiledSteps: CompiledStep[] = [];
 
-  for (let i = 0; i < steps.length; i++) {
-    const step = steps[i];
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
 
-    // Determine which workflow to use for this step
-    let stepWorkflow: WorkflowDefinition;
+    // Determine which workflow to use for this item
+    let itemWorkflow: WorkflowDefinition;
 
-    if (step.workflow) {
-      // Step has its own workflow override
-      const loaded = loadWorkflow(step.workflow, workflowsDir, errors);
+    if (item.workflow) {
+      // Item has its own workflow override
+      const loaded = loadWorkflow(item.workflow as string, workflowsDir, errors);
       if (!loaded) {
         // Only add "not found" error if no parse error was added
-        const hasParseError = errors.some(e => e.code === 'WORKFLOW_PARSE_ERROR' && e.path?.includes(step.workflow!));
+        const hasParseError = errors.some(e => e.code === 'WORKFLOW_PARSE_ERROR' && e.path?.includes(item.workflow as string));
         if (!hasParseError) {
           errors.push({
-            code: 'STEP_WORKFLOW_NOT_FOUND',
-            message: `Workflow not found for step ${i}: ${step.workflow}`,
-            path: `steps[${i}].workflow`
+            code: 'ITEM_WORKFLOW_NOT_FOUND',
+            message: `Workflow not found for ${itemType}[${i}]: ${item.workflow}`,
+            path: `collections.${itemType}[${i}].workflow`
           });
         }
         // Use a minimal fallback workflow
-        stepWorkflow = {
+        itemWorkflow = {
           name: 'Fallback',
-          phases: [{ id: 'execute', prompt: '{{step.prompt}}' }]
+          phases: [{ id: 'execute', prompt: '{{item.prompt}}' }]
         };
       } else {
-        stepWorkflow = loaded.definition;
+        itemWorkflow = loaded.definition;
       }
     } else if (phase.workflow && phase.workflow !== defaultWorkflow?.definition.name) {
-      // Phase specifies a default workflow for its steps
+      // Phase specifies a default workflow for its items
       const loaded = loadWorkflow(phase.workflow, workflowsDir, errors);
       if (!loaded) {
         // Only add "not found" error if no parse error was added
@@ -233,34 +292,39 @@ export function expandForEach(
             path: `phases[${phase.id}].workflow`
           });
         }
-        stepWorkflow = {
+        itemWorkflow = {
           name: 'Fallback',
-          phases: [{ id: 'execute', prompt: '{{step.prompt}}' }]
+          phases: [{ id: 'execute', prompt: '{{item.prompt}}' }]
         };
       } else {
-        stepWorkflow = loaded.definition;
+        itemWorkflow = loaded.definition;
       }
     } else if (defaultWorkflow) {
-      // Use the sprint's default workflow
-      stepWorkflow = defaultWorkflow.definition;
+      // Use the collection's default workflow
+      itemWorkflow = defaultWorkflow.definition;
     } else {
       // No workflow available, create a minimal one
-      stepWorkflow = {
+      itemWorkflow = {
         name: 'Minimal',
-        phases: [{ id: 'execute', prompt: '{{step.prompt}}' }]
+        phases: [{ id: 'execute', prompt: '{{item.prompt}}' }]
       };
     }
 
-    // Expand this step with model context
-    const compiledStep = expandStep(step, i, stepWorkflow, context, modelContext);
+    // Expand this item with model context
+    const compiledStep = expandItem(item, i, itemType, itemWorkflow, context, modelContext);
     compiledSteps.push(compiledStep);
   }
+
+  // Compile gate configuration if present on the for-each phase
+  const compiledGate = phase.gate ? compileGate(phase.gate) : undefined;
 
   return {
     id: phase.id,
     status: 'pending' as const,
     steps: compiledSteps,
-    'wait-for-parallel': phase['wait-for-parallel']
+    'wait-for-parallel': phase['wait-for-parallel'],
+    break: phase.break,
+    ...(compiledGate && { gate: compiledGate })
   };
 }
 
@@ -297,11 +361,16 @@ export function compileSimplePhase(
   };
   const resolvedModel = resolveModelFromContext(phaseModelContext);
 
+  // Compile gate configuration if present
+  const compiledGate = phase.gate ? compileGate(phase.gate) : undefined;
+
   return {
     id: phase.id,
     status: 'pending' as const,
     prompt,
     'wait-for-parallel': phase['wait-for-parallel'],
-    model: resolvedModel
+    model: resolvedModel,
+    break: phase.break,
+    ...(compiledGate && { gate: compiledGate })
   };
 }

@@ -44,7 +44,7 @@ async function testCompileClearsCache(): Promise<void> {
       'sprint-id': 'test-sprint',
       name: 'Test Sprint',
       workflow: 'test-workflow',
-      steps: [{ id: 'step-1', prompt: 'Test step' }]
+      collections: { step: [{ id: 'step-1', prompt: 'Test step' }] }
     });
     fs.writeFileSync(sprintPath, sprintContent);
 

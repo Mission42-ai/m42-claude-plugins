@@ -11,4 +11,4 @@ phases:
   - id: execute
     for-each: step
     prompt: |
-      {{step.prompt}}
+      {{item.prompt}}

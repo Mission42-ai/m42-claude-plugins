@@ -11,10 +11,26 @@ phases:
       Setup phase instructions.
       Use {{sprint.id}} for sprint context.
 
-  # For-each phase - iterates over steps from SPRINT.yaml
+  # For-each phase - iterates over items from named collection
   - id: main
-    for-each: step
-    workflow: feature-standard  # Reference another workflow
+    for-each: step               # Collection name (exact match with collections.step)
+    workflow: feature-standard   # Reference another workflow
+
+  # Simple phase with quality gate
+  - id: validate
+    prompt: |
+      Run validation and verify quality.
+    gate:
+      script: "npm test && npm run lint"
+      on-fail:
+        prompt: "Fix failing tests or lint errors."
+        max-retries: 3
+
+  # Breakpoint phase - pauses for human review
+  - id: review-checkpoint
+    prompt: |
+      Summarize all changes for human review.
+    break: true  # Sprint pauses here (status: paused-at-breakpoint)
 
   # Simple phase
   - id: finalize
@@ -22,8 +38,14 @@ phases:
       Finalization instructions.
 
 # Template variables available:
-# {{step.prompt}} - Step description from SPRINT.yaml
-# {{step.id}} - Step identifier (e.g., step-1)
-# {{step.index}} - 0-based step index
+# {{item.prompt}} - Item description from collection
+# {{item.id}} - Item identifier (e.g., step-0, feature-1)
+# {{item.index}} - 0-based item index
+# {{item.<prop>}} - Any custom property from the item
+# {{<type>.prompt}} - Type-specific variant (e.g., {{feature.prompt}})
 # {{phase.id}} - Current phase identifier
 # {{sprint.id}} - Sprint identifier
+
+# Phase options:
+# break: true - Pause execution after phase for human review
+# gate: { script, on-fail: { prompt, max-retries } } - Quality gate check

@@ -8,7 +8,7 @@ export type ClaudeModel = 'sonnet' | 'opus' | 'haiku';
  * @deprecated Use SprintState discriminated union instead for type-safe state handling.
  * This type is kept for backwards compatibility with existing code.
  */
-export type SprintStatus = 'not-started' | 'in-progress' | 'completed' | 'blocked' | 'paused' | 'needs-human' | 'interrupted';
+export type SprintStatus = 'not-started' | 'in-progress' | 'completed' | 'blocked' | 'paused' | 'paused-at-breakpoint' | 'needs-human' | 'interrupted';
 export type ParallelTaskStatus = 'spawned' | 'running' | 'completed' | 'failed';
 /** Log severity levels for LOG actions */
 export type LogLevel = 'info' | 'warn' | 'error';
@@ -29,6 +29,10 @@ export type SprintState = {
     status: 'paused';
     pausedAt: CurrentPointer;
     pauseReason: string;
+} | {
+    status: 'paused-at-breakpoint';
+    pausedAt: CurrentPointer;
+    breakpointPhaseId: string;
 } | {
     status: 'blocked';
     error: string;
@@ -79,6 +83,9 @@ export type SprintEvent = {
 } | {
     type: 'PAUSE';
     reason: string;
+} | {
+    type: 'BREAKPOINT_REACHED';
+    phaseId: string;
 } | {
     type: 'RESUME';
 } | {
@@ -209,6 +216,73 @@ export interface RalphExitInfo {
     /** Final summary from Claude */
     'final-summary'?: string;
 }
+/** Cleanup mode for worktrees */
+export type WorktreeCleanup = 'never' | 'on-complete' | 'on-merge';
+/**
+ * Worktree configuration for sprint or workflow level
+ *
+ * Supports variable substitution in branch and path:
+ * - {sprint-id} → e.g., "2026-01-20_feature-auth"
+ * - {sprint-name} → e.g., "feature-auth"
+ * - {date} → e.g., "2026-01-20"
+ * - {workflow} → e.g., "feature-development"
+ */
+export interface WorktreeConfig {
+    /** Enable dedicated worktree for this sprint */
+    enabled: boolean;
+    /** Branch name for the worktree (default: sprint/{sprint-id}) */
+    branch?: string;
+    /** Path for the worktree relative to repo root (default: ../{sprint-id}-worktree) */
+    path?: string;
+    /** When to clean up the worktree (default: on-complete) */
+    cleanup?: WorktreeCleanup;
+}
+/**
+ * Workflow-level worktree defaults
+ * Uses prefix patterns instead of full templates
+ */
+export interface WorkflowWorktreeDefaults {
+    /** Enable worktree for all sprints using this workflow */
+    enabled: boolean;
+    /** Branch prefix (e.g., "sprint/" → "sprint/{sprint-id}") */
+    'branch-prefix'?: string;
+    /** Path prefix for worktrees (e.g., "../worktrees/" → "../worktrees/{sprint-id}") */
+    'path-prefix'?: string;
+    /** Default cleanup mode */
+    cleanup?: WorktreeCleanup;
+}
+/**
+ * Compiled worktree configuration in PROGRESS.yaml
+ * Contains resolved paths and runtime state
+ */
+export interface CompiledWorktreeConfig {
+    /** Whether worktree is enabled */
+    enabled: boolean;
+    /** Resolved branch name (variables substituted) */
+    branch: string;
+    /** Resolved worktree path (variables substituted) */
+    path: string;
+    /** Cleanup mode */
+    cleanup: WorktreeCleanup;
+    /** When the worktree was created (ISO timestamp) */
+    'created-at'?: string;
+    /** Whether worktree has been cleaned up */
+    'cleaned-up'?: boolean;
+    /** Working directory for Claude execution (worktree root or sprint dir) */
+    'working-dir'?: string;
+}
+/**
+ * Runtime worktree isolation metadata
+ * Added to PROGRESS.yaml to track which worktree a sprint is running in
+ */
+export interface WorktreeIsolationMeta {
+    /** Unique identifier for this worktree (12-char hash of worktree path) */
+    'worktree-id': string;
+    /** Absolute path to the worktree root (for debugging) */
+    'worktree-path': string;
+    /** Whether this is a linked worktree (true) or main repo (false) */
+    'is-worktree': boolean;
+}
 /**
  * Orchestration configuration for dynamic step injection
  * Enables Claude to propose new steps during execution
@@ -256,18 +330,25 @@ export interface StepQueueItem {
     priority: 'low' | 'medium' | 'high' | 'critical';
 }
 /**
- * A step in the sprint (formerly called "feature")
+ * A generic item in a collection (feature, bug, step, etc.)
+ * Supports arbitrary custom properties via index signature.
  */
-export interface SprintStep {
-    /** The prompt/description for this step */
+export interface CollectionItem {
+    /** The prompt/description for this item */
     prompt: string;
-    /** Optional: Override the default workflow for this step */
+    /** Optional: Override the default workflow for this item */
     workflow?: string;
-    /** Optional: Custom ID for this step */
+    /** Optional: Custom ID for this item */
     id?: string;
-    /** Optional: Model override for this step (highest priority) */
+    /** Optional: Model override for this item (highest priority) */
     model?: ClaudeModel;
+    /** Allow custom properties (priority, severity, etc.) */
+    [key: string]: unknown;
 }
+/**
+ * @deprecated Use CollectionItem instead. Kept for backwards compatibility.
+ */
+export type SprintStep = CollectionItem;
 /**
  * Error category types for classification and retry configuration
  */
@@ -284,13 +365,20 @@ export interface RetryConfig {
     retryOn: ErrorCategory[];
 }
 /**
+ * Collections map - named arrays of collection items
+ * Each collection name maps to an array of items (feature, bug, step, etc.)
+ */
+export interface CollectionsMap {
+    [name: string]: CollectionItem[];
+}
+/**
  * Sprint Definition - the input format (SPRINT.yaml)
  */
 export interface SprintDefinition {
     /** Reference to the workflow in .claude/workflows/ */
     workflow: string;
-    /** The steps to process in this sprint (optional for Ralph mode) */
-    steps?: SprintStep[];
+    /** Collections of items to process (required for standard mode, keyed by type) */
+    collections?: CollectionsMap;
     /** Optional sprint metadata */
     'sprint-id'?: string;
     name?: string;
@@ -314,6 +402,8 @@ export interface SprintDefinition {
     }>;
     /** Custom prompt templates for runtime */
     prompts?: SprintPrompts;
+    /** Optional worktree configuration for isolated execution */
+    worktree?: WorktreeConfig;
 }
 /**
  * Customizable runtime prompt templates for sprint execution
@@ -332,6 +422,27 @@ export interface SprintPrompts {
     'result-reporting'?: string;
 }
 /**
+ * Gate check failure handler configuration
+ */
+export interface GateOnFail {
+    /** Instructions prompt for fixing the failure */
+    prompt: string;
+    /** Maximum retry attempts before escalating (default: 3) */
+    'max-retries'?: number;
+}
+/**
+ * Quality gate check configuration
+ * Runs a validation script after phase completion, with retry-on-fail capability
+ */
+export interface GateCheck {
+    /** Shell script/command returning 0 (pass) or non-0 (fail) */
+    script: string;
+    /** What to do when the gate check fails */
+    'on-fail': GateOnFail;
+    /** Timeout in seconds for the script (default: 60) */
+    timeout?: number;
+}
+/**
  * A phase within a workflow
  */
 export interface WorkflowPhase {
@@ -339,8 +450,10 @@ export interface WorkflowPhase {
     id: string;
     /** The prompt to execute for this phase */
     prompt?: string;
-    /** If set to 'step', iterates over all steps from SPRINT.yaml */
-    'for-each'?: 'step';
+    /** Iterate over items in the named collection (e.g., 'step', 'feature', 'bug') */
+    'for-each'?: string;
+    /** Explicit collection reference (overrides for-each for collection lookup) */
+    collection?: string;
     /** Reference to another workflow to use for each iteration */
     workflow?: string;
     /** If true, this phase runs as a background parallel task */
@@ -349,6 +462,10 @@ export interface WorkflowPhase {
     'wait-for-parallel'?: boolean;
     /** Optional model override for this phase */
     model?: ClaudeModel;
+    /** If true, pause execution after this phase completes for human review */
+    break?: boolean;
+    /** Quality gate check to run after phase completion */
+    gate?: GateCheck;
 }
 /**
  * Workflow Definition - the reusable workflow template
@@ -370,6 +487,8 @@ export interface WorkflowDefinition {
     'per-iteration-hooks'?: PerIterationHook[];
     /** Orchestration configuration for dynamic step injection */
     orchestration?: OrchestrationConfig;
+    /** Default worktree configuration for sprints using this workflow */
+    worktree?: WorkflowWorktreeDefaults;
     /** Optional model to use for all phases (lowest priority default) */
     model?: ClaudeModel;
 }
@@ -399,6 +518,38 @@ export interface ParallelTask {
     error?: string;
 }
 /**
+ * Gate check status for tracking in PROGRESS.yaml
+ */
+export type GateStatus = 'pending' | 'running' | 'passed' | 'retrying' | 'failed' | 'blocked';
+/**
+ * Gate tracking state for PROGRESS.yaml
+ */
+export interface GateTracking {
+    /** Number of gate check attempts made */
+    attempts: number;
+    /** Current status of the gate check */
+    status: GateStatus;
+    /** Last script output (stdout + stderr) for fix prompt context */
+    'last-output'?: string;
+    /** Exit code from the last gate script run */
+    'last-exit-code'?: number;
+    /** Error message if gate is blocked */
+    error?: string;
+}
+/**
+ * Compiled gate configuration (resolved from workflow)
+ */
+export interface CompiledGate {
+    /** Shell script/command to execute */
+    script: string;
+    /** Fix prompt for failures */
+    'on-fail-prompt': string;
+    /** Maximum retries (default: 3) */
+    'max-retries': number;
+    /** Timeout in seconds (default: 60) */
+    timeout: number;
+}
+/**
  * A compiled phase (leaf node - has prompt but no sub-phases)
  */
 export interface CompiledPhase {
@@ -425,6 +576,10 @@ export interface CompiledPhase {
     'parallel-task-id'?: string;
     /** Resolved model to use for execution */
     model?: ClaudeModel;
+    /** Quality gate configuration (compiled from workflow) */
+    gate?: CompiledGate;
+    /** Gate check tracking state */
+    'gate-tracking'?: GateTracking;
 }
 /**
  * A compiled step (contains sub-phases from the step's workflow)
@@ -478,6 +633,12 @@ export interface CompiledTopPhase {
     'wait-for-parallel'?: boolean;
     /** Resolved model to use for execution */
     model?: ClaudeModel;
+    /** If true, pause execution after this phase completes for human review */
+    break?: boolean;
+    /** Quality gate configuration (compiled from workflow) */
+    gate?: CompiledGate;
+    /** Gate check tracking state */
+    'gate-tracking'?: GateTracking;
 }
 /**
  * Current position pointer in the workflow
@@ -542,16 +703,33 @@ export interface CompiledProgress {
     prompts?: SprintPrompts;
     /** Retry configuration for error recovery */
     retry?: RetryConfig;
+    /** Compiled worktree configuration (resolved from sprint + workflow defaults) */
+    worktree?: CompiledWorktreeConfig;
+    /** Runtime worktree isolation tracking (auto-populated on sprint start) */
+    'worktree-isolation'?: WorktreeIsolationMeta;
+}
+/**
+ * Item context for template variable substitution
+ * Used for {{item.*}} and {{<type>.*}} template variables
+ */
+export interface ItemContext {
+    /** The item's prompt text */
+    prompt: string;
+    /** The item's ID */
+    id: string;
+    /** The item's index within the collection */
+    index: number;
+    /** The collection type (e.g., 'step', 'feature', 'bug') */
+    type: string;
+    /** Allow custom properties from the collection item */
+    [key: string]: unknown;
 }
 /**
  * Context for template variable substitution
  */
 export interface TemplateContext {
-    step?: {
-        prompt: string;
-        id: string;
-        index: number;
-    };
+    /** Generic item context (replaces step context) */
+    item?: ItemContext;
     phase?: {
         id: string;
         index: number;

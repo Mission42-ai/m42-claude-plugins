@@ -16,8 +16,8 @@ export declare function validateModel(model: unknown, path: string): CompilerErr
  * Validate a sprint definition (SPRINT.yaml) - basic validation
  *
  * This performs minimal validation before workflow is loaded.
- * The `steps` array requirement is deferred to validateStandardModeSprint()
- * because Ralph mode sprints don't use steps.
+ * The `collections` validation is deferred to validateStandardModeSprint()
+ * because Ralph mode sprints don't use collections.
  *
  * @param sprint - The sprint definition to validate
  * @returns Array of validation errors
@@ -29,17 +29,42 @@ export declare function validateSprintDefinition(sprint: unknown): CompilerError
  * Called after workflow is loaded to validate sprint-specific standard mode requirements.
  *
  * @param sprint - The sprint definition
+ * @param workflow - The workflow definition (to check collection references)
  * @returns Array of validation errors
  */
-export declare function validateStandardModeSprint(sprint: SprintDefinition): CompilerError[];
+export declare function validateStandardModeSprint(sprint: SprintDefinition, workflow: WorkflowDefinition): CompilerError[];
 /**
- * Validate a single sprint step
+ * Validate the collections object
  *
- * @param step - The step to validate
- * @param index - Index of the step in the array
+ * @param collections - The collections object to validate
  * @returns Array of validation errors
  */
-export declare function validateSprintStep(step: unknown, index: number): CompilerError[];
+export declare function validateCollections(collections: unknown): CompilerError[];
+/**
+ * Validate a single collection item
+ *
+ * @param item - The item to validate
+ * @param index - Index of the item in the collection
+ * @param collectionName - Name of the containing collection
+ * @returns Array of validation errors
+ */
+export declare function validateCollectionItem(item: unknown, index: number, collectionName: string): CompilerError[];
+/**
+ * Validate that workflow for-each references exist in sprint collections
+ *
+ * @param workflow - The workflow definition
+ * @param sprint - The sprint definition
+ * @returns Array of validation errors
+ */
+export declare function validateCollectionReferences(workflow: WorkflowDefinition, sprint: SprintDefinition): CompilerError[];
+/**
+ * Resolve the collection name from for-each type and optional explicit collection
+ *
+ * @param forEachType - The for-each type (e.g., 'step', 'feature')
+ * @param explicitCollection - Optional explicit collection reference
+ * @returns The resolved collection name
+ */
+export declare function resolveCollectionName(forEachType: string, explicitCollection?: string): string;
 /**
  * Validate a workflow definition
  *
@@ -77,6 +102,14 @@ export declare function validateRalphModeSprint(sprint: SprintDefinition, workfl
  * @returns Array of validation errors
  */
 export declare function validateWorkflowPhase(phase: unknown, index: number, workflowName: string, existingIds: Set<string>): CompilerError[];
+/**
+ * Validate a quality gate check configuration
+ *
+ * @param gate - The gate configuration to validate
+ * @param path - Path for error messages
+ * @returns Array of validation errors
+ */
+export declare function validateGateCheck(gate: unknown, path: string): CompilerError[];
 /**
  * Check for unresolved template variables in compiled progress
  *

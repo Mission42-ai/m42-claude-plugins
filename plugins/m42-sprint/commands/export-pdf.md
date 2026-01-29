@@ -58,9 +58,6 @@ On success, display:
 PDF exported successfully!
 
 Output: <full-path-to-pdf>
-Sprint: <sprint-id>
-Status: <sprint-status>
-Phases: <completed>/<total> (<percentage>%)
 ```
 
 On failure, display the error message from the CLI.
@@ -91,7 +88,7 @@ Export to custom path:
 
 | Error | Message |
 |-------|---------|
-| No sprint directory | "No sprint found. Provide a path or create one with /start-sprint" |
+| No sprint directory | "No sprint found. Provide a path or create one with /init-sprint" |
 | Missing PROGRESS.yaml | "PROGRESS.yaml not found. Run /run-sprint to compile the sprint first." |
 | Invalid path | "Sprint directory not found: <path>" |
 | PDF generation failure | Show error from PDF generator |

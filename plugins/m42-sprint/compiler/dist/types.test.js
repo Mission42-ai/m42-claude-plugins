@@ -664,6 +664,8 @@ test('Type safety: SprintState discriminated union exhaustiveness', () => {
                 return `Human needed: ${state.reason}`;
             case 'completed':
                 return `Completed in ${state.elapsed}`;
+            case 'paused-at-breakpoint':
+                return `Paused at breakpoint: ${state.breakpointPhaseId}`;
             default:
                 // Exhaustiveness check - this line should be unreachable
                 const _exhaustive = state;
@@ -676,7 +678,8 @@ test('Type safety: SprintState discriminated union exhaustiveness', () => {
         { status: 'paused', pausedAt: { phase: 0, step: null, 'sub-phase': null }, pauseReason: 'Test' },
         { status: 'blocked', error: 'Test', failedPhase: 'test', blockedAt: '2026-01-19T10:00:00Z' },
         { status: 'needs-human', reason: 'Test' },
-        { status: 'completed', completedAt: '2026-01-19T10:00:00Z', elapsed: '1h' }
+        { status: 'completed', completedAt: '2026-01-19T10:00:00Z', elapsed: '1h' },
+        { status: 'paused-at-breakpoint', pausedAt: { phase: 0, step: null, 'sub-phase': null }, breakpointPhaseId: 'review-checkpoint' }
     ];
     for (const state of testStates) {
         const result = handleState(state);
@@ -704,6 +707,8 @@ test('Type safety: SprintEvent discriminated union exhaustiveness', () => {
                 return `${event.steps.length} steps proposed`;
             case 'PAUSE':
                 return `Paused: ${event.reason}`;
+            case 'BREAKPOINT_REACHED':
+                return `Breakpoint reached at: ${event.phaseId}`;
             case 'RESUME':
                 return 'Resumed';
             case 'HUMAN_NEEDED':

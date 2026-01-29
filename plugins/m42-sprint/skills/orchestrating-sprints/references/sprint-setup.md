@@ -32,16 +32,19 @@ skill: orchestrating-sprints
 ```yaml
 # Workflow-based sprint definition
 workflow: sprint-default          # Reference to .claude/workflows/
-steps:
-  - prompt: |
-      Implement user authentication with JWT tokens.
-      Requirements: login, logout, token refresh endpoints.
-  - prompt: |
-      Add rate limiting to API endpoints.
-      Use sliding window algorithm.
-  - workflow: bugfix-workflow     # Optional: override workflow per step
-    prompt: |
-      Fix memory leak in websocket handler.
+
+# Collections map - named arrays of items to process
+collections:
+  step:
+    - prompt: |
+        Implement user authentication with JWT tokens.
+        Requirements: login, logout, token refresh endpoints.
+    - prompt: |
+        Add rate limiting to API endpoints.
+        Use sliding window algorithm.
+    - workflow: bugfix-workflow     # Optional: override workflow per item
+      prompt: |
+        Fix memory leak in websocket handler.
 ```
 
 ## SPRINT.yaml Fields
@@ -49,10 +52,11 @@ steps:
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `workflow` | string | Yes | Default workflow from `.claude/workflows/` |
-| `steps` | list | Yes | Steps to process in sprint |
-| `steps[].prompt` | string | Yes | Step description/prompt |
-| `steps[].workflow` | string | No | Override workflow for this step |
-| `steps[].id` | string | No | Custom step ID (auto-generated if omitted) |
+| `collections` | map | Yes | Named collections of items (e.g., `step`, `feature`, `bug`) |
+| `collections.<name>[]` | list | Yes | Array of items in the collection |
+| `collections.<name>[].prompt` | string | Yes | Item description/prompt |
+| `collections.<name>[].workflow` | string | No | Override workflow for this item |
+| `collections.<name>[].id` | string | No | Custom item ID (auto-generated if omitted) |
 | `sprint-id` | string | No | Sprint identifier |
 | `name` | string | No | Human-readable sprint name |
 | `config` | object | No | Optional configuration overrides |
@@ -78,9 +82,10 @@ mkdir -p .claude/sprints/$(date +%Y-%m-%d)_sprint-name/{context,artifacts}
 # Create SPRINT.yaml with workflow reference
 cat > .claude/sprints/.../SPRINT.yaml << 'EOF'
 workflow: sprint-default
-steps:
-  - prompt: |
-      Your first task description here.
+collections:
+  step:
+    - prompt: |
+        Your first task description here.
 EOF
 
 # Compile to generate PROGRESS.yaml (done automatically by /run-sprint)

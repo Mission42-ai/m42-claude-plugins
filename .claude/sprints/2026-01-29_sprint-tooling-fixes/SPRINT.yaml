@@ -1,0 +1,286 @@
+# SPRINT.yaml - Sprint Tooling Fixes
+
+workflow: plugin-development
+
+steps:
+  - id: worktree-config-inheritance
+    prompt: |
+      Fix: Worktree config not inherited from workflow definition
+
+      ## Problem
+      When `run-sprint` loads a SPRINT.yaml that references a workflow with
+      `worktree.enabled: true`, it does NOT automatically create a worktree.
+      The worktree config in the workflow is completely ignored.
+
+      ## Context
+      Read: context/issue-1-worktree-integration.md for full problem analysis.
+
+      ## Expected Behavior
+      1. `run-sprint` loads SPRINT.yaml → sees `workflow: plugin-development`
+      2. Loads workflow definition → finds `worktree.enabled: true`
+      3. Before compilation, checks if worktree exists
+      4. If not, creates branch and worktree automatically
+      5. Runs sprint IN the worktree
+
+      ## Test Cases (RED phase)
+      File: plugins/m42-sprint/compiler/src/worktree.test.ts
+
+      1. `extractWorktreeConfig` - extracts worktree config from workflow
+         - Input: workflow with `worktree: { enabled: true, branch-prefix: "sprint/" }`
+         - Expected: returns the worktree config object
+
+      2. `shouldCreateWorktree` - returns true when workflow has worktree.enabled
+         - Input: SPRINT.yaml referencing workflow with worktree.enabled: true
+         - Expected: returns true
+
+      3. `shouldCreateWorktree` - returns false when no worktree config
+         - Input: SPRINT.yaml referencing workflow without worktree section
+         - Expected: returns false
+
+      4. Integration: workflow worktree config flows to sprint resolution
+
+      ## Implementation (GREEN phase)
+      File: plugins/m42-sprint/compiler/src/worktree.ts
+      - `extractWorktreeConfig(workflow)` - extract worktree section
+      - `shouldCreateWorktree(sprintYaml, workflowsDir)` - check if needed
+      - `resolveWorktreePath(sprintId, config)` - compute path
+
+      File: plugins/m42-sprint/commands/run-sprint.md
+      - Load referenced workflow before compilation
+      - Extract and apply worktree config
+      - Create worktree if enabled and doesn't exist
+
+      ## Edge Cases
+      - Worktree already exists → reuse it
+      - No workflow reference → skip worktree setup
+      - Workflow has worktree.enabled: false → skip
+
+  - id: remove-activity-hook
+    prompt: |
+      Remove activity hook from /run-sprint command
+
+      ## Problem
+      The `/run-sprint` command registers a PostToolUse hook in `.claude/settings.json`
+      to capture real-time activity. This adds unnecessary complexity:
+
+      1. Mutates shared `.claude/settings.json` file
+      2. Requires backup/restore dance (`.pre-sprint` files)
+      3. Causes conflicts when running parallel sprints
+      4. Hook script maintenance overhead
+      5. `SPRINT_ACTIVITY_VERBOSITY` env var complexity
+
+      ## Why It's Unnecessary
+      We already have full transcripts from each `claude -p` invocation. The sprint
+      runtime captures these. The status server can:
+      1. Watch PROGRESS.yaml for phase/step changes
+      2. Tail the current task's output file for live progress
+      3. Show completed task summaries from transcripts
+
+      ## Changes Required
+
+      ### 1. Remove from run-sprint.md
+      File: `plugins/m42-sprint/commands/run-sprint.md`
+
+      Delete these sections:
+      - "Register Sprint Hooks in Settings" (Step 1 in task instructions)
+      - All references to `.sprint-hooks.json`
+      - All references to `.claude/settings.json.pre-sprint`
+      - `--hook-config` flag from the runtime CLI invocation
+      - `SPRINT_ACTIVITY_VERBOSITY` documentation
+
+      ### 2. Remove hook script
+      Delete: `plugins/m42-sprint/hooks/sprint-activity-hook.sh`
+
+      ### 3. Update runtime CLI
+      File: `plugins/m42-sprint/runtime/src/cli.ts`
+      - Remove `--hook-config` option if present
+
+      ### 4. Update status server (optional enhancement)
+      File: `plugins/m42-sprint/compiler/src/status-server/`
+      - Instead of reading `.sprint-activity.jsonl`, tail task output files
+      - Or simply show PROGRESS.yaml status without granular activity
+
+      ## Verification
+      - `/run-sprint` no longer modifies `.claude/settings.json`
+      - No `.sprint-hooks.json` or `.pre-sprint` files created
+      - Status server still shows sprint progress
+      - Sprint execution works normally
+
+  - id: human-breakpoints
+    prompt: |
+      Add breakpoint support for human-in-the-loop review cycles
+
+      ## Problem
+      Currently, sprints run fully autonomously. There's no way to pause
+      execution at specific points for human review before continuing.
+
+      ## Use Case Example
+      ```yaml
+      phases:
+        - id: plan-features
+          for-each: feature
+          prompt: "Plan implementation for {{item.name}}"
+
+        - id: review-plans
+          break: true  # <-- PAUSE HERE for human review
+
+        - id: implement-features
+          for-each: feature # Same collection, second pass
+          prompt: "Implement {{item.name}} according to plan"
+      ```
+
+      ## Design Requirements
+
+      ### 1. New Phase Property: `break`
+      ```yaml
+      - id: review-checkpoint
+        break: true
+      ```
+
+      When `break: true`:
+      - Sprint execution pauses AFTER this phase completes
+      - PROGRESS.yaml status set to `paused-at-breakpoint`
+      - Human reviews output, can edit files if needed
+      - Human runs `/resume-sprint` to continue
+
+      ### 2. Schema Changes
+      File: `plugins/m42-sprint/compiler/src/types.ts`
+      - Add `break?: boolean` to Phase interface
+
+      File: `plugins/m42-sprint/compiler/src/validate.ts`
+      - Validate `break` is boolean if present
+
+      ### 3. Runtime Changes
+      File: `plugins/m42-sprint/runtime/src/runner.ts` or equivalent
+      - Check `phase.break` after phase completion
+      - If true, set status to `paused-at-breakpoint` and exit gracefully
+      - Store breakpoint phase ID in PROGRESS.yaml for resume
+
+      ### 4. Resume Command Update
+      File: `plugins/m42-sprint/commands/resume-sprint.md`
+      - Detect `paused-at-breakpoint` status
+      - Continue from the phase AFTER the breakpoint
+
+      ## Test Cases
+      1. Sprint with `break: true` pauses at correct phase
+      2. PROGRESS.yaml shows `paused-at-breakpoint` status
+      3. `/resume-sprint` continues from next phase
+      4. Multiple breakpoints work correctly
+      5. Breakpoint in for-each completes all iterations before pausing
+
+      ## Edge Cases
+      - Breakpoint on last phase → sprint completes normally
+      - Breakpoint with `for-each` → all iterations complete, then pause
+      - Already paused sprint → don't double-pause
+
+  - id: quality-gates
+    prompt: |
+      Add quality gate checks with retry-on-fail capability
+
+      ## Problem
+      Need a way to run validation scripts at specific points in a sprint.
+      If validation fails, trigger a fix iteration before continuing.
+
+      ## Use Case Example
+      ```yaml
+      phases:
+        - id: implement-feature
+          prompt: "Implement the feature"
+
+        - id: verify-tests
+          gate:
+            script: "npm test -- --grep 'auth'"
+            on-fail:
+              prompt: |
+                Tests are failing. Fix the issues:
+                1. Read the test output above
+                2. Identify failing tests
+                3. Fix implementation to pass tests
+              max-retries: 3
+      ```
+
+      ## Design Requirements
+
+      ### 1. New Phase Property: `gate`
+      ```yaml
+      gate:
+        script: "bash command returning 0 (pass) or non-0 (fail)"
+        on-fail:
+          prompt: "Instructions for fixing the failure"
+          max-retries: 3  # default: 3, max attempts before escalating
+      ```
+
+      ### 2. Schema Changes
+      File: `plugins/m42-sprint/compiler/src/types.ts`
+      ```typescript
+      interface GateCheck {
+        script: string;
+        'on-fail': {
+          prompt: string;
+          'max-retries'?: number;  // default 3
+        };
+      }
+
+      interface Phase {
+        // ... existing fields
+        gate?: GateCheck;
+      }
+      ```
+
+      File: `plugins/m42-sprint/compiler/src/validate.ts`
+      - Validate gate.script is non-empty string
+      - Validate gate.on-fail.prompt is non-empty string
+      - Validate max-retries is positive integer if present
+
+      ### 3. Runtime Behavior
+      File: `plugins/m42-sprint/runtime/src/runner.ts`
+
+      After phase prompt execution:
+      1. If `gate` defined, run `gate.script`
+      2. If script returns 0 → continue to next phase
+      3. If script returns non-0:
+         a. Log: "Gate check failed, attempt N/max-retries"
+         b. Execute `on-fail.prompt` as a fix iteration
+         c. Re-run gate script
+         d. Repeat until pass or max-retries exceeded
+      4. If max-retries exceeded → set status `blocked` with reason
+
+      ### 4. PROGRESS.yaml Tracking
+      ```yaml
+      current-phase: verify-tests
+      gate-attempts: 2
+      gate-status: retrying  # or: passed, failed, blocked
+      ```
+
+      ## Test Cases
+      1. Gate with passing script → continues normally
+      2. Gate fails once, fix works → retry passes
+      3. Gate fails max-retries times → status becomes `blocked`
+      4. on-fail.prompt is executed with correct context
+      5. Script output is captured and available to fix prompt
+
+      ## Script Environment
+      - Working directory: sprint directory
+      - Env vars: SPRINT_ID, PHASE_ID, ATTEMPT_NUMBER
+      - Stdout/stderr captured for fix prompt context
+      - Timeout: 60 seconds (configurable?)
+
+      ## Example Scripts
+      ```yaml
+      # Run specific tests
+      script: "npm test -- --grep 'auth'"
+
+      # Check build succeeds
+      script: "npm run build"
+
+      # Custom validation
+      script: "./scripts/validate-api-contracts.sh"
+
+      # Multiple checks
+      script: "npm run lint && npm run typecheck && npm test"
+      ```
+
+# Sprint metadata
+sprint-id: 2026-01-29_sprint-tooling-fixes
+name: Sprint Tooling Fixes
+created: 2026-01-29T15:00:00Z

@@ -5,7 +5,8 @@ name: Minimal Test Sprint
 # Uses TDD cycle workflow with simple steps
 workflow: tdd-cycle
 
-# Minimal steps for testing
-steps:
-  - id: minimal-step
-    prompt: Execute minimal test step
+# Minimal collection for testing
+collections:
+  step:
+    - id: minimal-step
+      prompt: Execute minimal test step

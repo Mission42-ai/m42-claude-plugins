@@ -15,7 +15,7 @@ phases:
   - id: execute
     for-each: step
     prompt: |
-      {{step.prompt}}
+      {{item.prompt}}
 
       ## Optional: Proposed Steps
       If you discover new tasks during execution, include in your JSON result:

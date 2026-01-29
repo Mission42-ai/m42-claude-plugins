@@ -30,10 +30,23 @@ Use this checklist before deploying a new workflow.
 
 ### For-Each Phases:
 
-- [ ] `for-each` field is set to `step`
+- [ ] `for-each` field is set to collection name (e.g., `step`)
 - [ ] `workflow` field references existing workflow
 - [ ] Referenced workflow exists in `.claude/workflows/`
 - [ ] No `prompt` field present
+
+### Quality Gates (if used):
+
+- [ ] `gate.script` is a valid shell command
+- [ ] `gate.on-fail.prompt` provides clear fix instructions
+- [ ] `gate.on-fail.max-retries` is reasonable (default: 3)
+- [ ] `gate.timeout` is sufficient for script execution (default: 60s)
+
+### Breakpoints (if used):
+
+- [ ] `break: true` is on phases where human review is needed
+- [ ] Phase before breakpoint prepares context for human review
+- [ ] Phase after breakpoint handles resumed state appropriately
 
 ## Template Variables
 
@@ -96,3 +109,7 @@ yq '.name, .phases | length' .claude/workflows/my-workflow.yaml
 | Variable not resolved | Correct context | Check availability matrix |
 | Compilation error | Valid YAML | Fix syntax |
 | Wrong execution order | Phase order | Reorder phases array |
+| Gate always fails | Script returns non-zero | Test script manually first |
+| Gate timeout | Script takes too long | Increase `timeout` value |
+| Sprint stuck at breakpoint | `break: true` pauses execution | Use `/resume-sprint` to continue |
+| Gate retries exhausted | Max retries reached | Sprint blocked, fix manually |
