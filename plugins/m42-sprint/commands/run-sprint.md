@@ -2,7 +2,6 @@
 allowed-tools: Bash(ls:*), Bash(test:*), Bash(grep:*), Bash(cat:*), Bash(sleep:*), Bash(rm:*), Bash(node:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/runtime/dist/cli.js:*), Bash(git:*), Bash(mkdir:*), Bash(cp:*), Read(*), Edit(*)
 argument-hint: <sprint-directory> [--max-iterations N] [--dry-run] [--recompile] [--no-status] [--no-browser]
 description: Start sprint execution loop (fresh context per task)
-model: sonnet
 ---
 
 # Run Sprint Command

@@ -2,7 +2,6 @@
 allowed-tools: Bash(ls:*), Read(*), Edit(*), Skill(*)
 argument-hint: ""
 description: Resume paused sprint execution
-model: haiku
 ---
 
 # Resume Sprint

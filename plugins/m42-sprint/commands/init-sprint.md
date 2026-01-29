@@ -2,7 +2,6 @@
 allowed-tools: Bash(mkdir:*), Bash(date:*), Bash(git:*), Write(*), Read(*)
 argument-hint: <sprint-name> [--ralph | --workflow <name>] [--worktree]
 description: Initialize new sprint directory structure
-model: sonnet
 ---
 
 # Init Sprint Command

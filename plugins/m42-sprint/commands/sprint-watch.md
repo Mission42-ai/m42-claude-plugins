@@ -2,7 +2,6 @@
 allowed-tools: Bash(ls:*), Bash(test:*), Bash(cat:*), Bash(sleep:*), Bash(node:*), Read(*)
 argument-hint: "[sprint-directory] [--dashboard]"
 description: Start status server for existing sprint or open the dashboard
-model: haiku
 ---
 
 # Sprint Watch Command

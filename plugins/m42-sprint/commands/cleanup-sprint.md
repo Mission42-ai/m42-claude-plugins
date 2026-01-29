@@ -1,7 +1,6 @@
 ---
 allowed-tools: Bash(git:*), Bash(ls:*), Bash(rm:*), Bash(test:*), Bash(mkdir:*), Bash(cp:*), Read(*), Edit(*)
 description: Clean up sprint worktree after completion
-model: haiku
 ---
 
 # Cleanup Sprint

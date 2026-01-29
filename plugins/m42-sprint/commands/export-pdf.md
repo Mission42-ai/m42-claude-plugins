@@ -2,7 +2,6 @@
 allowed-tools: Bash(node:*), Bash(ls:*), Read(*)
 argument-hint: <sprint-path> [--charts]
 description: Export sprint progress to PDF
-model: haiku
 ---
 
 # Export PDF Command
