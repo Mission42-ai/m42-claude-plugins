@@ -160,6 +160,38 @@ cd plugins/m42-sprint/compiler && npm run typecheck
 cd plugins/m42-sprint/runtime && npm run typecheck
 ```
 
+## Step 9: Worktree Continuation Bug
+
+**Issue**: run-sprint exits after creating worktree, requiring manual cd + re-run
+
+**Location**: `plugins/m42-sprint/commands/run-sprint.md` (lines ~81-147)
+
+**Current (buggy)**: After creating worktree, script does `exit 0` with manual instructions.
+
+**Fix**: Update paths and CONTINUE execution:
+```bash
+# Update paths to use worktree
+SPRINT_DIR="$WORKTREE_SPRINT_DIR"
+WORKFLOWS_DIR="${WORKTREE_PATH}/.claude/workflows"
+WORKTREE_CWD="$WORKTREE_PATH"
+# Continue to compilation and launch (no exit)
+```
+
+## Existing Workflow Files
+
+| Workflow | Purpose |
+|----------|---------|
+| `plugin-development.yaml` | TDD with worktree isolation (to update in Step 2) |
+| `sprint-default.yaml` | Standard prepare → develop → qa → deploy |
+| `feature-standard.yaml` | Single feature TDD cycle |
+| `bugfix-workflow.yaml` | Bug investigation and fix |
+| `execute-step.yaml` | Simple step execution |
+| `gherkin-step-workflow.yaml` | Gherkin-based step execution |
+| `gherkin-verified-execution.yaml` | Execution with gherkin verification |
+| `bughunt-*.yaml` | Bug hunting workflows |
+
+**Note**: None of these have `schema-version` field yet (Step 5 will add it).
+
 ## Working Directory
 
 This sprint runs in worktree: `/home/konstantin/projects/m42-claude-plugins/trees/2026-01-29_workflow-qa-improvements`
