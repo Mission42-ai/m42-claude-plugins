@@ -7,7 +7,7 @@ Complete schema specification for SPRINT.yaml definition files. SPRINT.yaml is w
 ```yaml
 # Required fields
 workflow: <string>     # Workflow reference (without .yaml)
-steps: <list>          # List of steps to execute
+collections: <object>  # Named collections of items (e.g., step, feature, bug)
 
 # Optional fields
 name: <string>         # Human-readable sprint name
@@ -22,12 +22,13 @@ worktree: <object>     # Worktree isolation settings
 
 ### Minimal Example
 
-The simplest valid SPRINT.yaml requires only `workflow` and `steps`:
+The simplest valid SPRINT.yaml requires only `workflow` and `collections`:
 
 ```yaml
 workflow: sprint-default
-steps:
-  - Implement the feature
+collections:
+  step:
+    - prompt: Implement the feature
 ```
 
 This creates a single-step sprint using the default workflow.
@@ -40,12 +41,13 @@ A typical sprint with multiple steps:
 name: User Authentication
 workflow: sprint-default
 
-steps:
-  - Create User model with email and password fields
-  - Implement login endpoint with JWT tokens
-  - Add authentication middleware
-  - Create logout endpoint
-  - Write integration tests
+collections:
+  step:
+    - prompt: Create User model with email and password fields
+    - prompt: Implement login endpoint with JWT tokens
+    - prompt: Add authentication middleware
+    - prompt: Create logout endpoint
+    - prompt: Write integration tests
 ```
 
 ### Full Example (All Options)
@@ -64,23 +66,23 @@ config:
   time-box: "4h"
   auto-commit: true
 
-steps:
-  # String format (simple)
-  - Design API schema and data models
+collections:
+  step:
+    # Object format with metadata
+    - prompt: Design API schema and data models
 
-  # Object format with metadata
-  - prompt: Implement CRUD endpoints
-    id: crud-endpoints
+    - prompt: Implement CRUD endpoints
+      id: crud-endpoints
 
-  # Object format with workflow override
-  - prompt: Add input validation
-    id: validation
-    workflow: execute-step  # Override sprint workflow for this step
+    # Object format with workflow override
+    - prompt: Add input validation
+      id: validation
+      workflow: execute-step  # Override sprint workflow for this item
 
-  # Object format with different workflow
-  - prompt: Write integration tests
-    id: testing
-    workflow: gherkin-verified-execution
+    # Object format with different workflow
+    - prompt: Write integration tests
+      id: testing
+      workflow: gherkin-verified-execution
 ```
 
 ## Field Reference
@@ -90,7 +92,7 @@ steps:
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `workflow` | string | **Yes** | - | Workflow to use (resolves from `.claude/workflows/<name>.yaml`) |
-| `steps` | list | **Yes** | - | Ordered list of step definitions |
+| `collections` | object | **Yes** | - | Named collections of items (e.g., `step`, `feature`, `bug`) |
 | `name` | string | No | - | Human-readable sprint name for display |
 | `sprint-id` | string | No | auto | Unique identifier (generated from directory name if absent) |
 | `created` | string | No | - | ISO 8601 timestamp of sprint creation |
@@ -99,16 +101,33 @@ steps:
 | `config` | object | No | {} | Sprint configuration options |
 | `worktree` | object | No | - | Worktree isolation configuration (see [Worktree Fields](#worktree-fields)) |
 
-### Step Fields
+### Collections Schema
 
-Steps can be either strings or objects. String steps are normalized to objects during compilation.
+Collections are named groups of items. Each collection name is referenced by `for-each` phases in workflows.
+
+```yaml
+collections:
+  step:                    # Collection name (referenced by for-each: step)
+    - prompt: "..."        # Item with prompt
+    - prompt: "..."
+      id: custom-id        # Optional custom ID
+      workflow: other-wf   # Optional per-item workflow override
+  feature:                 # Another collection (referenced by for-each: feature)
+    - prompt: "..."
+      priority: high       # Custom properties available as {{item.priority}}
+```
+
+### Item Fields
+
+Items within collections have these fields:
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `prompt` | string | **Yes** | - | Step description and instructions |
-| `id` | string | No | step-N | Unique step identifier (auto: step-0, step-1, etc.) |
-| `workflow` | string | No | - | Per-step workflow override |
-| `model` | string | No | - | Model override for this step (`'sonnet'` \| `'opus'` \| `'haiku'`) |
+| `prompt` | string | **Yes** | - | Item description and instructions |
+| `id` | string | No | step-N | Unique item identifier (auto: step-0, step-1, etc.) |
+| `workflow` | string | No | - | Per-item workflow override |
+| `model` | string | No | - | Model override for this item (`'sonnet'` \| `'opus'` \| `'haiku'`) |
+| `<custom>` | any | No | - | Custom properties accessible as `{{item.<custom>}}` |
 
 ### Config Fields
 
@@ -149,49 +168,54 @@ Use these variables in `branch` and `path` fields:
 | `on-complete` | Remove when sprint status becomes `completed` |
 | `on-merge` | Remove after sprint branch is merged to main/master |
 
-## Step Format Variants
+## Item Format Variants
 
-### String Format (Simple)
+### Simple Item Format
 
-Use string format for straightforward steps without metadata:
+Use simple format for straightforward items without metadata:
 
 ```yaml
-steps:
-  - Implement feature X
-  - Add tests for feature X
-  - Update documentation
+collections:
+  step:
+    - prompt: Implement feature X
+    - prompt: Add tests for feature X
+    - prompt: Update documentation
 ```
-
-**Normalization:** String steps become `{ prompt: "<string>" }` during compilation.
 
 ### Object Format (With Metadata)
 
 Use object format when you need:
-- Custom step IDs
-- Per-step workflow overrides
-- Future extensibility
+- Custom item IDs
+- Per-item workflow overrides
+- Custom properties
 
 ```yaml
-steps:
-  - prompt: Implement feature X
-    id: feature-x
+collections:
+  step:
+    - prompt: Implement feature X
+      id: feature-x
 
-  - prompt: Add tests for feature X
-    id: feature-x-tests
-    workflow: test-focused-workflow
+    - prompt: Add tests for feature X
+      id: feature-x-tests
+      workflow: test-focused-workflow
 ```
 
-### Mixed Format
+### Mixed Collections
 
-You can mix string and object formats in the same sprint:
+You can define multiple collection types in the same sprint:
 
 ```yaml
-steps:
-  - Simple step as string
-  - prompt: Complex step with metadata
-    id: complex-step
-    workflow: different-workflow
-  - Another simple string step
+collections:
+  feature:
+    - prompt: User authentication
+      priority: high
+    - prompt: Dashboard UI
+      priority: medium
+  bug:
+    - prompt: Fix login timeout
+      severity: critical
+    - prompt: Fix UI alignment
+      severity: low
 ```
 
 ## Validation Rules
@@ -201,16 +225,23 @@ steps:
 | Rule | Description |
 |------|-------------|
 | `workflow` required | Must be a non-empty string |
-| `steps` required | Must be a non-empty array |
+| `collections` required | Must have at least one collection with items |
 | Valid YAML | File must parse as valid YAML |
 | Unique `sprint-id` | If provided, must be unique across sprints |
 | Valid `created` | If provided, must be ISO 8601 format |
 
-### Step-Level Validation
+### Collection-Level Validation
 
 | Rule | Description |
 |------|-------------|
-| `prompt` required | Object steps must have `prompt` field |
+| Non-empty | Each collection must have at least one item |
+| Name matches | Collection names match `for-each` references in workflows |
+
+### Item-Level Validation
+
+| Rule | Description |
+|------|-------------|
+| `prompt` required | Items must have `prompt` field |
 | Valid `id` format | Should be kebab-case (e.g., `my-step-id`) |
 | Workflow exists | Referenced workflow must exist in `.claude/workflows/` |
 
@@ -220,7 +251,7 @@ steps:
 |------|-------------|
 | Workflow path | Resolves from `.claude/workflows/<name>.yaml` |
 | No extension | Workflow references should NOT include `.yaml` |
-| Step override | Per-step workflow takes precedence over sprint workflow |
+| Item override | Per-item workflow takes precedence over sprint workflow |
 
 ## Common Patterns
 
@@ -230,12 +261,13 @@ steps:
 name: Feature Implementation
 workflow: gherkin-verified-execution
 
-steps:
-  - Research existing codebase and identify integration points
-  - Design component architecture and interfaces
-  - Implement core feature logic
-  - Add comprehensive tests
-  - Update documentation
+collections:
+  step:
+    - prompt: Research existing codebase and identify integration points
+    - prompt: Design component architecture and interfaces
+    - prompt: Implement core feature logic
+    - prompt: Add comprehensive tests
+    - prompt: Update documentation
 ```
 
 ### Bug Fix Sprint
@@ -244,12 +276,13 @@ steps:
 name: Bug Fix Sprint
 workflow: bugfix-workflow
 
-steps:
-  - Reproduce and document the bug
-  - Identify root cause through debugging
-  - Implement fix with minimal changes
-  - Add regression tests
-  - Verify fix in staging environment
+collections:
+  step:
+    - prompt: Reproduce and document the bug
+    - prompt: Identify root cause through debugging
+    - prompt: Implement fix with minimal changes
+    - prompt: Add regression tests
+    - prompt: Verify fix in staging environment
 ```
 
 ### Refactoring Sprint
@@ -261,34 +294,36 @@ workflow: sprint-default
 config:
   auto-commit: true
 
-steps:
-  - Analyze current code structure and identify issues
-  - Create comprehensive test coverage for existing behavior
-  - Refactor module A while maintaining tests green
-  - Refactor module B while maintaining tests green
-  - Update documentation and clean up unused code
+collections:
+  step:
+    - prompt: Analyze current code structure and identify issues
+    - prompt: Create comprehensive test coverage for existing behavior
+    - prompt: Refactor module A while maintaining tests green
+    - prompt: Refactor module B while maintaining tests green
+    - prompt: Update documentation and clean up unused code
 ```
 
 ### Multi-Workflow Sprint
 
-Use per-step workflow overrides for different execution strategies:
+Use per-item workflow overrides for different execution strategies:
 
 ```yaml
 name: Mixed Workflow Sprint
 workflow: sprint-default
 
-steps:
-  - prompt: Research best practices
-    workflow: execute-step          # Simple, no verification needed
+collections:
+  step:
+    - prompt: Research best practices
+      workflow: execute-step          # Simple, no verification needed
 
-  - prompt: Implement core feature
-    workflow: gherkin-verified-execution  # Full TDD cycle
+    - prompt: Implement core feature
+      workflow: gherkin-verified-execution  # Full TDD cycle
 
-  - prompt: Quick configuration update
-    workflow: execute-step          # Simple change
+    - prompt: Quick configuration update
+      workflow: execute-step          # Simple change
 
-  - prompt: Add integration tests
-    workflow: gherkin-verified-execution  # Needs verification
+    - prompt: Add integration tests
+      workflow: gherkin-verified-execution  # Needs verification
 ```
 
 ### Model Selection Sprint
@@ -300,22 +335,23 @@ name: Architecture and Implementation
 workflow: sprint-default
 model: sonnet                    # Default for most phases
 
-steps:
-  - prompt: Design system architecture and document key decisions
-    model: opus                  # Use opus for complex reasoning
+collections:
+  step:
+    - prompt: Design system architecture and document key decisions
+      model: opus                  # Use opus for complex reasoning
 
-  - prompt: Implement the core module
-    # Uses sonnet (sprint default)
+    - prompt: Implement the core module
+      # Uses sonnet (sprint default)
 
-  - prompt: Validate implementation with quick checks
-    model: haiku                 # Use haiku for fast validation
+    - prompt: Validate implementation with quick checks
+      model: haiku                 # Use haiku for fast validation
 
-  - prompt: Write comprehensive tests
-    # Uses sonnet (sprint default)
+    - prompt: Write comprehensive tests
+      # Uses sonnet (sprint default)
 ```
 
 Model selection follows precedence (highest to lowest):
-1. Step-level `model` field
+1. Item-level `model` field
 2. Workflow phase-level `model` field
 3. Sprint-level `model` field
 4. Workflow-level `model` field
@@ -327,12 +363,13 @@ Model selection follows precedence (highest to lowest):
 name: Documentation Update
 workflow: execute-step
 
-steps:
-  - Audit existing documentation for accuracy
-  - Create missing API documentation
-  - Add code examples and tutorials
-  - Update README with new features
-  - Add troubleshooting section
+collections:
+  step:
+    - prompt: Audit existing documentation for accuracy
+    - prompt: Create missing API documentation
+    - prompt: Add code examples and tutorials
+    - prompt: Update README with new features
+    - prompt: Add troubleshooting section
 ```
 
 ### Worktree-Isolated Sprint
@@ -354,7 +391,7 @@ goal: |
   Success: Login, logout, and token refresh working with tests.
 ```
 
-When started with `/start-sprint auth --worktree`:
+When started with `/init-sprint auth --worktree`:
 - Creates branch: `feature/auth`
 - Creates worktree: `../features/auth`
 - Sprint executes in worktree, isolated from main repo
@@ -374,9 +411,10 @@ worktree:
   # path: ../2026-01-20_quick-feature-worktree
   # cleanup: on-complete
 
-steps:
-  - Implement the feature
-  - Add tests
+collections:
+  step:
+    - prompt: Implement the feature
+    - prompt: Add tests
 ```
 
 ## Invalid Examples
@@ -385,29 +423,38 @@ steps:
 
 ```yaml
 # INVALID: Missing workflow
-steps:
-  - Do something
+collections:
+  step:
+    - prompt: Do something
 ```
 
 ```yaml
-# INVALID: Missing steps
+# INVALID: Missing collections
 workflow: sprint-default
 ```
 
 ```yaml
-# INVALID: Empty steps array
+# INVALID: Empty collections
 workflow: sprint-default
-steps: []
+collections: {}
 ```
 
-### Invalid Step Configuration
+```yaml
+# INVALID: Empty collection
+workflow: sprint-default
+collections:
+  step: []
+```
+
+### Invalid Item Configuration
 
 ```yaml
-# INVALID: Object step missing prompt
+# INVALID: Item missing prompt
 workflow: sprint-default
-steps:
-  - id: my-step
-    workflow: some-workflow
+collections:
+  step:
+    - id: my-step
+      workflow: some-workflow
 ```
 
 ### Invalid References
@@ -415,8 +462,9 @@ steps:
 ```yaml
 # INVALID: Workflow with .yaml extension
 workflow: sprint-default.yaml  # Should be: sprint-default
-steps:
-  - Something
+collections:
+  step:
+    - prompt: Something
 ```
 
 ## Directory Convention
@@ -452,7 +500,7 @@ type ClaudeModel = 'sonnet' | 'opus' | 'haiku';
 
 interface SprintDefinition {
   workflow: string;
-  steps: SprintStep[];
+  collections: Record<string, CollectionItem[]>;
   'sprint-id'?: string;
   name?: string;
   created?: string;
@@ -462,11 +510,12 @@ interface SprintDefinition {
   worktree?: WorktreeConfig;
 }
 
-interface SprintStep {
+interface CollectionItem {
   prompt: string;
   workflow?: string;
   id?: string;
   model?: ClaudeModel;
+  [key: string]: unknown;  // Custom properties
 }
 
 interface SprintConfig {
@@ -482,9 +531,6 @@ interface WorktreeConfig {
   path?: string;     // Default: ../{sprint-id}-worktree
   cleanup?: 'never' | 'on-complete' | 'on-merge';
 }
-
-// Raw input format (string steps normalized during parsing)
-type RawStep = string | SprintStep;
 ```
 
 **Source of Truth:** `compiler/src/types.ts`
