@@ -94,6 +94,10 @@ goal: |
 | `/sprint-status --all-worktrees` | View all parallel sprints |
 | `/cleanup-sprint <path>` | Remove worktree and optionally branch |
 
+### Automatic Context Injection
+
+When running in worktree mode, spawned agents automatically receive execution context including their working directory, branch name, and main repository path. This ensures agents understand their isolated environment and use appropriate relative paths without any additional configuration.
+
 For complete configuration options, troubleshooting, and advanced workflows, see [Parallel Development with Git Worktrees](guides/worktree-sprints.md).
 
 ---
