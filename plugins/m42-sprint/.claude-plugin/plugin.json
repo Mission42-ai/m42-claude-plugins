@@ -1,6 +1,6 @@
 {
   "name": "m42-sprint",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "description": "Sprint orchestration with autonomous task queue processing, polymorphic task types, and progress tracking",
   "author": {
     "name": "Mission42",
