@@ -168,7 +168,8 @@ function expandItem(item, itemIndex, itemType, workflow, context, modelContext =
         prompt: item.prompt,
         status: 'pending',
         phases: compiledPhases,
-        model: item.model
+        model: item.model,
+        ...(item['depends-on'] && item['depends-on'].length > 0 && { 'depends-on': item['depends-on'] })
     };
 }
 /**

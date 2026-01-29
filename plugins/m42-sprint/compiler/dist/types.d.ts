@@ -767,6 +767,8 @@ export interface CompiledProgress {
     'worktree-isolation'?: WorktreeIsolationMeta;
     /** Dependency graphs for for-each phases (one per phase with dependencies) */
     'dependency-graph'?: CompiledDependencyGraph[];
+    /** Configuration for parallel execution within for-each phases */
+    'parallel-execution'?: ParallelExecutionConfig;
 }
 /**
  * Item context for template variable substitution

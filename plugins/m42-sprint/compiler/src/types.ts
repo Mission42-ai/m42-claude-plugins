@@ -870,6 +870,10 @@ export interface CompiledProgress {
   // Dependency tracking for parallel execution
   /** Dependency graphs for for-each phases (one per phase with dependencies) */
   'dependency-graph'?: CompiledDependencyGraph[];
+
+  // Parallel execution configuration
+  /** Configuration for parallel execution within for-each phases */
+  'parallel-execution'?: ParallelExecutionConfig;
 }
 
 // ============================================================================

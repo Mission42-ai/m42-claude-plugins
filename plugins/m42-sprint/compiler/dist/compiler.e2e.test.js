@@ -442,6 +442,248 @@ test('sprint worktree config should override workflow worktree config', async ()
     }
 });
 // ============================================================================
+// Dependency Graph Compilation Tests
+// ============================================================================
+test('compiler should build dependency-graph for steps with depends-on', async () => {
+    const baseDir = createTestDir();
+    try {
+        // Create workflows directory with a for-each workflow
+        const workflowsDir = path.join(baseDir, '.claude', 'workflows');
+        fs.mkdirSync(workflowsDir, { recursive: true });
+        // Create a step workflow
+        const stepWorkflowContent = yaml.dump({
+            name: 'step-workflow',
+            phases: [
+                { id: 'implement', prompt: 'Implement: {{item.prompt}}' }
+            ]
+        });
+        fs.writeFileSync(path.join(workflowsDir, 'step-workflow.yaml'), stepWorkflowContent, 'utf8');
+        // Create main workflow with for-each
+        const mainWorkflowContent = yaml.dump({
+            name: 'dependency-workflow',
+            phases: [
+                { id: 'development', 'for-each': 'step', workflow: 'step-workflow' }
+            ]
+        });
+        fs.writeFileSync(path.join(workflowsDir, 'dependency-workflow.yaml'), mainWorkflowContent, 'utf8');
+        // Create sprint directory with dependencies
+        const sprintDir = path.join(baseDir, 'dep-sprint');
+        fs.mkdirSync(sprintDir, { recursive: true });
+        const sprintContent = yaml.dump({
+            'sprint-id': 'dep-test',
+            workflow: 'dependency-workflow',
+            collections: {
+                step: [
+                    { id: 'setup', prompt: 'Setup the project' },
+                    { id: 'build', prompt: 'Build the project', 'depends-on': ['setup'] },
+                    { id: 'test', prompt: 'Test the project', 'depends-on': ['build'] },
+                    { id: 'deploy', prompt: 'Deploy the project', 'depends-on': ['build', 'test'] }
+                ]
+            }
+        });
+        fs.writeFileSync(path.join(sprintDir, 'SPRINT.yaml'), sprintContent, 'utf8');
+        const progressPath = path.join(sprintDir, 'PROGRESS.yaml');
+        // Run compiler
+        const compilerPath = path.resolve(__dirname, '..', 'dist', 'index.js');
+        (0, child_process_1.execSync)(`node "${compilerPath}" "${sprintDir}" -w "${workflowsDir}"`, {
+            cwd: baseDir,
+            encoding: 'utf8',
+            stdio: 'pipe'
+        });
+        // Verify PROGRESS.yaml has dependency-graph
+        assert(fs.existsSync(progressPath), 'PROGRESS.yaml should be created');
+        const content = fs.readFileSync(progressPath, 'utf8');
+        const progress = yaml.load(content);
+        // Verify dependency-graph exists
+        assert(progress['dependency-graph'] !== undefined, 'PROGRESS.yaml should have dependency-graph');
+        assertEqual(progress['dependency-graph'].length, 1, 'Should have 1 dependency graph (for development phase)');
+        const graph = progress['dependency-graph'][0];
+        assertEqual(graph['phase-id'], 'development', 'Graph should be for development phase');
+        assertEqual(graph.nodes.length, 4, 'Should have 4 nodes');
+        // Verify setup node
+        const setupNode = graph.nodes.find(n => n.id === 'setup');
+        assert(setupNode !== undefined, 'Should have setup node');
+        assertEqual(setupNode['depends-on'].length, 0, 'setup should have no dependencies');
+        assertEqual(setupNode['blocked-by'].length, 0, 'setup should have no blocked-by');
+        // Verify build node
+        const buildNode = graph.nodes.find(n => n.id === 'build');
+        assert(buildNode !== undefined, 'Should have build node');
+        assertEqual(buildNode['depends-on'].length, 1, 'build should have 1 dependency');
+        assertEqual(buildNode['depends-on'][0], 'setup', 'build should depend on setup');
+        assertEqual(buildNode['blocked-by'].length, 1, 'build should be blocked by 1 node');
+        assertEqual(buildNode['blocked-by'][0], 'setup', 'build should be blocked by setup');
+        // Verify deploy node
+        const deployNode = graph.nodes.find(n => n.id === 'deploy');
+        assert(deployNode !== undefined, 'Should have deploy node');
+        assertEqual(deployNode['depends-on'].length, 2, 'deploy should have 2 dependencies');
+        assertEqual(deployNode['blocked-by'].length, 2, 'deploy should be blocked by 2 nodes');
+        // Verify steps also have depends-on preserved
+        const devPhase = progress.phases?.find(p => p.id === 'development');
+        assert(devPhase !== undefined, 'Should have development phase');
+        assert(devPhase.steps !== undefined, 'Development phase should have steps');
+        const buildStep = devPhase.steps.find(s => s.id === 'build');
+        assert(buildStep !== undefined, 'Should have build step');
+        assert(buildStep['depends-on'] !== undefined, 'Build step should have depends-on');
+        assertEqual(buildStep['depends-on'][0], 'setup', 'Build step should depend on setup');
+    }
+    finally {
+        cleanupTestDir(baseDir);
+    }
+});
+test('compiler should NOT include dependency-graph when no steps have dependencies', async () => {
+    const baseDir = createTestDir();
+    try {
+        // Create workflows directory
+        const workflowsDir = path.join(baseDir, '.claude', 'workflows');
+        fs.mkdirSync(workflowsDir, { recursive: true });
+        // Create a step workflow
+        const stepWorkflowContent = yaml.dump({
+            name: 'step-workflow',
+            phases: [
+                { id: 'implement', prompt: 'Implement: {{item.prompt}}' }
+            ]
+        });
+        fs.writeFileSync(path.join(workflowsDir, 'step-workflow.yaml'), stepWorkflowContent, 'utf8');
+        // Create main workflow with for-each
+        const mainWorkflowContent = yaml.dump({
+            name: 'no-deps-workflow',
+            phases: [
+                { id: 'development', 'for-each': 'step', workflow: 'step-workflow' }
+            ]
+        });
+        fs.writeFileSync(path.join(workflowsDir, 'no-deps-workflow.yaml'), mainWorkflowContent, 'utf8');
+        // Create sprint directory WITHOUT dependencies
+        const sprintDir = path.join(baseDir, 'no-dep-sprint');
+        fs.mkdirSync(sprintDir, { recursive: true });
+        const sprintContent = yaml.dump({
+            'sprint-id': 'no-dep-test',
+            workflow: 'no-deps-workflow',
+            collections: {
+                step: [
+                    { id: 'step-1', prompt: 'First step' },
+                    { id: 'step-2', prompt: 'Second step' },
+                    { id: 'step-3', prompt: 'Third step' }
+                ]
+            }
+        });
+        fs.writeFileSync(path.join(sprintDir, 'SPRINT.yaml'), sprintContent, 'utf8');
+        const progressPath = path.join(sprintDir, 'PROGRESS.yaml');
+        // Run compiler
+        const compilerPath = path.resolve(__dirname, '..', 'dist', 'index.js');
+        (0, child_process_1.execSync)(`node "${compilerPath}" "${sprintDir}" -w "${workflowsDir}"`, {
+            cwd: baseDir,
+            encoding: 'utf8',
+            stdio: 'pipe'
+        });
+        const content = fs.readFileSync(progressPath, 'utf8');
+        const progress = yaml.load(content);
+        assertEqual(progress['dependency-graph'], undefined, 'PROGRESS.yaml should NOT have dependency-graph when no dependencies');
+    }
+    finally {
+        cleanupTestDir(baseDir);
+    }
+});
+test('compiler should validate dependencies at compile time', async () => {
+    const baseDir = createTestDir();
+    try {
+        // Create workflows directory
+        const workflowsDir = path.join(baseDir, '.claude', 'workflows');
+        fs.mkdirSync(workflowsDir, { recursive: true });
+        const workflowContent = yaml.dump({
+            name: 'validation-workflow',
+            phases: [
+                { id: 'dev', 'for-each': 'step', prompt: '{{item.prompt}}' }
+            ]
+        });
+        fs.writeFileSync(path.join(workflowsDir, 'validation-workflow.yaml'), workflowContent, 'utf8');
+        // Create sprint with invalid dependency reference
+        const sprintDir = path.join(baseDir, 'invalid-dep-sprint');
+        fs.mkdirSync(sprintDir, { recursive: true });
+        const sprintContent = yaml.dump({
+            'sprint-id': 'invalid-dep-test',
+            workflow: 'validation-workflow',
+            collections: {
+                step: [
+                    { id: 'step-1', prompt: 'First step' },
+                    { id: 'step-2', prompt: 'Second step', 'depends-on': ['nonexistent'] } // Invalid reference
+                ]
+            }
+        });
+        fs.writeFileSync(path.join(sprintDir, 'SPRINT.yaml'), sprintContent, 'utf8');
+        // Run compiler - should fail
+        const compilerPath = path.resolve(__dirname, '..', 'dist', 'index.js');
+        let threwError = false;
+        let errorOutput = '';
+        try {
+            (0, child_process_1.execSync)(`node "${compilerPath}" "${sprintDir}" -w "${workflowsDir}"`, {
+                cwd: baseDir,
+                encoding: 'utf8',
+                stdio: 'pipe'
+            });
+        }
+        catch (e) {
+            threwError = true;
+            const err = e;
+            errorOutput = err.stderr || err.stdout || '';
+        }
+        assert(threwError, 'Compiler should fail when dependency does not exist');
+        assert(errorOutput.includes('nonexistent') || errorOutput.includes('DEPENDENCY'), 'Error should mention the missing dependency');
+    }
+    finally {
+        cleanupTestDir(baseDir);
+    }
+});
+test('compiler should reject circular dependencies', async () => {
+    const baseDir = createTestDir();
+    try {
+        // Create workflows directory
+        const workflowsDir = path.join(baseDir, '.claude', 'workflows');
+        fs.mkdirSync(workflowsDir, { recursive: true });
+        const workflowContent = yaml.dump({
+            name: 'circular-workflow',
+            phases: [
+                { id: 'dev', 'for-each': 'step', prompt: '{{item.prompt}}' }
+            ]
+        });
+        fs.writeFileSync(path.join(workflowsDir, 'circular-workflow.yaml'), workflowContent, 'utf8');
+        // Create sprint with circular dependency
+        const sprintDir = path.join(baseDir, 'circular-dep-sprint');
+        fs.mkdirSync(sprintDir, { recursive: true });
+        const sprintContent = yaml.dump({
+            'sprint-id': 'circular-dep-test',
+            workflow: 'circular-workflow',
+            collections: {
+                step: [
+                    { id: 'step-a', prompt: 'Step A', 'depends-on': ['step-b'] },
+                    { id: 'step-b', prompt: 'Step B', 'depends-on': ['step-a'] } // Circular!
+                ]
+            }
+        });
+        fs.writeFileSync(path.join(sprintDir, 'SPRINT.yaml'), sprintContent, 'utf8');
+        // Run compiler - should fail
+        const compilerPath = path.resolve(__dirname, '..', 'dist', 'index.js');
+        let threwError = false;
+        let errorOutput = '';
+        try {
+            (0, child_process_1.execSync)(`node "${compilerPath}" "${sprintDir}" -w "${workflowsDir}"`, {
+                cwd: baseDir,
+                encoding: 'utf8',
+                stdio: 'pipe'
+            });
+        }
+        catch (e) {
+            threwError = true;
+            const err = e;
+            errorOutput = err.stderr || err.stdout || '';
+        }
+        assert(threwError, 'Compiler should fail when circular dependency exists');
+        assert(errorOutput.includes('CIRCULAR') || errorOutput.includes('circular'), 'Error should mention circular dependency');
+    }
+    finally {
+        cleanupTestDir(baseDir);
+    }
+});
+// ============================================================================
 // Run Tests
 // ============================================================================
 // Tests run via setImmediate callback

@@ -229,6 +229,110 @@ export type ActivityEventSSE = SSEEvent<'activity-event', ActivityEvent>;
 export type AnySSEEvent = StatusUpdateEvent | LogEntryEvent | KeepAliveEvent | ActivityEventSSE;
 
 // ============================================================================
+// Dependency Graph Types (for DAG visualization)
+// ============================================================================
+
+/**
+ * Status colors for visual differentiation in the DAG
+ */
+export type GraphNodeStatusColor = 'gray' | 'blue' | 'green' | 'red' | 'yellow' | 'orange';
+
+/**
+ * A node in the dependency graph for UI rendering
+ * Represents a step in the DAG with visualization metadata
+ */
+export interface GraphNode {
+  /** Unique step ID */
+  id: string;
+  /** Display label (step prompt truncated) */
+  label: string;
+  /** Current execution status */
+  status: PhaseStatus;
+  /** Color for visual representation */
+  statusColor: GraphNodeStatusColor;
+  /** IDs of nodes this depends on (edges pointing to this node) */
+  dependsOn: string[];
+  /** IDs of nodes that depend on this (edges pointing from this node) */
+  dependents: string[];
+  /** IDs of dependencies not yet completed (blocking this step) */
+  blockedBy: string[];
+  /** True if this step was dynamically injected during execution */
+  isInjected: boolean;
+  /** True if this step is currently executing */
+  isRunning: boolean;
+  /** True if this step is ready to execute (all deps satisfied) */
+  isReady: boolean;
+  /** Row position for layout (topological sort level) */
+  layoutRow: number;
+  /** Column position within the row */
+  layoutColumn: number;
+  /** Phase this step belongs to */
+  phaseId: string;
+  /** Human-readable blocking message (e.g., "Waiting for step-A, step-B") */
+  blockedByLabel?: string;
+  /** ISO timestamp when step started */
+  startedAt?: string;
+  /** ISO timestamp when step completed */
+  completedAt?: string;
+  /** Elapsed time (human readable) */
+  elapsed?: string;
+  /** Error message if failed */
+  error?: string;
+}
+
+/**
+ * An edge connecting two nodes in the dependency graph
+ */
+export interface GraphEdge {
+  /** Source node ID (the dependency) */
+  from: string;
+  /** Target node ID (the dependent) */
+  to: string;
+  /** Edge status based on source completion */
+  status: 'pending' | 'satisfied' | 'failed';
+}
+
+/**
+ * Complete dependency graph for a phase with DAG visualization
+ */
+export interface DependencyGraph {
+  /** Phase ID this graph belongs to */
+  phaseId: string;
+  /** Phase label for display */
+  phaseLabel: string;
+  /** All nodes in the graph */
+  nodes: GraphNode[];
+  /** All edges between nodes */
+  edges: GraphEdge[];
+  /** Summary statistics */
+  stats: {
+    totalNodes: number;
+    completedNodes: number;
+    runningNodes: number;
+    blockedNodes: number;
+    readyNodes: number;
+    failedNodes: number;
+    skippedNodes: number;
+  };
+  /** Maximum row in the layout (graph height) */
+  maxRow: number;
+  /** Maximum column in any row (graph width) */
+  maxColumn: number;
+  /** True if parallel execution is enabled for this phase */
+  parallelEnabled: boolean;
+}
+
+/**
+ * Extended StatusUpdate with dependency graph information
+ */
+export interface StatusUpdateWithGraph extends StatusUpdate {
+  /** Dependency graphs for phases with dependencies */
+  dependencyGraphs?: DependencyGraph[];
+  /** Whether any phase has parallel execution enabled */
+  hasParallelExecution?: boolean;
+}
+
+// ============================================================================
 // Re-exports for convenience
 // ============================================================================
 

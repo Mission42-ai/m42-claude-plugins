@@ -20,6 +20,10 @@ exports.generateDiffLogEntries = generateDiffLogEntries;
 exports.transformHookTasks = transformHookTasks;
 exports.isSprintStale = isSprintStale;
 exports.toStatusUpdate = toStatusUpdate;
+exports.statusToColor = statusToColor;
+exports.buildDependencyGraphForPhase = buildDependencyGraphForPhase;
+exports.buildDependencyGraphs = buildDependencyGraphs;
+exports.toStatusUpdateWithGraph = toStatusUpdateWithGraph;
 // ============================================================================
 // Timestamp Formatting
 // ============================================================================
@@ -648,5 +652,314 @@ function toStatusUpdate(progress, includeRaw = false, timingInfo) {
         update.raw = progress;
     }
     return update;
+}
+// ============================================================================
+// Dependency Graph Transformation
+// ============================================================================
+/**
+ * Map PhaseStatus to a visualization color
+ */
+function statusToColor(status) {
+    switch (status) {
+        case 'pending':
+            return 'gray';
+        case 'in-progress':
+            return 'blue';
+        case 'completed':
+            return 'green';
+        case 'failed':
+            return 'red';
+        case 'blocked':
+            return 'orange';
+        case 'skipped':
+            return 'yellow';
+        default:
+            return 'gray';
+    }
+}
+/**
+ * Truncate a string to a maximum length with ellipsis
+ */
+function truncateLabel(text, maxLength = 40) {
+    if (text.length <= maxLength) {
+        return text;
+    }
+    return text.substring(0, maxLength - 3) + '...';
+}
+/**
+ * Generate a human-readable blocked-by label
+ * e.g., "Waiting for step-A, step-B"
+ */
+function formatBlockedByLabel(blockedBy) {
+    if (blockedBy.length === 0) {
+        return undefined;
+    }
+    if (blockedBy.length === 1) {
+        return `Waiting for ${blockedBy[0]}`;
+    }
+    if (blockedBy.length === 2) {
+        return `Waiting for ${blockedBy[0]} and ${blockedBy[1]}`;
+    }
+    return `Waiting for ${blockedBy[0]}, ${blockedBy[1]}, and ${blockedBy.length - 2} more`;
+}
+/**
+ * Perform topological sort and assign layout positions
+ * Uses Kahn's algorithm to determine row positions (depth in DAG)
+ * Nodes at the same depth are assigned columns left-to-right
+ */
+function computeLayout(nodes) {
+    const layout = new Map();
+    const inDegree = new Map();
+    const nodeIds = Array.from(nodes.keys());
+    // Initialize in-degrees
+    for (const id of nodeIds) {
+        const node = nodes.get(id);
+        inDegree.set(id, node.dependsOn.filter(dep => nodes.has(dep)).length);
+    }
+    // Find nodes with no dependencies (in-degree 0) - these are row 0
+    let currentRow = 0;
+    let currentQueue = [];
+    for (const id of nodeIds) {
+        if (inDegree.get(id) === 0) {
+            currentQueue.push(id);
+        }
+    }
+    // Process nodes level by level
+    while (currentQueue.length > 0) {
+        // Assign positions to all nodes in current row
+        currentQueue.sort(); // Deterministic ordering
+        for (let col = 0; col < currentQueue.length; col++) {
+            layout.set(currentQueue[col], { row: currentRow, column: col });
+        }
+        // Find next level nodes
+        const nextQueue = [];
+        for (const id of currentQueue) {
+            const node = nodes.get(id);
+            for (const depId of node.dependents) {
+                if (!nodes.has(depId))
+                    continue;
+                const newDegree = (inDegree.get(depId) ?? 0) - 1;
+                inDegree.set(depId, newDegree);
+                if (newDegree === 0 && !layout.has(depId)) {
+                    nextQueue.push(depId);
+                }
+            }
+        }
+        currentQueue = nextQueue;
+        currentRow++;
+    }
+    // Handle any remaining nodes (cycles - should not happen with validated DAG)
+    for (const id of nodeIds) {
+        if (!layout.has(id)) {
+            layout.set(id, { row: currentRow, column: 0 });
+        }
+    }
+    return layout;
+}
+/**
+ * Build dependency graph for a single for-each phase
+ */
+function buildDependencyGraphForPhase(phase, depGraphs, injectedStepIds) {
+    // Only process phases with steps
+    if (!phase.steps || phase.steps.length === 0) {
+        return null;
+    }
+    // Find the dependency graph for this phase
+    const depGraph = depGraphs.find(g => g['phase-id'] === phase.id);
+    // Create a lookup map for dependency info
+    const depNodeMap = new Map();
+    if (depGraph) {
+        for (const node of depGraph.nodes) {
+            depNodeMap.set(node.id, node);
+        }
+    }
+    // Build node map for layout computation
+    const nodeMap = new Map();
+    for (const step of phase.steps) {
+        const depNode = depNodeMap.get(step.id);
+        const stepWithDeps = step;
+        const dependsOn = depNode?.['depends-on'] ?? stepWithDeps['depends-on'] ?? [];
+        nodeMap.set(step.id, { dependsOn, dependents: [] });
+    }
+    // Build reverse edges (dependents)
+    for (const [id, node] of nodeMap) {
+        for (const depId of node.dependsOn) {
+            const depNode = nodeMap.get(depId);
+            if (depNode) {
+                depNode.dependents.push(id);
+            }
+        }
+    }
+    // Compute layout positions
+    const layout = computeLayout(nodeMap);
+    // Build GraphNode array
+    const graphNodes = [];
+    const stats = {
+        totalNodes: 0,
+        completedNodes: 0,
+        runningNodes: 0,
+        blockedNodes: 0,
+        readyNodes: 0,
+        failedNodes: 0,
+        skippedNodes: 0,
+    };
+    let maxRow = 0;
+    let maxColumn = 0;
+    for (const step of phase.steps) {
+        const depNode = depNodeMap.get(step.id);
+        const stepWithDeps = step;
+        const dependsOn = depNode?.['depends-on'] ?? stepWithDeps['depends-on'] ?? [];
+        const blockedBy = depNode?.['blocked-by'] ?? [];
+        const nodeInfo = nodeMap.get(step.id);
+        const pos = layout.get(step.id) ?? { row: 0, column: 0 };
+        // Determine if step is ready (blocked-by empty and status pending)
+        const isReady = blockedBy.length === 0 && step.status === 'pending';
+        const isRunning = step.status === 'in-progress';
+        const isInjected = injectedStepIds.has(step.id);
+        // Get label from step prompt
+        const label = truncateLabel(step.prompt || step.id);
+        // Compute elapsed time for in-progress steps
+        const elapsed = computeElapsedIfNeeded(step.elapsed, step['started-at'], step.status);
+        const graphNode = {
+            id: step.id,
+            label,
+            status: step.status,
+            statusColor: statusToColor(step.status),
+            dependsOn,
+            dependents: nodeInfo.dependents,
+            blockedBy,
+            isInjected,
+            isRunning,
+            isReady,
+            layoutRow: pos.row,
+            layoutColumn: pos.column,
+            phaseId: phase.id,
+            blockedByLabel: formatBlockedByLabel(blockedBy),
+            startedAt: step['started-at'],
+            completedAt: step['completed-at'],
+            elapsed,
+            error: step.error,
+        };
+        graphNodes.push(graphNode);
+        // Update stats
+        stats.totalNodes++;
+        switch (step.status) {
+            case 'completed':
+                stats.completedNodes++;
+                break;
+            case 'in-progress':
+                stats.runningNodes++;
+                break;
+            case 'blocked':
+                stats.blockedNodes++;
+                break;
+            case 'failed':
+                stats.failedNodes++;
+                break;
+            case 'skipped':
+                stats.skippedNodes++;
+                break;
+            case 'pending':
+                if (isReady) {
+                    stats.readyNodes++;
+                }
+                else {
+                    stats.blockedNodes++;
+                }
+                break;
+        }
+        // Track max dimensions
+        if (pos.row > maxRow)
+            maxRow = pos.row;
+        if (pos.column > maxColumn)
+            maxColumn = pos.column;
+    }
+    // Build edges
+    const edges = [];
+    for (const node of graphNodes) {
+        for (const depId of node.dependsOn) {
+            // Find the source node to determine edge status
+            const sourceNode = graphNodes.find(n => n.id === depId);
+            let edgeStatus = 'pending';
+            if (sourceNode) {
+                if (sourceNode.status === 'completed') {
+                    edgeStatus = 'satisfied';
+                }
+                else if (sourceNode.status === 'failed' || sourceNode.status === 'skipped') {
+                    edgeStatus = 'failed';
+                }
+            }
+            edges.push({
+                from: depId,
+                to: node.id,
+                status: edgeStatus,
+            });
+        }
+    }
+    // Check if parallel execution is enabled
+    // A phase has parallel execution if it has a dependency graph
+    const parallelEnabled = depGraph !== undefined && depGraph.nodes.length > 0;
+    return {
+        phaseId: phase.id,
+        phaseLabel: phase.prompt ? truncateLabel(phase.prompt) : phase.id,
+        nodes: graphNodes,
+        edges,
+        stats,
+        maxRow,
+        maxColumn,
+        parallelEnabled,
+    };
+}
+/**
+ * Build all dependency graphs from CompiledProgress
+ * Returns an array of DependencyGraph objects for phases with dependencies
+ */
+function buildDependencyGraphs(progress) {
+    const graphs = [];
+    // Get dependency graphs from PROGRESS.yaml
+    const depGraphs = progress['dependency-graph'] ?? [];
+    // Get set of injected step IDs (from step-queue or marked with injected flag)
+    const injectedStepIds = new Set();
+    const stepQueue = progress['step-queue'];
+    if (stepQueue) {
+        for (const item of stepQueue) {
+            injectedStepIds.add(item.id);
+        }
+    }
+    // Check each step for injected flag
+    for (const phase of progress.phases ?? []) {
+        if (phase.steps) {
+            for (const step of phase.steps) {
+                const stepWithMeta = step;
+                if (stepWithMeta.injected) {
+                    injectedStepIds.add(step.id);
+                }
+            }
+        }
+    }
+    // Build graph for each phase with steps
+    for (const phase of progress.phases ?? []) {
+        const graph = buildDependencyGraphForPhase(phase, depGraphs, injectedStepIds);
+        if (graph && graph.nodes.length > 0) {
+            graphs.push(graph);
+        }
+    }
+    return graphs;
+}
+/**
+ * Extended version of toStatusUpdate that includes dependency graphs
+ */
+function toStatusUpdateWithGraph(progress, includeRaw = false, timingInfo) {
+    // Get the base status update
+    const baseUpdate = toStatusUpdate(progress, includeRaw, timingInfo);
+    // Build dependency graphs
+    const dependencyGraphs = buildDependencyGraphs(progress);
+    // Check if any phase has parallel execution
+    const hasParallelExecution = dependencyGraphs.some(g => g.parallelEnabled);
+    return {
+        ...baseUpdate,
+        dependencyGraphs: dependencyGraphs.length > 0 ? dependencyGraphs : undefined,
+        hasParallelExecution: hasParallelExecution || undefined,
+    };
 }
 //# sourceMappingURL=transforms.js.map

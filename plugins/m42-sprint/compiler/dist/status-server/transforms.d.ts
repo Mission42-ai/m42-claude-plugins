@@ -2,8 +2,24 @@
  * Data transformation functions for converting CompiledProgress to StatusUpdate format
  * Used by the status server to send updates to connected browsers
  */
-import type { CompiledProgress, PhaseStatus, StatusUpdate, CurrentTask, PhaseTreeNode, LogEntry, LogEntryType, HookTaskStatus } from './status-types.js';
+import type { CompiledProgress, CompiledTopPhase, PhaseStatus, StatusUpdate, CurrentTask, PhaseTreeNode, LogEntry, LogEntryType, HookTaskStatus, DependencyGraph, GraphNodeStatusColor, StatusUpdateWithGraph } from './status-types.js';
 import type { HookTask } from '../types.js';
+/**
+ * Compiled dependency node from PROGRESS.yaml
+ * (matches scheduler types)
+ */
+interface CompiledDependencyNode {
+    id: string;
+    'depends-on': string[];
+    'blocked-by': string[];
+}
+/**
+ * Dependency graph structure in PROGRESS.yaml
+ */
+interface CompiledDependencyGraph {
+    'phase-id': string;
+    nodes: CompiledDependencyNode[];
+}
 /**
  * Timing information passed to toStatusUpdate
  */
@@ -95,4 +111,22 @@ export declare function isSprintStale(progress: CompiledProgress): boolean;
  * Handles both standard mode (phases) and Ralph mode (goal-driven with dynamic-steps)
  */
 export declare function toStatusUpdate(progress: CompiledProgress, includeRaw?: boolean, timingInfo?: TimingInfo): StatusUpdate;
+/**
+ * Map PhaseStatus to a visualization color
+ */
+export declare function statusToColor(status: PhaseStatus): GraphNodeStatusColor;
+/**
+ * Build dependency graph for a single for-each phase
+ */
+export declare function buildDependencyGraphForPhase(phase: CompiledTopPhase, depGraphs: CompiledDependencyGraph[], injectedStepIds: Set<string>): DependencyGraph | null;
+/**
+ * Build all dependency graphs from CompiledProgress
+ * Returns an array of DependencyGraph objects for phases with dependencies
+ */
+export declare function buildDependencyGraphs(progress: CompiledProgress): DependencyGraph[];
+/**
+ * Extended version of toStatusUpdate that includes dependency graphs
+ */
+export declare function toStatusUpdateWithGraph(progress: CompiledProgress, includeRaw?: boolean, timingInfo?: TimingInfo): StatusUpdateWithGraph;
+export {};
 //# sourceMappingURL=transforms.d.ts.map

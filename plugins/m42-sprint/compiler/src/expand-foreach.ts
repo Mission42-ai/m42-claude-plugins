@@ -218,7 +218,8 @@ export function expandItem(
     prompt: item.prompt,
     status: 'pending' as const,
     phases: compiledPhases,
-    model: item.model
+    model: item.model,
+    ...(item['depends-on'] && item['depends-on'].length > 0 && { 'depends-on': item['depends-on'] })
   };
 }
 

@@ -3,7 +3,19 @@
  *
  * Orchestrates the compilation of SPRINT.yaml into PROGRESS.yaml
  */
-import type { CompilerConfig, CompilerResult } from './types.js';
+import type { CompiledTopPhase, CompilerConfig, CompilerResult, CompiledDependencyGraph } from './types.js';
+/**
+ * Build dependency graphs for all for-each phases
+ *
+ * Creates a CompiledDependencyGraph for each for-each phase that has steps
+ * with dependencies. Each node in the graph tracks:
+ * - depends-on: the original dependencies from SPRINT.yaml
+ * - blocked-by: initially same as depends-on, cleared at runtime as deps complete
+ *
+ * @param phases - The compiled top phases
+ * @returns Array of dependency graphs (one per for-each phase with dependencies)
+ */
+export declare function buildDependencyGraphs(phases: CompiledTopPhase[]): CompiledDependencyGraph[];
 /**
  * Format a YAML parsing error with line numbers and context
  *
