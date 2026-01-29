@@ -567,7 +567,7 @@ export function checkBranchConflict(
               status: sprint.progress?.status || 'unknown',
             }),
             suggestions: [
-              `Use a different sprint name: /start-sprint ${sprintId || 'new-sprint'}-v2`,
+              `Use a different sprint name: /init-sprint ${sprintId || 'new-sprint'}-v2`,
               `Stop the other sprint first: cd ${sprint.worktree.path} && /stop-sprint`,
               'Continue anyway (not recommended): --force',
             ],
@@ -706,7 +706,7 @@ export function formatConflictSuggestions(
   worktreePath: string
 ): string {
   return `Suggestions:
-  1. Use a different sprint name: /start-sprint ${sprintId}-v2
+  1. Use a different sprint name: /init-sprint ${sprintId}-v2
   2. Stop the other sprint first: cd ${worktreePath} && /stop-sprint
   3. Continue anyway (not recommended): --force`;
 }

@@ -237,20 +237,21 @@ workflow: execute-with-qa  # Important docs needing review
 
 ## Mixing Workflows
 
-You can override workflow per step:
+You can override workflow per item:
 
 ```yaml
 workflow: sprint-default  # Default for sprint
 
-steps:
-  - prompt: Simple task
-    # Uses sprint-default
+collections:
+  step:
+    - prompt: Simple task
+      # Uses sprint-default
 
-  - prompt: Critical implementation
-    workflow: gherkin-verified-execution  # Override for this step
+    - prompt: Critical implementation
+      workflow: gherkin-verified-execution  # Override for this item
 
-  - prompt: Quick fix
-    workflow: bugfix-workflow  # Override for this step
+    - prompt: Quick fix
+      workflow: bugfix-workflow  # Override for this item
 ```
 
 ## When to Break Sprints

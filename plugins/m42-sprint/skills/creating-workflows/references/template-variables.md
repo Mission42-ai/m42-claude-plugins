@@ -1,7 +1,7 @@
 ---
 title: Template Variables Reference
 description: Complete reference for all available template variables in workflow prompts.
-keywords: template, variables, substitution, step, phase, sprint, context
+keywords: template, variables, substitution, item, phase, sprint, context
 skill: creating-workflows
 ---
 
@@ -15,21 +15,32 @@ Variables use double curly braces: `{{variable.property}}`
 
 ```yaml
 prompt: |
-  Implement: {{step.prompt}}
+  Implement: {{item.prompt}}
   Current phase: {{phase.id}}
 ```
 
 ## Variable Categories
 
-### Step Variables
+### Item Variables
 
 Available only in for-each phases and their nested workflows.
 
 | Variable | Type | Description | Example Value |
 |----------|------|-------------|---------------|
-| `{{step.prompt}}` | string | Step description from SPRINT.yaml | "Implement user auth" |
-| `{{step.id}}` | string | Step identifier | "step-1" |
-| `{{step.index}}` | number | 0-based step index | 0, 1, 2... |
+| `{{item.prompt}}` | string | Item description from collection | "Implement user auth" |
+| `{{item.id}}` | string | Item identifier | "step-0" |
+| `{{item.index}}` | number | 0-based item index | 0, 1, 2... |
+| `{{item.<prop>}}` | any | Any custom property from the item | (varies) |
+
+### Type-Specific Aliases
+
+When using `for-each: <type>`, a type-specific alias is available:
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `{{step.prompt}}` | Alias when `for-each: step` | Same as `{{item.prompt}}` |
+| `{{feature.prompt}}` | Alias when `for-each: feature` | Same as `{{item.prompt}}` |
+| `{{bug.prompt}}` | Alias when `for-each: bug` | Same as `{{item.prompt}}` |
 
 ### Phase Variables
 
@@ -53,7 +64,8 @@ Available in all phases.
 
 | Variable | Simple Phase | For-Each Phase | Nested Workflow |
 |----------|--------------|----------------|-----------------|
-| `{{step.*}}` | No | Yes | Yes |
+| `{{item.*}}` | No | Yes | Yes |
+| `{{<type>.*}}` | No | Yes | Yes |
 | `{{phase.*}}` | Yes | Yes | Yes |
 | `{{sprint.*}}` | Yes | Yes | Yes |
 
@@ -61,10 +73,18 @@ Available in all phases.
 
 ```typescript
 interface TemplateContext {
-  step?: {
+  item?: {
     prompt: string;
     id: string;
     index: number;
+    [key: string]: unknown;  // Custom properties
+  };
+  // Type-specific alias (e.g., step, feature, bug)
+  [type: string]?: {
+    prompt: string;
+    id: string;
+    index: number;
+    [key: string]: unknown;
   };
   phase?: {
     id: string;
@@ -79,7 +99,7 @@ interface TemplateContext {
 
 ## Usage Examples
 
-### Step Context in For-Each
+### Item Context in For-Each
 
 ```yaml
 # Top-level workflow with for-each
@@ -93,10 +113,22 @@ phases:
   - id: implement
     prompt: |
       ## Task
-      {{step.prompt}}
+      {{item.prompt}}
 
       ## Instructions
-      Implement step {{step.id}} (index: {{step.index}})
+      Implement item {{item.id}} (index: {{item.index}})
+```
+
+### Type-Specific Alias
+
+When `for-each: step`, both `{{item.prompt}}` and `{{step.prompt}}` work:
+
+```yaml
+phases:
+  - id: execute
+    prompt: |
+      Task: {{step.prompt}}    # Type-specific alias
+      Same as: {{item.prompt}} # Generic form
 ```
 
 ### Sprint Context
@@ -125,9 +157,28 @@ phases:
 phases:
   - id: verify
     prompt: |
-      Verifying {{step.id}} in phase {{phase.id}}
+      Verifying {{item.id}} in phase {{phase.id}}
       Sprint: {{sprint.id}}
-      Task: {{step.prompt}}
+      Task: {{item.prompt}}
+```
+
+### Custom Properties
+
+When items have custom properties, access them via `{{item.<prop>}}`:
+
+```yaml
+# SPRINT.yaml
+collections:
+  feature:
+    - prompt: User authentication
+      priority: high
+
+# Workflow
+phases:
+  - id: implement
+    prompt: |
+      Feature: {{item.prompt}}
+      Priority: {{item.priority}}
 ```
 
 ## Output Artifacts Pattern
@@ -139,11 +190,11 @@ phases:
   - id: plan
     prompt: |
       Write implementation plan to:
-      context/{{step.id}}-plan.md
+      context/{{item.id}}-plan.md
 
   - id: implement
     prompt: |
-      Read plan from: context/{{step.id}}-plan.md
+      Read plan from: context/{{item.id}}-plan.md
       Implement the requirements.
 ```
 
@@ -154,9 +205,9 @@ phases:
 Unresolved variables remain as literal text in the output.
 
 ```yaml
-# If step context is missing:
-prompt: "Task: {{step.prompt}}"
-# Outputs: "Task: {{step.prompt}}"
+# If item context is missing:
+prompt: "Task: {{item.prompt}}"
+# Outputs: "Task: {{item.prompt}}"
 ```
 
 ### Strict Mode
@@ -169,7 +220,7 @@ With compiler strict mode enabled, unresolved variables cause compilation errors
 
 ```yaml
 prompt: |
-  Save to: artifacts/{{step.id}}-output.md
+  Save to: artifacts/{{item.id}}-output.md
   Log to: logs/{{phase.id}}.log
 ```
 
@@ -178,29 +229,30 @@ prompt: |
 ```yaml
 prompt: |
   git checkout -b sprint/{{sprint.id}}
-  git commit -m "{{phase.id}}: {{step.prompt}}"
+  git commit -m "{{phase.id}}: {{item.prompt}}"
 ```
 
 ### Progress Tracking
 
 ```yaml
 prompt: |
-  Processing step {{step.index}} of the sprint.
-  Step ID: {{step.id}}
+  Processing item {{item.index}} of the sprint.
+  Item ID: {{item.id}}
 ```
 
 ## Best Practices
 
-1. **Use step.id for files** - Creates unique, traceable artifacts
-2. **Include step.prompt in context** - Ensures task clarity
+1. **Use item.id for files** - Creates unique, traceable artifacts
+2. **Include item.prompt in context** - Ensures task clarity
 3. **Use sprint.id for branches** - Maintains sprint isolation
 4. **Test variable resolution** - Verify substitution before deployment
+5. **Prefer {{item.*}} for portability** - Works regardless of collection type
 
 ## Troubleshooting
 
 | Issue | Cause | Solution |
 |-------|-------|----------|
-| Variable not replaced | Wrong context (step.* in simple phase) | Check availability matrix |
-| Empty value | Missing field in SPRINT.yaml | Verify source data |
+| Variable not replaced | Wrong context (item.* in simple phase) | Check availability matrix |
+| Empty value | Missing field in collection | Verify source data |
 | Literal `{{...}}` in output | Typo in variable name | Check spelling |
 | Compilation error (strict) | Missing required context | Provide context or disable strict mode |

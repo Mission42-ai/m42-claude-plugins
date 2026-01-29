@@ -10,12 +10,12 @@ Please explain the following to the user:
 ## What is Sprint?
 
 The M42 Sprint plugin provides autonomous workflow-based execution for development sprints.
-It uses a compilation model where SPRINT.yaml defines steps, which are compiled into
+It uses a compilation model where SPRINT.yaml defines collections, which are compiled into
 a hierarchical phase structure in PROGRESS.yaml for execution.
 
 **Core concept:**
-- Define a sprint with steps in SPRINT.yaml
-- Compilation expands steps into hierarchical phases
+- Define a sprint with collections in SPRINT.yaml
+- Compilation expands collections into hierarchical phases
 - Run the sprint to start autonomous processing
 - Each phase runs with FRESH context (Ralph Loop pattern)
 - Progress tracked hierarchically in PROGRESS.yaml
@@ -27,18 +27,18 @@ a hierarchical phase structure in PROGRESS.yaml for execution.
 
 | Command | Description |
 |---------|-------------|
-| `/start-sprint <name>` | Initialize new sprint directory structure |
+| `/init-sprint <name>` | Initialize new sprint directory structure |
 | `/run-sprint <dir> [--max-iterations N]` | Compile and start sprint execution loop |
 | `/pause-sprint` | Pause gracefully after current phase |
 | `/resume-sprint` | Resume a paused sprint |
 | `/stop-sprint` | Forcefully stop active loop |
 | `/sprint-status` | Show hierarchical progress dashboard |
 
-### Step Management
+### Collection Management
 
 | Command | Description |
 |---------|-------------|
-| `/add-step <prompt>` | Add step to SPRINT.yaml steps array |
+| `/add-step <prompt>` | Add step to SPRINT.yaml collections |
 | `/import-steps issues --label <label>` | Bulk import GitHub issues as steps |
 | `/import-steps file <path.yaml>` | Import steps from YAML file |
 
@@ -46,7 +46,7 @@ a hierarchical phase structure in PROGRESS.yaml for execution.
 
 ```
 # 1. Create a sprint
-/start-sprint auth-feature
+/init-sprint auth-feature
 
 # 2. Add steps to SPRINT.yaml
 /add-step "Implement user login API endpoint"
@@ -66,7 +66,7 @@ a hierarchical phase structure in PROGRESS.yaml for execution.
 
 ```
 .claude/sprints/YYYY-MM-DD_sprint-name/
-  SPRINT.yaml       # Configuration with steps array
+  SPRINT.yaml       # Configuration with collections
   PROGRESS.yaml     # Compiled phases hierarchy (generated)
   context/          # Cached context files
   artifacts/        # Generated outputs
@@ -76,15 +76,16 @@ a hierarchical phase structure in PROGRESS.yaml for execution.
 
 The sprint uses a **compilation model**:
 
-1. **SPRINT.yaml** - Source definition with steps:
+1. **SPRINT.yaml** - Source definition with collections:
    ```yaml
-   steps:
-     - prompt: "Implement feature X"
-     - prompt: "Add tests for feature X"
+   collections:
+     steps:
+       - prompt: "Implement feature X"
+       - prompt: "Add tests for feature X"
    ```
 
-2. **Compilation** - Steps expand into phases:
-   - Each step becomes a development phase
+2. **Compilation** - Collections expand into phases:
+   - Each item in a collection becomes a development phase
    - Each phase has sub-phases: planning, implement, test, document
    - Creates hierarchical structure in PROGRESS.yaml
 
@@ -121,9 +122,9 @@ The sprint uses the **Ralph Loop pattern** with fresh context per phase:
 ## When to Use Sprint
 
 **Good for:**
-- Processing multiple related development steps
+- Processing multiple related development items
 - Autonomous development workflows
-- Steps with clear completion criteria
+- Items with clear completion criteria
 - Batch implementation of issues
 
 **Not good for:**
@@ -137,6 +138,6 @@ The sprint uses the **Ralph Loop pattern** with fresh context per phase:
 - Use `/pause-sprint` for graceful stops
 - Use `/stop-sprint` for immediate stops
 - Check `/sprint-status` to monitor hierarchical progress
-- Keep sprints focused: 5-10 related steps
+- Keep sprints focused: 5-10 related items per collection
 - Requires Node.js >=18.0.0
 - Recompilation happens automatically on `/run-sprint`

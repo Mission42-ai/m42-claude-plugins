@@ -580,7 +580,7 @@ test('formatCurrentWorktreeStatus shows no sprint message when none found', () =
   const output = formatCurrentWorktreeStatus(result, false);
 
   assertContains(output, 'No active sprint', 'Should show no sprint message');
-  assertContains(output, '/start-sprint', 'Should suggest starting sprint');
+  assertContains(output, '/init-sprint', 'Should suggest starting sprint');
 });
 
 // ============================================================================

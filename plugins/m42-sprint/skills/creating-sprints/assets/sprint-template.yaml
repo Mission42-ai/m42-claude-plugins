@@ -54,90 +54,103 @@ workflow: sprint-default
 #   auto-commit: true
 
 # -----------------------------------------------------------------------------
-# Steps (Required)
+# Collections (Required)
 # -----------------------------------------------------------------------------
 
-# Steps can be simple strings or objects with metadata
-# Aim for 3-8 steps per sprint (single responsibility)
+# Collections define named groups of items for iteration.
+# Each workflow phase with for-each references a collection by name.
+# Example: for-each: step → uses collections.step
+# Example: for-each: feature → uses collections.feature
 
-steps:
+collections:
   # -----------------------------
-  # Format 1: Simple String Steps
+  # Standard Step Collection
   # -----------------------------
-  # Use when: Step is self-explanatory, no special config needed
+  # Used by: for-each: step
+  # Most common collection type for general tasks
+  step:
+    # Simple string steps (will be converted to { prompt: "..." })
+    - prompt: Implement user registration endpoint with email/password validation
 
-  - Implement user registration endpoint with email/password validation
+    - prompt: Add JWT token generation on successful login
 
-  - Add JWT token generation on successful login
+    # Object steps with custom ID
+    - prompt: |
+        Implement password reset flow:
+        - POST /auth/forgot-password (sends email)
+        - POST /auth/reset-password (validates token, updates password)
+      id: password-reset
+
+    # Per-step workflow override
+    - prompt: Add integration tests for authentication endpoints
+      id: auth-tests
+      workflow: execute-with-qa  # Uses different workflow for this step
+
+    - prompt: Update API documentation with new auth endpoints
 
   # -----------------------------
-  # Format 2: Object Steps
+  # Example: Feature Collection
   # -----------------------------
-  # Use when: Need custom ID, per-step workflow, or multi-line prompts
-
-  - prompt: |
-      Implement password reset flow:
-      - POST /auth/forgot-password (sends email)
-      - POST /auth/reset-password (validates token, updates password)
-    id: password-reset
-
-  # Per-step workflow override
-  - prompt: Add integration tests for authentication endpoints
-    id: auth-tests
-    workflow: execute-with-qa  # Uses different workflow for this step
+  # Used by: for-each: feature
+  # Custom properties (priority) available as {{feature.priority}} or {{item.priority}}
+  # feature:
+  #   - prompt: User authentication system
+  #     priority: high
+  #   - prompt: Dashboard analytics
+  #     priority: medium
 
   # -----------------------------
-  # Step Writing Best Practices
+  # Example: Bug Collection
   # -----------------------------
-  # - Start with action verb (Implement, Add, Create, Fix, Update)
-  # - Be specific about what to build
-  # - Include success criteria for complex steps
-  # - One logical task per step
-
-  - Update API documentation with new auth endpoints
+  # Used by: for-each: bug
+  # Custom properties (severity) available as {{bug.severity}} or {{item.severity}}
+  # bug:
+  #   - prompt: Fix session timeout
+  #     severity: critical
+  #   - prompt: UI alignment issue
+  #     severity: low
 
 # =============================================================================
 # Example Variations
 # =============================================================================
 
 # -----------------------------------------------------------------------------
-# Bug Fix Sprint
+# Bug Fix Sprint with Bug Collection
 # -----------------------------------------------------------------------------
 # name: Fix Login Validation Bugs
 # workflow: bugfix-workflow
-# steps:
-#   - Fix email format validation allowing invalid emails
-#   - Fix password strength check not enforcing special characters
-#   - Add regression tests for validation fixes
+# collections:
+#   bug:
+#     - prompt: Fix email format validation allowing invalid emails
+#       severity: high
+#     - prompt: Fix password strength check not enforcing special characters
+#       severity: medium
+#     - prompt: Add regression tests for validation fixes
+#       severity: low
 
 # -----------------------------------------------------------------------------
-# Refactoring Sprint
+# Multi-Collection Sprint
 # -----------------------------------------------------------------------------
-# name: Auth Module Refactoring
-# workflow: gherkin-verified-execution
-# steps:
-#   - Extract password hashing into dedicated PasswordService
-#   - Move JWT logic into TokenService
-#   - Update AuthController to use new services
-#   - Add unit tests for extracted services
-
-# -----------------------------------------------------------------------------
-# Documentation Sprint
-# -----------------------------------------------------------------------------
-# name: API Documentation Update
-# workflow: flat-foreach
-# steps:
-#   - Document authentication endpoints in OpenAPI spec
-#   - Add usage examples for each endpoint
-#   - Create authentication flow diagram
+# name: Mixed Development Sprint
+# workflow: mixed-workflow
+# collections:
+#   feature:
+#     - prompt: Add user profiles
+#       priority: high
+#   bug:
+#     - prompt: Fix session handling
+#       severity: critical
+#   step:
+#     - prompt: Update documentation
 
 # =============================================================================
 # Validation Checklist
 # =============================================================================
 # Before running, verify:
 # [ ] workflow exists in .claude/workflows/
-# [ ] 3-8 steps (single focused goal)
-# [ ] Each step has clear, actionable prompt
-# [ ] Step prompts are specific, not vague
-# [ ] No compound steps (one task per step)
+# [ ] All collections referenced by workflow exist
+# [ ] 3-8 items per collection (single focused goal)
+# [ ] Each item has clear, actionable prompt
+# [ ] Item prompts are specific, not vague
+# [ ] No compound items (one task per item)
 # [ ] YAML syntax is valid

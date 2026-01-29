@@ -37,7 +37,7 @@ Using the sprint directory (either provided or discovered):
 2. **PROGRESS.yaml exists**: `test -f "$SPRINT_DIR/PROGRESS.yaml"`
 
 If any check fails:
-- No sprint directory found: "No active sprint found. Use /start-sprint to create one."
+- No sprint directory found: "No active sprint found. Use /init-sprint to create one."
 - Directory doesn't exist: "Sprint directory not found: {path}"
 - No PROGRESS.yaml: "PROGRESS.yaml not found. Run /run-sprint first to compile the workflow."
 
@@ -45,7 +45,7 @@ If any check fails:
 1. **Sprint directory** (OPTIONAL): Dashboard mode works without an active sprint. If no sprint directory provided, find any sprint to use as reference for the sprints folder location.
 2. **Sprints parent folder**: Verify `.claude/sprints/` exists to scan for sprints.
 
-If sprints folder doesn't exist: "No sprints folder found at .claude/sprints/. Use /start-sprint to create your first sprint."
+If sprints folder doesn't exist: "No sprints folder found at .claude/sprints/. Use /init-sprint to create your first sprint."
 
 ## Context
 

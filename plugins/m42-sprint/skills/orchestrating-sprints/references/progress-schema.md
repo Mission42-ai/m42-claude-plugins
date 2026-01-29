@@ -28,6 +28,7 @@ skill: orchestrating-sprints
 | `completed` | All phases finished |
 | `blocked` | Cannot proceed, needs resolution |
 | `paused` | Manually paused by user |
+| `paused-at-breakpoint` | Paused at phase with `break: true` for human review |
 | `needs-human` | Requires human intervention |
 
 ### Phase Status
@@ -52,6 +53,9 @@ Three-level structure supporting simple and for-each phases.
 | `status` | enum | Phase status |
 | `prompt` | string | Execution prompt (simple phase only) |
 | `steps` | list | CompiledStep entries (for-each phase only) |
+| `break` | boolean | If true, pause after completion for human review |
+| `gate` | object | Quality gate configuration (see Gate Tracking) |
+| `gate-tracking` | object | Runtime gate check state |
 
 ### CompiledStep
 
@@ -88,6 +92,40 @@ Three-level structure supporting simple and for-each phases.
 | `completed-phases` | number | Completed count |
 | `total-steps` | number | Total steps (for-each only) |
 | `completed-steps` | number | Completed steps |
+
+## Gate Tracking
+
+Quality gates have compiled configuration and runtime tracking state.
+
+### CompiledGate
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `script` | string | - | Shell command to execute |
+| `on-fail-prompt` | string | - | Instructions for fixing failures |
+| `max-retries` | number | 3 | Maximum retry attempts |
+| `timeout` | number | 60 | Timeout in seconds |
+
+### GateTracking
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `attempts` | number | Number of gate check attempts made |
+| `status` | enum | Current gate status |
+| `last-output` | string | Last script output for fix context |
+| `last-exit-code` | number | Exit code from last run |
+| `error` | string | Error message if blocked |
+
+### Gate Status Enum
+
+| Value | Description |
+|-------|-------------|
+| `pending` | Gate not yet run |
+| `running` | Gate script executing |
+| `passed` | Gate check succeeded |
+| `retrying` | Waiting for fix attempt |
+| `failed` | Retry attempt failed, trying again |
+| `blocked` | Max retries exceeded |
 
 ---
 

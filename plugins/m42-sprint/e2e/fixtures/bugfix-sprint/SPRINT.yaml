@@ -5,18 +5,19 @@ name: Bugfix Test Sprint
 # Uses TDD workflow
 workflow: tdd-cycle
 
-steps:
-  - id: fix-user-auth
-    prompt: Fix the authentication bug in UserService
-    context:
-      files:
-        - src/services/UserService.ts
-        - src/auth/middleware.ts
-      issue: "Users are logged out after 5 minutes"
+collections:
+  step:
+    - id: fix-user-auth
+      prompt: Fix the authentication bug in UserService
+      context:
+        files:
+          - src/services/UserService.ts
+          - src/auth/middleware.ts
+        issue: "Users are logged out after 5 minutes"
 
-  - id: fix-validation
-    prompt: Fix form validation not showing errors
-    context:
-      files:
-        - src/components/LoginForm.tsx
-      issue: "Validation errors not displayed to users"
+    - id: fix-validation
+      prompt: Fix form validation not showing errors
+      context:
+        files:
+          - src/components/LoginForm.tsx
+        issue: "Validation errors not displayed to users"

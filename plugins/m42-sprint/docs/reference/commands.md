@@ -6,7 +6,7 @@ Complete reference for all M42-Sprint commands organized by category.
 
 | Command | Description | Category |
 |---------|-------------|----------|
-| `/start-sprint <name> [--ralph \| --workflow <name>] [--worktree]` | Initialize new sprint directory | Lifecycle |
+| `/init-sprint <name> [--ralph \| --workflow <name>] [--worktree]` | Initialize new sprint directory | Lifecycle |
 | `/run-sprint <dir> [--model <model>] [options]` | Compile and execute sprint | Lifecycle |
 | `/cleanup-sprint [dir] [--force]` | Remove worktree and clean up sprint | Lifecycle |
 | `/stop-sprint` | Forcefully stop sprint loop | Control |
@@ -26,13 +26,13 @@ Complete reference for all M42-Sprint commands organized by category.
 
 Commands for creating and running sprints.
 
-### /start-sprint
+### /init-sprint
 
 Initialize a new sprint directory with either **Ralph mode** (autonomous goal-driven) or **workflow-based** configuration. Optionally create a dedicated git worktree for parallel development.
 
 **Usage:**
 ```bash
-/start-sprint <sprint-name> [--ralph | --workflow <name>] [--worktree] [--reuse-branch]
+/init-sprint <sprint-name> [--ralph | --workflow <name>] [--worktree] [--reuse-branch]
 ```
 
 **Arguments:**
@@ -66,19 +66,19 @@ Initialize a new sprint directory with either **Ralph mode** (autonomous goal-dr
 **Examples:**
 ```bash
 # Create Ralph mode sprint (recommended for complex goals)
-/start-sprint feature-auth --ralph
+/init-sprint feature-auth --ralph
 
 # Create workflow-based sprint
-/start-sprint bugfix-batch --workflow bugfix-workflow
+/init-sprint bugfix-batch --workflow bugfix-workflow
 
 # If mode not specified, you'll be asked to choose
-/start-sprint my-sprint
+/init-sprint my-sprint
 
 # Create sprint with dedicated worktree (parallel development)
-/start-sprint feature-auth --ralph --worktree
+/init-sprint feature-auth --ralph --worktree
 
 # Worktree with workflow (inherits workflow's worktree defaults)
-/start-sprint feature-dashboard --workflow feature-development --worktree
+/init-sprint feature-dashboard --workflow feature-development --worktree
 ```
 
 **Output (Ralph Mode):**
@@ -794,7 +794,7 @@ Display comprehensive help about the M42-Sprint plugin.
 
 ```bash
 # 1. Create Ralph mode sprint
-/start-sprint feature-auth --ralph
+/init-sprint feature-auth --ralph
 
 # 2. Edit SPRINT.yaml to set your goal
 # goal: |
@@ -812,7 +812,7 @@ Display comprehensive help about the M42-Sprint plugin.
 
 ```bash
 # 1. Create workflow-based sprint
-/start-sprint bugfix-batch --workflow bugfix-workflow
+/init-sprint bugfix-batch --workflow bugfix-workflow
 
 # 2. Add steps
 /add-step "Implement user registration endpoint"
@@ -847,7 +847,7 @@ Display comprehensive help about the M42-Sprint plugin.
 
 ```bash
 # Create sprint for bug fixes
-/start-sprint bugfix-batch
+/init-sprint bugfix-batch
 
 # Import all issues labeled 'bug'
 /import-steps issues --label bug
@@ -860,12 +860,12 @@ Display comprehensive help about the M42-Sprint plugin.
 
 ```bash
 # Terminal 1: Start first feature in worktree
-/start-sprint feature-auth --ralph --worktree
+/init-sprint feature-auth --ralph --worktree
 cd ../2026-01-20_feature-auth-worktree
 /run-sprint .claude/sprints/2026-01-20_feature-auth
 
 # Terminal 2: Start second feature in separate worktree
-/start-sprint feature-payments --ralph --worktree
+/init-sprint feature-payments --ralph --worktree
 cd ../2026-01-20_feature-payments-worktree
 /run-sprint .claude/sprints/2026-01-20_feature-payments
 

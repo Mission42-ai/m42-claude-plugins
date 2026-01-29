@@ -47,7 +47,6 @@ const DEFAULT_MAX_EVENTS = 200;
 const TEXT_DEBOUNCE_DELAY = 500; // 500ms debounce for text accumulation
 /**
  * Determine verbosity level for a tool
- * NOTE: Similar logic exists in sprint-activity-hook.sh - keep in sync
  */
 function getToolVerbosityLevel(toolName) {
     // Minimal: major milestones only
@@ -65,7 +64,6 @@ function getToolVerbosityLevel(toolName) {
 }
 /**
  * Extract file path from tool input
- * NOTE: Similar logic exists in sprint-activity-hook.sh - keep in sync
  */
 function extractFilePath(toolName, input) {
     switch (toolName) {
@@ -83,7 +81,6 @@ function extractFilePath(toolName, input) {
 }
 /**
  * Extract params summary from tool input
- * NOTE: Similar logic exists in sprint-activity-hook.sh - keep in sync
  */
 function extractParams(toolName, input) {
     switch (toolName) {

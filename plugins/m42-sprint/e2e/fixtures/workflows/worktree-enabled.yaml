@@ -1,0 +1,17 @@
+# Worktree-Enabled Workflow
+# Test fixture for verifying worktree config inheritance
+name: worktree-enabled
+description: Standard workflow with worktree enabled
+
+worktree:
+  enabled: true
+  branch-prefix: sprint/
+  path-prefix: ../worktrees/
+  cleanup: on-complete
+
+phases:
+  - id: implement
+    prompt: "Implement: {{item.prompt}}"
+
+  - id: test
+    prompt: "Test: {{item.prompt}}"

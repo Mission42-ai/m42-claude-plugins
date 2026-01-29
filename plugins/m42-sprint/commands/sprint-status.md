@@ -56,7 +56,7 @@ Total: 2 sprint(s), 2 active
    - Show worktree branch name (or "main" for main worktree)
    - Show `working-dir` from PROGRESS.yaml
    - Show `worktree-id` for verification
-   - Color-code by status: in-progress=yellow, completed=green, blocked=red, paused=cyan
+   - Color-code by status: in-progress=yellow, completed=green, blocked=red, paused=cyan, paused-at-breakpoint=magenta
 
 5. Error handling for multi-worktree mode:
    - Skip worktrees that don't have `.claude/sprints/` directory
@@ -113,6 +113,7 @@ Phases:
    - `[>]` - in-progress (current pointer location)
    - `[ ]` - pending (not yet started)
    - `[!]` - blocked (requires intervention)
+   - `[B]` - paused at breakpoint (awaiting human review)
 
 6. Show current pointer position prominently:
    - Format: `Current: development > step-2 > implement`
@@ -148,10 +149,21 @@ Phases:
    - Steps completed / total
    - Elapsed time if available
 
-9. Handle edge cases:
-   - No sprint found: "No active sprint. Use /start-sprint to create one."
+9. Display gate tracking (if `gate-tracking` exists on current phase):
+   - Show gate status: `pending`, `passed`, `failed`, `blocked`
+   - Show attempt count: "Attempt 2/3"
+   - For failed gates, show last output excerpt if available
+   - Format:
+   ```text
+   Gate Check: failed (attempt 2/3)
+       Last output: "Error: Tests failed - 3 assertions failed"
+   ```
+
+10. Handle edge cases:
+   - No sprint found: "No active sprint. Use /init-sprint to create one."
    - No PROGRESS.yaml: Sprint not yet compiled, show "Run /run-sprint to compile and start"
    - Paused: Show "PAUSED" status prominently
+   - Paused at breakpoint: Show "PAUSED AT BREAKPOINT" with the phase that triggered it
    - Blocked: Show blocking reason
 
 ## Success Criteria

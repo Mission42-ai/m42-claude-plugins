@@ -116,9 +116,11 @@ function createTestSprintDir(baseDir, workflowName = 'minimal-workflow') {
         'sprint-id': 'test-sprint-id',
         name: 'Test Sprint',
         workflow: workflowName,
-        steps: [
-            { id: 'step-1', prompt: 'Test step 1' }
-        ]
+        collections: {
+            step: [
+                { id: 'step-1', prompt: 'Test step 1' }
+            ]
+        }
     });
     fs.writeFileSync(path.join(sprintDir, 'SPRINT.yaml'), sprintContent, 'utf8');
     return sprintDir;
@@ -288,7 +290,7 @@ test('compiler should fail gracefully on invalid workflow reference', async () =
             'sprint-id': 'test',
             name: 'Test',
             workflow: 'nonexistent-workflow',
-            steps: [{ id: 'step-1', prompt: 'Test' }]
+            collections: { step: [{ id: 'step-1', prompt: 'Test' }] }
         });
         fs.writeFileSync(path.join(sprintDir, 'SPRINT.yaml'), sprintContent, 'utf8');
         const compilerPath = path.resolve(__dirname, '..', 'dist', 'index.js');
@@ -304,6 +306,136 @@ test('compiler should fail gracefully on invalid workflow reference', async () =
             threwError = true;
         }
         assert(threwError, 'Should throw error when workflow is not found');
+    }
+    finally {
+        cleanupTestDir(baseDir);
+    }
+});
+// ============================================================================
+// Worktree Config Inheritance Tests
+// ============================================================================
+test('compiler should include worktree config in PROGRESS.yaml when workflow enables it', async () => {
+    const baseDir = createTestDir();
+    try {
+        // Create workflows directory with a worktree-enabled workflow
+        const workflowsDir = path.join(baseDir, '.claude', 'workflows');
+        fs.mkdirSync(workflowsDir, { recursive: true });
+        const workflowContent = yaml.dump({
+            name: 'worktree-workflow',
+            description: 'Workflow with worktree enabled',
+            worktree: {
+                enabled: true,
+                'branch-prefix': 'sprint/',
+                'path-prefix': '../worktrees/',
+                cleanup: 'on-complete'
+            },
+            phases: [
+                { id: 'implement', prompt: 'Implement: {{item.prompt}}' }
+            ]
+        });
+        fs.writeFileSync(path.join(workflowsDir, 'worktree-workflow.yaml'), workflowContent, 'utf8');
+        // Create sprint directory
+        const sprintDir = path.join(baseDir, 'worktree-sprint');
+        fs.mkdirSync(sprintDir, { recursive: true });
+        const sprintContent = yaml.dump({
+            'sprint-id': '2026-01-29_worktree-test',
+            name: 'Worktree Test Sprint',
+            workflow: 'worktree-workflow',
+            collections: {
+                step: [
+                    { id: 'step-1', prompt: 'First step' }
+                ]
+            }
+        });
+        fs.writeFileSync(path.join(sprintDir, 'SPRINT.yaml'), sprintContent, 'utf8');
+        const progressPath = path.join(sprintDir, 'PROGRESS.yaml');
+        // Run compiler
+        const compilerPath = path.resolve(__dirname, '..', 'dist', 'index.js');
+        (0, child_process_1.execSync)(`node "${compilerPath}" "${sprintDir}" -w "${workflowsDir}"`, {
+            cwd: baseDir,
+            encoding: 'utf8',
+            stdio: 'pipe'
+        });
+        // Verify PROGRESS.yaml has worktree config
+        assert(fs.existsSync(progressPath), 'PROGRESS.yaml should be created');
+        const content = fs.readFileSync(progressPath, 'utf8');
+        const progress = yaml.load(content);
+        assert(progress.worktree !== undefined, 'PROGRESS.yaml should have worktree config');
+        assertEqual(progress.worktree.enabled, true, 'worktree.enabled should be true');
+        assertEqual(progress.worktree.branch, 'sprint/2026-01-29_worktree-test', 'worktree.branch should be resolved');
+        assertEqual(progress.worktree.path, '../worktrees/2026-01-29_worktree-test', 'worktree.path should be resolved');
+        assertEqual(progress.worktree.cleanup, 'on-complete', 'worktree.cleanup should match workflow');
+    }
+    finally {
+        cleanupTestDir(baseDir);
+    }
+});
+test('compiler should NOT include worktree config when workflow does not have it', async () => {
+    const baseDir = createTestDir();
+    try {
+        const workflowsDir = createTestWorkflowsDir(baseDir);
+        const sprintDir = createTestSprintDir(baseDir);
+        const progressPath = path.join(sprintDir, 'PROGRESS.yaml');
+        // Run compiler
+        const compilerPath = path.resolve(__dirname, '..', 'dist', 'index.js');
+        (0, child_process_1.execSync)(`node "${compilerPath}" "${sprintDir}" -w "${workflowsDir}"`, {
+            cwd: baseDir,
+            encoding: 'utf8',
+            stdio: 'pipe'
+        });
+        const content = fs.readFileSync(progressPath, 'utf8');
+        const progress = yaml.load(content);
+        assertEqual(progress.worktree, undefined, 'PROGRESS.yaml should NOT have worktree config');
+    }
+    finally {
+        cleanupTestDir(baseDir);
+    }
+});
+test('sprint worktree config should override workflow worktree config', async () => {
+    const baseDir = createTestDir();
+    try {
+        // Create workflows directory with a worktree-enabled workflow
+        const workflowsDir = path.join(baseDir, '.claude', 'workflows');
+        fs.mkdirSync(workflowsDir, { recursive: true });
+        const workflowContent = yaml.dump({
+            name: 'worktree-workflow',
+            worktree: {
+                enabled: true,
+                'branch-prefix': 'sprint/',
+                'path-prefix': '../worktrees/'
+            },
+            phases: [
+                { id: 'implement', prompt: 'Implement: {{item.prompt}}' }
+            ]
+        });
+        fs.writeFileSync(path.join(workflowsDir, 'worktree-workflow.yaml'), workflowContent, 'utf8');
+        // Create sprint directory with worktree DISABLED at sprint level
+        const sprintDir = path.join(baseDir, 'override-sprint');
+        fs.mkdirSync(sprintDir, { recursive: true });
+        const sprintContent = yaml.dump({
+            'sprint-id': '2026-01-29_override-test',
+            workflow: 'worktree-workflow',
+            worktree: {
+                enabled: false // Sprint overrides workflow
+            },
+            collections: {
+                step: [
+                    { id: 'step-1', prompt: 'First step' }
+                ]
+            }
+        });
+        fs.writeFileSync(path.join(sprintDir, 'SPRINT.yaml'), sprintContent, 'utf8');
+        const progressPath = path.join(sprintDir, 'PROGRESS.yaml');
+        // Run compiler
+        const compilerPath = path.resolve(__dirname, '..', 'dist', 'index.js');
+        (0, child_process_1.execSync)(`node "${compilerPath}" "${sprintDir}" -w "${workflowsDir}"`, {
+            cwd: baseDir,
+            encoding: 'utf8',
+            stdio: 'pipe'
+        });
+        const content = fs.readFileSync(progressPath, 'utf8');
+        const progress = yaml.load(content);
+        assertEqual(progress.worktree, undefined, 'Sprint disabling worktree should override workflow');
     }
     finally {
         cleanupTestDir(baseDir);

@@ -119,13 +119,15 @@ function writeWorkflow(ctx, name, workflow) {
     const workflowPath = path.join(ctx.workflowsDir, `${name}.yaml`);
     fs.writeFileSync(workflowPath, yaml.dump(workflow));
 }
-function writeSprint(ctx, workflow, steps) {
+function writeSprint(ctx, workflow, items) {
     const sprintPath = path.join(ctx.sprintDir, 'SPRINT.yaml');
     fs.writeFileSync(sprintPath, yaml.dump({
         'sprint-id': 'test-sprint',
         name: 'Test Sprint',
         workflow,
-        steps: steps ?? [{ id: 'step-1', prompt: 'Test step' }]
+        collections: {
+            step: items ?? [{ id: 'step-1', prompt: 'Test step' }]
+        }
     }));
 }
 // =============================================================================

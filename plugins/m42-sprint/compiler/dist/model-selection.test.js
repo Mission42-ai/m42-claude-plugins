@@ -126,7 +126,7 @@ test('compile: workflow-level model is applied to all phases', async () => {
         writeSprint(env.sprintDir, {
             'sprint-id': 'test-sprint',
             workflow: 'test-workflow',
-            steps: [{ id: 'step-1', prompt: 'Test step' }]
+            collections: { step: [{ id: 'step-1', prompt: 'Test step' }] }
         });
         const result = await (0, compile_js_1.compile)({
             sprintDir: env.sprintDir,
@@ -161,7 +161,7 @@ test('compile: phases without explicit model inherit workflow model', async () =
         writeSprint(env.sprintDir, {
             'sprint-id': 'test-sprint',
             workflow: 'test-workflow',
-            steps: [{ id: 'step-1', prompt: 'Test' }]
+            collections: { step: [{ id: 'step-1', prompt: 'Test' }] }
         });
         const result = await (0, compile_js_1.compile)({
             sprintDir: env.sprintDir,
@@ -199,7 +199,7 @@ test('compile: sprint-level model overrides workflow-level model', async () => {
             'sprint-id': 'test-sprint',
             workflow: 'test-workflow',
             model: 'sonnet',
-            steps: [{ id: 'step-1', prompt: 'Test' }]
+            collections: { step: [{ id: 'step-1', prompt: 'Test' }] }
         });
         const result = await (0, compile_js_1.compile)({
             sprintDir: env.sprintDir,
@@ -231,7 +231,7 @@ test('compile: sprint model applies when workflow has no model', async () => {
             'sprint-id': 'test-sprint',
             workflow: 'test-workflow',
             model: 'opus',
-            steps: [{ id: 'step-1', prompt: 'Test' }]
+            collections: { step: [{ id: 'step-1', prompt: 'Test' }] }
         });
         const result = await (0, compile_js_1.compile)({
             sprintDir: env.sprintDir,
@@ -268,7 +268,7 @@ test('compile: phase-level model overrides sprint-level model', async () => {
             'sprint-id': 'test-sprint',
             workflow: 'test-workflow',
             model: 'sonnet',
-            steps: [{ id: 'step-1', prompt: 'Test' }]
+            collections: { step: [{ id: 'step-1', prompt: 'Test' }] }
         });
         const result = await (0, compile_js_1.compile)({
             sprintDir: env.sprintDir,
@@ -313,10 +313,12 @@ test('compile: step-level model has highest priority', async () => {
         writeSprint(env.sprintDir, {
             'sprint-id': 'test-sprint',
             workflow: 'main-workflow',
-            steps: [
-                { id: 'step-1', prompt: 'Step without model' },
-                { id: 'step-2', prompt: 'Step with model', model: 'opus' }
-            ]
+            collections: {
+                step: [
+                    { id: 'step-1', prompt: 'Step without model' },
+                    { id: 'step-2', prompt: 'Step with model', model: 'opus' }
+                ]
+            }
         });
         const result = await (0, compile_js_1.compile)({
             sprintDir: env.sprintDir,
@@ -362,7 +364,7 @@ test('compile: phases without model have undefined model', async () => {
         writeSprint(env.sprintDir, {
             'sprint-id': 'test-sprint',
             workflow: 'test-workflow',
-            steps: [{ id: 'step-1', prompt: 'Test' }]
+            collections: { step: [{ id: 'step-1', prompt: 'Test' }] }
         });
         const result = await (0, compile_js_1.compile)({
             sprintDir: env.sprintDir,
@@ -408,9 +410,11 @@ test('compile: resolves model with correct priority order', async () => {
             'sprint-id': 'test-sprint',
             workflow: 'main-workflow',
             model: 'sonnet',
-            steps: [
-                { id: 'step-1', prompt: 'Test' }
-            ]
+            collections: {
+                step: [
+                    { id: 'step-1', prompt: 'Test' }
+                ]
+            }
         });
         const result = await (0, compile_js_1.compile)({
             sprintDir: env.sprintDir,
@@ -451,7 +455,7 @@ test('compile: rejects invalid model values in SPRINT.yaml', async () => {
             'sprint-id': 'test-sprint',
             workflow: 'test-workflow',
             model: 'invalid-model', // Invalid!
-            steps: [{ id: 'step-1', prompt: 'Test' }]
+            collections: { step: [{ id: 'step-1', prompt: 'Test' }] }
         });
         const result = await (0, compile_js_1.compile)({
             sprintDir: env.sprintDir,
@@ -482,7 +486,7 @@ test('compile: rejects invalid model values in workflow', async () => {
         writeSprint(env.sprintDir, {
             'sprint-id': 'test-sprint',
             workflow: 'test-workflow',
-            steps: [{ id: 'step-1', prompt: 'Test' }]
+            collections: { step: [{ id: 'step-1', prompt: 'Test' }] }
         });
         const result = await (0, compile_js_1.compile)({
             sprintDir: env.sprintDir,
@@ -509,7 +513,7 @@ test('compile: accepts all valid model values', async () => {
             writeSprint(env.sprintDir, {
                 'sprint-id': 'test-sprint',
                 workflow: 'test-workflow',
-                steps: [{ id: 'step-1', prompt: 'Test' }]
+                collections: { step: [{ id: 'step-1', prompt: 'Test' }] }
             });
             const result = await (0, compile_js_1.compile)({
                 sprintDir: env.sprintDir,
@@ -539,7 +543,7 @@ test('compile: model field is included in PROGRESS.yaml phases', async () => {
         writeSprint(env.sprintDir, {
             'sprint-id': 'test-sprint',
             workflow: 'test-workflow',
-            steps: [{ id: 'step-1', prompt: 'Test' }]
+            collections: { step: [{ id: 'step-1', prompt: 'Test' }] }
         });
         const result = await (0, compile_js_1.compile)({
             sprintDir: env.sprintDir,

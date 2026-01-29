@@ -26,10 +26,27 @@ phases:
             status: pending
             prompt: "Implementation phase prompt..."
 
-  # Simple phase
+  # Simple phase with quality gate
   - id: qa
     status: pending
     prompt: "Quality assurance tasks..."
+    gate:
+      script: "npm test"
+      on-fail-prompt: "Fix failing tests."
+      max-retries: 3
+      timeout: 60
+    # gate-tracking populated at runtime:
+    # gate-tracking:
+    #   attempts: 0
+    #   status: pending
+    #   last-output: null
+    #   last-exit-code: null
+
+  # Breakpoint phase (pauses for human review)
+  - id: review-checkpoint
+    status: pending
+    prompt: "Summarize changes for review."
+    break: true  # Sprint pauses after this phase
 
 # Current execution pointer
 current:
@@ -41,5 +58,5 @@ current:
 stats:
   started-at: null
   completed-at: null
-  total-phases: 3
+  total-phases: 4
   completed-phases: 0

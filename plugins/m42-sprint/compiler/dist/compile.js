@@ -48,6 +48,7 @@ const js_yaml_1 = require("js-yaml");
 const resolve_workflows_js_1 = require("./resolve-workflows.js");
 const expand_foreach_js_1 = require("./expand-foreach.js");
 const validate_js_1 = require("./validate.js");
+const worktree_config_js_1 = require("./worktree-config.js");
 /**
  * Format a YAML parsing error with line numbers and context
  *
@@ -109,7 +110,11 @@ async function compile(config) {
         return { success: false, errors, warnings };
     }
     if (config.verbose) {
-        console.log(`Loaded SPRINT.yaml: ${sprintDef.steps?.length ?? 0} steps`); // intentional
+        const collectionCount = sprintDef.collections ? Object.keys(sprintDef.collections).length : 0;
+        const totalItems = sprintDef.collections
+            ? Object.values(sprintDef.collections).reduce((sum, items) => sum + items.length, 0)
+            : 0;
+        console.log(`Loaded SPRINT.yaml: ${collectionCount} collections, ${totalItems} items`); // intentional
     }
     // Load the main workflow
     const mainWorkflow = (0, resolve_workflows_js_1.loadWorkflow)(sprintDef.workflow, config.workflowsDir, errors);
@@ -150,8 +155,8 @@ async function compile(config) {
         // Compile Ralph mode PROGRESS.yaml
         return compileRalphMode(sprintDef, mainWorkflow.definition, config, errors, warnings);
     }
-    // Validate standard mode sprint requirements (steps array required)
-    const standardModeErrors = (0, validate_js_1.validateStandardModeSprint)(sprintDef);
+    // Validate standard mode sprint requirements (collections required)
+    const standardModeErrors = (0, validate_js_1.validateStandardModeSprint)(sprintDef, mainWorkflow.definition);
     if (standardModeErrors.length > 0) {
         errors.push(...standardModeErrors);
         return { success: false, errors, warnings };
@@ -184,12 +189,17 @@ async function compile(config) {
     // Compile phases (standard mode - phases are required and validated by this point)
     const compiledPhases = [];
     const workflowPhases = mainWorkflow.definition.phases ?? [];
-    // Find the default step workflow (first for-each phase's workflow, or feature-standard)
-    let defaultStepWorkflow = null;
+    // Build a map of default workflows per collection type
+    const defaultWorkflows = new Map();
     for (const phase of workflowPhases) {
-        if (phase['for-each'] === 'step' && phase.workflow) {
-            defaultStepWorkflow = (0, resolve_workflows_js_1.loadWorkflow)(phase.workflow, config.workflowsDir, errors);
-            break;
+        if (phase['for-each'] && phase.workflow) {
+            const collectionName = (0, validate_js_1.resolveCollectionName)(phase['for-each'], phase.collection);
+            if (!defaultWorkflows.has(collectionName)) {
+                const loaded = (0, resolve_workflows_js_1.loadWorkflow)(phase.workflow, config.workflowsDir, errors);
+                if (loaded) {
+                    defaultWorkflows.set(collectionName, loaded);
+                }
+            }
         }
     }
     // Create model context with workflow and sprint models
@@ -198,9 +208,14 @@ async function compile(config) {
         sprintModel: sprintDef.model
     };
     for (const phase of workflowPhases) {
-        if (phase['for-each'] === 'step') {
-            // Expand for-each phase into steps
-            const expandedPhase = (0, expand_foreach_js_1.expandForEach)(phase, sprintDef.steps ?? [], config.workflowsDir, defaultStepWorkflow, context, errors, modelContext);
+        if (phase['for-each']) {
+            // Resolve the collection name and get items
+            const itemType = phase['for-each'];
+            const collectionName = (0, validate_js_1.resolveCollectionName)(itemType, phase.collection);
+            const items = getCollectionItems(sprintDef, collectionName);
+            const defaultWorkflow = defaultWorkflows.get(collectionName) ?? null;
+            // Expand for-each phase into items
+            const expandedPhase = (0, expand_foreach_js_1.expandForEach)(phase, items, itemType, config.workflowsDir, defaultWorkflow, context, errors, modelContext);
             compiledPhases.push(expandedPhase);
         }
         else if (phase.workflow && !phase['for-each']) {
@@ -226,6 +241,8 @@ async function compile(config) {
     const orchestration = compileOrchestration(mainWorkflow.definition);
     // Compile prompts config from sprint
     const prompts = compilePrompts(sprintDef);
+    // Compile worktree config from workflow and sprint
+    const worktree = (0, worktree_config_js_1.mergeWorktreeConfigs)(sprintId, sprintDef, mainWorkflow.definition);
     // Build compiled progress
     const progress = {
         'sprint-id': sprintId,
@@ -239,7 +256,9 @@ async function compile(config) {
         // Add step-queue if orchestration is enabled
         ...(orchestration?.enabled && { 'step-queue': [] }),
         // Add prompts if specified in sprint
-        ...(prompts && { prompts })
+        ...(prompts && { prompts }),
+        // Add worktree config if enabled in workflow or sprint
+        ...(worktree && { worktree })
     };
     // Validate compiled progress
     const progressErrors = (0, validate_js_1.validateCompiledProgress)(progress);
@@ -346,6 +365,16 @@ function expandWorkflowReference(phase, workflowsDir, context, errors, visited, 
         }
     }
     return expandedPhases;
+}
+/**
+ * Get items from a named collection in the sprint definition
+ *
+ * @param sprintDef - The sprint definition
+ * @param collectionName - Name of the collection to get
+ * @returns Array of collection items (empty if collection doesn't exist)
+ */
+function getCollectionItems(sprintDef, collectionName) {
+    return sprintDef.collections?.[collectionName] ?? [];
 }
 /**
  * Generate a sprint ID from the directory name
@@ -479,6 +508,8 @@ function compileRalphMode(sprintDef, workflow, config, errors, warnings) {
     const ralphConfig = {
         'idle-threshold': 3 // Default: reflect after 3 iterations without progress
     };
+    // Compile worktree config from workflow and sprint
+    const worktree = (0, worktree_config_js_1.mergeWorktreeConfigs)(sprintId, sprintDef, workflow);
     // Build Ralph mode PROGRESS.yaml structure
     const progress = {
         'sprint-id': sprintId,
@@ -504,7 +535,9 @@ function compileRalphMode(sprintDef, workflow, config, errors, warnings) {
             'total-phases': 0,
             'completed-phases': 0,
             'current-iteration': 0
-        }
+        },
+        // Add worktree config if enabled in workflow or sprint
+        ...(worktree && { worktree })
     };
     return {
         success: true,

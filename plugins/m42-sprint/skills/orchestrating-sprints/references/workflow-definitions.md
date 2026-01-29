@@ -42,12 +42,63 @@ Iterates over steps, spawning workflow per step.
 |-------|------|----------|-------------|
 | `id` | string | Yes | Unique phase identifier |
 | `prompt` | string | Conditional | Prompt text (for simple phases) |
-| `for-each` | 'step' | Conditional | Iteration mode (for for-each phases) |
+| `for-each` | string | Conditional | Collection name to iterate (e.g., 'step', 'feature', 'bug') |
 | `workflow` | string | Conditional | Workflow reference (for for-each phases) |
+| `break` | boolean | No | Pause execution after phase for human review |
+| `gate` | object | No | Quality gate check configuration |
 
 **Conditional rules:**
 - Simple phase: requires `prompt`
 - For-each phase: requires `for-each` + `workflow`
+
+## Breakpoints (`break: true`)
+
+Phases with `break: true` pause sprint execution after completion, allowing human review:
+
+```yaml
+phases:
+  - id: implement
+    for-each: step
+    workflow: feature-standard
+
+  - id: review-checkpoint
+    prompt: "Summarize changes for human review"
+    break: true  # Sprint pauses here after completion
+```
+
+When a breakpoint is reached:
+- Sprint status becomes `paused-at-breakpoint`
+- Human can review artifacts and progress
+- Use `/resume-sprint` to continue execution
+
+## Quality Gates (`gate:`)
+
+Quality gates run validation scripts after phase completion:
+
+```yaml
+phases:
+  - id: implement
+    prompt: "Implement the feature"
+    gate:
+      script: "npm test && npm run lint"
+      on-fail:
+        prompt: "Tests or linting failed. Fix the issues."
+        max-retries: 3
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `gate.script` | string | - | Shell command returning 0 (pass) or non-0 (fail) |
+| `gate.timeout` | number | 60 | Timeout in seconds |
+| `gate.on-fail.prompt` | string | - | Instructions for fixing failures |
+| `gate.on-fail.max-retries` | number | 3 | Maximum retry attempts |
+
+Gate execution flow:
+1. Phase completes
+2. Gate script runs
+3. If pass (exit 0): continue to next phase
+4. If fail: run fix prompt, then retry gate (up to max-retries)
+5. If max retries exceeded: sprint becomes `blocked`
 
 ## Template Variables
 

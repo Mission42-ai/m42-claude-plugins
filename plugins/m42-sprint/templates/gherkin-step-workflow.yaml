@@ -25,7 +25,7 @@ phases:
       Generate binary-verifiable gherkin scenarios for this step.
 
       ## Your Task
-      {{step.prompt}}
+      {{item.prompt}}
 
       ## Shared Context
       Read: context/_shared-context.md (project patterns, conventions, commands)
@@ -115,13 +115,13 @@ phases:
       ```
 
       ## Output
-      Create: artifacts/{{step.id}}-gherkin.md
+      Create: artifacts/{{item.id}}-gherkin.md
 
       ```markdown
-      # Gherkin Scenarios: {{step.id}}
+      # Gherkin Scenarios: {{item.id}}
 
       ## Step Task
-      {{step.prompt}}
+      {{item.prompt}}
 
       ## Success Criteria
       All scenarios must pass (score = 1) for the step to be complete.
@@ -143,8 +143,8 @@ phases:
 
       ## Commit
       ```bash
-      git add artifacts/{{step.id}}-gherkin.md
-      git commit -m "plan({{step.id}}): define gherkin scenarios"
+      git add artifacts/{{item.id}}-gherkin.md
+      git commit -m "plan({{item.id}}): define gherkin scenarios"
       ```
 
   # ============================================================================
@@ -156,11 +156,11 @@ phases:
       Gather step-specific context for implementation.
 
       ## Your Task
-      {{step.prompt}}
+      {{item.prompt}}
 
       ## Shared Context
       Read: context/_shared-context.md (already has project-wide patterns)
-      Read: artifacts/{{step.id}}-gherkin.md (scenarios to implement)
+      Read: artifacts/{{item.id}}-gherkin.md (scenarios to implement)
 
       ## Instructions
       Research the specific code areas this step will touch:
@@ -186,13 +186,13 @@ phases:
          - File organization patterns
 
       ## Output
-      Create: context/{{step.id}}-context.md
+      Create: context/{{item.id}}-context.md
 
       ```markdown
-      # Step Context: {{step.id}}
+      # Step Context: {{item.id}}
 
       ## Task
-      {{step.prompt}}
+      {{item.prompt}}
 
       ## Related Code Patterns
 
@@ -232,8 +232,8 @@ phases:
 
       ## Commit
       ```bash
-      git add context/{{step.id}}-context.md
-      git commit -m "context({{step.id}}): gather implementation context"
+      git add context/{{item.id}}-context.md
+      git commit -m "context({{item.id}}): gather implementation context"
       ```
 
   # ============================================================================
@@ -245,14 +245,14 @@ phases:
       Implement the step following gherkin scenarios and context.
 
       ## Your Task
-      {{step.prompt}}
+      {{item.prompt}}
 
       ## MUST READ BEFORE IMPLEMENTING
       Read these files in order:
       1. context/_shared-context.md (project patterns, conventions)
       2. context/sprint-plan.md (how this fits in sprint)
-      3. artifacts/{{step.id}}-gherkin.md (scenarios to satisfy)
-      4. context/{{step.id}}-context.md (specific patterns, imports)
+      3. artifacts/{{item.id}}-gherkin.md (scenarios to satisfy)
+      4. context/{{item.id}}-context.md (specific patterns, imports)
 
       ## Implementation Rules
 
@@ -277,7 +277,7 @@ phases:
       ```bash
       # After each logical piece
       git add [files]
-      git commit -m "[type]({{step.id}}): [description]"
+      git commit -m "[type]({{item.id}}): [description]"
       ```
 
       Types: feat, fix, refactor, test, docs
@@ -305,7 +305,7 @@ phases:
       Verify implementation against gherkin scenarios.
 
       ## Context
-      Read: artifacts/{{step.id}}-gherkin.md (scenarios with verification commands)
+      Read: artifacts/{{item.id}}-gherkin.md (scenarios with verification commands)
 
       ## Step 1: Run Each Verification
 
@@ -322,10 +322,10 @@ phases:
 
       ## Step 3: Generate QA Report
 
-      Create: artifacts/{{step.id}}-qa-report.md
+      Create: artifacts/{{item.id}}-qa-report.md
 
       ```markdown
-      # QA Report: {{step.id}}
+      # QA Report: {{item.id}}
 
       ## Summary
       - Total Scenarios: [N]
@@ -369,8 +369,8 @@ phases:
       1. Ensure report shows "Status: PASS"
       2. Commit the report:
          ```bash
-         git add artifacts/{{step.id}}-qa-report.md
-         git commit -m "qa({{step.id}}): all scenarios passed"
+         git add artifacts/{{item.id}}-qa-report.md
+         git commit -m "qa({{item.id}}): all scenarios passed"
          ```
       3. Mark phase as completed
 
@@ -393,12 +393,12 @@ phases:
              {
                "id": "fix",
                "status": "pending",
-               "prompt": "Fix failing scenarios for {{step.id}}.\n\n## Context\nRead: artifacts/{{step.id}}-qa-report.md\n\n## Instructions\n1. Review each FAIL scenario\n2. Fix the implementation to make it pass\n3. Re-run the verification command to confirm\n4. Make atomic commits for each fix\n\n## After Fixing\nDo NOT mark as complete until ALL verifications pass."
+               "prompt": "Fix failing scenarios for {{item.id}}.\n\n## Context\nRead: artifacts/{{item.id}}-qa-report.md\n\n## Instructions\n1. Review each FAIL scenario\n2. Fix the implementation to make it pass\n3. Re-run the verification command to confirm\n4. Make atomic commits for each fix\n\n## After Fixing\nDo NOT mark as complete until ALL verifications pass."
              },
              {
                "id": "reverify",
                "status": "pending",
-               "prompt": "Re-verify all scenarios after fixes.\n\n## Instructions\nRe-run ALL verification commands from artifacts/{{step.id}}-gherkin.md\n\n## If ALL pass:\n- Update artifacts/{{step.id}}-qa-report.md with PASS status\n- Commit the updated report\n\n## If ANY still fail:\n- Update the QA report with new results\n- Inject another fix phase using yq\n- Loop continues until all pass"
+               "prompt": "Re-verify all scenarios after fixes.\n\n## Instructions\nRe-run ALL verification commands from artifacts/{{item.id}}-gherkin.md\n\n## If ALL pass:\n- Update artifacts/{{item.id}}-qa-report.md with PASS status\n- Commit the updated report\n\n## If ANY still fail:\n- Update the QA report with new results\n- Inject another fix phase using yq\n- Loop continues until all pass"
              }
            ]
          ' "$PROGRESS_FILE"
@@ -408,7 +408,7 @@ phases:
          ```bash
          yq -i '
            (.. | select(.id == "qa" and .status == "in-progress")) |=
-           (.status = "failed" | .error = "{{step.id}} QA failed - see report - fix phase injected")
+           (.status = "failed" | .error = "{{item.id}} QA failed - see report - fix phase injected")
          ' "$PROGRESS_FILE"
          ```
 
@@ -428,11 +428,11 @@ phases:
       Final integration verification for the step.
 
       ## Your Task
-      {{step.prompt}}
+      {{item.prompt}}
 
       ## Context
       Read: context/_shared-context.md (build commands)
-      Read: artifacts/{{step.id}}-qa-report.md (should show PASS)
+      Read: artifacts/{{item.id}}-qa-report.md (should show PASS)
 
       ## Step 1: Build Verification
       Run the project build to ensure this step integrates:
@@ -459,7 +459,7 @@ phases:
       git add -A
       git status  # Check for any uncommitted changes
       # Only commit if there are changes
-      git diff --cached --quiet || git commit -m "verify({{step.id}}): integration verified"
+      git diff --cached --quiet || git commit -m "verify({{item.id}}): integration verified"
       ```
 
       ## Outcome

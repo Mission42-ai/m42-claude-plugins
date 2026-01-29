@@ -15,7 +15,7 @@ Sprint files are YAML documents stored in sprint directories.
 # .claude/sprints/<sprint-dir>/SPRINT.yaml
 name: <string>           # Optional
 workflow: <string>       # Required
-steps: <list>            # Required
+collections: <object>    # Required - named collections of items
 sprint-id: <string>      # Optional (auto-generated)
 created: <string>        # Optional (ISO date)
 owner: <string>          # Optional
@@ -28,38 +28,57 @@ config: <object>         # Optional
 |-------|------|----------|-------------|
 | `name` | string | No | Human-readable sprint name |
 | `workflow` | string | Yes | Workflow reference (without .yaml extension) |
-| `steps` | list[Step] | Yes | Ordered list of step definitions |
+| `collections` | object | Yes | Named collections of items (e.g., step, feature, bug) |
 | `sprint-id` | string | No | Unique identifier (auto-generated if absent) |
 | `created` | string | No | ISO 8601 date when sprint was created |
 | `owner` | string | No | Sprint owner identifier |
 | `config` | Config | No | Sprint configuration options |
 
-## Step Schema
+## Collection Schema
 
-### String Step (Simple)
-
-```yaml
-steps:
-  - "Implement feature X"
-  - "Add tests for feature X"
-```
-
-### Object Step (With Metadata)
+Collections are named groups of items. Each collection name is referenced by `for-each` phases in workflows.
 
 ```yaml
-steps:
-  - prompt: "Implement feature X"
-    id: feature-x
-    workflow: feature-standard  # Optional per-step workflow override
+collections:
+  step:                    # Collection name (referenced by for-each: step)
+    - prompt: "..."        # Item with prompt
+    - prompt: "..."
+      id: custom-id        # Optional custom ID
+      workflow: other-wf   # Optional per-item workflow override
+  feature:                 # Another collection (referenced by for-each: feature)
+    - prompt: "..."
+      priority: high       # Custom properties available as {{item.priority}}
 ```
 
-## Step Fields Reference
+## Item Schema
+
+### Simple Item
+
+```yaml
+collections:
+  step:
+    - prompt: "Implement feature X"
+    - prompt: "Add tests for feature X"
+```
+
+### Item with Metadata
+
+```yaml
+collections:
+  step:
+    - prompt: "Implement feature X"
+      id: feature-x
+      workflow: feature-standard  # Optional per-item workflow override
+```
+
+## Item Fields Reference
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `prompt` | string | Yes | Step description/instructions |
-| `id` | string | No | Unique step identifier (auto-generated: step-0, step-1) |
-| `workflow` | string | No | Per-step workflow override |
+| `prompt` | string | Yes | Item description/instructions |
+| `id` | string | No | Unique item identifier (auto-generated: step-0, step-1) |
+| `workflow` | string | No | Per-item workflow override |
+| `<custom>` | any | No | Custom properties accessible as `{{item.<custom>}}` |
 
 ## Config Schema
 
@@ -83,7 +102,7 @@ config:
 ```typescript
 interface SprintDefinition {
   workflow: string;
-  steps: SprintStep[];
+  collections: Record<string, CollectionItem[]>;
   'sprint-id'?: string;
   name?: string;
   created?: string;
@@ -95,14 +114,12 @@ interface SprintDefinition {
   };
 }
 
-interface SprintStep {
+interface CollectionItem {
   prompt: string;
   workflow?: string;
   id?: string;
+  [key: string]: unknown;  // Custom properties
 }
-
-// String steps are normalized to SprintStep during parsing
-type RawStep = string | SprintStep;
 ```
 
 ## Validation Rules
@@ -110,22 +127,26 @@ type RawStep = string | SprintStep;
 ### Sprint Level
 
 1. `workflow` must be non-empty string
-2. `steps` must be non-empty array
+2. `collections` must have at least one collection with items
 3. File must be valid YAML
 4. `sprint-id` if present must be unique
 
-### Step Level
+### Collection Level
 
-1. String steps become `{ prompt: "<string>" }`
-2. Object steps must have `prompt` field
-3. Step `id` if present should be kebab-case
-4. Per-step `workflow` overrides sprint workflow
+1. Collection names match `for-each` references in workflows
+2. Each collection must have at least one item
+
+### Item Level
+
+1. Items must have `prompt` field
+2. Item `id` if present should be kebab-case
+3. Per-item `workflow` overrides sprint workflow
 
 ### Reference Resolution
 
 1. Workflow resolves from `.claude/workflows/<name>.yaml`
 2. References should not include `.yaml` extension
-3. Per-step workflow takes precedence over sprint workflow
+3. Per-item workflow takes precedence over sprint workflow
 
 ## Valid Examples
 
@@ -133,8 +154,9 @@ type RawStep = string | SprintStep;
 
 ```yaml
 workflow: sprint-default
-steps:
-  - Implement the feature
+collections:
+  step:
+    - prompt: Implement the feature
 ```
 
 ### Standard Sprint
@@ -143,26 +165,28 @@ steps:
 name: User Authentication
 workflow: sprint-default
 
-steps:
-  - Create User model
-  - Implement login endpoint
-  - Add authentication middleware
-  - Create logout endpoint
+collections:
+  step:
+    - prompt: Create User model
+    - prompt: Implement login endpoint
+    - prompt: Add authentication middleware
+    - prompt: Create logout endpoint
 ```
 
-### Sprint with Object Steps
+### Sprint with Custom IDs
 
 ```yaml
 name: API Development
 workflow: gherkin-verified-execution
 
-steps:
-  - prompt: Design API schema
-    id: schema-design
-  - prompt: Implement endpoints
-    id: implementation
-  - prompt: Add integration tests
-    id: testing
+collections:
+  step:
+    - prompt: Design API schema
+      id: schema-design
+    - prompt: Implement endpoints
+      id: implementation
+    - prompt: Add integration tests
+      id: testing
 ```
 
 ### Sprint with Config
@@ -176,25 +200,46 @@ config:
   time-box: "4h"
   auto-commit: true
 
-steps:
-  - Phase 1 implementation
-  - Phase 2 implementation
-  - Integration and testing
+collections:
+  step:
+    - prompt: Phase 1 implementation
+    - prompt: Phase 2 implementation
+    - prompt: Integration and testing
 ```
 
-### Sprint with Per-Step Workflows
+### Sprint with Per-Item Workflows
 
 ```yaml
 name: Mixed Workflow Sprint
 workflow: sprint-default
 
-steps:
-  - prompt: Research best practices
-    workflow: execute-step  # Simple execution
-  - prompt: Implement feature
-    workflow: gherkin-verified-execution  # Full verification
-  - prompt: Quick bug fix
-    workflow: bugfix-workflow  # Fast fix flow
+collections:
+  step:
+    - prompt: Research best practices
+      workflow: execute-step  # Simple execution
+    - prompt: Implement feature
+      workflow: gherkin-verified-execution  # Full verification
+    - prompt: Quick bug fix
+      workflow: bugfix-workflow  # Fast fix flow
+```
+
+### Sprint with Multiple Collections
+
+```yaml
+name: Mixed Development Sprint
+workflow: mixed-workflow
+
+collections:
+  feature:
+    - prompt: User authentication
+      priority: high
+    - prompt: Dashboard UI
+      priority: medium
+  bug:
+    - prompt: Fix session timeout
+      severity: critical
+    - prompt: Fix UI alignment
+      severity: low
 ```
 
 ## Invalid Examples
@@ -203,29 +248,39 @@ steps:
 
 ```yaml
 # INVALID: Missing workflow
-steps:
-  - Do something
+collections:
+  step:
+    - prompt: Do something
 ```
 
 ```yaml
-# INVALID: Empty steps
+# INVALID: Empty collections
 workflow: sprint-default
-steps: []
+collections: {}
 ```
 
-### Invalid Step Configuration
+```yaml
+# INVALID: Empty collection
+workflow: sprint-default
+collections:
+  step: []
+```
+
+### Invalid Item Configuration
 
 ```yaml
-# INVALID: Object step missing prompt
-steps:
-  - id: my-step
+# INVALID: Item missing prompt
+collections:
+  step:
+    - id: my-step
 ```
 
 ```yaml
 # INVALID: Invalid workflow reference
 workflow: non-existent-workflow
-steps:
-  - Something
+collections:
+  step:
+    - prompt: Something
 ```
 
 ## Directory Convention
@@ -250,13 +305,14 @@ steps:
 ## Schema Evolution
 
 Current schema version supports:
-- String and object step formats
+- Named collections with flexible item types
+- Custom properties on items
 - Workflow reference resolution
-- Per-step workflow overrides
+- Per-item workflow overrides
 - Sprint configuration options
 
 Future versions may add:
-- Step dependencies
-- Conditional steps
-- Parallel step groups
-- Step templates
+- Item dependencies
+- Conditional items
+- Parallel item groups
+- Item templates

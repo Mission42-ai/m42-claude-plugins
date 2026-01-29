@@ -300,7 +300,7 @@ Error: Sprint directory path is required.
 ```
 or
 ```
-No active sprint. Use /start-sprint to create one.
+No active sprint. Use /init-sprint to create one.
 ```
 
 **Cause:** No sprint directory exists, or path is incorrect.
@@ -312,7 +312,7 @@ No active sprint. Use /start-sprint to create one.
    ```
 2. Create a new sprint:
    ```bash
-   /start-sprint my-feature
+   /init-sprint my-feature
    ```
 3. Provide full path to commands:
    ```bash

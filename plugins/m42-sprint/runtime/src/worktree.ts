@@ -2,7 +2,7 @@
  * Worktree Creation Module for Sprint Initialization
  *
  * Creates git branches and worktrees when starting sprints with worktree configuration.
- * Used by /start-sprint command to isolate sprint work in dedicated worktrees.
+ * Used by /init-sprint command to isolate sprint work in dedicated worktrees.
  */
 
 import * as fs from 'fs';

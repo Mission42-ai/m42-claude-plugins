@@ -11,9 +11,10 @@ Guide for authoring SPRINT.yaml definitions for autonomous execution.
 
 | Concept | Description |
 |---------|-------------|
-| Sprint | YAML file defining steps and workflow reference |
-| Step | Individual task with prompt description |
-| Workflow | Execution phases applied to sprint steps |
+| Sprint | YAML file defining collections and workflow reference |
+| Collection | Named group of items (e.g., step, feature, bug) |
+| Item | Individual task with prompt description |
+| Workflow | Execution phases applied to collection items |
 | PROGRESS.yaml | Compiled sprint with expanded phases |
 
 ## Sprint Location
@@ -43,10 +44,11 @@ mkdir -p .claude/sprints/$(date +%Y-%m-%d)_my-sprint
 name: My Sprint
 workflow: sprint-default
 
-steps:
-  - Implement user authentication
-  - Add login form validation
-  - Create session management
+collections:
+  step:
+    - prompt: Implement user authentication
+    - prompt: Add login form validation
+    - prompt: Create session management
 ```
 
 ### 3. Compile and Run
@@ -108,33 +110,37 @@ See `references/workflow-selection.md` for workflow decision tree.
 |-------|------|----------|-------------|
 | `name` | string | No | Human-readable sprint name |
 | `workflow` | string | Yes | Workflow reference |
-| `steps` | list | Yes | Step prompts or objects |
+| `collections` | object | Yes | Named collections of items (e.g., step, feature, bug) |
 | `sprint-id` | string | No | Unique identifier (auto-generated) |
 | `config` | object | No | Sprint configuration |
 
 See `references/sprint-schema.md` for complete schema.
 
-## Step Formats
+## Item Formats
 
-### Simple String Steps
+Items in a collection can be defined as simple prompts or objects with metadata.
+
+### Simple Prompt Items
 
 ```yaml
-steps:
-  - Implement user login endpoint
-  - Add JWT token validation
-  - Create logout functionality
+collections:
+  step:
+    - prompt: Implement user login endpoint
+    - prompt: Add JWT token validation
+    - prompt: Create logout functionality
 ```
 
-### Object Steps (with metadata)
+### Items with Metadata
 
 ```yaml
-steps:
-  - prompt: Implement user login endpoint
-    id: login-endpoint
-  - prompt: Add JWT token validation
-    id: jwt-validation
-  - prompt: Create logout functionality
-    id: logout
+collections:
+  step:
+    - prompt: Implement user login endpoint
+      id: login-endpoint
+    - prompt: Add JWT token validation
+      id: jwt-validation
+    - prompt: Create logout functionality
+      id: logout
 ```
 
 ## Example Sprints
@@ -145,12 +151,13 @@ steps:
 name: User Authentication Feature
 workflow: sprint-default
 
-steps:
-  - Create User model with password hashing
-  - Implement /auth/register endpoint
-  - Implement /auth/login endpoint with JWT
-  - Add authentication middleware
-  - Create /auth/me endpoint for user profile
+collections:
+  step:
+    - prompt: Create User model with password hashing
+    - prompt: Implement /auth/register endpoint
+    - prompt: Implement /auth/login endpoint with JWT
+    - prompt: Add authentication middleware
+    - prompt: Create /auth/me endpoint for user profile
 ```
 
 ### Bug Fix Sprint
@@ -159,10 +166,11 @@ steps:
 name: Fix Login Validation
 workflow: execute-with-qa
 
-steps:
-  - Investigate login validation bug
-  - Fix email format validation
-  - Add comprehensive test cases
+collections:
+  step:
+    - prompt: Investigate login validation bug
+    - prompt: Fix email format validation
+    - prompt: Add comprehensive test cases
 ```
 
 ### Refactoring Sprint
@@ -171,11 +179,12 @@ steps:
 name: API Response Standardization
 workflow: gherkin-verified-execution
 
-steps:
-  - Define standard response envelope
-  - Refactor user endpoints to use envelope
-  - Refactor product endpoints to use envelope
-  - Update API documentation
+collections:
+  step:
+    - prompt: Define standard response envelope
+    - prompt: Refactor user endpoints to use envelope
+    - prompt: Refactor product endpoints to use envelope
+    - prompt: Update API documentation
 ```
 
 ## References
@@ -203,7 +212,7 @@ Before running a sprint:
 | Issue | Cause | Resolution |
 |-------|-------|------------|
 | Workflow not found | Invalid workflow reference | Check `.claude/workflows/` for available workflows |
-| Steps not executing | Missing steps array | Add `steps:` field with step list |
+| Items not executing | Missing collections | Add `collections:` with named collection |
 | Sprint too long | Too many steps | Break into multiple focused sprints |
 | Unclear progress | Steps too vague | Rewrite steps with clear deliverables |
 

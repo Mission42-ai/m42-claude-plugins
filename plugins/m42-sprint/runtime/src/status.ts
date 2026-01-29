@@ -34,7 +34,7 @@ export interface GitWorktree {
  */
 export interface SprintProgress {
   'sprint-id': string;
-  status: 'pending' | 'in-progress' | 'completed' | 'blocked' | 'paused';
+  status: 'pending' | 'in-progress' | 'completed' | 'blocked' | 'paused' | 'paused-at-breakpoint';
   'worktree-id'?: string;
   'worktree-path'?: string;
   'working-dir'?: string;
@@ -377,6 +377,8 @@ export function getStatusColor(status: SprintProgress['status']): string {
       return '\x1b[31m'; // Red
     case 'paused':
       return '\x1b[36m'; // Cyan
+    case 'paused-at-breakpoint':
+      return '\x1b[35m'; // Magenta (distinct from regular pause)
     case 'pending':
     default:
       return '\x1b[37m'; // White
@@ -523,7 +525,7 @@ export function formatCurrentWorktreeStatus(
 
   if (currentSprints.length === 0) {
     lines.push('No active sprint in current worktree.');
-    lines.push('Use /start-sprint to create one.');
+    lines.push('Use /init-sprint to create one.');
     return lines.join('\n');
   }
 

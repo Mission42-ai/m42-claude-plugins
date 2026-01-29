@@ -14,7 +14,7 @@ phases:
   - id: plan
     prompt: |
       ## Task
-      {{step.prompt}}
+      {{item.prompt}}
 
       ## Instructions
       1. Analyze the requirements and existing codebase
@@ -23,7 +23,7 @@ phases:
       4. Document the implementation approach
 
       ## Output
-      Write the implementation plan to: context/{{step.id}}-plan.md
+      Write the implementation plan to: context/{{item.id}}-plan.md
 
       Include:
       - Files to modify/create
@@ -33,10 +33,10 @@ phases:
   - id: implement
     prompt: |
       ## Task
-      {{step.prompt}}
+      {{item.prompt}}
 
       ## Instructions
-      1. Read the plan from context/{{step.id}}-plan.md
+      1. Read the plan from context/{{item.id}}-plan.md
       2. Implement changes following the plan
       3. Follow existing code conventions
       4. Make atomic commits for logical units
@@ -50,7 +50,7 @@ phases:
   - id: test
     prompt: |
       ## Context
-      {{step.prompt}}
+      {{item.prompt}}
 
       ## Instructions
       1. Identify testable functionality
@@ -65,7 +65,7 @@ phases:
   - id: document
     prompt: |
       ## Context
-      {{step.prompt}}
+      {{item.prompt}}
 
       ## Instructions
       1. Update API documentation if interfaces changed

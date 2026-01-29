@@ -8,13 +8,20 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.validateModel = validateModel;
 exports.validateSprintDefinition = validateSprintDefinition;
 exports.validateStandardModeSprint = validateStandardModeSprint;
-exports.validateSprintStep = validateSprintStep;
+exports.validateCollections = validateCollections;
+exports.validateCollectionItem = validateCollectionItem;
+exports.validateCollectionReferences = validateCollectionReferences;
+exports.resolveCollectionName = resolveCollectionName;
 exports.validateWorkflowDefinition = validateWorkflowDefinition;
 exports.validatePerIterationHook = validatePerIterationHook;
 exports.validateRalphModeSprint = validateRalphModeSprint;
 exports.validateWorkflowPhase = validateWorkflowPhase;
+exports.validateGateCheck = validateGateCheck;
 exports.checkUnresolvedVariables = checkUnresolvedVariables;
 exports.validateCompiledProgress = validateCompiledProgress;
+exports.isValidGitBranchName = isValidGitBranchName;
+exports.validateWorktreeConfig = validateWorktreeConfig;
+exports.validateWorkflowWorktreeDefaults = validateWorkflowWorktreeDefaults;
 const expand_foreach_js_1 = require("./expand-foreach.js");
 /** Valid model values */
 const VALID_MODELS = ['sonnet', 'opus', 'haiku'];
@@ -42,8 +49,8 @@ function validateModel(model, path) {
  * Validate a sprint definition (SPRINT.yaml) - basic validation
  *
  * This performs minimal validation before workflow is loaded.
- * The `steps` array requirement is deferred to validateStandardModeSprint()
- * because Ralph mode sprints don't use steps.
+ * The `collections` validation is deferred to validateStandardModeSprint()
+ * because Ralph mode sprints don't use collections.
  *
  * @param sprint - The sprint definition to validate
  * @returns Array of validation errors
@@ -66,18 +73,21 @@ function validateSprintDefinition(sprint) {
             path: 'workflow'
         });
     }
-    // Note: steps validation is deferred to validateStandardModeSprint()
-    // because Ralph mode sprints don't require steps
+    // Note: collections validation is deferred to validateStandardModeSprint()
+    // because Ralph mode sprints don't require collections
     // Validate model field if present
     if (s.model !== undefined) {
         errors.push(...validateModel(s.model, 'model'));
     }
-    // Validate steps if present (even for Ralph mode, steps would be invalid)
-    if (s.steps !== undefined && Array.isArray(s.steps)) {
-        s.steps.forEach((step, index) => {
-            const stepErrors = validateSprintStep(step, index);
-            errors.push(...stepErrors);
-        });
+    // Validate collections if present
+    if (s.collections !== undefined) {
+        const collectionsErrors = validateCollections(s.collections);
+        errors.push(...collectionsErrors);
+    }
+    // Validate worktree configuration if present
+    if (s.worktree !== undefined) {
+        const worktreeErrors = validateWorktreeConfig(s.worktree, 'worktree');
+        errors.push(...worktreeErrors);
     }
     return errors;
 }
@@ -87,72 +97,161 @@ function validateSprintDefinition(sprint) {
  * Called after workflow is loaded to validate sprint-specific standard mode requirements.
  *
  * @param sprint - The sprint definition
+ * @param workflow - The workflow definition (to check collection references)
  * @returns Array of validation errors
  */
-function validateStandardModeSprint(sprint) {
+function validateStandardModeSprint(sprint, workflow) {
     const errors = [];
-    // Standard mode requires steps array
-    if (!sprint.steps || !Array.isArray(sprint.steps)) {
+    // Standard mode requires collections
+    if (!sprint.collections || typeof sprint.collections !== 'object') {
         errors.push({
-            code: 'MISSING_STEPS',
-            message: 'SPRINT.yaml must have a steps array',
-            path: 'steps'
+            code: 'MISSING_COLLECTIONS',
+            message: 'SPRINT.yaml must have a collections object',
+            path: 'collections'
         });
+        return errors;
     }
-    else if (sprint.steps.length === 0) {
+    // Check that at least one collection has items
+    const collectionNames = Object.keys(sprint.collections);
+    if (collectionNames.length === 0) {
         errors.push({
-            code: 'EMPTY_STEPS',
-            message: 'SPRINT.yaml steps array cannot be empty',
-            path: 'steps'
+            code: 'EMPTY_COLLECTIONS',
+            message: 'SPRINT.yaml collections must have at least one collection',
+            path: 'collections'
+        });
+        return errors;
+    }
+    // Check that referenced collections exist
+    const collectionRefErrors = validateCollectionReferences(workflow, sprint);
+    errors.push(...collectionRefErrors);
+    return errors;
+}
+/**
+ * Validate the collections object
+ *
+ * @param collections - The collections object to validate
+ * @returns Array of validation errors
+ */
+function validateCollections(collections) {
+    const errors = [];
+    if (!collections || typeof collections !== 'object') {
+        errors.push({
+            code: 'INVALID_COLLECTIONS',
+            message: 'collections must be an object',
+            path: 'collections'
+        });
+        return errors;
+    }
+    const collectionsMap = collections;
+    for (const [collectionName, items] of Object.entries(collectionsMap)) {
+        if (!Array.isArray(items)) {
+            errors.push({
+                code: 'INVALID_COLLECTION',
+                message: `Collection '${collectionName}' must be an array`,
+                path: `collections.${collectionName}`
+            });
+            continue;
+        }
+        // Validate each item in the collection
+        items.forEach((item, index) => {
+            const itemErrors = validateCollectionItem(item, index, collectionName);
+            errors.push(...itemErrors);
         });
     }
     return errors;
 }
 /**
- * Validate a single sprint step
+ * Validate a single collection item
  *
- * @param step - The step to validate
- * @param index - Index of the step in the array
+ * @param item - The item to validate
+ * @param index - Index of the item in the collection
+ * @param collectionName - Name of the containing collection
  * @returns Array of validation errors
  */
-function validateSprintStep(step, index) {
+function validateCollectionItem(item, index, collectionName) {
     const errors = [];
-    if (!step || typeof step !== 'object') {
+    const path = `collections.${collectionName}[${index}]`;
+    if (!item || typeof item !== 'object') {
         errors.push({
-            code: 'INVALID_STEP',
-            message: `Step ${index} must be an object`,
-            path: `steps[${index}]`
+            code: 'INVALID_COLLECTION_ITEM',
+            message: `Item ${index} in collection '${collectionName}' must be an object`,
+            path
         });
         return errors;
     }
-    const s = step;
-    if (!s.prompt || typeof s.prompt !== 'string') {
+    const i = item;
+    if (!i.prompt || typeof i.prompt !== 'string') {
         errors.push({
-            code: 'MISSING_STEP_PROMPT',
-            message: `Step ${index} must have a prompt`,
-            path: `steps[${index}].prompt`
+            code: 'MISSING_ITEM_PROMPT',
+            message: `Item ${index} in collection '${collectionName}' must have a prompt`,
+            path: `${path}.prompt`
         });
     }
-    else if (s.prompt.trim().length === 0) {
+    else if (i.prompt.trim().length === 0) {
         errors.push({
-            code: 'EMPTY_STEP_PROMPT',
-            message: `Step ${index} has an empty prompt`,
-            path: `steps[${index}].prompt`
+            code: 'EMPTY_ITEM_PROMPT',
+            message: `Item ${index} in collection '${collectionName}' has an empty prompt`,
+            path: `${path}.prompt`
         });
     }
     // Validate optional workflow override
-    if (s.workflow !== undefined && typeof s.workflow !== 'string') {
+    if (i.workflow !== undefined && typeof i.workflow !== 'string') {
         errors.push({
-            code: 'INVALID_STEP_WORKFLOW',
-            message: `Step ${index} workflow must be a string`,
-            path: `steps[${index}].workflow`
+            code: 'INVALID_ITEM_WORKFLOW',
+            message: `Item ${index} in collection '${collectionName}' workflow must be a string`,
+            path: `${path}.workflow`
         });
     }
     // Validate optional model override
-    if (s.model !== undefined) {
-        errors.push(...validateModel(s.model, `steps[${index}].model`));
+    if (i.model !== undefined) {
+        errors.push(...validateModel(i.model, `${path}.model`));
     }
     return errors;
+}
+/**
+ * Validate that workflow for-each references exist in sprint collections
+ *
+ * @param workflow - The workflow definition
+ * @param sprint - The sprint definition
+ * @returns Array of validation errors
+ */
+function validateCollectionReferences(workflow, sprint) {
+    const errors = [];
+    if (!workflow.phases || !sprint.collections) {
+        return errors;
+    }
+    const availableCollections = new Set(Object.keys(sprint.collections));
+    for (const phase of workflow.phases) {
+        if (phase['for-each']) {
+            const collectionName = resolveCollectionName(phase['for-each'], phase.collection);
+            if (!availableCollections.has(collectionName)) {
+                errors.push({
+                    code: 'COLLECTION_NOT_FOUND',
+                    message: `Phase '${phase.id}' references collection '${collectionName}' which does not exist in sprint collections`,
+                    path: `collections.${collectionName}`,
+                    details: {
+                        phaseId: phase.id,
+                        forEachType: phase['for-each'],
+                        explicitCollection: phase.collection,
+                        resolvedCollection: collectionName,
+                        availableCollections: Array.from(availableCollections)
+                    }
+                });
+            }
+        }
+    }
+    return errors;
+}
+/**
+ * Resolve the collection name from for-each type and optional explicit collection
+ *
+ * @param forEachType - The for-each type (e.g., 'step', 'feature')
+ * @param explicitCollection - Optional explicit collection reference
+ * @returns The resolved collection name
+ */
+function resolveCollectionName(forEachType, explicitCollection) {
+    // Explicit collection overrides for-each type
+    return explicitCollection ?? forEachType;
 }
 /**
  * Validate a workflow definition
@@ -188,6 +287,11 @@ function validateWorkflowDefinition(workflow, name) {
             message: `Workflow ${name} has invalid mode: must be 'standard' or 'ralph'`,
             path: `${name}.mode`
         });
+    }
+    // Validate worktree defaults if present (applies to both modes)
+    if (w.worktree !== undefined) {
+        const worktreeErrors = validateWorkflowWorktreeDefaults(w.worktree, name);
+        errors.push(...worktreeErrors);
     }
     // Validate model field if present
     if (w.model !== undefined) {
@@ -376,7 +480,7 @@ function validateWorkflowPhase(phase, index, workflowName, existingIds) {
     }
     // A phase must have either prompt, for-each, or workflow (but prompt and workflow are mutually exclusive)
     const hasPrompt = p.prompt && typeof p.prompt === 'string';
-    const hasForEach = p['for-each'] === 'step';
+    const hasForEach = p['for-each'] && typeof p['for-each'] === 'string';
     const hasWorkflow = p.workflow && typeof p.workflow === 'string';
     // Check mutual exclusivity: prompt and workflow cannot both be specified
     if (hasPrompt && hasWorkflow) {
@@ -390,17 +494,43 @@ function validateWorkflowPhase(phase, index, workflowName, existingIds) {
     if (!hasPrompt && !hasForEach && !hasWorkflow) {
         errors.push({
             code: 'PHASE_MISSING_ACTION',
-            message: `Phase '${p.id || index}' in ${workflowName} must have 'prompt', 'for-each: step', or 'workflow'`,
+            message: `Phase '${p.id || index}' in ${workflowName} must have 'prompt', 'for-each', or 'workflow'`,
             path: `${workflowName}.phases[${index}]`
         });
     }
-    // Validate for-each value
-    if (p['for-each'] !== undefined && p['for-each'] !== 'step') {
-        errors.push({
-            code: 'INVALID_FOREACH',
-            message: `for-each must be 'step' (got '${p['for-each']}')`,
-            path: `${workflowName}.phases[${index}].for-each`
-        });
+    // Validate for-each value (must be a non-empty string)
+    if (p['for-each'] !== undefined) {
+        if (typeof p['for-each'] !== 'string') {
+            errors.push({
+                code: 'INVALID_FOREACH',
+                message: `for-each must be a string (got '${typeof p['for-each']}')`,
+                path: `${workflowName}.phases[${index}].for-each`
+            });
+        }
+        else if (p['for-each'].trim().length === 0) {
+            errors.push({
+                code: 'EMPTY_FOREACH',
+                message: `for-each cannot be empty`,
+                path: `${workflowName}.phases[${index}].for-each`
+            });
+        }
+    }
+    // Validate optional collection reference
+    if (p.collection !== undefined) {
+        if (typeof p.collection !== 'string') {
+            errors.push({
+                code: 'INVALID_COLLECTION_REF',
+                message: `collection must be a string (got '${typeof p.collection}')`,
+                path: `${workflowName}.phases[${index}].collection`
+            });
+        }
+        else if (p.collection.trim().length === 0) {
+            errors.push({
+                code: 'EMPTY_COLLECTION_REF',
+                message: `collection cannot be empty`,
+                path: `${workflowName}.phases[${index}].collection`
+            });
+        }
     }
     // Validate parallel property (must be boolean if present)
     if (p.parallel !== undefined && typeof p.parallel !== 'boolean') {
@@ -419,16 +549,111 @@ function validateWorkflowPhase(phase, index, workflowName, existingIds) {
         });
     }
     // Warn if parallel: true is used on for-each phase (not supported)
-    if (p.parallel === true && p['for-each'] === 'step') {
+    if (p.parallel === true && p['for-each']) {
         errors.push({
             code: 'PARALLEL_FOREACH_WARNING',
-            message: `parallel: true on for-each phase is not supported; use parallel in step workflow phases instead`,
+            message: `parallel: true on for-each phase is not supported; use parallel in item workflow phases instead`,
             path: `${workflowName}.phases[${index}]`
         });
     }
     // Validate model field if present
     if (p.model !== undefined) {
         errors.push(...validateModel(p.model, `${workflowName}.phases[${index}].model`));
+    }
+    // Validate break property (must be boolean if present)
+    if (p.break !== undefined && typeof p.break !== 'boolean') {
+        errors.push({
+            code: 'INVALID_BREAK',
+            message: `break must be a boolean (got ${typeof p.break})`,
+            path: `${workflowName}.phases[${index}].break`
+        });
+    }
+    // Validate gate property if present
+    if (p.gate !== undefined) {
+        const gateErrors = validateGateCheck(p.gate, `${workflowName}.phases[${index}].gate`);
+        errors.push(...gateErrors);
+    }
+    return errors;
+}
+/**
+ * Validate a quality gate check configuration
+ *
+ * @param gate - The gate configuration to validate
+ * @param path - Path for error messages
+ * @returns Array of validation errors
+ */
+function validateGateCheck(gate, path) {
+    const errors = [];
+    if (!gate || typeof gate !== 'object') {
+        errors.push({
+            code: 'INVALID_GATE',
+            message: 'Gate must be an object',
+            path
+        });
+        return errors;
+    }
+    const g = gate;
+    // Validate script (required, non-empty string)
+    if (g.script === undefined || g.script === null || typeof g.script !== 'string') {
+        errors.push({
+            code: 'GATE_MISSING_SCRIPT',
+            message: 'Gate must have a script property',
+            path: `${path}.script`
+        });
+    }
+    else if (g.script.trim().length === 0) {
+        errors.push({
+            code: 'GATE_EMPTY_SCRIPT',
+            message: 'Gate script cannot be empty',
+            path: `${path}.script`
+        });
+    }
+    // Validate on-fail (required object)
+    if (!g['on-fail'] || typeof g['on-fail'] !== 'object') {
+        errors.push({
+            code: 'GATE_MISSING_ON_FAIL',
+            message: 'Gate must have an on-fail configuration',
+            path: `${path}.on-fail`
+        });
+    }
+    else {
+        const onFail = g['on-fail'];
+        // Validate on-fail.prompt (required, non-empty string)
+        if (onFail.prompt === undefined || onFail.prompt === null || typeof onFail.prompt !== 'string') {
+            errors.push({
+                code: 'GATE_MISSING_ON_FAIL_PROMPT',
+                message: 'Gate on-fail must have a prompt property',
+                path: `${path}.on-fail.prompt`
+            });
+        }
+        else if (onFail.prompt.trim().length === 0) {
+            errors.push({
+                code: 'GATE_EMPTY_ON_FAIL_PROMPT',
+                message: 'Gate on-fail prompt cannot be empty',
+                path: `${path}.on-fail.prompt`
+            });
+        }
+        // Validate on-fail.max-retries (optional, positive integer)
+        if (onFail['max-retries'] !== undefined) {
+            const maxRetries = onFail['max-retries'];
+            if (typeof maxRetries !== 'number' || !Number.isInteger(maxRetries) || maxRetries < 1) {
+                errors.push({
+                    code: 'GATE_INVALID_MAX_RETRIES',
+                    message: 'Gate on-fail max-retries must be a positive integer',
+                    path: `${path}.on-fail.max-retries`
+                });
+            }
+        }
+    }
+    // Validate timeout (optional, positive number)
+    if (g.timeout !== undefined) {
+        if (typeof g.timeout !== 'number' || g.timeout <= 0) {
+            errors.push({
+                code: 'GATE_INVALID_TIMEOUT',
+                message: 'Gate timeout must be a positive number (seconds)',
+                path: `${path}.timeout`
+            });
+        }
     }
     return errors;
 }
@@ -507,6 +732,228 @@ function validateCompiledProgress(progress) {
             code: 'MISSING_CURRENT',
             message: 'Compiled progress must have a current pointer'
         });
+    }
+    return errors;
+}
+// ============================================================================
+// Worktree Configuration Validation
+// ============================================================================
+/** Valid cleanup modes for worktrees */
+const VALID_CLEANUP_MODES = ['never', 'on-complete', 'on-merge'];
+/**
+ * Validate a git branch name according to git ref rules
+ * @see https://git-scm.com/docs/git-check-ref-format
+ *
+ * @param branch - The branch name to validate (may contain variables like {sprint-id})
+ * @returns true if the branch name is valid
+ */
+function isValidGitBranchName(branch) {
+    // Allow variable placeholders - they'll be substituted at runtime
+    // Remove placeholders for validation
+    const withoutVars = branch.replace(/\{[^}]+\}/g, 'placeholder');
+    // Empty after removing vars is invalid
+    if (withoutVars.length === 0) {
+        return false;
+    }
+    // Cannot start or end with /
+    if (withoutVars.startsWith('/') || withoutVars.endsWith('/')) {
+        return false;
+    }
+    // Cannot have consecutive slashes
+    if (withoutVars.includes('//')) {
+        return false;
+    }
+    // Cannot start with -
+    if (withoutVars.startsWith('-')) {
+        return false;
+    }
+    // Cannot end with .lock
+    if (withoutVars.endsWith('.lock')) {
+        return false;
+    }
+    // Cannot contain certain characters
+    const invalidChars = /[~^:?*\[\]\\@{}\s]/;
+    if (invalidChars.test(withoutVars)) {
+        return false;
+    }
+    // Cannot have consecutive dots
+    if (withoutVars.includes('..')) {
+        return false;
+    }
+    return true;
+}
+/**
+ * Validate worktree configuration from SPRINT.yaml
+ *
+ * @param worktree - The worktree configuration to validate
+ * @param configPath - Path prefix for error messages (e.g., 'worktree' or 'workflow.worktree')
+ * @returns Array of validation errors
+ */
+function validateWorktreeConfig(worktree, configPath) {
+    const errors = [];
+    // Worktree config is optional - undefined/null is valid
+    if (worktree === undefined || worktree === null) {
+        return errors;
+    }
+    if (typeof worktree !== 'object') {
+        errors.push({
+            code: 'INVALID_WORKTREE_CONFIG',
+            message: 'Worktree configuration must be an object',
+            path: configPath
+        });
+        return errors;
+    }
+    const w = worktree;
+    // Validate 'enabled' field (required)
+    if (w.enabled === undefined) {
+        errors.push({
+            code: 'WORKTREE_MISSING_ENABLED',
+            message: 'Worktree configuration must specify enabled: true or false',
+            path: `${configPath}.enabled`
+        });
+    }
+    else if (typeof w.enabled !== 'boolean') {
+        errors.push({
+            code: 'WORKTREE_INVALID_ENABLED',
+            message: 'Worktree enabled must be a boolean',
+            path: `${configPath}.enabled`
+        });
+    }
+    // Validate 'branch' field (optional string)
+    if (w.branch !== undefined) {
+        if (typeof w.branch !== 'string') {
+            errors.push({
+                code: 'WORKTREE_INVALID_BRANCH',
+                message: 'Worktree branch must be a string',
+                path: `${configPath}.branch`
+            });
+        }
+        else if (w.branch.trim().length === 0) {
+            errors.push({
+                code: 'WORKTREE_EMPTY_BRANCH',
+                message: 'Worktree branch cannot be empty',
+                path: `${configPath}.branch`
+            });
+        }
+        else if (!isValidGitBranchName(w.branch)) {
+            errors.push({
+                code: 'WORKTREE_INVALID_BRANCH_NAME',
+                message: `Worktree branch '${w.branch}' is not a valid git branch name`,
+                path: `${configPath}.branch`
+            });
+        }
+    }
+    // Validate 'path' field (optional string)
+    if (w.path !== undefined) {
+        if (typeof w.path !== 'string') {
+            errors.push({
+                code: 'WORKTREE_INVALID_PATH',
+                message: 'Worktree path must be a string',
+                path: `${configPath}.path`
+            });
+        }
+        else if (w.path.trim().length === 0) {
+            errors.push({
+                code: 'WORKTREE_EMPTY_PATH',
+                message: 'Worktree path cannot be empty',
+                path: `${configPath}.path`
+            });
+        }
+    }
+    // Validate 'cleanup' field (optional enum)
+    if (w.cleanup !== undefined) {
+        if (typeof w.cleanup !== 'string') {
+            errors.push({
+                code: 'WORKTREE_INVALID_CLEANUP',
+                message: 'Worktree cleanup must be a string',
+                path: `${configPath}.cleanup`
+            });
+        }
+        else if (!VALID_CLEANUP_MODES.includes(w.cleanup)) {
+            errors.push({
+                code: 'WORKTREE_INVALID_CLEANUP_MODE',
+                message: `Worktree cleanup must be one of: ${VALID_CLEANUP_MODES.join(', ')}`,
+                path: `${configPath}.cleanup`
+            });
+        }
+    }
+    return errors;
+}
+/**
+ * Validate workflow-level worktree defaults
+ *
+ * @param worktree - The workflow worktree defaults to validate
+ * @param workflowName - Name of the workflow (for error messages)
+ * @returns Array of validation errors
+ */
+function validateWorkflowWorktreeDefaults(worktree, workflowName) {
+    const errors = [];
+    const configPath = `${workflowName}.worktree`;
+    // Worktree defaults are optional
+    if (worktree === undefined || worktree === null) {
+        return errors;
+    }
+    if (typeof worktree !== 'object') {
+        errors.push({
+            code: 'INVALID_WORKFLOW_WORKTREE',
+            message: 'Workflow worktree configuration must be an object',
+            path: configPath
+        });
+        return errors;
+    }
+    const w = worktree;
+    // Validate 'enabled' field (required)
+    if (w.enabled === undefined) {
+        errors.push({
+            code: 'WORKFLOW_WORKTREE_MISSING_ENABLED',
+            message: 'Workflow worktree configuration must specify enabled: true or false',
+            path: `${configPath}.enabled`
+        });
+    }
+    else if (typeof w.enabled !== 'boolean') {
+        errors.push({
+            code: 'WORKFLOW_WORKTREE_INVALID_ENABLED',
+            message: 'Workflow worktree enabled must be a boolean',
+            path: `${configPath}.enabled`
+        });
+    }
+    // Validate 'branch-prefix' field (optional string)
+    if (w['branch-prefix'] !== undefined) {
+        if (typeof w['branch-prefix'] !== 'string') {
+            errors.push({
+                code: 'WORKFLOW_WORKTREE_INVALID_BRANCH_PREFIX',
+                message: 'Workflow worktree branch-prefix must be a string',
+                path: `${configPath}.branch-prefix`
+            });
+        }
+        // Note: We don't validate the prefix as a git branch name since it's just a prefix
+    }
+    // Validate 'path-prefix' field (optional string)
+    if (w['path-prefix'] !== undefined) {
+        if (typeof w['path-prefix'] !== 'string') {
+            errors.push({
+                code: 'WORKFLOW_WORKTREE_INVALID_PATH_PREFIX',
+                message: 'Workflow worktree path-prefix must be a string',
+                path: `${configPath}.path-prefix`
+            });
+        }
+    }
+    // Validate 'cleanup' field (optional enum)
+    if (w.cleanup !== undefined) {
+        if (typeof w.cleanup !== 'string') {
+            errors.push({
+                code: 'WORKFLOW_WORKTREE_INVALID_CLEANUP',
+                message: 'Workflow worktree cleanup must be a string',
+                path: `${configPath}.cleanup`
+            });
+        }
+        else if (!VALID_CLEANUP_MODES.includes(w.cleanup)) {
+            errors.push({
+                code: 'WORKFLOW_WORKTREE_INVALID_CLEANUP_MODE',
+                message: `Workflow worktree cleanup must be one of: ${VALID_CLEANUP_MODES.join(', ')}`,
+                path: `${configPath}.cleanup`
+            });
+        }
     }
     return errors;
 }

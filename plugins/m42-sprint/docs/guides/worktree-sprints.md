@@ -23,7 +23,7 @@ Standard git workflow limits you to one active branch at a time. Switching branc
 Add `--worktree` when starting a sprint:
 
 ```bash
-/start-sprint feature-auth --ralph --worktree
+/init-sprint feature-auth --ralph --worktree
 
 # Output:
 # Sprint initialized with dedicated worktree!
@@ -148,7 +148,7 @@ phases:
 When starting a sprint with this workflow:
 
 ```bash
-/start-sprint auth --workflow feature-development
+/init-sprint auth --workflow feature-development
 
 # Automatically creates:
 #   Branch: feature/2026-01-20_auth
@@ -213,12 +213,12 @@ Run two features simultaneously:
 
 ```bash
 # Terminal 1: Start auth feature
-/start-sprint feature-auth --ralph --worktree
+/init-sprint feature-auth --ralph --worktree
 cd ../2026-01-20_feature-auth-worktree
 /run-sprint .claude/sprints/2026-01-20_feature-auth
 
 # Terminal 2: Start payments feature
-/start-sprint feature-payments --ralph --worktree
+/init-sprint feature-payments --ralph --worktree
 cd ../2026-01-20_feature-payments-worktree
 /run-sprint .claude/sprints/2026-01-20_feature-payments
 ```
@@ -250,7 +250,7 @@ phases:
 Start sprint (worktree created automatically):
 
 ```bash
-/start-sprint user-dashboard --workflow feature-development
+/init-sprint user-dashboard --workflow feature-development
 
 # Output:
 # Creating dedicated worktree for sprint...
@@ -280,7 +280,7 @@ Fix a bug without disrupting your main work:
 # You're in the middle of feature development on main...
 
 # Start bugfix in separate worktree
-/start-sprint hotfix-login --workflow bugfix-workflow --worktree
+/init-sprint hotfix-login --workflow bugfix-workflow --worktree
 
 # Fix runs independently
 cd ../2026-01-20_hotfix-login-worktree
@@ -298,15 +298,15 @@ Multiple team members working on different features:
 
 ```bash
 # Developer A: Authentication
-/start-sprint auth --worktree
+/init-sprint auth --worktree
 # Creates: ../2026-01-20_auth-worktree on branch sprint/2026-01-20_auth
 
 # Developer B: Dashboard
-/start-sprint dashboard --worktree
+/init-sprint dashboard --worktree
 # Creates: ../2026-01-20_dashboard-worktree on branch sprint/2026-01-20_dashboard
 
 # Developer C: API refactor
-/start-sprint api-refactor --worktree
+/init-sprint api-refactor --worktree
 # Creates: ../2026-01-20_api-refactor-worktree on branch sprint/2026-01-20_api-refactor
 ```
 
@@ -321,15 +321,15 @@ The system prevents common conflicts when running parallel sprints:
 If you try to use a branch already in use:
 
 ```bash
-/start-sprint feature-auth --worktree
+/init-sprint feature-auth --worktree
 
 # Warning: Branch 'sprint/2026-01-20_feature-auth' already exists
 # and is active in worktree: /home/user/project-auth-worktree
 #
 # Suggestions:
-#   1. Use a different name: /start-sprint feature-auth-v2 --worktree
+#   1. Use a different name: /init-sprint feature-auth-v2 --worktree
 #   2. Clean up existing: /cleanup-sprint .claude/sprints/2026-01-20_feature-auth
-#   3. Reuse existing branch: /start-sprint feature-auth --worktree --reuse-branch
+#   3. Reuse existing branch: /init-sprint feature-auth --worktree --reuse-branch
 ```
 
 ### Sprint Conflicts
@@ -359,16 +359,16 @@ If the same sprint is already running:
 1. **Branch already exists:**
    ```bash
    # Solution: Use --reuse-branch or different name
-   /start-sprint feature-auth --worktree --reuse-branch
+   /init-sprint feature-auth --worktree --reuse-branch
    # or
-   /start-sprint feature-auth-v2 --worktree
+   /init-sprint feature-auth-v2 --worktree
    ```
 
 2. **Directory already exists:**
    ```bash
    # Solution: Remove directory or use different path
    rm -rf ../2026-01-20_feature-auth-worktree
-   /start-sprint feature-auth --worktree
+   /init-sprint feature-auth --worktree
    ```
 
 3. **Git repository not initialized:**
@@ -474,12 +474,12 @@ Use descriptive, unique names to avoid conflicts:
 
 ```bash
 # Good - descriptive and unique
-/start-sprint auth-jwt-tokens --worktree
-/start-sprint dashboard-v2-redesign --worktree
+/init-sprint auth-jwt-tokens --worktree
+/init-sprint dashboard-v2-redesign --worktree
 
 # Avoid - too generic
-/start-sprint feature --worktree
-/start-sprint update --worktree
+/init-sprint feature --worktree
+/init-sprint update --worktree
 ```
 
 ### Worktree Location

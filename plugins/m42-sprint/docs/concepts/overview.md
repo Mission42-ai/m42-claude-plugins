@@ -145,7 +145,7 @@ For a deep dive into the Ralph Loop pattern, see [Ralph Loop Pattern](ralph-loop
 plugins/m42-sprint/
 │
 ├── commands/                     # Claude Code slash commands
-│   ├── start-sprint.md          (/start-sprint)
+│   ├── init-sprint.md           (/init-sprint)
 │   ├── run-sprint.md            (/run-sprint)
 │   ├── sprint-status.md         (/sprint-status)
 │   ├── add-step.md              (/add-step)

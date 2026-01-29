@@ -14,7 +14,7 @@ phases:
   - id: diagnose
     prompt: |
       ## Bug Description
-      {{step.prompt}}
+      {{item.prompt}}
 
       ## Instructions
       1. Reproduce the bug if possible
@@ -23,7 +23,7 @@ phases:
       4. Document findings
 
       ## Output
-      Write diagnosis to: context/{{step.id}}-diagnosis.md
+      Write diagnosis to: context/{{item.id}}-diagnosis.md
 
       Include:
       - Steps to reproduce
@@ -33,10 +33,10 @@ phases:
   - id: fix
     prompt: |
       ## Bug Description
-      {{step.prompt}}
+      {{item.prompt}}
 
       ## Instructions
-      1. Read diagnosis from context/{{step.id}}-diagnosis.md
+      1. Read diagnosis from context/{{item.id}}-diagnosis.md
       2. Implement the minimal fix required
       3. Avoid scope creep - only fix the bug
       4. Commit the fix with clear message
@@ -50,7 +50,7 @@ phases:
   - id: verify
     prompt: |
       ## Bug Description
-      {{step.prompt}}
+      {{item.prompt}}
 
       ## Instructions
       1. Confirm the bug no longer occurs

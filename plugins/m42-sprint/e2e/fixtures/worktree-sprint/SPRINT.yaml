@@ -1,0 +1,12 @@
+# Sprint Definition - Worktree Test
+# Used to test that worktree config from workflow is inherited
+
+sprint-id: 2026-01-29_worktree-test
+workflow: worktree-enabled
+
+collections:
+  step:
+    - id: step-1
+      prompt: "First step"
+    - id: step-2
+      prompt: "Second step"

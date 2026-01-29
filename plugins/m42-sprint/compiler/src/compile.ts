@@ -12,6 +12,7 @@ import type {
   SprintDefinition,
   WorkflowDefinition,
   WorkflowPhase,
+  CollectionItem,
   CompiledProgress,
   CompiledTopPhase,
   CurrentPointer,
@@ -34,8 +35,10 @@ import {
   validateWorkflowDefinition,
   validateCompiledProgress,
   checkUnresolvedVariables,
-  validateRalphModeSprint
+  validateRalphModeSprint,
+  resolveCollectionName
 } from './validate.js';
+import { mergeWorktreeConfigs } from './worktree-config.js';
 
 /**
  * Format a YAML parsing error with line numbers and context
@@ -108,7 +111,11 @@ export async function compile(config: CompilerConfig): Promise<CompilerResult> {
   }
 
   if (config.verbose) {
-    console.log(`Loaded SPRINT.yaml: ${sprintDef.steps?.length ?? 0} steps`); // intentional
+    const collectionCount = sprintDef.collections ? Object.keys(sprintDef.collections).length : 0;
+    const totalItems = sprintDef.collections
+      ? Object.values(sprintDef.collections).reduce((sum, items) => sum + items.length, 0)
+      : 0;
+    console.log(`Loaded SPRINT.yaml: ${collectionCount} collections, ${totalItems} items`); // intentional
   }
 
   // Load the main workflow
@@ -156,8 +163,8 @@ export async function compile(config: CompilerConfig): Promise<CompilerResult> {
     return compileRalphMode(sprintDef, mainWorkflow.definition, config, errors, warnings);
   }
 
-  // Validate standard mode sprint requirements (steps array required)
-  const standardModeErrors = validateStandardModeSprint(sprintDef);
+  // Validate standard mode sprint requirements (collections required)
+  const standardModeErrors = validateStandardModeSprint(sprintDef, mainWorkflow.definition);
   if (standardModeErrors.length > 0) {
     errors.push(...standardModeErrors);
     return { success: false, errors, warnings };
@@ -204,12 +211,17 @@ export async function compile(config: CompilerConfig): Promise<CompilerResult> {
   const compiledPhases: CompiledTopPhase[] = [];
   const workflowPhases = mainWorkflow.definition.phases ?? [];
 
-  // Find the default step workflow (first for-each phase's workflow, or feature-standard)
-  let defaultStepWorkflow: LoadedWorkflow | null = null;
+  // Build a map of default workflows per collection type
+  const defaultWorkflows: Map<string, LoadedWorkflow> = new Map();
   for (const phase of workflowPhases) {
-    if (phase['for-each'] === 'step' && phase.workflow) {
-      defaultStepWorkflow = loadWorkflow(phase.workflow, config.workflowsDir, errors);
-      break;
+    if (phase['for-each'] && phase.workflow) {
+      const collectionName = resolveCollectionName(phase['for-each'], phase.collection);
+      if (!defaultWorkflows.has(collectionName)) {
+        const loaded = loadWorkflow(phase.workflow, config.workflowsDir, errors);
+        if (loaded) {
+          defaultWorkflows.set(collectionName, loaded);
+        }
+      }
     }
   }
 
@@ -220,13 +232,20 @@ export async function compile(config: CompilerConfig): Promise<CompilerResult> {
   };
 
   for (const phase of workflowPhases) {
-    if (phase['for-each'] === 'step') {
-      // Expand for-each phase into steps
+    if (phase['for-each']) {
+      // Resolve the collection name and get items
+      const itemType = phase['for-each'];
+      const collectionName = resolveCollectionName(itemType, phase.collection);
+      const items = getCollectionItems(sprintDef, collectionName);
+      const defaultWorkflow = defaultWorkflows.get(collectionName) ?? null;
+
+      // Expand for-each phase into items
       const expandedPhase = expandForEach(
         phase,
-        sprintDef.steps ?? [],
+        items,
+        itemType,
         config.workflowsDir,
-        defaultStepWorkflow,
+        defaultWorkflow,
         context,
         errors,
         modelContext
@@ -268,6 +287,9 @@ export async function compile(config: CompilerConfig): Promise<CompilerResult> {
   // Compile prompts config from sprint
   const prompts = compilePrompts(sprintDef);
 
+  // Compile worktree config from workflow and sprint
+  const worktree = mergeWorktreeConfigs(sprintId, sprintDef, mainWorkflow.definition);
+
   // Build compiled progress
   const progress: CompiledProgress = {
     'sprint-id': sprintId,
@@ -281,7 +303,9 @@ export async function compile(config: CompilerConfig): Promise<CompilerResult> {
     // Add step-queue if orchestration is enabled
     ...(orchestration?.enabled && { 'step-queue': [] }),
     // Add prompts if specified in sprint
-    ...(prompts && { prompts })
+    ...(prompts && { prompts }),
+    // Add worktree config if enabled in workflow or sprint
+    ...(worktree && { worktree })
   };
 
   // Validate compiled progress
@@ -420,6 +444,20 @@ function expandWorkflowReference(
   }
 
   return expandedPhases;
+}
+
+/**
+ * Get items from a named collection in the sprint definition
+ *
+ * @param sprintDef - The sprint definition
+ * @param collectionName - Name of the collection to get
+ * @returns Array of collection items (empty if collection doesn't exist)
+ */
+function getCollectionItems(
+  sprintDef: SprintDefinition,
+  collectionName: string
+): CollectionItem[] {
+  return sprintDef.collections?.[collectionName] ?? [];
 }
 
 /**
@@ -587,6 +625,9 @@ function compileRalphMode(
     'idle-threshold': 3  // Default: reflect after 3 iterations without progress
   };
 
+  // Compile worktree config from workflow and sprint
+  const worktree = mergeWorktreeConfigs(sprintId, sprintDef, workflow);
+
   // Build Ralph mode PROGRESS.yaml structure
   const progress: CompiledProgress = {
     'sprint-id': sprintId,
@@ -612,7 +653,9 @@ function compileRalphMode(
       'total-phases': 0,
       'completed-phases': 0,
       'current-iteration': 0
-    }
+    },
+    // Add worktree config if enabled in workflow or sprint
+    ...(worktree && { worktree })
   };
 
   return {
