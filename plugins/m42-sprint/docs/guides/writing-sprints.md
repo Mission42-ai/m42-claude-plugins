@@ -509,6 +509,63 @@ steps:
 - Specific technical requirements
 - No over-specification of implementation
 
+## Advanced: Step Dependencies for Parallel Execution
+
+For complex sprints with independent work streams, you can declare dependencies between steps using `depends-on`. Steps without dependencies (or whose dependencies are satisfied) can execute in parallel.
+
+### Example: Parallel Feature Tracks
+
+```yaml
+workflow: sprint-default
+
+collections:
+  step:
+    # Foundation step - runs first
+    - prompt: Create shared TypeScript interfaces and types
+      id: shared-types
+
+    # These two steps can run in parallel after shared-types completes
+    - prompt: Implement user authentication module
+      id: auth-module
+      depends-on:
+        - shared-types
+
+    - prompt: Implement data access layer
+      id: data-layer
+      depends-on:
+        - shared-types
+
+    # This step waits for both parallel tracks to complete
+    - prompt: Integrate auth with data layer and add tests
+      id: integration
+      depends-on:
+        - auth-module
+        - data-layer
+```
+
+**Execution order:**
+1. `shared-types` runs first
+2. `auth-module` and `data-layer` run in parallel
+3. `integration` runs after both complete
+
+### When to Use Dependencies
+
+| Use Case | Benefit |
+|----------|---------|
+| Independent feature tracks | Parallel execution saves time |
+| Shared foundation code | Ensure types/interfaces exist before use |
+| Integration steps | Wait for all components before combining |
+
+### When NOT to Use Dependencies
+
+- **Simple sequential sprints**: Default behavior is already sequential
+- **Tightly coupled steps**: If every step depends on the previous one, dependencies add complexity without benefit
+- **First-time users**: Start simple, add dependencies as you become comfortable
+
+For more details on the `depends-on` field, see [SPRINT.yaml Schema](../reference/sprint-yaml-schema.md).
+
+---
+
 ## Common Anti-Patterns
 
 ### Avoid These Mistakes
