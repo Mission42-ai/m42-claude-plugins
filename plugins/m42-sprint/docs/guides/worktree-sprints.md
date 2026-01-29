@@ -564,6 +564,39 @@ worktreeId = hash("/home/user/2026-01-20_feature-auth-worktree")
 
 This ID appears in PROGRESS.yaml and lock files for conflict detection.
 
+### Automatic Context Injection
+
+When running in worktree mode, the sprint system automatically injects execution context into every phase prompt. This happens transparently whenever `worktree.enabled` is `true` in PROGRESS.yaml.
+
+**What gets injected:**
+
+| Information | Description |
+|-------------|-------------|
+| Working Directory | Absolute path to the worktree root |
+| Branch | Current sprint branch name |
+| Main Repo | Path to the main repository worktree |
+
+**Injected guidelines:**
+
+The context also includes operational guidelines for the agent:
+1. Use relative paths for all file operations
+2. All git commits go to the sprint branch automatically
+3. Reading from main repo is allowed for research, but all changes must be made in the worktree
+4. Stay in the worktree for all git operations
+
+**Why this matters:**
+
+Agents operating in worktrees need to understand their execution environment. Without context injection, an agent might:
+- Use absolute paths that break when the worktree moves
+- Accidentally operate in the main repository
+- Create commits on the wrong branch
+
+Context injection ensures agents follow best practices automatically, without requiring explicit instructions in every phase prompt.
+
+**Configuration:**
+
+None required. Context injection activates automatically when worktree mode is enabled. The context is prepended to each phase prompt before execution.
+
 ## See Also
 
 - [Commands Reference](../reference/commands.md) - Full command documentation
