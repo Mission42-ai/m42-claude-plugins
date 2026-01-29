@@ -120,6 +120,67 @@ const defaultLoopDeps: LoopDependencies = {
 // ============================================================================
 
 const TERMINAL_STATES = ['completed', 'blocked', 'paused', 'paused-at-breakpoint', 'needs-human', 'interrupted'] as const;
+
+// ============================================================================
+// Worktree Context Injection
+// ============================================================================
+
+/**
+ * Build worktree context to prepend to phase prompts.
+ *
+ * When sprints run in a worktree, agents need to know:
+ * 1. They're in an isolated worktree context
+ * 2. Use relative paths for file operations
+ * 3. All changes stay in the worktree (sprint branch)
+ * 4. Don't cd to main repo for git operations
+ *
+ * @param progress - Progress object with worktree configuration
+ * @param sprintDir - Sprint directory path
+ * @returns Markdown context block or empty string if not in worktree
+ */
+export function buildWorktreeContext(progress: CompiledProgress, sprintDir: string): string {
+  // Type assertion for worktree fields
+  const worktree = progress.worktree as {
+    enabled?: boolean;
+    path?: string;
+    'working-dir'?: string;
+    branch?: string;
+  } | undefined;
+
+  // Only inject context when worktree is enabled
+  if (!worktree?.enabled) {
+    return '';
+  }
+
+  // Get worktree info for main repo path
+  const worktreeInfo = getWorktreeInfo(sprintDir);
+  const mainRepoPath = worktreeInfo.mainWorktreePath;
+
+  // Get values from progress.worktree
+  const workingDir = worktree['working-dir'] || worktree.path || worktreeInfo.path;
+  const branch = worktree.branch || 'sprint branch';
+
+  return `## Execution Context
+
+You are operating in a **git worktree** for isolated sprint development.
+
+| Property | Value |
+|----------|-------|
+| Working Directory | ${workingDir} |
+| Branch | ${branch} |
+| Main Repo | ${mainRepoPath} |
+
+**Worktree Guidelines:**
+1. Use RELATIVE paths for all file operations (e.g., \`plugins/m42-sprint/...\`)
+2. All git commits go to the sprint branch automatically
+3. You MAY read files from the main repo for research, but ALL changes must be made
+   in the worktree (current working directory)
+4. Do NOT \`cd\` to the main repository for git operations - stay in the worktree
+
+---
+
+`;}
+
 const PAUSE_FILENAME = 'PAUSE';
 const PROGRESS_FILENAME = 'PROGRESS.yaml';
 
@@ -617,6 +678,9 @@ export async function executeGateCheck(
 
     // Run fix iteration with Claude
     const fixPrompt = buildGateFixPrompt(gate, currentTracking);
+    // Add worktree context to fix prompt if in worktree mode
+    const worktreeContext = buildWorktreeContext(progress, sprintDir);
+    const finalFixPrompt = worktreeContext + fixPrompt;
     const logFileName = `gate-fix_${phaseId}_attempt-${currentTracking.attempts}.log`;
     const outputFile = path.join(outputDir, logFileName);
 
@@ -625,7 +689,7 @@ export async function executeGateCheck(
     }
 
     const fixResult = await deps.runClaude({
-      prompt: fixPrompt,
+      prompt: finalFixPrompt,
       cwd: workingDir,
       outputFile,
       jsonSchema: SPRINT_RESULT_SCHEMA,
@@ -967,10 +1031,14 @@ export async function runLoop(
       workingDir = getProjectRoot(sprintDir);
     }
 
+    // Build the final prompt with worktree context if applicable
+    const worktreeContext = buildWorktreeContext(progress, sprintDir);
+    const finalPrompt = worktreeContext + prompt;
+
     // Execute SPAWN_CLAUDE action directly
     // Use --json-schema to enforce validated structured output
     const spawnResult = await deps.runClaude({
-      prompt,
+      prompt: finalPrompt,
       cwd: workingDir,
       outputFile,
       jsonSchema: SPRINT_RESULT_SCHEMA,

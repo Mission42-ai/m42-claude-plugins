@@ -22,6 +22,7 @@ import {
   runLoop,
   recoverFromInterrupt,
   isTerminalState,
+  buildWorktreeContext,
   LoopOptions,
   LoopResult,
 } from './loop.js';
@@ -2057,6 +2058,255 @@ test('runLoop should accumulate requests across multiple phases', async () => {
 
     assertEqual(req1?.['discovered-in'], 'phase-1', 'STEP-5: Request 1 should be tagged with phase-1');
     assertEqual(req2?.['discovered-in'], 'phase-2', 'STEP-5: Request 2 should be tagged with phase-2');
+  } finally {
+    cleanupTestDir(testDir);
+  }
+});
+
+// ============================================================================
+// Worktree Context Injection Tests
+// ============================================================================
+
+test('buildWorktreeContext should return empty string when worktree is not enabled', () => {
+  // This test verifies that non-worktree sprints get no context injected.
+
+  const progress = createTestProgress({
+    status: 'in-progress',
+    // No worktree field
+  });
+
+  const context = buildWorktreeContext(progress, '/tmp/test-sprint');
+
+  assertEqual(context, '', 'Should return empty string when worktree is not enabled');
+});
+
+test('buildWorktreeContext should return empty string when worktree.enabled is false', () => {
+  // This test verifies explicit worktree.enabled = false is handled.
+
+  const progress = createTestProgress({
+    status: 'in-progress',
+  });
+  // Add worktree config with enabled: false
+  (progress as unknown as { worktree: { enabled: boolean } }).worktree = {
+    enabled: false,
+  };
+
+  const context = buildWorktreeContext(progress, '/tmp/test-sprint');
+
+  assertEqual(context, '', 'Should return empty string when worktree.enabled is false');
+});
+
+test('buildWorktreeContext should return context markdown when worktree is enabled', () => {
+  // This test verifies that worktree context is generated with all required info.
+
+  const progress = createTestProgress({
+    status: 'in-progress',
+  });
+  // Add worktree config
+  (progress as unknown as { worktree: {
+    enabled: boolean;
+    branch: string;
+    'working-dir': string;
+    path: string;
+  } }).worktree = {
+    enabled: true,
+    branch: 'sprint/test-sprint',
+    'working-dir': '/home/user/project-worktree',
+    path: '/home/user/project-worktree',
+  };
+
+  // Note: buildWorktreeContext uses getWorktreeInfo which needs a real git repo
+  // For this unit test, we just verify the structure when worktree is enabled
+  const context = buildWorktreeContext(progress, '/tmp/test-sprint');
+
+  // Verify it contains the expected sections
+  assert(context.includes('## Execution Context'), 'Should include Execution Context header');
+  assert(context.includes('git worktree'), 'Should mention git worktree');
+  assert(context.includes('Working Directory'), 'Should include Working Directory');
+  assert(context.includes('Branch'), 'Should include Branch');
+  assert(context.includes('Main Repo'), 'Should include Main Repo');
+  assert(context.includes('Worktree Guidelines'), 'Should include guidelines');
+  assert(context.includes('RELATIVE paths'), 'Should mention relative paths');
+  assert(context.includes('sprint branch'), 'Should mention sprint branch');
+  assert(context.includes('Do NOT'), 'Should include warning about cd to main repo');
+});
+
+test('buildWorktreeContext should include working directory from worktree config', () => {
+  // This test verifies the working directory is correctly included.
+
+  const progress = createTestProgress({
+    status: 'in-progress',
+  });
+  (progress as unknown as { worktree: {
+    enabled: boolean;
+    branch: string;
+    'working-dir': string;
+  } }).worktree = {
+    enabled: true,
+    branch: 'sprint/feature-xyz',
+    'working-dir': '/path/to/my/worktree',
+  };
+
+  const context = buildWorktreeContext(progress, '/tmp/test-sprint');
+
+  assert(
+    context.includes('/path/to/my/worktree'),
+    'Should include the working directory from config'
+  );
+});
+
+test('buildWorktreeContext should include branch from worktree config', () => {
+  // This test verifies the branch name is correctly included.
+
+  const progress = createTestProgress({
+    status: 'in-progress',
+  });
+  (progress as unknown as { worktree: {
+    enabled: boolean;
+    branch: string;
+    'working-dir': string;
+  } }).worktree = {
+    enabled: true,
+    branch: 'sprint/2026-01-29_my-feature',
+    'working-dir': '/some/path',
+  };
+
+  const context = buildWorktreeContext(progress, '/tmp/test-sprint');
+
+  assert(
+    context.includes('sprint/2026-01-29_my-feature'),
+    'Should include the branch name from config'
+  );
+});
+
+test('runLoop should prepend worktree context to phase prompts when worktree enabled', async () => {
+  // This is an integration test that verifies the context is actually
+  // prepended to prompts passed to Claude.
+
+  const testDir = createTestSprintDir();
+  let capturedPrompt: string | undefined;
+
+  try {
+    const progress = createTestProgress({
+      status: 'not-started',
+      phases: [
+        { id: 'phase-1', status: 'pending', prompt: 'Execute phase 1' },
+      ],
+    });
+    // Add worktree config
+    (progress as unknown as { worktree: {
+      enabled: boolean;
+      branch: string;
+      'working-dir': string;
+    } }).worktree = {
+      enabled: true,
+      branch: 'sprint/test-branch',
+      'working-dir': testDir,
+    };
+    writeProgress(testDir, progress);
+
+    const options: LoopOptions = { maxIterations: 1, delay: 0, verbose: false };
+
+    const mockDeps = {
+      runClaude: async (opts: { prompt: string; cwd?: string; outputFile?: string }) => {
+        capturedPrompt = opts.prompt;
+        return {
+          success: true,
+          output: 'Phase completed',
+          exitCode: 0,
+          jsonResult: { status: 'completed', summary: 'Done' },
+        };
+      },
+    };
+
+    await runLoop(testDir, options, mockDeps);
+
+    // Verify the prompt was captured
+    assert(capturedPrompt !== undefined, 'Should have captured the prompt');
+
+    // Verify worktree context was prepended
+    assert(
+      capturedPrompt!.includes('## Execution Context'),
+      'Prompt should include worktree execution context'
+    );
+    assert(
+      capturedPrompt!.includes('git worktree'),
+      'Prompt should mention git worktree'
+    );
+    assert(
+      capturedPrompt!.includes('sprint/test-branch'),
+      'Prompt should include the branch name'
+    );
+
+    // Verify the original prompt is also present
+    assert(
+      capturedPrompt!.includes('Execute phase 1'),
+      'Prompt should include the original phase prompt'
+    );
+
+    // Verify context comes BEFORE the original prompt
+    const contextIndex = capturedPrompt!.indexOf('## Execution Context');
+    const originalPromptIndex = capturedPrompt!.indexOf('Execute phase 1');
+    assert(
+      contextIndex < originalPromptIndex,
+      'Worktree context should come before the original prompt'
+    );
+  } finally {
+    cleanupTestDir(testDir);
+  }
+});
+
+test('runLoop should NOT prepend worktree context when worktree is not enabled', async () => {
+  // This test verifies that non-worktree sprints are unaffected.
+
+  const testDir = createTestSprintDir();
+  let capturedPrompt: string | undefined;
+
+  try {
+    const progress = createTestProgress({
+      status: 'not-started',
+      phases: [
+        { id: 'phase-1', status: 'pending', prompt: 'Execute phase 1' },
+      ],
+    });
+    // No worktree config - this is a regular sprint
+    writeProgress(testDir, progress);
+
+    const options: LoopOptions = { maxIterations: 1, delay: 0, verbose: false };
+
+    const mockDeps = {
+      runClaude: async (opts: { prompt: string; cwd?: string; outputFile?: string }) => {
+        capturedPrompt = opts.prompt;
+        return {
+          success: true,
+          output: 'Phase completed',
+          exitCode: 0,
+          jsonResult: { status: 'completed', summary: 'Done' },
+        };
+      },
+    };
+
+    await runLoop(testDir, options, mockDeps);
+
+    // Verify the prompt was captured
+    assert(capturedPrompt !== undefined, 'Should have captured the prompt');
+
+    // Verify NO worktree context was added
+    assert(
+      !capturedPrompt!.includes('## Execution Context'),
+      'Prompt should NOT include worktree execution context for non-worktree sprint'
+    );
+    assert(
+      !capturedPrompt!.includes('git worktree'),
+      'Prompt should NOT mention git worktree for non-worktree sprint'
+    );
+
+    // Verify the prompt is just the original
+    assertEqual(
+      capturedPrompt,
+      'Execute phase 1',
+      'Prompt should be exactly the original phase prompt'
+    );
   } finally {
     cleanupTestDir(testDir);
   }
