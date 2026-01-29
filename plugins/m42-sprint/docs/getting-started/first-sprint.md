@@ -45,7 +45,7 @@ claude --version
 Let's create a sprint that builds a simple utility function with tests.
 
 ```bash
-/start-sprint calculator-utils
+/init-sprint calculator-utils
 ```
 
 **What this does:**
@@ -65,7 +65,7 @@ Created files:
   - artifacts/ (output files)
 
 Next steps:
-  1. Edit SPRINT.yaml to add your steps
+  1. Edit SPRINT.yaml to add your items to collections.step
   2. Run /run-sprint to compile and execute
 ```
 
@@ -89,7 +89,8 @@ You'll see something like:
 
 ```yaml
 workflow: sprint-default
-steps: []
+collections:
+  step: []
 
 sprint-id: 2026-01-16_calculator-utils
 name: calculator-utils
@@ -101,7 +102,7 @@ created: 2026-01-16T10:00:00Z
 | Field | Purpose |
 |-------|---------|
 | `workflow` | Which workflow template to use (defines the execution phases) |
-| `steps` | Your list of tasks (currently empty) |
+| `collections` | Named groups of items to process (e.g., `step`, `feature`, `bug`) |
 | `sprint-id` | Unique identifier for this sprint |
 | `name` | Human-readable name |
 | `created` | When the sprint was initialized |
@@ -153,51 +154,55 @@ Now shows:
 
 ```yaml
 workflow: sprint-default
-steps:
-  - Create a calculator utility module with add, subtract, multiply, and divide functions
-  - Write comprehensive unit tests for the calculator module
-  - Add input validation to handle edge cases like division by zero
+collections:
+  step:
+    - Create a calculator utility module with add, subtract, multiply, and divide functions
+    - Write comprehensive unit tests for the calculator module
+    - Add input validation to handle edge cases like division by zero
 
 sprint-id: 2026-01-16_calculator-utils
 name: calculator-utils
 created: 2026-01-16T10:00:00Z
 ```
 
-### Step Format Options
+### Item Format Options
 
-Steps can be simple strings (as above) or objects with metadata:
+Items can be simple strings (as above) or objects with metadata:
 
 ```yaml
 # String format (simple)
-steps:
-  - Create a feature
+collections:
+  step:
+    - Create a feature
 
 # Object format (with metadata)
-steps:
-  - prompt: Create a feature
-    id: feature-creation
-    workflow: custom-workflow  # Optional: use different workflow for this step
-    model: opus                # Optional: use specific model (sonnet|opus|haiku)
+collections:
+  step:
+    - prompt: Create a feature
+      id: feature-creation
+      workflow: custom-workflow  # Optional: use different workflow for this item
+      model: opus                # Optional: use specific model (sonnet|opus|haiku)
 ```
 
 ### Model Selection
 
-Override the Claude model at sprint or step level:
+Override the Claude model at sprint or item level:
 
 ```yaml
-# Sprint-level default (applies to all steps)
+# Sprint-level default (applies to all items)
 model: sonnet
 
-steps:
-  - prompt: Design system architecture
-    model: opus    # Use opus for complex reasoning
+collections:
+  step:
+    - prompt: Design system architecture
+      model: opus    # Use opus for complex reasoning
 
-  - prompt: Fix typo in comments
-    model: haiku   # Use haiku for simple tasks
+    - prompt: Fix typo in comments
+      model: haiku   # Use haiku for simple tasks
 ```
 
 **Model resolution order** (highest priority first):
-1. Step-level `model` field
+1. Item-level `model` field
 2. Workflow phase-level `model` field
 3. Sprint-level `model` field
 4. Default (CLI default)
@@ -239,14 +244,14 @@ phases:
       Create PR and cleanup...
 ```
 
-The key is `for-each: step`. This means each of your 3 steps will be processed through the `implement-and-qa` workflow, which typically has phases like `implement` and `qa`.
+The key is `for-each: step`. This means each of your 3 items in `collections.step` will be processed through the `implement-and-qa` workflow, which typically has phases like `implement` and `qa`.
 
 ### How Expansion Works
 
 ```
-Your 3 steps × 2 sub-phases per step + prepare + finalize = 8 total phases
+Your 3 items × 2 sub-phases per item + prepare + finalize = 8 total phases
 
-SPRINT.yaml steps:                PROGRESS.yaml phases:
+SPRINT.yaml collections.step:     PROGRESS.yaml phases:
 ─────────────────                 ─────────────────────
 1. Calculator module    ──►       prepare (1 phase)
 2. Unit tests           ──►       execute-all:
@@ -612,13 +617,14 @@ cat .claude/sprints/*/SPRINT.yaml
 
 **Solution:** Fix the YAML syntax. Use quotes for prompts with special characters:
 ```yaml
-steps:
-  - prompt: "Fix: this colon was causing problems"
+collections:
+  step:
+    - prompt: "Fix: this colon was causing problems"
 ```
 
-### New steps not appearing in execution
+### New items not appearing in execution
 
-**Cause:** PROGRESS.yaml was compiled before you added steps.
+**Cause:** PROGRESS.yaml was compiled before you added items.
 
 **Solution:**
 ```bash
@@ -647,7 +653,7 @@ You've completed your first sprint. Here's where to explore next:
 
 ```bash
 # Sprint Lifecycle
-/start-sprint <name>              # Create new sprint
+/init-sprint <name>              # Create new sprint
 /add-step "<description>"         # Add step to current sprint
 /run-sprint <dir>                 # Compile and execute
 /run-sprint <dir> --dry-run       # Preview without executing

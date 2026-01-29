@@ -47,7 +47,7 @@ M42 Sprint enables autonomous, goal-driven development where Claude thinks deepl
 
 ```bash
 # 1. Create Ralph mode sprint
-/start-sprint my-feature --ralph
+/init-sprint my-feature --ralph
 
 # 2. Edit SPRINT.yaml to define your goal
 goal: |
@@ -72,16 +72,17 @@ Override the model for complex or simple tasks:
 # SPRINT.yaml
 model: sonnet  # Sprint-level default
 
-steps:
-  - prompt: Design architecture
-    model: opus    # Use opus for complex reasoning
+collections:
+  step:
+    - prompt: Design architecture
+      model: opus    # Use opus for complex reasoning
 ```
 
 ### Workflow Mode
 
 ```bash
 # 1. Create workflow-based sprint
-/start-sprint my-feature --workflow sprint-default
+/init-sprint my-feature --workflow sprint-default
 
 # 2. Add steps
 /add-step "Create user model with validation"
@@ -112,7 +113,7 @@ The sprint runtime is built with TypeScript and runs on Node.js. No additional Y
 
 | Command | Description |
 |---------|-------------|
-| `/start-sprint <name> [--ralph\|--workflow <name>] [--worktree]` | Initialize new sprint (add `--worktree` for [parallel development](docs/guides/worktree-sprints.md)) |
+| `/init-sprint <name> [--ralph\|--workflow <name>] [--worktree]` | Initialize new sprint (add `--worktree` for [parallel development](docs/guides/worktree-sprints.md)) |
 | `/add-step <prompt>` | Add step to queue (workflow mode) |
 | `/import-steps` | Bulk import from GitHub |
 | `/run-sprint <dir> [--model <model>]` | Start execution loop (model: sonnet/opus/haiku) |

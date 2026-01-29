@@ -46,7 +46,7 @@ Ralph Mode is ideal when you have a goal but want Claude to figure out the steps
 ### Step 1: Create a Ralph Sprint
 
 ```bash
-/start-sprint hello-sprint --ralph
+/init-sprint hello-sprint --ralph
 ```
 
 **What happens:**
@@ -106,7 +106,7 @@ Workflow Mode is best when you have specific steps to execute.
 ### Step 1: Create a Workflow Sprint
 
 ```bash
-/start-sprint hello-sprint --workflow sprint-default
+/init-sprint hello-sprint --workflow sprint-default
 ```
 
 ### Step 2: Add Your Steps
@@ -155,18 +155,19 @@ Phases:
 
 ## Model Selection (Optional)
 
-Override the Claude model for specific steps or the entire sprint:
+Override the Claude model for specific items or the entire sprint:
 
 ```yaml
 # Sprint-level default
 model: sonnet
 
-steps:
-  - prompt: Complex architecture decision
-    model: opus    # Use stronger model for complex reasoning
+collections:
+  step:
+    - prompt: Complex architecture decision
+      model: opus    # Use stronger model for complex reasoning
 
-  - prompt: Simple formatting fix
-    model: haiku   # Use faster model for simple tasks
+    - prompt: Simple formatting fix
+      model: haiku   # Use faster model for simple tasks
 ```
 
 ---
@@ -200,13 +201,13 @@ Both modes use the **Fresh Context Pattern**:
 
 ```bash
 # Create sprint (Ralph mode - recommended)
-/start-sprint <name> --ralph
+/init-sprint <name> --ralph
 
 # Create sprint (Workflow mode)
-/start-sprint <name> --workflow sprint-default
+/init-sprint <name> --workflow sprint-default
 
 # Create sprint with isolated worktree (for parallel development)
-/start-sprint <name> --ralph --worktree
+/init-sprint <name> --ralph --worktree
 
 # Add steps (workflow mode)
 /add-step "<description>"
