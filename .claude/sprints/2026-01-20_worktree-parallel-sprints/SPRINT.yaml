@@ -1,15 +1,229 @@
 # SPRINT.yaml - Worktree-Parallel Sprint Support
 # Enable multiple sprints to run concurrently across git worktrees
+# with automatic worktree creation and native execution
 
 workflow: plugin-development
 
+# Worktree configuration for THIS sprint (example of the feature we're building)
+# worktree:
+#   enabled: true
+#   branch: sprint/worktree-parallel-sprints
+#   path: ../m42-plugins-worktree-parallel  # relative to repo root
+
 steps:
   # ============================================================================
-  # Step 0: Worktree Detection & Isolation
+  # Step 0: Worktree Configuration Schema
+  # ============================================================================
+  - id: worktree-config-schema
+    prompt: |
+      GIVEN the need to optionally run sprints in dedicated worktrees
+      WHEN users define a sprint or workflow
+      THEN provide configuration options for automatic worktree creation
+
+      ## Scope
+      Define the schema for worktree configuration at workflow and sprint levels.
+
+      ## Acceptance Criteria
+
+      ### SPRINT.yaml Schema Extension
+      Add optional `worktree` configuration block:
+      ```yaml
+      # SPRINT.yaml
+      workflow: my-workflow
+
+      # Optional: Automatic worktree for this sprint
+      worktree:
+        enabled: true                              # Enable dedicated worktree
+        branch: sprint/{sprint-id}                 # Branch name (supports variables)
+        path: ../{sprint-id}-worktree              # Worktree path (relative to repo)
+        cleanup: on-complete                       # never | on-complete | on-merge
+      ```
+
+      ### Workflow-level Defaults
+      Workflows can set default worktree behavior:
+      ```yaml
+      # workflows/feature-development.yaml
+      name: feature-development
+      worktree:
+        enabled: true                              # All sprints using this workflow
+        branch-prefix: sprint/                     # Default branch prefix
+        path-prefix: ../worktrees/                 # Default worktree location
+        cleanup: on-complete
+      ```
+
+      ### Sprint Overrides Workflow
+      - [ ] Sprint-level `worktree` config overrides workflow defaults
+      - [ ] `enabled: false` in sprint disables even if workflow enables
+      - [ ] Missing config = inherit from workflow or disabled
+
+      ### Variable Substitution
+      Support these variables in branch/path:
+      - `{sprint-id}` → e.g., `2026-01-20_feature-auth`
+      - `{sprint-name}` → e.g., `feature-auth`
+      - `{date}` → e.g., `2026-01-20`
+      - `{workflow}` → e.g., `feature-development`
+
+      ### Type Definitions
+      ```typescript
+      interface WorktreeConfig {
+        enabled: boolean;
+        branch?: string;        // Default: sprint/{sprint-id}
+        path?: string;          // Default: ../{sprint-id}-worktree
+        cleanup?: 'never' | 'on-complete' | 'on-merge';
+      }
+      ```
+
+      ### Validation Rules
+      - [ ] Branch name must be valid git ref
+      - [ ] Path must not conflict with existing directories
+      - [ ] Cleanup mode validated against enum
+
+      ## Files to Modify
+      - plugins/m42-sprint/compiler/src/types.ts (add WorktreeConfig)
+      - plugins/m42-sprint/compiler/src/schema.ts (validation)
+
+  # ============================================================================
+  # Step 1: Automatic Worktree Creation at Sprint Start
+  # ============================================================================
+  - id: auto-worktree-creation
+    prompt: |
+      GIVEN the worktree configuration schema from Step 0
+      WHEN a user runs /start-sprint with worktree enabled
+      THEN automatically create git branch and worktree
+
+      ## Scope
+      Modify /start-sprint to create worktree when configured.
+
+      ## Acceptance Criteria
+
+      ### Branch Creation
+      - [ ] Create new branch from current HEAD (or specified base)
+      - [ ] Branch name from config with variable substitution
+      - [ ] Fail gracefully if branch already exists (offer to reuse)
+
+      ### Worktree Creation
+      - [ ] Run `git worktree add <path> <branch>`
+      - [ ] Path from config with variable substitution
+      - [ ] Create parent directories if needed
+      - [ ] Validate path doesn't already exist
+
+      ### Sprint Directory Setup
+      - [ ] Create .claude/sprints/{sprint-id}/ in the NEW worktree
+      - [ ] Copy SPRINT.yaml to worktree's sprint directory
+      - [ ] Initialize PROGRESS.yaml with worktree metadata
+
+      ### PROGRESS.yaml Worktree Fields
+      ```yaml
+      worktree:
+        enabled: true
+        branch: sprint/feature-auth
+        path: /absolute/path/to/worktree
+        working-dir: /absolute/path/to/worktree  # Where Claude executes
+        created-at: 2026-01-20T10:00:00Z
+        cleanup: on-complete
+      ```
+
+      ### User Feedback
+      ```
+      Creating dedicated worktree for sprint...
+
+      Branch: sprint/feature-auth (created from main)
+      Worktree: /home/user/project-feature-auth
+      Sprint Dir: /home/user/project-feature-auth/.claude/sprints/2026-01-20_feature-auth
+
+      Sprint initialized in worktree. Run:
+        cd /home/user/project-feature-auth
+        /run-sprint .claude/sprints/2026-01-20_feature-auth
+      ```
+
+      ### Error Handling
+      - [ ] Branch exists → offer to checkout existing or create new name
+      - [ ] Directory exists → fail with clear message
+      - [ ] Git errors → show git output, suggest manual steps
+
+      ## Files to Modify
+      - plugins/m42-sprint/commands/start-sprint.md
+      - plugins/m42-sprint/runtime/src/worktree.ts (new: createWorktree())
+
+  # ============================================================================
+  # Step 2: Runtime Execution Directory (Critical)
+  # ============================================================================
+  - id: runtime-working-dir
+    prompt: |
+      GIVEN that Claude currently executes with cwd=sprintDir (.claude/sprints/xxx/)
+      WHEN users expect Claude to operate naturally in the codebase
+      THEN change runtime to execute Claude from project/worktree root
+
+      ## Scope
+      **CRITICAL**: Modify the sprint runtime to execute Claude from the correct directory.
+
+      ## The Problem
+      Current behavior in loop.ts:
+      ```typescript
+      const spawnResult = await deps.runClaude({
+        prompt,
+        cwd: sprintDir,  // ← This is .claude/sprints/2026-01-20_feature/
+        outputFile,
+      });
+      ```
+
+      Claude thinks it's in the sprint metadata folder, not the project!
+
+      ## The Solution
+      ```typescript
+      const spawnResult = await deps.runClaude({
+        prompt,
+        cwd: progress.worktree?.['working-dir'] ?? getProjectRoot(sprintDir),
+        outputFile,
+      });
+      ```
+
+      ## Acceptance Criteria
+
+      ### working-dir Field in PROGRESS.yaml
+      - [ ] Add `working-dir` field (absolute path where Claude executes)
+      - [ ] For worktree sprints: worktree root
+      - [ ] For non-worktree sprints: project root (git root or cwd)
+      - [ ] Populated by compiler/start-sprint
+
+      ### Project Root Detection
+      - [ ] `getProjectRoot(sprintDir)` → finds git root or falls back
+      - [ ] Respects worktree boundaries (doesn't escape to main repo)
+      - [ ] Handles non-git directories gracefully
+
+      ### Runtime Changes (loop.ts)
+      - [ ] Read `working-dir` from PROGRESS.yaml
+      - [ ] Pass as `cwd` to runClaude()
+      - [ ] Sprint directory still used for PROGRESS.yaml writes
+      - [ ] Transcriptions still written to sprint directory
+
+      ### Path Handling
+      - [ ] All file paths in prompts work relative to working-dir
+      - [ ] Absolute paths still work
+      - [ ] Sprint-relative paths (for artifacts) documented
+
+      ### Backwards Compatibility
+      - [ ] If `working-dir` missing, fall back to getProjectRoot()
+      - [ ] Existing sprints continue to work
+
+      ### Test Cases
+      - [ ] Sprint without worktree: cwd = project root
+      - [ ] Sprint with worktree: cwd = worktree root
+      - [ ] File operations work naturally (Read, Write, Edit)
+      - [ ] Git operations work in correct directory
+
+      ## Files to Modify
+      - plugins/m42-sprint/runtime/src/loop.ts (cwd change)
+      - plugins/m42-sprint/runtime/src/worktree.ts (getProjectRoot)
+      - plugins/m42-sprint/compiler/src/types.ts (working-dir field)
+      - plugins/m42-sprint/compiler/src/compiler.ts (populate working-dir)
+
+  # ============================================================================
+  # Step 3: Worktree Detection & Isolation
   # ============================================================================
   - id: worktree-detection
     prompt: |
-      GIVEN the current sprint system that operates on a single working directory
+      GIVEN the runtime now executes in project/worktree root
       WHEN multiple developers want to run sprints in parallel across worktrees
       THEN add worktree awareness and isolation to prevent conflicts
 
@@ -34,28 +248,24 @@ steps:
       - [ ] Test: same sprint name in two worktrees = two separate sprints
 
       ### Helper Functions
-      - [ ] `getWorktreeInfo()` → { isWorktree, path, id }
+      - [ ] `getWorktreeInfo()` → { isWorktree, path, id, mainWorktreePath }
       - [ ] `validateWorktreeIsolation()` → boolean
 
       ### Tests
       - [ ] Unit test: worktree detection logic
       - [ ] Integration test: two worktrees, same sprint name, separate execution
 
-      ## Context
-      Problem: Users want to run multiple sprints concurrently in different worktrees.
-      Current behavior: No worktree awareness, potential file conflicts.
-
       ## Files to Modify/Create
       - plugins/m42-sprint/compiler/src/types.ts (add worktree fields)
-      - plugins/m42-sprint/runtime/src/worktree.ts (new module)
+      - plugins/m42-sprint/runtime/src/worktree.ts (detection helpers)
       - plugins/m42-sprint/runtime/src/worktree.test.ts
 
   # ============================================================================
-  # Step 1: Sprint Status Multi-Worktree View
+  # Step 4: Sprint Status Multi-Worktree View
   # ============================================================================
   - id: status-multi-worktree
     prompt: |
-      GIVEN the worktree isolation from Step 0
+      GIVEN the worktree isolation from Step 3
       WHEN users want to monitor all active sprints across worktrees
       THEN create a unified status view
 
@@ -82,11 +292,13 @@ steps:
 
       * /home/user/project-main/.claude/sprints/2026-01-20_feature-a/
         Worktree: main (current)
+        Working Dir: /home/user/project-main
         Status: in-progress
         Phase: 3/8 (development)
 
         /home/user/project-worktree1/.claude/sprints/2026-01-20_feature-b/
         Worktree: feature-branch
+        Working Dir: /home/user/project-worktree1
         Status: in-progress
         Phase: 1/8 (preflight)
 
@@ -108,7 +320,7 @@ steps:
       - plugins/m42-sprint/runtime/src/status.ts (or relevant status module)
 
   # ============================================================================
-  # Step 2: Conflict Detection & Prevention
+  # Step 5: Conflict Detection & Prevention
   # ============================================================================
   - id: conflict-prevention
     prompt: |
@@ -159,7 +371,65 @@ steps:
       - plugins/m42-sprint/runtime/src/locks.test.ts
 
   # ============================================================================
-  # Step 3: Documentation & User Guide
+  # Step 6: Worktree Cleanup on Sprint Completion
+  # ============================================================================
+  - id: worktree-cleanup
+    prompt: |
+      GIVEN sprints that created dedicated worktrees
+      WHEN the sprint completes or is explicitly cleaned up
+      THEN handle worktree lifecycle based on configuration
+
+      ## Scope
+      Implement cleanup strategies for sprint worktrees.
+
+      ## Acceptance Criteria
+
+      ### Cleanup Modes
+      - `never`: Worktree persists indefinitely
+      - `on-complete`: Remove worktree when sprint status = completed
+      - `on-merge`: Remove after branch is merged to main
+
+      ### Cleanup Command
+      - [ ] Add /cleanup-sprint command
+      - [ ] Options: --force (skip confirmation), --keep-branch
+
+      ### Automatic Cleanup
+      - [ ] On sprint completion, check cleanup config
+      - [ ] If `on-complete`, prompt user or auto-cleanup
+      - [ ] Log cleanup actions
+
+      ### Cleanup Steps
+      1. Verify sprint is in terminal state (completed/blocked)
+      2. Check for uncommitted changes in worktree
+      3. Remove worktree: `git worktree remove <path>`
+      4. Optionally delete branch: `git branch -d <branch>`
+      5. Archive sprint directory (optional)
+
+      ### Safety Checks
+      - [ ] Never delete worktree with uncommitted changes
+      - [ ] Never delete worktree if sprint is in-progress
+      - [ ] Require --force for worktrees with unpushed commits
+
+      ### User Feedback
+      ```
+      Sprint completed. Cleaning up worktree...
+
+      Worktree: /home/user/project-feature-auth
+      Branch: sprint/feature-auth
+      Status: completed
+
+      Actions:
+        [x] Worktree removed
+        [x] Branch deleted (was merged to main)
+        [x] Sprint archived to .claude/sprints/archive/
+      ```
+
+      ## Files to Create/Modify
+      - plugins/m42-sprint/commands/cleanup-sprint.md (new)
+      - plugins/m42-sprint/runtime/src/cleanup.ts (new)
+
+  # ============================================================================
+  # Step 7: Documentation & User Guide
   # ============================================================================
   - id: documentation
     prompt: |
@@ -178,59 +448,60 @@ steps:
       - [ ] Provide example workflows
       - [ ] Document limitations and best practices
 
-      ### Getting Started Addition
-      - [ ] Add "Parallel Development" section to quickstart
-      - [ ] Show how to set up multiple worktrees
-      - [ ] Example: /start-sprint in each worktree
-
-      ### Reference Updates
-      - [ ] Document --all-worktrees flag
-      - [ ] Document worktree-id field in PROGRESS.yaml
-      - [ ] Document conflict detection behavior
+      ### Configuration Reference
+      - [ ] Document worktree config in SPRINT.yaml
+      - [ ] Document workflow-level defaults
+      - [ ] Document variable substitution
 
       ### Example Workflows
       ```markdown
-      ## Workflow: Feature Development in Parallel
+      ## Workflow: Automatic Worktree Sprint
 
-      ### Setup Worktrees
-      bash
-      # Main development
-      cd ~/project
-      git worktree add ../project-feature-a feature-a
-      git worktree add ../project-feature-b feature-b
+      ### Configure Workflow with Worktree Defaults
+      ```yaml
+      # workflows/feature-development.yaml
+      name: feature-development
+      worktree:
+        enabled: true
+        branch-prefix: sprint/
+        cleanup: on-complete
+      ```
 
+      ### Start Sprint (Worktree Created Automatically)
+      ```bash
+      /start-sprint feature-auth --workflow feature-development
 
-      ### Start Parallel Sprints
-      bash
-      # Terminal 1
-      cd ~/project-feature-a
-      /start-sprint feature-a-implementation
-      /run-sprint .claude/sprints/2026-01-20_feature-a-implementation
+      # Output:
+      # Creating dedicated worktree for sprint...
+      # Branch: sprint/feature-auth (created from main)
+      # Worktree: ../feature-auth-worktree
+      #
+      # To run the sprint:
+      #   cd ../feature-auth-worktree
+      #   /run-sprint .claude/sprints/2026-01-20_feature-auth
+      ```
 
-      # Terminal 2
-      cd ~/project-feature-b
-      /start-sprint feature-b-implementation
-      /run-sprint .claude/sprints/2026-01-20_feature-b-implementation
+      ### Run Sprint in Worktree
+      ```bash
+      cd ../feature-auth-worktree
+      /run-sprint .claude/sprints/2026-01-20_feature-auth
 
-
-      ### Monitor All Sprints
-      bash
-      /sprint-status --all-worktrees
-
+      # Claude now operates in the worktree directory
+      # All file operations are relative to worktree root
+      ```
       ```
 
       ### Troubleshooting Section
-      - [ ] What to do if sprint conflicts detected
-      - [ ] How to clean up stale locks
-      - [ ] How to manually isolate worktree state
+      - [ ] What to do if worktree creation fails
+      - [ ] How to manually clean up orphaned worktrees
+      - [ ] How to recover from interrupted sprints
 
       ## Files to Create/Modify
-      - plugins/m42-sprint/docs/guides/parallel-development-worktrees.md (new)
-      - plugins/m42-sprint/docs/getting-started/quick-start.md (update)
-      - plugins/m42-sprint/docs/reference/commands.md (update)
+      - plugins/m42-sprint/docs/guides/worktree-sprints.md (new)
+      - plugins/m42-sprint/docs/reference/sprint-yaml.md (update)
 
   # ============================================================================
-  # Step 4: Integration Tests
+  # Step 8: Integration Tests
   # ============================================================================
   - id: integration-tests
     prompt: |
@@ -244,32 +515,35 @@ steps:
       ## Acceptance Criteria
 
       ### Test Scenarios
+      - [ ] Sprint with worktree: auto-creates branch and worktree
+      - [ ] Sprint without worktree: uses project root as cwd
       - [ ] Two worktrees, different sprints, run concurrently
-      - [ ] Two worktrees, same sprint name, isolated execution
       - [ ] Sprint status shows all worktrees correctly
+      - [ ] Worktree cleanup works after completion
       - [ ] Conflict detection prevents branch name collisions
-      - [ ] Lock cleanup works after abnormal termination
+
+      ### Runtime Execution Tests
+      - [ ] Claude executes in worktree root (not sprint dir)
+      - [ ] File operations work relative to worktree
+      - [ ] Git operations affect worktree's branch
+      - [ ] PROGRESS.yaml still written to sprint directory
 
       ### Test Setup
-      - [ ] Create temporary git repo with worktrees
-      - [ ] Initialize sprints in each worktree
-      - [ ] Run concurrent operations
-      - [ ] Verify isolation and correctness
-
-      ### Test Cleanup
-      - [ ] Remove temporary worktrees
-      - [ ] Clean up test repositories
-      - [ ] Verify no leaked state
+      - [ ] Create temporary git repo
+      - [ ] Initialize sprint with worktree config
+      - [ ] Verify worktree created correctly
+      - [ ] Run sprint, verify cwd is worktree
+      - [ ] Complete sprint, verify cleanup
 
       ### Test Scripts
-      - [ ] plugins/m42-sprint/scripts/test-worktree-isolation.sh
-      - [ ] plugins/m42-sprint/scripts/test-parallel-sprints.sh
-      - [ ] plugins/m42-sprint/scripts/test-conflict-detection.sh
+      - [ ] plugins/m42-sprint/scripts/test-worktree-creation.sh
+      - [ ] plugins/m42-sprint/scripts/test-runtime-cwd.sh
+      - [ ] plugins/m42-sprint/scripts/test-worktree-cleanup.sh
 
       ## Files to Create
-      - plugins/m42-sprint/scripts/test-worktree-isolation.sh
-      - plugins/m42-sprint/scripts/test-parallel-sprints.sh
-      - plugins/m42-sprint/scripts/test-conflict-detection.sh
+      - plugins/m42-sprint/scripts/test-worktree-creation.sh
+      - plugins/m42-sprint/scripts/test-runtime-cwd.sh
+      - plugins/m42-sprint/scripts/test-worktree-cleanup.sh
 
 # Sprint metadata
 sprint-id: 2026-01-20_worktree-parallel-sprints

@@ -196,6 +196,8 @@ The TypeScript runtime uses a pointer-based system to track position:
 | `phases` | CompiledTopPhase[] | Compiled phase hierarchy |
 | `current` | CurrentPointer | Execution position pointer |
 | `stats` | SprintStats | Execution statistics |
+| `worktree` | CompiledWorktreeConfig | Worktree configuration (if enabled) |
+| `worktree-isolation` | WorktreeIsolationMeta | Runtime worktree tracking metadata |
 
 ### CompiledTopPhase (Top-Level Phase)
 
@@ -254,6 +256,30 @@ The TypeScript runtime uses a pointer-based system to track position:
 | `elapsed` | string | Total elapsed time |
 | `current-iteration` | number | Current loop iteration (1-based) |
 | `max-iterations` | number | Maximum iterations configured |
+
+### CompiledWorktreeConfig
+
+Present when sprint runs in a dedicated worktree. Contains resolved configuration and runtime state.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `enabled` | boolean | Whether worktree is enabled |
+| `branch` | string | Resolved branch name (variables substituted) |
+| `path` | string | Resolved worktree path (absolute) |
+| `cleanup` | `'never'` \| `'on-complete'` \| `'on-merge'` | Cleanup mode |
+| `created-at` | ISO 8601 | When the worktree was created |
+| `cleaned-up` | boolean | Whether worktree has been cleaned up |
+| `working-dir` | string | Working directory for Claude execution |
+
+### WorktreeIsolationMeta
+
+Runtime metadata tracking which worktree a sprint is running in. Auto-populated on sprint start.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `worktree-id` | string | Unique identifier for this worktree (12-char hash) |
+| `worktree-path` | string | Absolute path to the worktree root |
+| `is-worktree` | boolean | Whether this is a linked worktree (true) or main repo (false) |
 
 ## Example PROGRESS.yaml
 
@@ -375,6 +401,46 @@ stats:
   max-iterations: 30
 ```
 
+### Worktree-Enabled Sprint
+
+```yaml
+sprint-id: feature-auth-2026-01
+status: in-progress
+
+# Worktree configuration (resolved from SPRINT.yaml)
+worktree:
+  enabled: true
+  branch: sprint/2026-01-20_feature-auth
+  path: /home/user/projects/2026-01-20_feature-auth-worktree
+  working-dir: /home/user/projects/2026-01-20_feature-auth-worktree
+  cleanup: on-complete
+  created-at: "2026-01-20T09:00:00Z"
+
+# Runtime worktree isolation tracking
+worktree-isolation:
+  worktree-id: abc123def456
+  worktree-path: /home/user/projects/2026-01-20_feature-auth-worktree
+  is-worktree: true
+
+phases:
+  - id: setup
+    status: completed
+    prompt: "Initialize feature environment"
+    # ... phases continue
+
+current:
+  phase: 1
+  step: 0
+  sub-phase: 1
+
+stats:
+  started-at: "2026-01-20T09:00:00Z"
+  total-phases: 3
+  completed-phases: 1
+```
+
+The `worktree` section tracks the resolved worktree configuration (from SPRINT.yaml or workflow defaults), while `worktree-isolation` contains runtime metadata for identifying which worktree this sprint is executing in.
+
 ## Human Intervention
 
 When a phase requires human intervention:
@@ -460,12 +526,36 @@ interface SprintStats {
   'max-iterations'?: number;
 }
 
+// Worktree cleanup modes
+type WorktreeCleanup = 'never' | 'on-complete' | 'on-merge';
+
+// Compiled worktree configuration in PROGRESS.yaml
+interface CompiledWorktreeConfig {
+  enabled: boolean;
+  branch: string;
+  path: string;
+  cleanup: WorktreeCleanup;
+  'created-at'?: string;
+  'cleaned-up'?: boolean;
+  'working-dir'?: string;
+}
+
+// Runtime worktree isolation metadata
+interface WorktreeIsolationMeta {
+  'worktree-id': string;
+  'worktree-path': string;
+  'is-worktree': boolean;
+}
+
 interface CompiledProgress {
   'sprint-id': string;
   status: SprintStatus;
   phases: CompiledTopPhase[];
   current: CurrentPointer;
   stats: SprintStats;
+  // Worktree fields
+  worktree?: CompiledWorktreeConfig;
+  'worktree-isolation'?: WorktreeIsolationMeta;
 }
 ```
 
@@ -477,3 +567,4 @@ interface CompiledProgress {
 - [Workflow YAML Schema](./workflow-yaml-schema.md) - Workflow definitions
 - [Commands Reference](./commands.md) - Sprint management commands
 - [Ralph Loop Concept](../concepts/ralph-loop.md) - How the sprint loop executes
+- [Worktree Sprints Guide](../guides/worktree-sprints.md) - Parallel development with git worktrees

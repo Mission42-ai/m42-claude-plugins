@@ -174,6 +174,7 @@ Both modes use the **Fresh Context Pattern**:
 |------------|------|
 | Learn Ralph Mode deeply | [Ralph Mode Concepts](../concepts/ralph-mode.md) |
 | Understand the architecture | [Architecture Overview](../concepts/overview.md) |
+| Run multiple sprints in parallel | [Worktree Sprints Guide](../guides/worktree-sprints.md) |
 | See complete usage guide | [User Guide](../USER-GUIDE.md) |
 | See all commands | [Commands Reference](../reference/commands.md) |
 
@@ -187,6 +188,9 @@ Both modes use the **Fresh Context Pattern**:
 
 # Create sprint (Workflow mode)
 /start-sprint <name> --workflow sprint-default
+
+# Create sprint with isolated worktree (for parallel development)
+/start-sprint <name> --ralph --worktree
 
 # Add steps (workflow mode)
 /add-step "<description>"

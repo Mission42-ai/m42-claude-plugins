@@ -90,7 +90,7 @@ The sprint runtime is built with TypeScript and runs on Node.js. No additional Y
 
 | Command | Description |
 |---------|-------------|
-| `/start-sprint <name> [--ralph\|--workflow <name>]` | Initialize new sprint |
+| `/start-sprint <name> [--ralph\|--workflow <name>] [--worktree]` | Initialize new sprint (add `--worktree` for [parallel development](docs/guides/worktree-sprints.md)) |
 | `/add-step <prompt>` | Add step to queue (workflow mode) |
 | `/import-steps` | Bulk import from GitHub |
 | `/run-sprint <dir>` | Start execution loop |

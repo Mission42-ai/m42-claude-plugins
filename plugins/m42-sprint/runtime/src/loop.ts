@@ -39,6 +39,9 @@ import {
 import { runClaude as defaultRunClaude } from './claude-runner.js';
 import type { ClaudeResult, ClaudeRunOptions } from './claude-runner.js';
 
+// Import from worktree module
+import { getProjectRoot } from './worktree.js';
+
 // ============================================================================
 // Progress File Operations (wrapper to handle type differences)
 // ============================================================================
@@ -526,10 +529,15 @@ export async function runLoop(
     // BUG-002 FIX: Update checksum after our write, so compare-and-swap only detects external changes
     const preClaudeChecksum = getFileChecksum(progressPath);
 
+    // Determine the correct working directory for Claude execution
+    // For worktree sprints: use the worktree root (working-dir from PROGRESS.yaml)
+    // For non-worktree sprints: use the project root (git root or folder containing .claude/)
+    const workingDir = progress.worktree?.['working-dir'] ?? getProjectRoot(sprintDir);
+
     // Execute SPAWN_CLAUDE action directly
     const spawnResult = await deps.runClaude({
       prompt,
-      cwd: sprintDir,
+      cwd: workingDir,
       outputFile,
     });
 

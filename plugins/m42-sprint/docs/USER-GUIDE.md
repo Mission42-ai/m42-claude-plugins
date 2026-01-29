@@ -47,6 +47,57 @@ For detailed architecture and concepts, see [Architecture Overview](concepts/ove
 
 ---
 
+## Parallel Development with Worktrees
+
+Run multiple sprints simultaneously using git worktrees. Each sprint gets its own branch, working directory, and Claude session—completely isolated from your main work.
+
+### Quick Start
+
+```bash
+# Start a sprint with dedicated worktree
+/start-sprint feature-auth --ralph --worktree
+
+# Navigate to worktree and run
+cd ../2026-01-20_feature-auth-worktree
+/run-sprint .claude/sprints/2026-01-20_feature-auth
+
+# Monitor all parallel sprints
+/sprint-status --all-worktrees
+
+# Clean up after completion
+/cleanup-sprint .claude/sprints/2026-01-20_feature-auth
+```
+
+### SPRINT.yaml Configuration
+
+Enable worktree mode in your sprint definition:
+
+```yaml
+name: User Authentication
+workflow: ralph
+
+worktree:
+  enabled: true
+  branch: sprint/{sprint-id}        # Default branch pattern
+  path: ../{sprint-id}-worktree     # Default worktree location
+  cleanup: on-complete              # Auto-cleanup when done
+
+goal: |
+  Implement user authentication with JWT tokens.
+```
+
+### Key Commands
+
+| Command | Description |
+|---------|-------------|
+| `/start-sprint <name> --worktree` | Create sprint with dedicated worktree |
+| `/sprint-status --all-worktrees` | View all parallel sprints |
+| `/cleanup-sprint <path>` | Remove worktree and optionally branch |
+
+For complete configuration options, troubleshooting, and advanced workflows, see [Parallel Development with Git Worktrees](guides/worktree-sprints.md).
+
+---
+
 ## Troubleshooting
 
 See [Common Issues](troubleshooting/common-issues.md) for solutions to:
@@ -171,7 +222,7 @@ You can also run sprints without automatic activity logging by using the `--no-s
 
 1. **Monitor with `/sprint-watch`**: Real-time dashboard is better than polling
 2. **Trust the loop**: Default unlimited iterations - loop exits on completion or error status
-3. **One sprint at a time**: (Worktree support for parallel sprints coming soon)
+3. **Use worktrees for parallel work**: Run multiple sprints simultaneously with `--worktree` flag
 
 ---
 

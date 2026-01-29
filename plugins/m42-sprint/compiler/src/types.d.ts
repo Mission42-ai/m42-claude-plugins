@@ -207,6 +207,73 @@ export interface RalphExitInfo {
     /** Final summary from Claude */
     'final-summary'?: string;
 }
+/** Cleanup mode for worktrees */
+export type WorktreeCleanup = 'never' | 'on-complete' | 'on-merge';
+/**
+ * Worktree configuration for sprint or workflow level
+ *
+ * Supports variable substitution in branch and path:
+ * - {sprint-id} → e.g., "2026-01-20_feature-auth"
+ * - {sprint-name} → e.g., "feature-auth"
+ * - {date} → e.g., "2026-01-20"
+ * - {workflow} → e.g., "feature-development"
+ */
+export interface WorktreeConfig {
+    /** Enable dedicated worktree for this sprint */
+    enabled: boolean;
+    /** Branch name for the worktree (default: sprint/{sprint-id}) */
+    branch?: string;
+    /** Path for the worktree relative to repo root (default: ../{sprint-id}-worktree) */
+    path?: string;
+    /** When to clean up the worktree (default: on-complete) */
+    cleanup?: WorktreeCleanup;
+}
+/**
+ * Workflow-level worktree defaults
+ * Uses prefix patterns instead of full templates
+ */
+export interface WorkflowWorktreeDefaults {
+    /** Enable worktree for all sprints using this workflow */
+    enabled: boolean;
+    /** Branch prefix (e.g., "sprint/" → "sprint/{sprint-id}") */
+    'branch-prefix'?: string;
+    /** Path prefix for worktrees (e.g., "../worktrees/" → "../worktrees/{sprint-id}") */
+    'path-prefix'?: string;
+    /** Default cleanup mode */
+    cleanup?: WorktreeCleanup;
+}
+/**
+ * Compiled worktree configuration in PROGRESS.yaml
+ * Contains resolved paths and runtime state
+ */
+export interface CompiledWorktreeConfig {
+    /** Whether worktree is enabled */
+    enabled: boolean;
+    /** Resolved branch name (variables substituted) */
+    branch: string;
+    /** Resolved worktree path (variables substituted) */
+    path: string;
+    /** Cleanup mode */
+    cleanup: WorktreeCleanup;
+    /** When the worktree was created (ISO timestamp) */
+    'created-at'?: string;
+    /** Whether worktree has been cleaned up */
+    'cleaned-up'?: boolean;
+    /** Working directory for Claude execution (worktree root or sprint dir) */
+    'working-dir'?: string;
+}
+/**
+ * Runtime worktree isolation metadata
+ * Added to PROGRESS.yaml to track which worktree a sprint is running in
+ */
+export interface WorktreeIsolationMeta {
+    /** Unique identifier for this worktree (12-char hash of worktree path) */
+    'worktree-id': string;
+    /** Absolute path to the worktree root (for debugging) */
+    'worktree-path': string;
+    /** Whether this is a linked worktree (true) or main repo (false) */
+    'is-worktree': boolean;
+}
 /**
  * Orchestration configuration for dynamic step injection
  * Enables Claude to propose new steps during execution
@@ -308,6 +375,8 @@ export interface SprintDefinition {
     }>;
     /** Custom prompt templates for runtime */
     prompts?: SprintPrompts;
+    /** Optional worktree configuration for isolated execution */
+    worktree?: WorktreeConfig;
 }
 /**
  * Customizable runtime prompt templates for sprint execution
@@ -362,6 +431,8 @@ export interface WorkflowDefinition {
     'per-iteration-hooks'?: PerIterationHook[];
     /** Orchestration configuration for dynamic step injection */
     orchestration?: OrchestrationConfig;
+    /** Default worktree configuration for sprints using this workflow */
+    worktree?: WorkflowWorktreeDefaults;
 }
 /**
  * A parallel task running in the background
@@ -526,6 +597,10 @@ export interface CompiledProgress {
     prompts?: SprintPrompts;
     /** Retry configuration for error recovery */
     retry?: RetryConfig;
+    /** Compiled worktree configuration (resolved from sprint + workflow defaults) */
+    worktree?: CompiledWorktreeConfig;
+    /** Runtime worktree isolation tracking (auto-populated on sprint start) */
+    'worktree-isolation'?: WorktreeIsolationMeta;
 }
 /**
  * Context for template variable substitution

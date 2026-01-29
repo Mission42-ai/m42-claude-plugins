@@ -1,1082 +1,440 @@
 # Plugin Development Workflow
-# TDD-based development with integrated documentation updates
+# Operator-based TDD with subagent delegation
 #
-# Features:
-# - WORKTREE ISOLATION for parallel development
-# - Preflight planning with shared context for all agents
-# - TDD per-step phases: RED (tests) → GREEN (implement) → REFACTOR → QA
-# - Integrated documentation phase (user docs, getting started, reference)
-# - Binary gherkin scenario verification
-# - Self-healing QA with fix phase injection
-# - Final sprint-level QA and documentation review
+# Design principles:
+# - Claude acts as OPERATOR, delegating to subagents for actual work
+# - Fewer phases, more intelligence per phase
+# - RED/GREEN/REFACTOR handled within single development iteration
 
 name: Plugin Development Workflow
 description: |
-  Comprehensive plugin development workflow combining TDD (test-driven development)
-  with gherkin scenario verification and integrated documentation updates.
+  Streamlined TDD workflow where Claude operates as an intelligent coordinator.
 
-  **IMPORTANT**: This workflow creates a git worktree for isolated parallel development.
-  Multiple sprints can run simultaneously in different worktrees.
+  Each development step spawns subagents for:
+  - RED: Write failing tests
+  - GREEN: Implement to pass tests
+  - REFACTOR: Clean up code
 
-  Each step follows the TDD cycle:
-  1. RED   - Write failing tests and gherkin scenarios first
-  2. GREEN - Implement minimal code to pass tests
-  3. REFACTOR - Clean up while keeping tests green
-  4. QA    - Binary verify all scenarios, inject fixes if needed
-
-  After all steps complete, documentation is automatically updated.
+  The operator monitors progress, handles failures, and ensures quality.
 
 phases:
   # ============================================================================
-  # Phase 0: WORKTREE-SETUP
-  # Create isolated worktree for parallel development
-  # ============================================================================
-  - id: worktree-setup
-    prompt: |
-      Create a git worktree for isolated sprint development.
-
-      ## Why Worktrees?
-      Git worktrees allow multiple sprints to run in parallel, each with its own:
-      - Working directory
-      - Branch
-      - Independent development state
-
-      ## Step 1: Check Current Location
-      ```bash
-      # Determine if we're in a worktree or main repo
-      git rev-parse --show-toplevel
-      git worktree list
-      ```
-
-      ## Step 2: Determine Worktree Location
-      The worktree structure should be:
-      ```
-      project-root/
-        trees/
-          {{sprint.id}}/   # ← Sprint worktree (we'll create this)
-        main/              # or project files directly here
-      ```
-
-      If the project root doesn't have a `trees/` directory, create it:
-      ```bash
-      mkdir -p trees
-      ```
-
-      ## Step 3: Create the Worktree
-      ```bash
-      # Create worktree with new branch
-      git worktree add trees/{{sprint.id}} -b sprint/{{sprint.id}}
-      ```
-
-      If the branch already exists:
-      ```bash
-      git worktree add trees/{{sprint.id}} sprint/{{sprint.id}}
-      ```
-
-      ## Step 4: Verify Worktree
-      ```bash
-      cd trees/{{sprint.id}}
-      git status
-      pwd
-      ```
-
-      ## Step 5: Copy Sprint Files to Worktree
-      The sprint definition needs to be accessible from the worktree:
-      ```bash
-      # Copy the sprint directory to the worktree
-      cp -r .claude/sprints/{{sprint.id}} trees/{{sprint.id}}/.claude/sprints/
-      ```
-
-      ## Step 6: Record Worktree Path
-      Create: context/worktree-info.md
-
-      ```markdown
-      # Worktree Information
-
-      ## Paths
-      - **Worktree**: trees/{{sprint.id}}
-      - **Branch**: sprint/{{sprint.id}}
-      - **Main repo**: [path to main repo]
-
-      ## Working in the Worktree
-      All subsequent phases will work in the worktree directory.
-
-      ## After Sprint Completion
-      - Create PR from sprint/{{sprint.id}} branch
-      - Clean up worktree: `git worktree remove trees/{{sprint.id}}`
-      ```
-
-      ## Output
-      - Worktree created at `trees/{{sprint.id}}`
-      - Branch `sprint/{{sprint.id}}` created
-      - Sprint files copied to worktree
-      - Worktree info documented
-
-      ## IMPORTANT
-      All subsequent phases must work within the worktree:
-      `cd trees/{{sprint.id}}` before any operations.
-
-  # ============================================================================
   # Phase 1: PREFLIGHT
-  # Sprint-level planning, context generation, and documentation inventory
+  # Sprint planning and context gathering
   # ============================================================================
   - id: preflight
     prompt: |
-      Create comprehensive sprint context for TDD-based plugin development.
+      Prepare sprint context and development plan.
 
-      ## Your Task
-      Analyze the sprint scope and prepare shared context for all development phases.
+      ## Your Role
+      You are the sprint OPERATOR. Your job is to:
+      1. Understand the sprint scope
+      2. Research the codebase
+      3. Create shared context for development phases
 
-      ## Step 0: Switch to Worktree
-      ```bash
-      # Ensure we're working in the sprint worktree
-      cd trees/{{sprint.id}}
-      pwd  # Verify location
-      ```
-
-      ## Step 1: Verify Branch
-      ```bash
-      git branch --show-current  # Should show: sprint/{{sprint.id}}
-      git status
-      ```
-
-      ## Step 2: Analyze Sprint Scope
-      Read SPRINT.yaml to understand:
-      - All steps and their relationships
-      - Overall sprint goal
-      - Technical requirements
+      ## Step 1: Read Sprint Definition
+      Read the SPRINT.yaml to understand:
+      - All steps and their requirements
       - Dependencies between steps
+      - Overall sprint goal
 
-      ## Step 3: Research Project Context
-      Investigate the codebase to understand:
-      - Project architecture and structure
-      - Existing patterns and conventions
-      - Test frameworks and patterns used
+      ## Step 2: Research Codebase
+      Use the Explore subagent to investigate:
+      - Project architecture and patterns
+      - Test framework and conventions
       - Build/test/lint commands
-      - Documentation structure
+      - Related existing code
 
-      ## Step 4: Documentation Inventory
-      Catalog existing documentation that may need updates:
-      ```bash
-      # Find all documentation files
-      find . -name "*.md" -type f | grep -E "(README|docs/|GUIDE|REFERENCE)" | head -50
-      ```
-
-      Create a documentation map showing what exists and may need updates.
-
-      ## Step 5: Generate Shared Context
+      ## Step 3: Create Shared Context
       Create: context/_shared-context.md
 
       ```markdown
-      # Shared Sprint Context
+      # Sprint Context
 
-      ## Project Architecture
-      [High-level architecture overview relevant to this sprint]
+      ## Project Info
+      - Test framework: [vitest/jest/etc]
+      - Test location: [pattern]
+      - Build command: `[command]`
+      - Test command: `[command]`
+      - Lint command: `[command]`
 
-      ## Test Patterns
-      - Test framework: [framework used]
-      - Test file location: [where tests live]
-      - Test naming: [naming conventions]
-      - Mocking patterns: [how mocks are done]
+      ## Patterns to Follow
+      [Key patterns discovered in codebase]
 
-      ## Key Patterns
-      - [Pattern 1]: [Where and how it's used]
-      - [Pattern 2]: [Where and how it's used]
-
-      ## Commands
-      - Build: `[build command]`
-      - Test: `[test command]`
-      - Test (watch): `[watch command if available]`
-      - Lint: `[lint command]`
-      - TypeCheck: `[typecheck command]`
-
-      ## Documentation Structure
-      - User Guide: [path or "does not exist"]
-      - Getting Started: [path or "does not exist"]
-      - Reference: [path or "does not exist"]
-      - API Docs: [path or "does not exist"]
-
-      ## Dependencies
-      ### Internal Modules
-      - [Module]: [Purpose]
-
-      ### External Packages
-      - [Package]: [Usage]
+      ## Sprint Steps Overview
+      [Brief summary of each step and dependencies]
       ```
 
-      ## Step 6: Generate Sprint Plan
-      Create: context/sprint-plan.md
-
-      ```markdown
-      # Sprint Plan: {{sprint.id}}
-
-      ## Goal
-      [One paragraph describing what this sprint accomplishes]
-
-      ## TDD Approach
-      Each step follows: RED → GREEN → REFACTOR → QA
-
-      ## Success Criteria
-      - [ ] All gherkin scenarios pass (100% score)
-      - [ ] All unit tests pass
-      - [ ] Build passes
-      - [ ] Documentation updated
-
-      ## Step Breakdown
-
-      ### Step 0: [Step title]
-      **Scope**: [What this step does]
-      **Tests to Write**: [Key test cases]
-      **Files**: [Expected files to create/modify]
-      **Docs Impact**: [Documentation that may need updates]
-
-      [Continue for all steps]
-
-      ## Documentation Update Plan
-      | Doc | Status | Updates Needed |
-      |-----|--------|----------------|
-      | User Guide | [exists/new] | [description] |
-      | Getting Started | [exists/new] | [description] |
-      | Reference | [exists/new] | [description] |
+      ## Step 4: Commit
+      ```bash
+      git add context/
+      git commit -m "preflight: sprint context prepared"
       ```
-
-      ## Output
-      - Sprint branch created
-      - context/_shared-context.md with project patterns
-      - context/sprint-plan.md with TDD plan
-      - Commit preflight artifacts:
-        ```bash
-        git add context/
-        git commit -m "preflight: add shared context and TDD sprint plan"
-        ```
 
   # ============================================================================
   # Phase 2: DEVELOPMENT
-  # TDD-based development for each step
+  # Operator-driven TDD for each step
   # ============================================================================
   - id: development
     for-each: step
-    workflow: tdd-step-workflow
-
-  # ============================================================================
-  # Phase 3: DOC-ANALYZE
-  # Review code changes and determine documentation impact
-  # ============================================================================
-  - id: doc-analyze
     prompt: |
-      Analyze code changes and plan documentation updates.
+      ## Your Role: TDD OPERATOR
 
-      ## Step 0: Ensure Working in Worktree
-      ```bash
-      cd trees/{{sprint.id}} 2>/dev/null || true
-      pwd
-      git branch --show-current  # Verify: sprint/{{sprint.id}}
-      ```
+      You coordinate the TDD cycle by spawning subagents for each phase.
+
+      ## Step Requirements
+      {{step.prompt}}
 
       ## Context
-      Read: context/_shared-context.md (documentation structure)
-      Read: context/sprint-plan.md (documentation update plan)
+      Read: context/_shared-context.md
 
-      ## Step 1: Review All Code Changes
+      ---
+
+      ## TDD CYCLE: Execute in Order
+
+      ### 1. RED Phase (Write Failing Tests)
+
+      Spawn a subagent to write tests FIRST:
+
+      ```
+      Task: RED - Write failing tests for {{step.id}}
+
+      Requirements:
+      {{step.prompt}}
+
+      Instructions:
+      1. Read context/_shared-context.md for test patterns
+      2. Create test file(s) following project conventions
+      3. Write 4-8 test cases covering happy path, edge cases, errors
+      4. Tests should FAIL (no implementation yet)
+      5. Commit: git commit -m "test({{step.id}}): add failing tests [RED]"
+      ```
+
+      **Verify RED**: Run tests, confirm they fail (expected).
+
+      ### 2. GREEN Phase (Implement to Pass)
+
+      Spawn a subagent to implement:
+
+      ```
+      Task: GREEN - Implement {{step.id}} to pass tests
+
+      Requirements:
+      {{step.prompt}}
+
+      Instructions:
+      1. Read the test files to understand expected behavior
+      2. Implement MINIMAL code to pass all tests
+      3. Run tests frequently
+      4. Don't optimize - just make tests pass
+      5. Commit: git commit -m "feat({{step.id}}): implementation [GREEN]"
+      ```
+
+      **Verify GREEN**: Run tests, confirm they ALL pass.
+
+      ### 3. REFACTOR Phase (Clean Up)
+
+      Spawn a subagent to refactor:
+
+      ```
+      Task: REFACTOR - Clean up {{step.id}} implementation
+
+      Instructions:
+      1. Remove duplication, improve naming
+      2. Run tests after EACH change - revert if tests fail
+      3. Run lint and fix issues
+      4. Commit: git commit -m "refactor({{step.id}}): code cleanup"
+      ```
+
+      **Verify REFACTOR**: Run tests + lint + typecheck, all must pass.
+
+      ---
+
+      ## OPERATOR DECISIONS
+
+      - If tests fail unexpectedly: retry with more context or spawn fix subagent
+      - If implementation incomplete: spawn another GREEN subagent
+      - If blocked: escalate to human
+
+      ## Final Output
+
+      Create: artifacts/{{step.id}}-complete.md
+
+      ```markdown
+      # Step Complete: {{step.id}}
+
+      ## TDD Cycle
+      - RED: [N] tests written
+      - GREEN: Implementation complete
+      - REFACTOR: Code cleaned
+
+      ## Files Changed
+      [List]
+
+      ## Status: COMPLETE
+      ```
+
+      Commit:
       ```bash
-      # See all changes in this sprint
+      git add artifacts/{{step.id}}-complete.md
+      git commit -m "complete({{step.id}}): TDD cycle finished"
+      ```
+
+  # ============================================================================
+  # Phase 3: DOCUMENTATION
+  # Operator spawns subagents for each doc category
+  # ============================================================================
+  - id: documentation
+    prompt: |
+      ## Your Role: Documentation OPERATOR
+
+      Update documentation by spawning subagents for each category.
+
+      ## Step 1: Analyze Changes
+      ```bash
       git diff main..HEAD --name-only
-
-      # Get detailed diff
-      git diff main..HEAD -- "*.ts" "*.tsx" "*.js"
+      git diff main..HEAD --stat
       ```
 
-      ## Step 2: Identify Documentation Impact
+      Create a list of what changed and needs documenting.
 
-      For each change, determine:
-      - New features that need documenting
-      - Changed behavior that needs updating
-      - Removed features that need removing from docs
-      - New/changed CLI commands
-      - New/changed configuration options
-      - New/changed API endpoints or functions
+      ## Step 2: Spawn Subagents (in parallel if independent)
 
-      ## Step 3: Audit Existing Documentation
-      ```bash
-      # Find all documentation files
-      find . -name "*.md" -path "*/docs/*" -o -name "README.md" | head -30
+      ### User Guide Subagent
+      ```
+      Task: Update user guide documentation
+
+      Changes made in this sprint:
+      [List relevant changes]
+
+      Instructions:
+      1. Find existing user guide (docs/USER-GUIDE.md or docs/user-guide/)
+      2. Add/update sections for new features
+      3. Update examples if behavior changed
+      4. Keep it task-oriented and example-rich
+      5. Commit: git commit -m "docs(user-guide): update for sprint changes"
+
+      Skip if: No user-facing feature changes
       ```
 
-      Review each relevant doc file and note:
-      - What's accurate and complete
-      - What's outdated
-      - What's missing
+      ### Getting Started Subagent
+      ```
+      Task: Update getting started / quickstart docs
 
-      ## Step 4: Generate Documentation Plan
-      Create: artifacts/docs-update-plan.md
+      Changes made in this sprint:
+      [List relevant changes]
+
+      Instructions:
+      1. Find quickstart docs (README.md, docs/getting-started/)
+      2. Update installation steps if changed
+      3. Update first-steps examples if affected
+      4. Ensure copy-paste commands work
+      5. Commit: git commit -m "docs(getting-started): update for sprint changes"
+
+      Skip if: No changes affect onboarding flow
+      ```
+
+      ### Reference Docs Subagent
+      ```
+      Task: Update reference documentation
+
+      Changes made in this sprint:
+      [List relevant changes]
+
+      Instructions:
+      1. Find reference docs (docs/reference/, API docs)
+      2. Update command/function signatures
+      3. Update configuration options
+      4. Update type definitions
+      5. Commit: git commit -m "docs(reference): update for sprint changes"
+
+      Skip if: No API/config/type changes
+      ```
+
+      ## Step 3: Verify All Documentation
+      - Run code examples from docs to verify they work
+      - Check internal links are valid
+      - Ensure consistency across all doc updates
+
+      ## Output
+      Create: artifacts/docs-summary.md
 
       ```markdown
-      # Documentation Update Plan: {{sprint.id}}
+      # Documentation Summary
 
-      ## Code Changes Summary
-      | File | Change Type | Description |
-      |------|-------------|-------------|
-      | [path] | Added/Modified | [what changed] |
+      ## Changes Analyzed
+      [What changed in the sprint]
 
-      ## Documentation Impact
+      ## Updates Made
+      | Category | Status | Changes |
+      |----------|--------|---------|
+      | User Guide | Updated/Skipped | [summary] |
+      | Getting Started | Updated/Skipped | [summary] |
+      | Reference | Updated/Skipped | [summary] |
 
-      ### User Guide Updates
-      | Section | Action | Reason |
-      |---------|--------|--------|
-      | [section] | Update/Add/Remove | [why] |
-
-      ### Getting Started Updates
-      | Section | Action | Reason |
-      |---------|--------|--------|
-      | [section] | Update/Add | [why] |
-
-      ### Reference Updates
-      | Item | Action | Details |
-      |------|--------|---------|
-      | [command/function] | Update/Add | [changes] |
-
-      ## New Documentation Needed
-      - [ ] [New doc 1]: [purpose]
-      - [ ] [New doc 2]: [purpose]
-
-      ## Files to Update
-      | File | Updates Needed |
-      |------|----------------|
-      | [path] | [specific updates] |
-
-      ## Verification Plan
-      - [ ] All code examples tested
-      - [ ] All commands verified
-      - [ ] All links checked
-      ```
-
-      ## Commit
-      ```bash
-      git add artifacts/docs-update-plan.md
-      git commit -m "docs(plan): documentation update analysis"
+      ## Verification
+      - [ ] Code examples tested
+      - [ ] Links validated
       ```
 
   # ============================================================================
-  # Phase 4: DOC-USER-GUIDE
-  # Update user-facing documentation
-  # ============================================================================
-  - id: doc-user-guide
-    prompt: |
-      Update user-facing documentation based on analysis.
-
-      ## Context
-      Read: artifacts/docs-update-plan.md (what needs updating)
-      Read: context/_shared-context.md (documentation structure)
-
-      ## User Guide Principles
-      1. **Task-oriented**: Organize by what users want to DO
-      2. **Progressive**: Simple → Advanced
-      3. **Example-rich**: Every feature needs an example
-      4. **Scannable**: Use headers, lists, tables
-
-      ## Step 1: Locate or Create User Guide
-      The user guide should be at: `docs/USER-GUIDE.md` or `docs/user-guide/`
-
-      If it doesn't exist, create it using the template below.
-
-      ## Step 2: Update Each Section
-
-      For each item in docs-update-plan.md's "User Guide Updates":
-
-      ### Adding New Features
-      ```markdown
-      ## [Feature Name]
-
-      [One paragraph explaining WHAT it does and WHY you'd use it]
-
-      ### Quick Example
-      \`\`\`bash
-      # Show the simplest possible example
-      [command or code]
-      \`\`\`
-
-      ### How It Works
-      [Explain the feature in more detail]
-
-      ### Examples
-
-      #### Basic Usage
-      \`\`\`bash
-      [example]
-      \`\`\`
-
-      #### Advanced Usage
-      \`\`\`bash
-      [example with options]
-      \`\`\`
-
-      ### Tips
-      - [Helpful tip 1]
-      - [Helpful tip 2]
-      ```
-
-      ### Updating Existing Features
-      - Locate the existing section
-      - Update examples if behavior changed
-      - Update descriptions if functionality changed
-      - Add new subsections for new capabilities
-
-      ### Removing Features
-      - Remove the section entirely
-      - Or add deprecation notice if replacing
-
-      ## Step 3: Verify Examples Work
-      Run each code example in the documentation to ensure it works:
-      ```bash
-      # Test each example manually
-      [example command from docs]
-      ```
-
-      ## Step 4: Commit Updates
-      ```bash
-      git add docs/
-      git commit -m "docs(user-guide): update for {{sprint.id}} changes"
-      ```
-
-  # ============================================================================
-  # Phase 5: DOC-GETTING-STARTED
-  # Update quickstart and onboarding material
-  # ============================================================================
-  - id: doc-getting-started
-    prompt: |
-      Update getting started and quickstart documentation.
-
-      ## Context
-      Read: artifacts/docs-update-plan.md (what needs updating)
-      Read: context/_shared-context.md (documentation structure)
-
-      ## Getting Started Principles
-      1. **Fast**: Get to "Hello World" in < 5 steps
-      2. **Complete**: All prerequisites clearly listed
-      3. **Copy-paste**: Every command should work as written
-      4. **No assumptions**: Don't assume prior knowledge
-
-      ## Step 1: Locate or Create Getting Started
-      Should be at: `docs/getting-started/` or `docs/QUICKSTART.md` or in README.md
-
-      ## Step 2: Update Prerequisites
-      List everything needed before starting:
-      ```markdown
-      ## Prerequisites
-
-      - [Requirement 1] - [how to check/install]
-      - [Requirement 2] - [how to check/install]
-
-      ### Version Requirements
-      | Tool | Minimum Version | Check Command |
-      |------|-----------------|---------------|
-      | [tool] | [version] | `[command]` |
-      ```
-
-      ## Step 3: Update Installation
-      ```markdown
-      ## Installation
-
-      ### Option 1: [Primary method]
-      \`\`\`bash
-      [installation commands]
-      \`\`\`
-
-      ### Option 2: [Alternative method]
-      \`\`\`bash
-      [alternative commands]
-      \`\`\`
-
-      ### Verify Installation
-      \`\`\`bash
-      [verification command]
-      # Expected output: [what they should see]
-      \`\`\`
-      ```
-
-      ## Step 4: Update First Steps
-      ```markdown
-      ## Your First [Thing]
-
-      ### Step 1: [Action]
-      \`\`\`bash
-      [command]
-      \`\`\`
-
-      You should see:
-      \`\`\`
-      [expected output]
-      \`\`\`
-
-      ### Step 2: [Action]
-      [Continue with clear steps]
-
-      ### Step 3: [Action]
-      [Each step should be verifiable]
-
-      ## Success!
-      You've now [accomplished goal]. Next steps:
-      - [Link to User Guide]
-      - [Link to next tutorial]
-      ```
-
-      ## Step 5: Update README Quick Example
-      If README.md has a quick example section, ensure it's current:
-      - Examples should work with latest code
-      - Version numbers should be accurate
-      - Links should be valid
-
-      ## Step 6: Test the Flow
-      Follow the getting started guide yourself:
-      1. Start from a fresh state
-      2. Run each command exactly as written
-      3. Verify expected outputs match
-      4. Fix any issues found
-
-      ## Step 7: Commit Updates
-      ```bash
-      git add docs/ README.md
-      git commit -m "docs(getting-started): update onboarding for {{sprint.id}}"
-      ```
-
-  # ============================================================================
-  # Phase 6: DOC-REFERENCE
-  # Update technical reference and API documentation
-  # ============================================================================
-  - id: doc-reference
-    prompt: |
-      Update technical reference and API documentation.
-
-      ## Context
-      Read: artifacts/docs-update-plan.md (what needs updating)
-      Read: context/_shared-context.md (documentation structure)
-
-      ## Reference Documentation Principles
-      1. **Complete**: Document ALL public APIs
-      2. **Accurate**: Generated from code when possible
-      3. **Structured**: Consistent format for all items
-      4. **Searchable**: Easy to find specific items
-
-      ## Step 1: Locate or Create Reference Docs
-      Should be at: `docs/reference/` or `docs/api/`
-
-      ## Step 2: Update Command Reference
-      For CLI commands, use this format:
-
-      ```markdown
-      ## Commands Reference
-
-      ### [command-name]
-
-      [One-line description]
-
-      #### Synopsis
-      \`\`\`
-      [command] [options] [arguments]
-      \`\`\`
-
-      #### Description
-      [Detailed description of what the command does]
-
-      #### Options
-      | Option | Type | Default | Description |
-      |--------|------|---------|-------------|
-      | `--option` | string | none | [description] |
-      | `-f, --flag` | boolean | false | [description] |
-
-      #### Arguments
-      | Argument | Required | Description |
-      |----------|----------|-------------|
-      | `<name>` | Yes | [description] |
-      | `[path]` | No | [description] |
-
-      #### Examples
-      \`\`\`bash
-      # Basic usage
-      [command] [basic-args]
-
-      # With options
-      [command] --option value
-
-      # Advanced usage
-      [command] --flag -o value
-      \`\`\`
-
-      #### See Also
-      - [Related command 1]
-      - [Related command 2]
-      ```
-
-      ## Step 3: Update API Reference
-      For functions/classes, use this format:
-
-      ```markdown
-      ## API Reference
-
-      ### [FunctionName]
-
-      \`\`\`typescript
-      function name(param: Type): ReturnType
-      \`\`\`
-
-      [Description of what the function does]
-
-      #### Parameters
-      | Parameter | Type | Required | Description |
-      |-----------|------|----------|-------------|
-      | `param` | `Type` | Yes | [description] |
-
-      #### Returns
-      `ReturnType` - [description of return value]
-
-      #### Throws
-      - `ErrorType` - [when this error is thrown]
-
-      #### Example
-      \`\`\`typescript
-      const result = name(value);
-      console.log(result); // [expected output]
-      \`\`\`
-      ```
-
-      ## Step 4: Update Configuration Reference
-      For config options:
-
-      ```markdown
-      ## Configuration Reference
-
-      ### [config-file-name]
-
-      #### Schema
-      \`\`\`yaml
-      # Full schema with comments
-      option: value  # description
-      nested:
-        key: value   # description
-      \`\`\`
-
-      #### Options
-
-      ##### `option`
-      - **Type**: string
-      - **Required**: Yes/No
-      - **Default**: `value`
-      - **Description**: [what this option does]
-      - **Example**: `option: "example"`
-      ```
-
-      ## Step 5: Update Type Definitions
-      If there are TypeScript types that users need to know:
-
-      ```markdown
-      ## Type Definitions
-
-      ### [TypeName]
-      \`\`\`typescript
-      interface TypeName {
-        property: string;
-        optional?: number;
-      }
-      \`\`\`
-
-      | Property | Type | Required | Description |
-      |----------|------|----------|-------------|
-      | `property` | `string` | Yes | [description] |
-      ```
-
-      ## Step 6: Verify Reference Accuracy
-      - Check that all documented APIs actually exist
-      - Verify parameter names and types match code
-      - Test example code snippets
-
-      ## Step 7: Commit Updates
-      ```bash
-      git add docs/reference/
-      git commit -m "docs(reference): update API and command reference for {{sprint.id}}"
-      ```
-
-  # ============================================================================
-  # Phase 7: DOC-VALIDATE
-  # Verify documentation accuracy and completeness
-  # ============================================================================
-  - id: doc-validate
-    prompt: |
-      Validate all documentation updates.
-
-      ## Context
-      Read: artifacts/docs-update-plan.md (original plan)
-
-      ## Step 1: Completeness Check
-      Verify all planned updates were made:
-      ```bash
-      # Show all doc changes in this sprint
-      git diff main..HEAD -- "*.md" --stat
-      ```
-
-      Cross-reference with docs-update-plan.md:
-      - [ ] All User Guide updates complete
-      - [ ] All Getting Started updates complete
-      - [ ] All Reference updates complete
-      - [ ] All new docs created
-
-      ## Step 2: Link Validation
-      Check all internal links work:
-      ```bash
-      # Find all markdown links
-      grep -rh "\[.*\](.*\.md)" docs/ | head -30
-      ```
-
-      Verify each linked file exists.
-
-      ## Step 3: Code Example Validation
-      Test each code example in the documentation:
-      - Run CLI examples
-      - Compile TypeScript examples
-      - Execute JavaScript examples
-
-      Document any failures.
-
-      ## Step 4: Consistency Check
-      - Consistent formatting across all docs
-      - Consistent terminology
-      - Consistent example style
-      - Version numbers match
-
-      ## Step 5: Generate Validation Report
-      Create: artifacts/docs-validation-report.md
-
-      ```markdown
-      # Documentation Validation Report: {{sprint.id}}
-
-      ## Completeness
-      | Planned Update | Status | Notes |
-      |----------------|--------|-------|
-      | [update 1] | DONE/MISSING | [notes] |
-
-      ## Link Validation
-      | Link | Target | Status |
-      |------|--------|--------|
-      | [link text] | [file] | OK/BROKEN |
-
-      ## Code Example Validation
-      | File | Example | Status | Output |
-      |------|---------|--------|--------|
-      | [path] | Line [N] | PASS/FAIL | [output] |
-
-      ## Consistency Check
-      - [ ] Formatting consistent
-      - [ ] Terminology consistent
-      - [ ] Examples consistent
-      - [ ] Versions accurate
-
-      ## Issues Found
-      [List any issues, or "None"]
-
-      ## Documentation Files Updated
-      | File | Lines Changed | Summary |
-      |------|---------------|---------|
-      | [path] | +[N]/-[N] | [summary] |
-
-      ## Overall Status: PASS / FAIL
-      ```
-
-      ## Step 6: Fix Any Issues
-      If validation found issues:
-      - Fix broken links
-      - Update failed examples
-      - Correct inconsistencies
-
-      ## Step 7: Final Commit
-      ```bash
-      git add artifacts/docs-validation-report.md
-      git add docs/  # Any fixes
-      git commit -m "docs(validate): documentation verified for {{sprint.id}}"
-      ```
-
-      ## Important
-      Documentation must pass validation before sprint can complete.
-      All code examples must work with the actual code.
-
-  # ============================================================================
-  # Phase 8: FINAL-QA
-  # Sprint-level comprehensive quality review
+  # Phase 4: FINAL-QA
+  # Comprehensive quality verification
   # ============================================================================
   - id: final-qa
     prompt: |
-      Comprehensive Quality Assurance for the entire sprint.
+      ## Your Role: QA OPERATOR
 
-      ## Step 0: Ensure Working in Worktree
-      ```bash
-      cd trees/{{sprint.id}} 2>/dev/null || true
-      pwd
-      git branch --show-current  # Verify: sprint/{{sprint.id}}
-      ```
+      Verify the entire sprint meets quality standards.
 
-      ## Context
-      Read: context/_shared-context.md for build/test commands
-      Read: context/sprint-plan.md for success criteria
-
-      ## Step 1: Full Build Verification
-      Run ALL build checks:
+      ## Step 1: Build Verification
       ```bash
       npm run build
       npm run typecheck
       npm run lint
       ```
 
-      Record each result in the QA report.
+      All must pass. If any fail, spawn fix subagent.
 
-      ## Step 2: Complete Test Suite
-      Run the full test suite:
+      ## Step 2: Full Test Suite
       ```bash
       npm test
       ```
 
-      Record test results, coverage, and any failures.
+      All tests must pass. Record coverage if available.
 
-      ## Step 3: Review All Step QA Reports
-      Read all artifacts/step-*-qa-report.md files:
-      - Verify all steps show PASS status
-      - Calculate total gherkin score
-      - Consolidate warnings or notes
+      ## Step 3: Review All Step Artifacts
+      Read each artifacts/{{step.id}}-complete.md to verify all steps finished.
 
-      ## Step 4: Documentation Verification
-      Verify documentation was updated:
-      ```bash
-      # Check for documentation changes
-      git diff main..HEAD -- "*.md" --stat
-      ```
+      ## Step 4: Integration Check
+      - Verify modules import correctly
+      - Check for circular dependencies
+      - Run any integration tests
 
-      Verify:
-      - User guide reflects new features
-      - Getting started is accurate
-      - Reference material is complete
-      - Examples work correctly
-
-      ## Step 5: Integration Verification
-      - Check modules properly import each other
-      - Verify no circular dependencies
-      - Test end-to-end flow if applicable
-
-      ## Step 6: Regression Check
-      ```bash
-      git diff main...HEAD --stat
-      ```
-
-      Verify:
-      - No unintended changes
-      - All modified files are expected
-      - No debug code left in
-
-      ## Step 7: Generate Sprint QA Report
+      ## Step 5: Generate QA Report
       Create: artifacts/sprint-qa-report.md
 
       ```markdown
-      # Sprint QA Report: {{sprint.id}}
+      # Sprint QA Report
 
-      ## Build Verification
-      | Check | Result | Output |
-      |-------|--------|--------|
-      | Build | PASS/FAIL | [summary] |
-      | TypeCheck | PASS/FAIL | [summary] |
-      | Lint | PASS/FAIL | [summary] |
+      ## Build Status
+      | Check | Status |
+      |-------|--------|
+      | Build | PASS/FAIL |
+      | TypeCheck | PASS/FAIL |
+      | Lint | PASS/FAIL |
 
-      ## Test Suite
-      | Metric | Value |
-      |--------|-------|
-      | Tests Run | [count] |
-      | Passed | [count] |
-      | Failed | [count] |
-      | Coverage | [percentage] |
+      ## Test Results
+      - Total: [N]
+      - Passed: [N]
+      - Failed: [N]
+      - Coverage: [%]
 
-      ## Gherkin Scenario Summary
-      | Step | Total | Passed | Score |
-      |------|-------|--------|-------|
-      | step-0 | [N] | [N] | 100% |
-      | step-1 | [N] | [N] | 100% |
-      | **Total** | [N] | [N] | **100%** |
+      ## Step Verification
+      | Step | Status |
+      |------|--------|
+      | [step-id] | COMPLETE |
 
-      ## Documentation Status
-      | Document | Status | Changes |
-      |----------|--------|---------|
-      | User Guide | PASS/FAIL | [summary] |
-      | Getting Started | PASS/FAIL | [summary] |
-      | Reference | PASS/FAIL | [summary] |
-
-      ## Integration Verification
-      - [ ] Modules import correctly
-      - [ ] No circular dependencies
-      - [ ] End-to-end flow works
-
-      ## Overall Status: PASS / FAIL
+      ## Overall: PASS / FAIL
       ```
 
-      ## Step 8: Handle Outcome
+      ## Handle Failures
+      If any check fails:
+      1. Spawn fix subagent with specific error details
+      2. Re-run verification
+      3. If still failing, escalate to human
 
-      ### If PASS:
+      Commit:
       ```bash
       git add artifacts/sprint-qa-report.md
-      git commit -m "qa: sprint-level verification passed"
+      git commit -m "qa: sprint verification complete"
       ```
 
-      ### If FAIL:
-      - Document specific failures
-      - Set status to needs-human with details
-
   # ============================================================================
-  # Phase 9: SUMMARY
-  # Generate deliverables for user review
+  # Phase 5: SUMMARY
+  # Generate sprint deliverables
   # ============================================================================
   - id: summary
     prompt: |
-      Generate sprint summary with TDD and documentation highlights.
+      Generate sprint summary for PR.
 
-      ## Context
-      Read: context/sprint-plan.md for original goals
-      Read: artifacts/sprint-qa-report.md for verification results
-      Read: All artifacts/step-*-qa-report.md for step details
+      ## Collect Information
+      - Read all artifacts/*-complete.md
+      - Read artifacts/sprint-qa-report.md
+      - Get commit history: `git log main..HEAD --oneline`
+      - Get file changes: `git diff main..HEAD --stat`
 
-      ## Step 1: Collect Commit History
-      ```bash
-      git log main..HEAD --oneline --no-decorate
-      ```
-
-      ## Step 2: Collect File Changes
-      ```bash
-      git diff main..HEAD --stat
-      ```
-
-      ## Step 3: Generate Sprint Summary
+      ## Create Summary
       Create: artifacts/sprint-summary.md
 
       ```markdown
       # Sprint Summary: {{sprint.id}}
 
-      ## What Was Accomplished
+      ## Completed Steps
+      [For each step: what was accomplished]
 
-      ### Step 0: [Step title]
-      **TDD Cycle**:
-      - Tests written: [count]
-      - Gherkin scenarios: [count], all passing
-
-      **Implementation**:
-      - [Key accomplishment 1]
-      - [Key accomplishment 2]
-
-      **Files**: [list]
-
-      [Continue for each step]
-
-      ## Test Coverage Summary
-      | Metric | Before | After | Delta |
-      |--------|--------|-------|-------|
-      | Tests | [N] | [N] | +[N] |
-      | Gherkin | [N] | [N] | +[N] |
-      | Coverage | [%] | [%] | +[%] |
-
-      ## Documentation Updates
-      | Document | Change |
-      |----------|--------|
-      | [path] | [what changed] |
+      ## Test Coverage
+      - Tests added: [N]
+      - All tests passing: Yes
 
       ## Files Changed
-      | File | Change Type | Description |
-      |------|-------------|-------------|
-      | [path] | Created/Modified | [description] |
+      [Summary of changes]
 
-      ## Commits Made
-      | Hash | Type | Message |
-      |------|------|---------|
-      | [hash] | test | [message] |
-      | [hash] | feat | [message] |
-      | [hash] | docs | [message] |
+      ## Commits
+      [List of commits]
 
-      ## Verification Status
+      ## Ready for Review
       - Build: PASS
-      - TypeCheck: PASS
+      - Tests: PASS
       - Lint: PASS
-      - Tests: [X/Y passed]
-      - Gherkin: [X/Y scenarios, 100%]
-      - Documentation: Updated
-
-      ## Sprint Statistics
-      - Steps completed: [X/Y]
-      - Total commits: [count]
-      - Tests added: [count]
-      - Gherkin scenarios: [count]
-      - Files changed: [count]
+      - Docs: Updated
       ```
 
-      ## Step 4: Commit Summary
+      Commit:
       ```bash
       git add artifacts/sprint-summary.md
-      git commit -m "docs: add sprint summary"
+      git commit -m "docs: sprint summary"
       ```
 
   # ============================================================================
-  # Phase 10: PR-CREATE
-  # Push branch and create pull request
+  # Phase 6: PR-CREATE
+  # Push and create pull request
   # ============================================================================
   - id: pr-create
     prompt: |
-      Push the sprint branch and create a pull request.
+      Push branch and create pull request.
 
-      ## Context
-      Read: artifacts/sprint-summary.md for PR body content
-      Read: artifacts/sprint-qa-report.md for verification checklist
-      Read: context/worktree-info.md for worktree paths
-
-      ## Step 0: Verify Working in Worktree
-      ```bash
-      # Ensure we're in the sprint worktree
-      pwd
-      git branch --show-current  # Should be: sprint/{{sprint.id}}
-      ```
-
-      ## Step 1: Ensure All Changes Committed
+      ## Step 1: Verify Clean State
       ```bash
       git status
       ```
 
       ## Step 2: Push Branch
       ```bash
-      git push -u origin sprint/{{sprint.id}}
+      git push -u origin HEAD
       ```
 
-      ## Step 3: Create Pull Request
+      ## Step 3: Create PR
+      Read artifacts/sprint-summary.md for PR body content.
+
       ```bash
       gh pr create \
-        --title "Sprint: {{sprint.id}}" \
+        --title "{{sprint.id}}" \
         --body "$(cat <<'EOF'
       ## Summary
-      [Extract key points from sprint-summary.md]
-
-      ## TDD Approach
-      - Tests written first for each step
-      - All gherkin scenarios pass
-      - [X] new tests added
+      [Key points from sprint-summary.md]
 
       ## Changes
       [List major changes]
 
-      ## Documentation
-      - [ ] User Guide updated
-      - [ ] Getting Started updated
-      - [ ] Reference updated
-
-      ## Verification Checklist
+      ## Verification
       - [x] Build passes
-      - [x] TypeCheck passes
-      - [x] Lint passes
       - [x] All tests pass
-      - [x] Gherkin scenarios: 100%
+      - [x] Lint passes
       - [x] Documentation updated
-      - [x] No regressions
 
       ---
-      Full details in `artifacts/sprint-summary.md`
-
-      🧪 TDD Sprint with Documentation
+      See `artifacts/sprint-summary.md` for full details.
       EOF
       )"
       ```
@@ -1085,22 +443,3 @@ phases:
       ```bash
       gh pr view --json url -q '.url'
       ```
-
-      ## Step 5: Worktree Cleanup Instructions
-      After the PR is merged, clean up the worktree:
-
-      ```bash
-      # From the main repository (not the worktree)
-      cd ..  # Go to main repo root
-
-      # Remove the worktree
-      git worktree remove trees/{{sprint.id}}
-
-      # Delete the remote branch (optional, after PR merge)
-      git push origin --delete sprint/{{sprint.id}}
-
-      # List remaining worktrees
-      git worktree list
-      ```
-
-      Note: Do NOT remove the worktree until the PR is merged!
