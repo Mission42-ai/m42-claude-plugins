@@ -2,7 +2,6 @@
 allowed-tools: Bash(ls:*), Read(*), Edit(*)
 argument-hint: <step-prompt>
 description: Add step to sprint SPRINT.yaml
-model: sonnet
 ---
 
 # Add Step to Sprint SPRINT.yaml

@@ -1,7 +1,6 @@
 ---
 allowed-tools: Bash(ls:*), Bash(ps:*), Bash(pkill:*), Bash(test:*), Read(*), Edit(*)
 description: Stop active sprint loop immediately
-model: haiku
 ---
 
 # Stop Sprint

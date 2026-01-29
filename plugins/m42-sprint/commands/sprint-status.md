@@ -2,7 +2,6 @@
 allowed-tools: Bash(ls:* git:worktree:*), Read(*)
 argument-hint: "[--all-worktrees]"
 description: Show sprint progress dashboard
-model: haiku
 ---
 
 # Sprint Status Dashboard

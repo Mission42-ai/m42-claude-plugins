@@ -1,6 +1,5 @@
 ---
 description: "Show sprint plugin help and available commands"
-model: haiku
 ---
 
 # M42 Sprint Plugin Help

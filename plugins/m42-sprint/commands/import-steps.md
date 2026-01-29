@@ -2,7 +2,6 @@
 allowed-tools: Bash(gh:*), Bash(ls:*), Read(*), Edit(*)
 argument-hint: issues --label <label> | file <path.yaml>
 description: Bulk import steps to sprint SPRINT.yaml
-model: sonnet
 ---
 
 # Import Steps to Sprint SPRINT.yaml

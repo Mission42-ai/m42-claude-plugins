@@ -2,7 +2,6 @@
 allowed-tools: Bash(ls:*), Bash(test:*), Read(*), Edit(*)
 argument-hint: ""
 description: Pause sprint after current task
-model: haiku
 ---
 
 # Pause Sprint
