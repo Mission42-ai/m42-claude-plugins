@@ -47,49 +47,6 @@ import type { ClaudeResult, ClaudeRunOptions } from './claude-runner.js';
 // Import from worktree module
 import { getProjectRoot, getWorktreeInfo } from './worktree.js';
 
-// ============================================================================
-// Per-Iteration Hook Types (defined locally to avoid cross-project imports)
-// ============================================================================
-
-/**
- * Per-iteration hook configuration
- * Hooks run deterministically each iteration (e.g., learning extraction)
- */
-export interface PerIterationHook {
-  /** Unique identifier for this hook */
-  id: string;
-  /** Reference to workflow (e.g., "m42-signs:learning-extraction") */
-  workflow?: string;
-  /** Inline prompt alternative to workflow */
-  prompt?: string;
-  /** If true, runs non-blocking in background */
-  parallel: boolean;
-  /** Whether this hook is active */
-  enabled: boolean;
-}
-
-/**
- * Tracking entry for per-iteration hook execution
- */
-export interface HookTask {
-  /** Which iteration this belongs to */
-  iteration: number;
-  /** Which hook this is */
-  'hook-id': string;
-  /** Current status */
-  status: 'spawned' | 'running' | 'completed' | 'failed';
-  /** Process ID if running */
-  pid?: number;
-  /** Path to transcript file */
-  transcript?: string;
-  /** When spawned (ISO timestamp) */
-  'spawned-at'?: string;
-  /** When completed (ISO timestamp) */
-  'completed-at'?: string;
-  /** Exit code if completed */
-  'exit-code'?: number;
-}
-
 // Import from operator module
 import {
   processOperatorRequests,
@@ -98,6 +55,13 @@ import {
   type QueuedRequest,
   type OperatorConfig,
 } from './operator.js';
+
+// Import from scheduler module for parallel execution
+import {
+  StepScheduler,
+  type ReadyStep,
+  type ParallelExecutionConfig,
+} from './scheduler.js';
 
 // ============================================================================
 // Progress File Operations (wrapper to handle type differences)
@@ -163,67 +127,6 @@ const defaultLoopDeps: LoopDependencies = {
 // ============================================================================
 
 const TERMINAL_STATES = ['completed', 'blocked', 'paused', 'paused-at-breakpoint', 'needs-human', 'interrupted'] as const;
-
-// ============================================================================
-// Worktree Context Injection
-// ============================================================================
-
-/**
- * Build worktree context to prepend to phase prompts.
- *
- * When sprints run in a worktree, agents need to know:
- * 1. They're in an isolated worktree context
- * 2. Use relative paths for file operations
- * 3. All changes stay in the worktree (sprint branch)
- * 4. Don't cd to main repo for git operations
- *
- * @param progress - Progress object with worktree configuration
- * @param sprintDir - Sprint directory path
- * @returns Markdown context block or empty string if not in worktree
- */
-export function buildWorktreeContext(progress: CompiledProgress, sprintDir: string): string {
-  // Type assertion for worktree fields
-  const worktree = progress.worktree as {
-    enabled?: boolean;
-    path?: string;
-    'working-dir'?: string;
-    branch?: string;
-  } | undefined;
-
-  // Only inject context when worktree is enabled
-  if (!worktree?.enabled) {
-    return '';
-  }
-
-  // Get worktree info for main repo path
-  const worktreeInfo = getWorktreeInfo(sprintDir);
-  const mainRepoPath = worktreeInfo.mainWorktreePath;
-
-  // Get values from progress.worktree
-  const workingDir = worktree['working-dir'] || worktree.path || worktreeInfo.path;
-  const branch = worktree.branch || 'sprint branch';
-
-  return `## Execution Context
-
-You are operating in a **git worktree** for isolated sprint development.
-
-| Property | Value |
-|----------|-------|
-| Working Directory | ${workingDir} |
-| Branch | ${branch} |
-| Main Repo | ${mainRepoPath} |
-
-**Worktree Guidelines:**
-1. Use RELATIVE paths for all file operations (e.g., \`plugins/m42-sprint/...\`)
-2. All git commits go to the sprint branch automatically
-3. You MAY read files from the main repo for research, but ALL changes must be made
-   in the worktree (current working directory)
-4. Do NOT \`cd\` to the main repository for git operations - stay in the worktree
-
----
-
-`;}
-
 const PAUSE_FILENAME = 'PAUSE';
 const PROGRESS_FILENAME = 'PROGRESS.yaml';
 
@@ -510,6 +413,81 @@ function readProgressWithoutChecksumValidation(filePath: string): CompiledProgre
 }
 
 // ============================================================================
+// Parallel Execution Helper Functions
+// ============================================================================
+
+/**
+ * Check if parallel execution is enabled and applicable for the current phase.
+ *
+ * Parallel execution is used when:
+ * 1. parallel-execution.enabled is true in PROGRESS.yaml
+ * 2. The current phase has a dependency-graph
+ * 3. The current phase has steps (for-each phase)
+ *
+ * @param progress - The compiled progress
+ * @returns True if parallel execution should be used
+ */
+function shouldUseParallelExecution(progress: CompiledProgress): boolean {
+  const parallelConfig = (progress as unknown as { 'parallel-execution'?: ParallelExecutionConfig })['parallel-execution'];
+
+  // Check if parallel execution is enabled
+  if (!parallelConfig?.enabled) {
+    return false;
+  }
+
+  // Check if there's a dependency graph
+  const dependencyGraph = (progress as unknown as { 'dependency-graph'?: unknown[] })['dependency-graph'];
+  if (!dependencyGraph || dependencyGraph.length === 0) {
+    return false;
+  }
+
+  // Check if the current phase has steps (for-each phase)
+  const currentPhase = progress.phases?.[progress.current.phase];
+  if (!currentPhase?.steps || currentPhase.steps.length === 0) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * Get the parallel execution configuration from progress.
+ *
+ * @param progress - The compiled progress
+ * @returns Parallel execution config or default values
+ */
+function getParallelConfig(progress: CompiledProgress): ParallelExecutionConfig {
+  const config = (progress as unknown as { 'parallel-execution'?: ParallelExecutionConfig })['parallel-execution'];
+
+  return {
+    enabled: config?.enabled ?? false,
+    maxConcurrency: config?.maxConcurrency ?? 0, // 0 = unlimited
+    onDependencyFailure: config?.onDependencyFailure ?? 'skip-dependents',
+  };
+}
+
+/**
+ * Result of executing a single step in parallel mode
+ */
+interface ParallelStepResult {
+  /** The step ID */
+  stepId: string;
+  /** Whether execution succeeded */
+  success: boolean;
+  /** Summary if successful */
+  summary?: string;
+  /** Error message if failed */
+  error?: string;
+  /** Whether human intervention is needed */
+  needsHuman?: {
+    reason: string;
+    details?: string;
+  };
+  /** Operator requests from the step */
+  operatorRequests?: OperatorRequest[];
+}
+
+// ============================================================================
 // Quality Gate Check Functions
 // ============================================================================
 
@@ -721,9 +699,6 @@ export async function executeGateCheck(
 
     // Run fix iteration with Claude
     const fixPrompt = buildGateFixPrompt(gate, currentTracking);
-    // Add worktree context to fix prompt if in worktree mode
-    const worktreeContext = buildWorktreeContext(progress, sprintDir);
-    const finalFixPrompt = worktreeContext + fixPrompt;
     const logFileName = `gate-fix_${phaseId}_attempt-${currentTracking.attempts}.log`;
     const outputFile = path.join(outputDir, logFileName);
 
@@ -732,7 +707,7 @@ export async function executeGateCheck(
     }
 
     const fixResult = await deps.runClaude({
-      prompt: finalFixPrompt,
+      prompt: fixPrompt,
       cwd: workingDir,
       outputFile,
       jsonSchema: SPRINT_RESULT_SCHEMA,
@@ -855,249 +830,372 @@ async function triggerOperator(
 }
 
 // ============================================================================
-// Per-Iteration Hook Execution
+// Parallel Execution Loop
 // ============================================================================
 
 /**
- * Progress type extended with typed hook fields
- * Overrides the unknown[] types from CompiledProgress with specific types
- */
-export type ProgressWithHooks = Omit<CompiledProgress, 'per-iteration-hooks' | 'hook-tasks'> & {
-  'per-iteration-hooks'?: PerIterationHook[];
-  'hook-tasks'?: HookTask[];
-};
-
-/**
- * Template variables available for hook prompt substitution
- */
-interface HookTemplateVars {
-  /** Path to the current iteration's transcript log file */
-  ITERATION_TRANSCRIPT: string;
-  /** Sprint identifier */
-  SPRINT_ID: string;
-  /** Current iteration number (1-based) */
-  ITERATION: number;
-  /** Current phase identifier */
-  PHASE_ID: string;
-}
-
-/**
- * Replace template variables in a hook prompt.
+ * Execute a single step and return the result.
  *
- * Supported variables:
- * - $ITERATION_TRANSCRIPT → path to current iteration's transcript
- * - $SPRINT_ID → sprint identifier
- * - $ITERATION → iteration number
- * - $PHASE_ID → current phase identifier
+ * This is a standalone function that handles executing one step with all
+ * the necessary Claude invocation, result processing, and status updates.
  *
- * @param prompt - Hook prompt with template variables
- * @param vars - Variable values to substitute
- * @returns Prompt with variables replaced
- */
-export function replaceHookTemplateVars(prompt: string, vars: HookTemplateVars): string {
-  return prompt
-    .replace(/\$ITERATION_TRANSCRIPT/g, vars.ITERATION_TRANSCRIPT)
-    .replace(/\$SPRINT_ID/g, vars.SPRINT_ID)
-    .replace(/\$ITERATION/g, String(vars.ITERATION))
-    .replace(/\$PHASE_ID/g, vars.PHASE_ID);
-}
-
-/**
- * Create a HookTask entry for tracking hook execution
- *
- * @param hookId - The hook identifier
- * @param iteration - Current iteration number
- * @returns Initial HookTask entry
- */
-function createHookTask(hookId: string, iteration: number): HookTask {
-  return {
-    iteration,
-    'hook-id': hookId,
-    status: 'running',
-    'spawned-at': new Date().toISOString(),
-  };
-}
-
-/**
- * Execute a single per-iteration hook.
- *
- * @param hook - Hook configuration
- * @param vars - Template variables for prompt substitution
- * @param workingDir - Working directory for Claude execution
- * @param outputDir - Directory for transcript output
- * @param deps - Loop dependencies (runClaude function)
- * @param verbose - Enable verbose logging
- * @returns Promise resolving to partial HookTask with completion info
- */
-async function executeHook(
-  hook: PerIterationHook,
-  vars: HookTemplateVars,
-  workingDir: string,
-  outputDir: string,
-  deps: LoopDependencies,
-  verbose: boolean
-): Promise<Partial<HookTask>> {
-  const prompt = hook.prompt ?? '';
-  const resolvedPrompt = replaceHookTemplateVars(prompt, vars);
-
-  const logFileName = `hook_${hook.id}_iteration-${vars.ITERATION}.log`;
-  const outputFile = path.join(outputDir, logFileName);
-
-  if (verbose) {
-    console.log(`[loop] Executing hook '${hook.id}' for iteration ${vars.ITERATION}`);
-  }
-
-  try {
-    const result = await deps.runClaude({
-      prompt: resolvedPrompt,
-      cwd: workingDir,
-      outputFile,
-    });
-
-    return {
-      status: result.success ? 'completed' : 'failed',
-      'completed-at': new Date().toISOString(),
-      'exit-code': result.exitCode,
-      transcript: outputFile,
-    };
-  } catch (err) {
-    return {
-      status: 'failed',
-      'completed-at': new Date().toISOString(),
-      'exit-code': 1,
-    };
-  }
-}
-
-/**
- * Execute all enabled per-iteration hooks after an iteration completes.
- *
- * For hooks with parallel: true, spawns them in background without blocking.
- * For hooks with parallel: false, waits for completion before returning.
- *
- * @param progress - Progress object with hooks configuration
- * @param iteration - Current iteration number
- * @param transcriptPath - Path to the current iteration's transcript file
- * @param phaseId - Current phase identifier
+ * @param step - The ready step to execute
+ * @param progress - Progress state
  * @param sprintDir - Sprint directory path
- * @param workingDir - Working directory for Claude execution
- * @param deps - Loop dependencies
+ * @param workingDir - Working directory for Claude
+ * @param deps - Dependencies (runClaude)
  * @param verbose - Enable verbose logging
+ * @returns Promise resolving to the step result
  */
-export async function executePerIterationHooks(
-  progress: ProgressWithHooks,
-  iteration: number,
-  transcriptPath: string,
-  phaseId: string,
+async function executeParallelStep(
+  step: ReadyStep,
+  progress: CompiledProgress,
   sprintDir: string,
   workingDir: string,
   deps: LoopDependencies,
   verbose: boolean
-): Promise<void> {
-  const hooks = progress['per-iteration-hooks'];
-  if (!hooks || hooks.length === 0) {
-    return;
+): Promise<ParallelStepResult> {
+  const phase = progress.phases?.[step.stepIndex === -1 ? progress.current.phase : progress.current.phase];
+  const currentStep = phase?.steps?.[step.stepIndex];
+
+  if (!currentStep) {
+    return {
+      stepId: step.id,
+      success: false,
+      error: `Step not found: ${step.id}`,
+    };
   }
 
-  // Filter to enabled hooks only
-  const enabledHooks = hooks.filter((h) => h.enabled);
-  if (enabledHooks.length === 0) {
-    return;
-  }
+  // Get the first sub-phase prompt, or step prompt if no sub-phases
+  const subPhase = currentStep.phases?.[0];
+  const prompt = subPhase?.prompt ?? currentStep.prompt;
+  const phaseId = subPhase?.id ?? currentStep.id;
 
-  if (verbose) {
-    console.log(`[loop] Executing ${enabledHooks.length} per-iteration hooks for iteration ${iteration}`);
-  }
+  // Get model from current execution context
+  const currentModel = (subPhase as { model?: string } | undefined)?.model
+    ?? (currentStep as { model?: string } | undefined)?.model
+    ?? (phase as { model?: string } | undefined)?.model;
 
-  // Initialize hook-tasks array if not present
-  if (!progress['hook-tasks']) {
-    progress['hook-tasks'] = [];
-  }
-
-  // Create transcriptions directory for hook transcripts
+  // Create transcriptions directory
   const transcriptionsDir = path.join(sprintDir, 'transcriptions');
   if (!fs.existsSync(transcriptionsDir)) {
     fs.mkdirSync(transcriptionsDir, { recursive: true });
   }
 
-  // Template variables for all hooks
-  const vars: HookTemplateVars = {
-    ITERATION_TRANSCRIPT: transcriptPath,
-    SPRINT_ID: progress['sprint-id'],
-    ITERATION: iteration,
-    PHASE_ID: phaseId,
-  };
+  // Generate log file path
+  const phaseIdx = progress.current.phase;
+  const sanitizedId = step.id.replace(/[^a-zA-Z0-9-_]/g, '_');
+  const logFileName = `phase-${phaseIdx}_step-${step.stepIndex}_${sanitizedId}.log`;
+  const outputFile = path.join(transcriptionsDir, logFileName);
 
-  // Separate parallel and sequential hooks
-  const parallelHooks = enabledHooks.filter((h) => h.parallel);
-  const sequentialHooks = enabledHooks.filter((h) => !h.parallel);
+  // Mark step as in-progress
+  currentStep.status = 'in-progress';
+  if (!currentStep['started-at']) {
+    currentStep['started-at'] = new Date().toISOString();
+  }
 
-  // Execute sequential hooks first (blocking)
-  for (const hook of sequentialHooks) {
-    if (!hook.prompt && !hook.workflow) {
-      if (verbose) {
-        console.log(`[loop] Skipping hook '${hook.id}' - no prompt or workflow defined`);
-      }
-      continue;
+  if (verbose) {
+    console.log(`[parallel] Starting step '${step.id}'`);
+  }
+
+  // Execute Claude
+  const spawnResult = await deps.runClaude({
+    prompt,
+    cwd: workingDir,
+    outputFile,
+    jsonSchema: SPRINT_RESULT_SCHEMA,
+    model: currentModel,
+  });
+
+  // Process result
+  if (spawnResult?.success) {
+    const jsonResult = spawnResult.jsonResult as {
+      status?: string;
+      summary?: string;
+      humanNeeded?: { reason?: string; details?: string };
+      operatorRequests?: OperatorRequest[];
+    } | undefined;
+
+    if (jsonResult?.status === 'needs-human') {
+      return {
+        stepId: step.id,
+        success: false,
+        needsHuman: {
+          reason: jsonResult.humanNeeded?.reason ?? 'Human intervention required',
+          details: jsonResult.humanNeeded?.details,
+        },
+      };
     }
 
-    // Create task entry
-    const task = createHookTask(hook.id, iteration);
-    progress['hook-tasks'].push(task);
+    // Mark step as completed
+    const completedAt = new Date().toISOString();
+    currentStep.status = 'completed';
+    currentStep['completed-at'] = completedAt;
 
-    // Execute and update task
-    const result = await executeHook(hook, vars, workingDir, transcriptionsDir, deps, verbose);
-    Object.assign(task, result);
+    // Mark sub-phases as completed too
+    if (currentStep.phases) {
+      for (const sp of currentStep.phases) {
+        sp.status = 'completed';
+        (sp as { 'completed-at'?: string })['completed-at'] = completedAt;
+      }
+    }
 
     if (verbose) {
-      console.log(`[loop] Hook '${hook.id}' completed with status: ${task.status}`);
-    }
-  }
-
-  // Execute parallel hooks (non-blocking)
-  // Note: In the TypeScript implementation, we spawn them but don't await completion
-  // This allows the main loop to continue to the next iteration
-  const parallelPromises: Promise<void>[] = [];
-
-  for (const hook of parallelHooks) {
-    if (!hook.prompt && !hook.workflow) {
-      if (verbose) {
-        console.log(`[loop] Skipping hook '${hook.id}' - no prompt or workflow defined`);
-      }
-      continue;
+      console.log(`[parallel] Step '${step.id}' completed successfully`);
     }
 
-    // Create task entry
-    const task = createHookTask(hook.id, iteration);
-    progress['hook-tasks'].push(task);
+    return {
+      stepId: step.id,
+      success: true,
+      summary: jsonResult?.summary ?? 'Step completed',
+      operatorRequests: jsonResult?.operatorRequests,
+    };
+  } else {
+    // Mark step as failed
+    currentStep.status = 'failed';
+    currentStep.error = spawnResult?.error ?? 'Unknown error';
 
-    // Execute in background (don't await)
-    const hookPromise = executeHook(hook, vars, workingDir, transcriptionsDir, deps, verbose)
-      .then((result) => {
-        Object.assign(task, result);
-        if (verbose) {
-          console.log(`[loop] Parallel hook '${hook.id}' completed with status: ${task.status}`);
-        }
-      })
-      .catch((err) => {
-        task.status = 'failed';
-        task['completed-at'] = new Date().toISOString();
-        if (verbose) {
-          console.log(`[loop] Parallel hook '${hook.id}' failed: ${err}`);
-        }
-      });
+    if (verbose) {
+      console.log(`[parallel] Step '${step.id}' failed: ${currentStep.error}`);
+    }
 
-    parallelPromises.push(hookPromise);
-  }
-
-  // For parallel hooks, we don't wait - they run in background
-  // The tasks are already tracked in hook-tasks with 'running' status
-  // They'll be updated when they complete
-
-  if (verbose && parallelPromises.length > 0) {
-    console.log(`[loop] Spawned ${parallelPromises.length} parallel hooks in background`);
+    return {
+      stepId: step.id,
+      success: false,
+      error: spawnResult?.error ?? 'Unknown error',
+    };
   }
 }
+
+/**
+ * Run the parallel execution loop for a for-each phase.
+ *
+ * This function handles parallel step execution using the StepScheduler:
+ * 1. Creates a scheduler from the dependency graph
+ * 2. Gets ready steps (all dependencies satisfied)
+ * 3. Executes ready steps concurrently (up to max-concurrent)
+ * 4. Handles completion/failure and updates scheduler
+ * 5. Continues until all steps are done or blocked
+ *
+ * @param progress - The compiled progress
+ * @param sprintDir - Sprint directory path
+ * @param progressPath - Path to PROGRESS.yaml
+ * @param deps - Dependencies (runClaude)
+ * @param verbose - Enable verbose logging
+ * @returns Promise resolving when phase is complete or blocked
+ */
+async function runParallelPhaseLoop(
+  progress: CompiledProgress,
+  sprintDir: string,
+  progressPath: string,
+  deps: LoopDependencies,
+  verbose: boolean
+): Promise<{
+  completed: boolean;
+  error?: string;
+  needsHuman?: { reason: string; details?: string };
+}> {
+  const parallelConfig = getParallelConfig(progress);
+
+  // Create scheduler from dependency graph
+  // The scheduler has its own CompiledProgress type that's structurally compatible
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const scheduler = new StepScheduler(progress as any, parallelConfig);
+
+  // Determine working directory
+  let workingDir: string;
+  if (progress.worktree?.enabled && progress.worktree?.path) {
+    const worktreeInfo = getWorktreeInfo(sprintDir);
+    workingDir = path.resolve(worktreeInfo.mainWorktreePath, progress.worktree.path);
+  } else {
+    workingDir = getProjectRoot(sprintDir);
+  }
+
+  if (verbose) {
+    const summary = scheduler.getStatusSummary();
+    console.log(`[parallel] Starting parallel execution: ${summary.pending + summary.ready} steps to process`);
+  }
+
+  // Main parallel execution loop
+  while (!scheduler.isComplete()) {
+    // Check for pause signal
+    if (checkPauseSignal(sprintDir)) {
+      if (verbose) {
+        console.log('[parallel] PAUSE signal detected');
+      }
+      return { completed: false, error: 'Paused by user request' };
+    }
+
+    // Get ready steps
+    const readySteps = scheduler.getReadySteps();
+
+    if (readySteps.length === 0) {
+      // No steps ready and not complete - we're blocked
+      if (!scheduler.isComplete()) {
+        const summary = scheduler.getStatusSummary();
+        if (summary.running === 0 && summary.pending > 0) {
+          // Deadlock - pending steps but none ready and none running
+          return {
+            completed: false,
+            error: 'Deadlock detected: pending steps but none ready to execute',
+          };
+        }
+        // Steps are still running, wait a bit
+        await sleep(100);
+        continue;
+      }
+      break;
+    }
+
+    if (verbose) {
+      console.log(`[parallel] ${readySteps.length} steps ready to execute`);
+    }
+
+    // Check for pending step injections from the step-queue
+    // and inject them into the scheduler
+    const stepQueue = (progress as unknown as { 'step-queue'?: Array<{
+      id: string;
+      prompt: string;
+      dependsOn?: string[];
+      status?: string;
+    }> })['step-queue'];
+
+    if (stepQueue && stepQueue.length > 0) {
+      const pendingInjections = stepQueue.filter(s => s.status !== 'injected');
+      for (const queuedStep of pendingInjections) {
+        const phaseId = progress.phases?.[progress.current.phase]?.id ?? '';
+        const result = scheduler.injectStep(
+          { id: queuedStep.id, prompt: queuedStep.prompt },
+          phaseId,
+          queuedStep.dependsOn
+        );
+
+        if (result.success) {
+          queuedStep.status = 'injected';
+          if (verbose) {
+            console.log(`[parallel] Injected step '${queuedStep.id}' with dependencies: ${queuedStep.dependsOn?.join(', ') ?? 'none'}`);
+          }
+        } else if (verbose) {
+          console.log(`[parallel] Failed to inject step '${queuedStep.id}': ${result.error}`);
+        }
+      }
+    }
+
+    // Mark all ready steps as started in the scheduler
+    for (const step of readySteps) {
+      scheduler.startStep(step.id);
+    }
+
+    // Write progress before execution (backup)
+    backupProgress(progressPath);
+    await writeProgressAtomic(progressPath, progress);
+
+    // Execute ready steps in parallel
+    const stepPromises = readySteps.map((step) =>
+      executeParallelStep(step, progress, sprintDir, workingDir, deps, verbose)
+    );
+
+    // Wait for all to complete using Promise.allSettled
+    const results = await Promise.allSettled(stepPromises);
+
+    // Process results
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i];
+      const step = readySteps[i];
+
+      if (result.status === 'fulfilled') {
+        const stepResult = result.value;
+
+        if (stepResult.needsHuman) {
+          // Human intervention needed - stop execution
+          return {
+            completed: false,
+            needsHuman: stepResult.needsHuman,
+          };
+        }
+
+        if (stepResult.success) {
+          scheduler.completeStep(step.id);
+
+          // Queue operator requests if any
+          if (stepResult.operatorRequests && stepResult.operatorRequests.length > 0) {
+            queueOperatorRequests(
+              progress as ProgressWithOperatorQueue,
+              stepResult.operatorRequests,
+              step.id
+            );
+          }
+        } else {
+          scheduler.failStep(step.id, stepResult.error);
+
+          // Handle failure based on policy
+          if (parallelConfig.onDependencyFailure === 'fail-phase') {
+            // Update dependency graph in progress before returning
+            (progress as unknown as { 'dependency-graph'?: unknown })['dependency-graph'] =
+              scheduler.exportDependencyGraphs();
+            await writeProgressAtomic(progressPath, progress);
+
+            return {
+              completed: false,
+              error: `Step '${step.id}' failed: ${stepResult.error}`,
+            };
+          }
+          // 'skip-dependents' and 'continue' are handled by the scheduler
+        }
+      } else {
+        // Promise rejected (unexpected error)
+        scheduler.failStep(step.id, result.reason?.message ?? 'Unknown error');
+
+        if (parallelConfig.onDependencyFailure === 'fail-phase') {
+          (progress as unknown as { 'dependency-graph'?: unknown })['dependency-graph'] =
+            scheduler.exportDependencyGraphs();
+          await writeProgressAtomic(progressPath, progress);
+
+          return {
+            completed: false,
+            error: `Step '${step.id}' failed unexpectedly: ${result.reason?.message ?? 'Unknown error'}`,
+          };
+        }
+      }
+    }
+
+    // Update dependency graph in progress
+    (progress as unknown as { 'dependency-graph'?: unknown })['dependency-graph'] =
+      scheduler.exportDependencyGraphs();
+
+    // Commit transaction
+    await writeProgressAtomic(progressPath, progress);
+    cleanupBackup(progressPath);
+
+    if (verbose) {
+      const summary = scheduler.getStatusSummary();
+      console.log(
+        `[parallel] Progress: ${summary.completed} completed, ${summary.failed} failed, ` +
+        `${summary.skipped} skipped, ${summary.pending + summary.ready} remaining`
+      );
+    }
+  }
+
+  // Check final status
+  const finalSummary = scheduler.getStatusSummary();
+  const hasFailures = scheduler.hasFailed();
+
+  if (verbose) {
+    console.log(
+      `[parallel] Phase complete: ${finalSummary.completed} completed, ` +
+      `${finalSummary.failed} failed, ${finalSummary.skipped} skipped`
+    );
+  }
+
+  return {
+    completed: true,
+    error: hasFailures ? `${finalSummary.failed} steps failed` : undefined,
+  };
+}
+
+// ============================================================================
+// Recovery Functions
+// ============================================================================
 
 /**
  * Recover from interrupted transaction on startup.
@@ -1233,8 +1331,102 @@ export async function runLoop(
     writeHeartbeat(progress);
     await writeProgressAtomic(progressPath, progress);
 
+    // Check if we should use parallel execution for the current phase
+    if (shouldUseParallelExecution(progress)) {
+      if (verbose) {
+        console.log(`[loop] Iteration ${iterations}: using parallel execution for phase`);
+      }
+
+      // Run parallel execution loop for this phase
+      const parallelResult = await runParallelPhaseLoop(
+        progress,
+        sprintDir,
+        progressPath,
+        deps,
+        verbose
+      );
+
+      // Handle parallel execution result
+      if (parallelResult.needsHuman) {
+        state = {
+          status: 'needs-human',
+          reason: parallelResult.needsHuman.reason,
+          details: parallelResult.needsHuman.details,
+        };
+        updateProgressFromState(progress, state);
+        await writeProgressAtomic(progressPath, progress);
+        break;
+      }
+
+      if (!parallelResult.completed && parallelResult.error) {
+        // Check if it was a pause
+        if (parallelResult.error.includes('Paused')) {
+          const result = transition(state, { type: 'PAUSE', reason: 'PAUSE file detected' }, progress);
+          state = result.nextState;
+          updateProgressFromState(progress, state);
+          await writeProgressAtomic(progressPath, progress);
+          break;
+        }
+
+        // Phase failed - transition to blocked
+        const currentPhase = progress.phases?.[progress.current.phase];
+        state = {
+          status: 'blocked',
+          error: parallelResult.error,
+          failedPhase: currentPhase?.id ?? '',
+          blockedAt: new Date().toISOString(),
+        };
+        updateProgressFromState(progress, state);
+        await writeProgressAtomic(progressPath, progress);
+        break;
+      }
+
+      // Phase completed - mark it and advance
+      const currentPhase = progress.phases?.[progress.current.phase];
+      if (currentPhase) {
+        currentPhase.status = 'completed';
+        currentPhase['completed-at'] = new Date().toISOString();
+      }
+
+      // Check if there are more phases
+      if (progress.current.phase < (progress.phases?.length ?? 0) - 1) {
+        // Advance to next phase
+        progress.current.phase++;
+        progress.current.step = null;
+        progress.current['sub-phase'] = null;
+
+        // Reset to first step if next phase has steps
+        const nextPhase = progress.phases?.[progress.current.phase];
+        if (nextPhase?.steps && nextPhase.steps.length > 0) {
+          progress.current.step = 0;
+          const firstStep = nextPhase.steps[0];
+          if (firstStep.phases && firstStep.phases.length > 0) {
+            progress.current['sub-phase'] = 0;
+          }
+        }
+
+        await writeProgressAtomic(progressPath, progress);
+        continue; // Continue with next phase
+      } else {
+        // All phases complete
+        const completedAt = new Date().toISOString();
+        const elapsedMs = Date.now() - startTime;
+        const elapsed = `${Math.floor(elapsedMs / 1000)}s`;
+
+        state = {
+          status: 'completed',
+          completedAt,
+          elapsed,
+        };
+        updateProgressFromState(progress, state);
+        await writeProgressAtomic(progressPath, progress);
+        break;
+      }
+    }
+
+    // Sequential execution (original logic)
     if (verbose) {
-      console.log(`[loop] Iteration ${iterations}: executing phase`);
+      console.log(`[loop] Iteration ${iterations}: executing phase (sequential)`);
     }
 
     // Transaction: backup before Claude execution
@@ -1319,14 +1511,10 @@ export async function runLoop(
       workingDir = getProjectRoot(sprintDir);
     }
 
-    // Build the final prompt with worktree context if applicable
-    const worktreeContext = buildWorktreeContext(progress, sprintDir);
-    const finalPrompt = worktreeContext + prompt;
-
     // Execute SPAWN_CLAUDE action directly
     // Use --json-schema to enforce validated structured output
     const spawnResult = await deps.runClaude({
-      prompt: finalPrompt,
+      prompt,
       cwd: workingDir,
       outputFile,
       jsonSchema: SPRINT_RESULT_SCHEMA,
@@ -1592,21 +1780,6 @@ export async function runLoop(
         const breakpointActions = breakpointResult.actions.filter(a => a.type !== 'SPAWN_CLAUDE');
         await executeActions(breakpointActions, context, deps);
       }
-    }
-
-    // Execute per-iteration hooks after successful iteration
-    // Hooks run AFTER phase completion but BEFORE advancing to next phase
-    if (event.type === 'PHASE_COMPLETE') {
-      await executePerIterationHooks(
-        progress as ProgressWithHooks,
-        iterations,
-        outputFile,  // The transcript path for this iteration
-        phaseId,
-        sprintDir,
-        workingDir,
-        deps,
-        verbose
-      );
     }
 
     // Commit transaction

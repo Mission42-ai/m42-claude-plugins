@@ -38,7 +38,7 @@ Hands-on guides for creating your own sprints and workflows.
 
 | Guide | When to Use |
 |-------|-------------|
-| [Writing Sprints](guides/writing-sprints.md) | Creating effective SPRINT.yaml files |
+| [Writing Sprints](guides/writing-sprints.md) | Creating effective SPRINT.yaml files (includes step dependencies for parallel execution) |
 | [Writing Workflows](guides/writing-workflows.md) | Building reusable workflow templates |
 | [Worktree Sprints](guides/worktree-sprints.md) | Parallel development with git worktrees |
 

@@ -11,7 +11,10 @@ import {
   validateCollections,
   validateCollectionItem,
   validateCollectionReferences,
-  resolveCollectionName
+  resolveCollectionName,
+  validateDependencies,
+  detectCircularDependencies,
+  validateDependsOnField
 } from './validate.js';
 
 // Simple test runner
@@ -814,6 +817,7 @@ test('validateWorkflowPhase: should pass with valid gate in phase', () => {
 });
 
 // ============================================================================
+<<<<<<< HEAD
 // Schema Version Validation Tests
 // ============================================================================
 
@@ -861,6 +865,208 @@ test('validateSchemaVersion: should produce no warning when schema-version is cu
   validateSchemaVersion(workflow as any, 'test-workflow', warnings);
 
   assert(warnings.length === 0, `Expected no warnings, got ${warnings.length}: ${warnings.join(', ')}`);
+=======
+// Dependency Validation Tests
+// ============================================================================
+
+test('validateDependsOnField: should pass when depends-on is absent', () => {
+  const item = { prompt: 'Task 1' };
+
+  const errors = validateDependsOnField(item, 0, 'step');
+  assert(errors.length === 0, `Expected no errors, got ${errors.length}`);
+});
+
+test('validateDependsOnField: should pass when depends-on is valid array', () => {
+  const item = { prompt: 'Task 1', 'depends-on': ['step-0', 'step-1'] };
+
+  const errors = validateDependsOnField(item, 0, 'step');
+  assert(errors.length === 0, `Expected no errors, got ${errors.length}`);
+});
+
+test('INVALID_DEPENDS_ON: should fail when depends-on is not an array', () => {
+  const item = { prompt: 'Task 1', 'depends-on': 'step-0' };
+
+  const errors = validateDependsOnField(item, 0, 'step');
+
+  const invalidErrors = errors.filter(e => e.code === 'INVALID_DEPENDS_ON');
+  assert(invalidErrors.length === 1, `Expected 1 INVALID_DEPENDS_ON error, got ${invalidErrors.length}`);
+});
+
+test('INVALID_DEPENDS_ON_ELEMENT: should fail when depends-on contains non-string', () => {
+  const item = { prompt: 'Task 1', 'depends-on': ['step-0', 123] };
+
+  const errors = validateDependsOnField(item, 0, 'step');
+
+  const elementErrors = errors.filter(e => e.code === 'INVALID_DEPENDS_ON_ELEMENT');
+  assert(elementErrors.length === 1, `Expected 1 INVALID_DEPENDS_ON_ELEMENT error, got ${elementErrors.length}`);
+});
+
+test('EMPTY_DEPENDS_ON_ELEMENT: should fail when depends-on contains empty string', () => {
+  const item = { prompt: 'Task 1', 'depends-on': ['step-0', '   '] };
+
+  const errors = validateDependsOnField(item, 0, 'step');
+
+  const emptyErrors = errors.filter(e => e.code === 'EMPTY_DEPENDS_ON_ELEMENT');
+  assert(emptyErrors.length === 1, `Expected 1 EMPTY_DEPENDS_ON_ELEMENT error, got ${emptyErrors.length}`);
+});
+
+test('DEPENDENCY_NOT_FOUND: should fail when dependency does not exist', () => {
+  const items = [
+    { prompt: 'Task 1', id: 'task-1' },
+    { prompt: 'Task 2', id: 'task-2', 'depends-on': ['task-1', 'task-3'] } // task-3 doesn't exist
+  ];
+
+  const errors = validateDependencies(items, 'step');
+
+  const notFoundErrors = errors.filter(e => e.code === 'DEPENDENCY_NOT_FOUND');
+  assert(notFoundErrors.length === 1, `Expected 1 DEPENDENCY_NOT_FOUND error, got ${notFoundErrors.length}`);
+  assert(notFoundErrors[0].message.includes('task-3'), `Error should mention 'task-3'`);
+});
+
+test('DEPENDENCY_SELF_REFERENCE: should fail when item depends on itself', () => {
+  const items = [
+    { prompt: 'Task 1', id: 'task-1', 'depends-on': ['task-1'] } // self-reference
+  ];
+
+  const errors = validateDependencies(items, 'step');
+
+  const selfRefErrors = errors.filter(e => e.code === 'DEPENDENCY_SELF_REFERENCE');
+  assert(selfRefErrors.length === 1, `Expected 1 DEPENDENCY_SELF_REFERENCE error, got ${selfRefErrors.length}`);
+});
+
+test('DEPENDENCY_CIRCULAR: should fail for simple A -> B -> A cycle', () => {
+  const items = [
+    { prompt: 'Task A', id: 'task-a', 'depends-on': ['task-b'] },
+    { prompt: 'Task B', id: 'task-b', 'depends-on': ['task-a'] }
+  ];
+
+  const errors = detectCircularDependencies(items, 'step');
+
+  const circularErrors = errors.filter(e => e.code === 'DEPENDENCY_CIRCULAR');
+  assert(circularErrors.length >= 1, `Expected at least 1 DEPENDENCY_CIRCULAR error, got ${circularErrors.length}`);
+});
+
+test('DEPENDENCY_CIRCULAR: should fail for longer A -> B -> C -> A cycle', () => {
+  const items = [
+    { prompt: 'Task A', id: 'task-a', 'depends-on': ['task-c'] },
+    { prompt: 'Task B', id: 'task-b', 'depends-on': ['task-a'] },
+    { prompt: 'Task C', id: 'task-c', 'depends-on': ['task-b'] }
+  ];
+
+  const errors = detectCircularDependencies(items, 'step');
+
+  const circularErrors = errors.filter(e => e.code === 'DEPENDENCY_CIRCULAR');
+  assert(circularErrors.length >= 1, `Expected at least 1 DEPENDENCY_CIRCULAR error, got ${circularErrors.length}`);
+});
+
+test('validateDependencies: should pass for valid DAG', () => {
+  const items = [
+    { prompt: 'Setup', id: 'setup' },
+    { prompt: 'Build', id: 'build', 'depends-on': ['setup'] },
+    { prompt: 'Test', id: 'test', 'depends-on': ['build'] },
+    { prompt: 'Deploy', id: 'deploy', 'depends-on': ['build', 'test'] }
+  ];
+
+  const errors = validateDependencies(items, 'step');
+  assert(errors.length === 0, `Expected no errors for valid DAG, got ${errors.length}: ${errors.map(e => e.code).join(', ')}`);
+});
+
+test('validateDependencies: should handle items without explicit IDs', () => {
+  const items = [
+    { prompt: 'Task 1' },  // auto-generated ID: step-0
+    { prompt: 'Task 2', 'depends-on': ['step-0'] }  // depends on first item
+  ];
+
+  const errors = validateDependencies(items, 'step');
+  assert(errors.length === 0, `Expected no errors, got ${errors.length}: ${errors.map(e => e.code).join(', ')}`);
+});
+
+test('validateDependencies: should fail for missing auto-generated ID reference', () => {
+  const items = [
+    { prompt: 'Task 1' },  // auto-generated ID: step-0
+    { prompt: 'Task 2', 'depends-on': ['step-5'] }  // step-5 doesn't exist
+  ];
+
+  const errors = validateDependencies(items, 'step');
+
+  const notFoundErrors = errors.filter(e => e.code === 'DEPENDENCY_NOT_FOUND');
+  assert(notFoundErrors.length === 1, `Expected 1 DEPENDENCY_NOT_FOUND error, got ${notFoundErrors.length}`);
+});
+
+test('validateCollections: should validate dependencies within collections', () => {
+  const collections = {
+    step: [
+      { prompt: 'Task 1', id: 'task-1' },
+      { prompt: 'Task 2', id: 'task-2', 'depends-on': ['task-1', 'nonexistent'] }
+    ]
+  };
+
+  const errors = validateCollections(collections);
+
+  const notFoundErrors = errors.filter(e => e.code === 'DEPENDENCY_NOT_FOUND');
+  assert(notFoundErrors.length === 1, `Expected 1 DEPENDENCY_NOT_FOUND error, got ${notFoundErrors.length}`);
+});
+
+test('validateCollections: should detect circular dependencies', () => {
+  const collections = {
+    step: [
+      { prompt: 'Task A', id: 'task-a', 'depends-on': ['task-b'] },
+      { prompt: 'Task B', id: 'task-b', 'depends-on': ['task-a'] }
+    ]
+  };
+
+  const errors = validateCollections(collections);
+
+  const circularErrors = errors.filter(e => e.code === 'DEPENDENCY_CIRCULAR');
+  assert(circularErrors.length >= 1, `Expected at least 1 DEPENDENCY_CIRCULAR error, got ${circularErrors.length}`);
+});
+
+test('validateCollectionItem: should validate depends-on field format', () => {
+  const item = { prompt: 'Task', 'depends-on': 'not-an-array' };
+
+  const errors = validateCollectionItem(item, 0, 'step');
+
+  const depsErrors = errors.filter(e => e.code === 'INVALID_DEPENDS_ON');
+  assert(depsErrors.length === 1, `Expected 1 INVALID_DEPENDS_ON error, got ${depsErrors.length}`);
+});
+
+test('validateDependencies: should detect multiple issues in one collection', () => {
+  const items = [
+    { prompt: 'Task A', id: 'task-a', 'depends-on': ['task-a'] },  // self-reference
+    { prompt: 'Task B', id: 'task-b', 'depends-on': ['missing'] }, // missing reference
+    { prompt: 'Task C', id: 'task-c', 'depends-on': ['task-d'] },  // cycle
+    { prompt: 'Task D', id: 'task-d', 'depends-on': ['task-c'] }   // cycle
+  ];
+
+  const errors = validateDependencies(items, 'step');
+
+  // Should have at least: 1 self-reference, 1 missing reference, and 1+ circular
+  const selfRefErrors = errors.filter(e => e.code === 'DEPENDENCY_SELF_REFERENCE');
+  const notFoundErrors = errors.filter(e => e.code === 'DEPENDENCY_NOT_FOUND');
+  const circularErrors = errors.filter(e => e.code === 'DEPENDENCY_CIRCULAR');
+
+  assert(selfRefErrors.length >= 1, `Expected at least 1 DEPENDENCY_SELF_REFERENCE error`);
+  assert(notFoundErrors.length >= 1, `Expected at least 1 DEPENDENCY_NOT_FOUND error`);
+  assert(circularErrors.length >= 1, `Expected at least 1 DEPENDENCY_CIRCULAR error`);
+});
+
+test('validateDependencies: should pass for empty collection', () => {
+  const items: any[] = [];
+
+  const errors = validateDependencies(items, 'step');
+  assert(errors.length === 0, `Expected no errors for empty collection, got ${errors.length}`);
+});
+
+test('validateDependencies: should pass for collection with no dependencies', () => {
+  const items = [
+    { prompt: 'Task 1', id: 'task-1' },
+    { prompt: 'Task 2', id: 'task-2' },
+    { prompt: 'Task 3', id: 'task-3' }
+  ];
+
+  const errors = validateDependencies(items, 'step');
+  assert(errors.length === 0, `Expected no errors, got ${errors.length}`);
+>>>>>>> 34e1cb8 (feat(m42-sprint): dependency-based parallel execution)
 });
 
 console.log('\nValidation tests completed.'); // intentional

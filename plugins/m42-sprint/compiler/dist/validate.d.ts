@@ -3,7 +3,7 @@
  *
  * Schema validation for SPRINT.yaml and workflow definitions
  */
-import type { SprintDefinition, WorkflowDefinition, CompiledProgress, CompilerError } from './types.js';
+import type { SprintDefinition, WorkflowDefinition, CollectionItem, CompiledProgress, CompilerError } from './types.js';
 /**
  * Validate that a model value is valid
  *
@@ -133,6 +133,43 @@ export declare function checkUnresolvedVariables(progress: CompiledProgress): Co
  * @returns Array of validation errors
  */
 export declare function validateCompiledProgress(progress: CompiledProgress): CompilerError[];
+/**
+ * Validate dependencies in a collection of items
+ *
+ * Performs three types of validation:
+ * 1. Reference validation - all dependency IDs must exist in the collection
+ * 2. Self-reference detection - items cannot depend on themselves
+ * 3. Circular dependency detection - no cycles in the dependency graph
+ *
+ * @param items - The collection items to validate
+ * @param collectionName - Name of the collection (for error messages)
+ * @returns Array of validation errors
+ */
+export declare function validateDependencies(items: CollectionItem[], collectionName: string): CompilerError[];
+/**
+ * Detect circular dependencies in a collection using depth-first search
+ *
+ * Uses a three-color marking scheme:
+ * - unvisited: node not yet processed
+ * - visiting: node currently being processed (in recursion stack)
+ * - visited: node fully processed
+ *
+ * A cycle is detected when we encounter a 'visiting' node during DFS.
+ *
+ * @param items - The collection items to check
+ * @param collectionName - Name of the collection (for error messages)
+ * @returns Array of circular dependency errors
+ */
+export declare function detectCircularDependencies(items: CollectionItem[], collectionName: string): CompilerError[];
+/**
+ * Validate depends-on field format in a collection item
+ *
+ * @param item - The item to validate
+ * @param index - Index of the item in the collection
+ * @param collectionName - Name of the containing collection
+ * @returns Array of validation errors
+ */
+export declare function validateDependsOnField(item: unknown, index: number, collectionName: string): CompilerError[];
 /**
  * Validate a git branch name according to git ref rules
  * @see https://git-scm.com/docs/git-check-ref-format

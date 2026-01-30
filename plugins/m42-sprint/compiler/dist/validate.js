@@ -20,6 +20,9 @@ exports.validateWorkflowPhase = validateWorkflowPhase;
 exports.validateGateCheck = validateGateCheck;
 exports.checkUnresolvedVariables = checkUnresolvedVariables;
 exports.validateCompiledProgress = validateCompiledProgress;
+exports.validateDependencies = validateDependencies;
+exports.detectCircularDependencies = detectCircularDependencies;
+exports.validateDependsOnField = validateDependsOnField;
 exports.isValidGitBranchName = isValidGitBranchName;
 exports.validateWorktreeConfig = validateWorktreeConfig;
 exports.validateWorkflowWorktreeDefaults = validateWorkflowWorktreeDefaults;
@@ -178,6 +181,14 @@ function validateCollections(collections) {
             const itemErrors = validateCollectionItem(item, index, collectionName);
             errors.push(...itemErrors);
         });
+        // Validate dependencies within the collection (references, cycles, self-refs)
+        // Only run if items passed basic validation
+        const hasBasicErrors = errors.some(e => e.path?.startsWith(`collections.${collectionName}`) &&
+            (e.code === 'INVALID_COLLECTION_ITEM' || e.code === 'INVALID_DEPENDS_ON'));
+        if (!hasBasicErrors && items.length > 0) {
+            const depErrors = validateDependencies(items, collectionName);
+            errors.push(...depErrors);
+        }
     }
     return errors;
 }
@@ -227,6 +238,9 @@ function validateCollectionItem(item, index, collectionName) {
     if (i.model !== undefined) {
         errors.push(...validateModel(i.model, `${path}.model`));
     }
+    // Validate optional depends-on field
+    const depsErrors = validateDependsOnField(item, index, collectionName);
+    errors.push(...depsErrors);
     return errors;
 }
 /**
@@ -754,6 +768,196 @@ function validateCompiledProgress(progress) {
             message: 'Compiled progress must have a current pointer'
         });
     }
+    return errors;
+}
+// ============================================================================
+// Dependency Validation
+// ============================================================================
+/**
+ * Validate dependencies in a collection of items
+ *
+ * Performs three types of validation:
+ * 1. Reference validation - all dependency IDs must exist in the collection
+ * 2. Self-reference detection - items cannot depend on themselves
+ * 3. Circular dependency detection - no cycles in the dependency graph
+ *
+ * @param items - The collection items to validate
+ * @param collectionName - Name of the collection (for error messages)
+ * @returns Array of validation errors
+ */
+function validateDependencies(items, collectionName) {
+    const errors = [];
+    // Build a map of item IDs for quick lookup
+    // Items without explicit IDs get auto-generated IDs (e.g., "item-0", "item-1")
+    const itemIds = new Map();
+    items.forEach((item, index) => {
+        const id = item.id ?? `${collectionName}-${index}`;
+        itemIds.set(id, index);
+    });
+    // First pass: validate references and detect self-references
+    items.forEach((item, index) => {
+        const itemId = item.id ?? `${collectionName}-${index}`;
+        const deps = item['depends-on'];
+        if (!deps || !Array.isArray(deps)) {
+            return; // No dependencies to validate
+        }
+        // Validate each dependency reference
+        for (const depId of deps) {
+            // Check for self-reference
+            if (depId === itemId) {
+                errors.push({
+                    code: 'DEPENDENCY_SELF_REFERENCE',
+                    message: `Item '${itemId}' in collection '${collectionName}' cannot depend on itself`,
+                    path: `collections.${collectionName}[${index}].depends-on`,
+                    details: { itemId, dependencyId: depId }
+                });
+                continue;
+            }
+            // Check if the dependency exists
+            if (!itemIds.has(depId)) {
+                errors.push({
+                    code: 'DEPENDENCY_NOT_FOUND',
+                    message: `Item '${itemId}' in collection '${collectionName}' depends on '${depId}' which does not exist`,
+                    path: `collections.${collectionName}[${index}].depends-on`,
+                    details: {
+                        itemId,
+                        missingDependency: depId,
+                        availableIds: Array.from(itemIds.keys())
+                    }
+                });
+            }
+        }
+    });
+    // Second pass: detect circular dependencies using DFS
+    const circularErrors = detectCircularDependencies(items, collectionName);
+    errors.push(...circularErrors);
+    return errors;
+}
+/**
+ * Detect circular dependencies in a collection using depth-first search
+ *
+ * Uses a three-color marking scheme:
+ * - unvisited: node not yet processed
+ * - visiting: node currently being processed (in recursion stack)
+ * - visited: node fully processed
+ *
+ * A cycle is detected when we encounter a 'visiting' node during DFS.
+ *
+ * @param items - The collection items to check
+ * @param collectionName - Name of the collection (for error messages)
+ * @returns Array of circular dependency errors
+ */
+function detectCircularDependencies(items, collectionName) {
+    const errors = [];
+    // Build dependency graph as DependencyNode array
+    const nodes = new Map();
+    const indexById = new Map();
+    items.forEach((item, index) => {
+        const id = item.id ?? `${collectionName}-${index}`;
+        indexById.set(id, index);
+        nodes.set(id, {
+            id,
+            dependencies: (item['depends-on'] ?? []).filter(dep => dep !== id), // Exclude self-refs (handled separately)
+            state: 'unvisited'
+        });
+    });
+    // Track the current path for cycle reporting
+    const path = [];
+    /**
+     * DFS visit function
+     * @returns true if a cycle was detected
+     */
+    function visit(nodeId) {
+        const node = nodes.get(nodeId);
+        if (!node) {
+            return false; // Node doesn't exist (already reported as missing reference)
+        }
+        if (node.state === 'visited') {
+            return false; // Already fully processed
+        }
+        if (node.state === 'visiting') {
+            // Found a cycle! Build the cycle path
+            const cycleStartIndex = path.indexOf(nodeId);
+            const cyclePath = [...path.slice(cycleStartIndex), nodeId];
+            errors.push({
+                code: 'DEPENDENCY_CIRCULAR',
+                message: `Circular dependency detected in collection '${collectionName}': ${cyclePath.join(' -> ')}`,
+                path: `collections.${collectionName}`,
+                details: {
+                    cycle: cyclePath,
+                    startNode: nodeId
+                }
+            });
+            return true;
+        }
+        // Mark as visiting and add to path
+        node.state = 'visiting';
+        path.push(nodeId);
+        // Visit all dependencies
+        for (const depId of node.dependencies) {
+            if (visit(depId)) {
+                // Cycle detected - don't continue checking this branch
+                // but don't return immediately to find all cycles
+            }
+        }
+        // Mark as visited and remove from path
+        node.state = 'visited';
+        path.pop();
+        return false;
+    }
+    // Run DFS from each unvisited node
+    for (const [nodeId] of nodes) {
+        const node = nodes.get(nodeId);
+        if (node.state === 'unvisited') {
+            visit(nodeId);
+        }
+    }
+    return errors;
+}
+/**
+ * Validate depends-on field format in a collection item
+ *
+ * @param item - The item to validate
+ * @param index - Index of the item in the collection
+ * @param collectionName - Name of the containing collection
+ * @returns Array of validation errors
+ */
+function validateDependsOnField(item, index, collectionName) {
+    const errors = [];
+    const path = `collections.${collectionName}[${index}].depends-on`;
+    if (!item || typeof item !== 'object') {
+        return errors;
+    }
+    const i = item;
+    const deps = i['depends-on'];
+    if (deps === undefined || deps === null) {
+        return errors; // Field is optional
+    }
+    if (!Array.isArray(deps)) {
+        errors.push({
+            code: 'INVALID_DEPENDS_ON',
+            message: `depends-on must be an array of strings`,
+            path
+        });
+        return errors;
+    }
+    // Validate each element is a non-empty string
+    deps.forEach((dep, depIndex) => {
+        if (typeof dep !== 'string') {
+            errors.push({
+                code: 'INVALID_DEPENDS_ON_ELEMENT',
+                message: `depends-on[${depIndex}] must be a string, got ${typeof dep}`,
+                path: `${path}[${depIndex}]`
+            });
+        }
+        else if (dep.trim().length === 0) {
+            errors.push({
+                code: 'EMPTY_DEPENDS_ON_ELEMENT',
+                message: `depends-on[${depIndex}] cannot be empty`,
+                path: `${path}[${depIndex}]`
+            });
+        }
+    });
     return errors;
 }
 // ============================================================================

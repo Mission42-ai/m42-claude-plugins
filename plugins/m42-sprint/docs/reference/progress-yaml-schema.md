@@ -198,6 +198,8 @@ The TypeScript runtime uses a pointer-based system to track position:
 | `stats` | SprintStats | Execution statistics |
 | `worktree` | CompiledWorktreeConfig | Worktree configuration (if enabled) |
 | `worktree-isolation` | WorktreeIsolationMeta | Runtime worktree tracking metadata |
+| `dependency-graph` | CompiledDependencyGraph[] | Dependency graphs for parallel step execution |
+| `parallel-execution` | ParallelExecutionConfig | Configuration for parallel execution |
 | `operator-queue` | QueuedRequest[] | Operator requests pending decision |
 | `last-activity` | ISO 8601 | Heartbeat timestamp for stale detection |
 
@@ -226,6 +228,7 @@ The TypeScript runtime uses a pointer-based system to track position:
 | `status` | PhaseStatus | Yes | Step execution status |
 | `phases` | CompiledPhase[] | Yes | Sub-phases from workflow |
 | `model` | ClaudeModel | No | Step-level model override |
+| `depends-on` | string[] | No | IDs of steps this step depends on (for parallel execution) |
 | `started-at` | ISO 8601 | No | When step started |
 | `completed-at` | ISO 8601 | No | When step completed |
 | `elapsed` | string | No | Human-readable duration |
@@ -287,6 +290,41 @@ Runtime metadata tracking which worktree a sprint is running in. Auto-populated 
 | `worktree-id` | string | Unique identifier for this worktree (12-char hash) |
 | `worktree-path` | string | Absolute path to the worktree root |
 | `is-worktree` | boolean | Whether this is a linked worktree (true) or main repo (false) |
+
+### CompiledDependencyGraph
+
+Dependency graphs track execution order for steps with dependencies. One graph is created per for-each phase that contains steps with `depends-on` fields.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `phase-id` | string | The phase ID this graph belongs to |
+| `nodes` | CompiledDependencyNode[] | Nodes in the dependency graph (one per step) |
+
+### CompiledDependencyNode
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique identifier (matches step ID) |
+| `depends-on` | string[] | IDs of nodes this node depends on (from SPRINT.yaml) |
+| `blocked-by` | string[] | IDs of nodes currently blocking this node (cleared as deps complete) |
+
+### ParallelExecutionConfig
+
+Configuration for parallel execution within for-each phases.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | boolean | - | Enable parallel execution of items within for-each phases |
+| `maxConcurrency` | number | unlimited | Maximum number of concurrent executions |
+| `onDependencyFailure` | string | `skip-dependents` | Strategy for handling failed dependencies |
+
+**`onDependencyFailure` Values:**
+
+| Value | Description |
+|-------|-------------|
+| `skip-dependents` | Mark all dependent steps as skipped when a dependency fails |
+| `fail-phase` | Fail the entire phase when any step fails |
+| `continue` | Continue executing other steps even when dependencies fail |
 
 ## Example PROGRESS.yaml
 
@@ -448,6 +486,93 @@ stats:
 
 The `worktree` section tracks the resolved worktree configuration (from SPRINT.yaml or workflow defaults), while `worktree-isolation` contains runtime metadata for identifying which worktree this sprint is executing in.
 
+### Sprint with Dependency Graph
+
+```yaml
+sprint-id: parallel-feature-2026-01
+status: in-progress
+
+# Dependency graphs for parallel execution
+dependency-graph:
+  - phase-id: implement-endpoints
+    nodes:
+      - id: step-0
+        depends-on: []
+        blocked-by: []
+      - id: step-1
+        depends-on:
+          - step-0
+        blocked-by: []           # Cleared when step-0 completed
+      - id: step-2
+        depends-on:
+          - step-0
+        blocked-by: []           # Cleared when step-0 completed
+      - id: step-3
+        depends-on:
+          - step-1
+          - step-2
+        blocked-by:
+          - step-2              # step-1 completed, still waiting for step-2
+
+# Parallel execution configuration
+parallel-execution:
+  enabled: true
+  maxConcurrency: 3
+  onDependencyFailure: skip-dependents
+
+phases:
+  - id: implement-endpoints
+    status: in-progress
+    steps:
+      - id: step-0
+        prompt: "Set up project foundation"
+        status: completed
+        completed-at: "2026-01-20T09:05:00Z"
+
+      - id: step-1
+        prompt: "Implement auth module"
+        status: completed
+        depends-on:
+          - step-0
+        completed-at: "2026-01-20T09:15:00Z"
+
+      - id: step-2
+        prompt: "Implement database layer"
+        status: in-progress
+        depends-on:
+          - step-0
+        started-at: "2026-01-20T09:05:30Z"
+        phases:
+          - id: implement
+            status: in-progress
+            prompt: "Implement database layer"
+
+      - id: step-3
+        prompt: "Implement user API"
+        status: pending
+        depends-on:
+          - step-1
+          - step-2
+
+current:
+  phase: 0
+  step: 2
+  sub-phase: 0
+
+stats:
+  started-at: "2026-01-20T09:00:00Z"
+  total-phases: 1
+  completed-phases: 0
+  total-steps: 4
+  completed-steps: 2
+```
+
+In this example:
+- `step-0` (foundation) completed first
+- `step-1` and `step-2` ran in parallel (both only depend on `step-0`)
+- `step-1` completed while `step-2` is still running
+- `step-3` is pending because it's still blocked by `step-2`
+
 ## Operator Queue
 
 The operator queue tracks discovered issues pending review.
@@ -574,6 +699,7 @@ interface CompiledStep {
   status: PhaseStatus;
   phases: CompiledPhase[];
   model?: ClaudeModel;
+  'depends-on'?: string[];     // Dependencies for parallel execution
   'started-at'?: string;
   'completed-at'?: string;
   elapsed?: string;
@@ -616,6 +742,9 @@ interface SprintStats {
 // Worktree cleanup modes
 type WorktreeCleanup = 'never' | 'on-complete' | 'on-merge';
 
+// Step insertion position strategies
+type InsertPosition = 'after-current' | 'end-of-phase';
+
 // Compiled worktree configuration in PROGRESS.yaml
 interface CompiledWorktreeConfig {
   enabled: boolean;
@@ -632,6 +761,26 @@ interface WorktreeIsolationMeta {
   'worktree-id': string;
   'worktree-path': string;
   'is-worktree': boolean;
+}
+
+// Dependency graph node for parallel execution
+interface CompiledDependencyNode {
+  id: string;
+  'depends-on': string[];
+  'blocked-by': string[];
+}
+
+// Dependency graph for a for-each phase
+interface CompiledDependencyGraph {
+  'phase-id': string;
+  nodes: CompiledDependencyNode[];
+}
+
+// Configuration for parallel execution
+interface ParallelExecutionConfig {
+  enabled: boolean;
+  maxConcurrency?: number;
+  onDependencyFailure: 'skip-dependents' | 'fail-phase' | 'continue';
 }
 
 interface QueuedRequest {
@@ -666,6 +815,9 @@ interface CompiledProgress {
 // Worktree fields
   worktree?: CompiledWorktreeConfig;
   'worktree-isolation'?: WorktreeIsolationMeta;
+  // Dependency tracking for parallel execution
+  'dependency-graph'?: CompiledDependencyGraph[];
+  'parallel-execution'?: ParallelExecutionConfig;
   // Operator queue fields
   'operator-queue'?: QueuedRequest[];
   'last-activity'?: string;

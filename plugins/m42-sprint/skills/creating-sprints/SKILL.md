@@ -143,6 +143,31 @@ collections:
       id: logout
 ```
 
+### Items with Dependencies (Parallel Execution)
+
+Steps can declare dependencies to control execution order while enabling parallel execution of independent steps:
+
+```yaml
+collections:
+  step:
+    - prompt: Set up database schema
+      id: db-schema
+
+    - prompt: Create user model
+      id: user-model
+      depends-on: [db-schema]
+
+    - prompt: Create product model
+      id: product-model
+      depends-on: [db-schema]
+
+    - prompt: Add user-product relationships
+      id: relationships
+      depends-on: [user-model, product-model]
+```
+
+In this example, `user-model` and `product-model` execute in parallel after `db-schema` completes.
+
 ## Example Sprints
 
 ### Feature Sprint
@@ -192,6 +217,7 @@ collections:
 - `references/sprint-schema.md` - Complete SPRINT.yaml schema
 - `references/step-writing-guide.md` - Writing effective step prompts
 - `references/workflow-selection.md` - Choosing the right workflow
+- `docs/USER-GUIDE.md` - Step Dependencies and Parallel Execution section
 
 ## Assets
 

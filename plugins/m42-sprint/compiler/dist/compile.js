@@ -38,6 +38,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.buildDependencyGraphs = buildDependencyGraphs;
 exports.formatYamlError = formatYamlError;
 exports.compile = compile;
 exports.compileFromPaths = compileFromPaths;
@@ -49,6 +50,42 @@ const resolve_workflows_js_1 = require("./resolve-workflows.js");
 const expand_foreach_js_1 = require("./expand-foreach.js");
 const validate_js_1 = require("./validate.js");
 const worktree_config_js_1 = require("./worktree-config.js");
+/**
+ * Build dependency graphs for all for-each phases
+ *
+ * Creates a CompiledDependencyGraph for each for-each phase that has steps
+ * with dependencies. Each node in the graph tracks:
+ * - depends-on: the original dependencies from SPRINT.yaml
+ * - blocked-by: initially same as depends-on, cleared at runtime as deps complete
+ *
+ * @param phases - The compiled top phases
+ * @returns Array of dependency graphs (one per for-each phase with dependencies)
+ */
+function buildDependencyGraphs(phases) {
+    const graphs = [];
+    for (const phase of phases) {
+        // Only process for-each phases (those with steps)
+        if (!phase.steps || phase.steps.length === 0) {
+            continue;
+        }
+        // Check if any step has dependencies
+        const hasDependencies = phase.steps.some(step => step['depends-on'] && step['depends-on'].length > 0);
+        if (!hasDependencies) {
+            continue;
+        }
+        // Build nodes for this phase
+        const nodes = phase.steps.map(step => ({
+            id: step.id,
+            'depends-on': step['depends-on'] ?? [],
+            'blocked-by': [...(step['depends-on'] ?? [])] // Copy array for runtime mutation
+        }));
+        graphs.push({
+            'phase-id': phase.id,
+            nodes
+        });
+    }
+    return graphs;
+}
 /**
  * Format a YAML parsing error with line numbers and context
  *
@@ -247,6 +284,8 @@ async function compile(config) {
     const prompts = compilePrompts(sprintDef);
     // Compile worktree config from workflow and sprint
     const worktree = (0, worktree_config_js_1.mergeWorktreeConfigs)(sprintId, sprintDef, mainWorkflow.definition);
+    // Build dependency graphs for for-each phases
+    const dependencyGraphs = buildDependencyGraphs(compiledPhases);
     // Build compiled progress
     const progress = {
         'sprint-id': sprintId,
@@ -262,7 +301,9 @@ async function compile(config) {
         // Add prompts if specified in sprint
         ...(prompts && { prompts }),
         // Add worktree config if enabled in workflow or sprint
-        ...(worktree && { worktree })
+        ...(worktree && { worktree }),
+        // Add dependency graph if any phases have dependencies
+        ...(dependencyGraphs.length > 0 && { 'dependency-graph': dependencyGraphs })
     };
     // Validate compiled progress
     const progressErrors = (0, validate_js_1.validateCompiledProgress)(progress);
