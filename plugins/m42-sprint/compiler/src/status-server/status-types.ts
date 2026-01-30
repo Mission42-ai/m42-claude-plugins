@@ -13,6 +13,7 @@ import type {
 } from '../types.js';
 
 import type { ActivityEvent } from './activity-types.js';
+import type { AgentEvent, AgentState, AgentUpdatePayload } from './agent-types.js';
 
 // ============================================================================
 // SSE Event Types
@@ -21,7 +22,7 @@ import type { ActivityEvent } from './activity-types.js';
 /**
  * Types of events sent over the SSE connection
  */
-export type SSEEventType = 'status-update' | 'log-entry' | 'keep-alive' | 'activity-event';
+export type SSEEventType = 'status-update' | 'log-entry' | 'keep-alive' | 'activity-event' | 'agent-event';
 
 /**
  * Generic SSE event wrapper
@@ -224,9 +225,14 @@ export type KeepAliveEvent = SSEEvent<'keep-alive', null>;
 export type ActivityEventSSE = SSEEvent<'activity-event', ActivityEvent>;
 
 /**
+ * Agent event (agent lifecycle and tool activity from .agent-events.jsonl)
+ */
+export type AgentEventSSE = SSEEvent<'agent-event', AgentUpdatePayload>;
+
+/**
  * Union of all SSE event types
  */
-export type AnySSEEvent = StatusUpdateEvent | LogEntryEvent | KeepAliveEvent | ActivityEventSSE;
+export type AnySSEEvent = StatusUpdateEvent | LogEntryEvent | KeepAliveEvent | ActivityEventSSE | AgentEventSSE;
 
 // ============================================================================
 // Dependency Graph Types (for DAG visualization)
@@ -344,3 +350,6 @@ export type {
   PhaseStatus,
   SprintStatus,
 };
+
+// Re-export agent types for convenience
+export type { AgentEvent, AgentState, AgentUpdatePayload };

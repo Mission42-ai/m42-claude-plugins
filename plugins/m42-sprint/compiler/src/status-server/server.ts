@@ -22,9 +22,11 @@ import type {
   PhaseStatus,
 } from './status-types.js';
 import { isActivityEvent, DEFAULT_ACTIVITY_TAIL_LINES, type ActivityEvent } from './activity-types.js';
+import type { AgentEvent, AgentState, AgentUpdatePayload } from './agent-types.js';
 import { ProgressWatcher } from './watcher.js';
 import { ActivityWatcher } from './activity-watcher.js';
 import { TranscriptionWatcher } from './transcription-watcher.js';
+import { AgentWatcher } from './agent-watcher.js';
 import { toStatusUpdate, generateDiffLogEntries, createLogEntry, isSprintStale, type TimingInfo } from './transforms.js';
 import { getPageHtml, type SprintNavigation } from './page.js';
 import { TimingTracker } from './timing-tracker.js';
@@ -138,6 +140,7 @@ export class StatusServer extends EventEmitter {
   private watcher: ProgressWatcher | null = null;
   private activityWatcher: ActivityWatcher | null = null;
   private transcriptionWatcher: TranscriptionWatcher | null = null;
+  private agentWatcher: AgentWatcher | null = null;
   private timingTracker: TimingTracker | null = null;
   private clients: Map<string, SSEClient> = new Map();
   private keepAliveTimer: ReturnType<typeof setInterval> | null = null;
@@ -226,6 +229,26 @@ export class StatusServer extends EventEmitter {
 
     this.transcriptionWatcher.start();
 
+    // Set up agent watcher (tracks Claude agents for workflow visualization)
+    this.agentWatcher = new AgentWatcher(this.config.sprintDir, {
+      debounceDelay: this.config.debounceDelay,
+    });
+
+    this.agentWatcher.on('agent-event', (event: AgentEvent, agentState: AgentState | null) => {
+      const payload: AgentUpdatePayload = {
+        event,
+        agentState: agentState ?? undefined,
+        allAgents: this.agentWatcher?.getActiveAgents(),
+      };
+      this.broadcast('agent-event', payload);
+    });
+
+    this.agentWatcher.on('error', (error) => {
+      console.error('[StatusServer] Agent watcher error:', error.message);
+    });
+
+    this.agentWatcher.start();
+
     // Initialize timing tracker for progress estimation
     this.timingTracker = new TimingTracker(this.config.sprintDir);
     this.timingTracker.loadTimingHistory();
@@ -284,6 +307,12 @@ export class StatusServer extends EventEmitter {
     if (this.transcriptionWatcher) {
       this.transcriptionWatcher.close();
       this.transcriptionWatcher = null;
+    }
+
+    // Stop agent watcher
+    if (this.agentWatcher) {
+      this.agentWatcher.close();
+      this.agentWatcher = null;
     }
 
     // Close HTTP server
@@ -1871,6 +1900,9 @@ export class StatusServer extends EventEmitter {
 
       // Send historical activity events (BUG-003 fix)
       this.sendHistoricalActivity(client);
+
+      // Send current agent state for workflow visualization
+      this.sendAgentState(client);
     } catch (error) {
       console.error('[StatusServer] Failed to send initial status:', error);
       // Send error log entry
@@ -1921,6 +1953,32 @@ export class StatusServer extends EventEmitter {
       }
     } catch (error) {
       console.error('[StatusServer] Failed to send historical activity:', error);
+    }
+  }
+
+  /**
+   * Send current agent state to a newly connected client
+   * Provides initial snapshot for workflow visualization
+   */
+  private sendAgentState(client: SSEClient): void {
+    if (!this.agentWatcher) return;
+
+    try {
+      const activeAgents = this.agentWatcher.getActiveAgents();
+      if (activeAgents.length > 0) {
+        const payload: AgentUpdatePayload = {
+          event: {
+            ts: new Date().toISOString(),
+            sessionId: 'initial-state',
+            type: 'spawn',
+            stepId: 'initial-state',
+          },
+          allAgents: activeAgents,
+        };
+        this.sendEvent(client, 'agent-event', payload);
+      }
+    } catch (error) {
+      console.error('[StatusServer] Failed to send agent state:', error);
     }
   }
 
