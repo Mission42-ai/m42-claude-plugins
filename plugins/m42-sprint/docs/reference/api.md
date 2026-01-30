@@ -464,6 +464,7 @@ SSE endpoint for real-time updates.
 | `status-update` | Sprint status changed |
 | `log-entry` | New log entry |
 | `activity-event` | Activity from sprint execution (tool calls, assistant messages) |
+| `agent-event` | Agent lifecycle and tool usage events |
 | `operator-decision` | Operator queue decision made |
 | `sprint-complete` | Sprint reached terminal state |
 | `keep-alive` | Connection keep-alive (every 15s) |
@@ -488,10 +489,478 @@ event: activity-event
 data: {"type":"activity-event","data":{"ts":"2026-01-18T10:00:01Z","type":"assistant","text":"Let me analyze the codebase..."},"timestamp":"2026-01-18T10:00:01Z"}
 ```
 
+Agent event (spawn):
+```
+event: agent-event
+data: {"type":"agent-event","data":{"event":{"ts":"2026-01-18T10:00:00Z","sessionId":"abc123","type":"spawn","stepId":"step-1"},"agentState":{"sessionId":"abc123","name":"Klaus","stepId":"step-1","emotion":"thinking","spawnedAt":"2026-01-18T10:00:00Z","lastActivityAt":"2026-01-18T10:00:00Z","subagentCount":0,"isActive":true}},"timestamp":"2026-01-18T10:00:00Z"}
+```
+
+Agent event (tool activity):
+```
+event: agent-event
+data: {"type":"agent-event","data":{"event":{"ts":"2026-01-18T10:00:05Z","sessionId":"abc123","type":"tool_start","tool":"Read","file":"src/index.ts"},"agentState":{"sessionId":"abc123","name":"Klaus","stepId":"step-1","emotion":"reading","currentTool":"Read","currentFile":"src/index.ts","spawnedAt":"2026-01-18T10:00:00Z","lastActivityAt":"2026-01-18T10:00:05Z","subagentCount":0,"isActive":true}},"timestamp":"2026-01-18T10:00:05Z"}
+```
+
 Operator decision:
 ```
 event: operator-decision
 data: {"type":"operator-decision","data":{"request":{"id":"req-123",...},"decision":"approve"},"timestamp":"2026-01-18T10:00:00Z"}
+```
+
+---
+
+## Agent Monitoring API
+
+The agent monitoring system tracks Claude agent activity during sprint execution, providing real-time visibility into agent lifecycle events, tool usage, and parallel execution.
+
+### Event File Format
+
+Agent events are stored in `.agent-events.jsonl` in the sprint directory. Each line is a JSON object representing a single event.
+
+**File Location**: `<sprint-dir>/.agent-events.jsonl`
+
+**Example Content**:
+```jsonl
+{"ts":"2026-01-18T10:00:00.000Z","sessionId":"abc123","type":"spawn","stepId":"step-1"}
+{"ts":"2026-01-18T10:00:05.123Z","sessionId":"abc123","type":"tool_start","tool":"Read","file":"src/index.ts"}
+{"ts":"2026-01-18T10:00:05.456Z","sessionId":"abc123","type":"tool_end","tool":"Read","success":true}
+{"ts":"2026-01-18T10:00:30.000Z","sessionId":"abc123","type":"complete","status":"success"}
+```
+
+---
+
+### Agent Event Types
+
+All events share these base fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `ts` | string | ISO-8601 timestamp |
+| `sessionId` | string | Claude session ID (unique per agent instance) |
+
+#### spawn
+
+Emitted when a Claude agent process starts for a step.
+
+```typescript
+{
+  type: 'spawn';
+  ts: string;
+  sessionId: string;
+  stepId: string;  // Step ID this agent is working on
+}
+```
+
+**Example**:
+```json
+{"ts":"2026-01-18T10:00:00.000Z","sessionId":"abc123","type":"spawn","stepId":"implement-auth"}
+```
+
+#### tool_start
+
+Emitted when an agent begins using a tool.
+
+```typescript
+{
+  type: 'tool_start';
+  ts: string;
+  sessionId: string;
+  tool: string;        // Tool name (Read, Edit, Bash, etc.)
+  file?: string;       // File path (for file operations)
+  command?: string;    // Command (for Bash, truncated to 100 chars)
+  toolUseId?: string;  // Tool use ID for correlation with tool_end
+}
+```
+
+**Example**:
+```json
+{"ts":"2026-01-18T10:00:05.123Z","sessionId":"abc123","type":"tool_start","tool":"Read","file":"src/auth.ts","toolUseId":"tu_789"}
+```
+
+#### tool_end
+
+Emitted when an agent finishes using a tool.
+
+```typescript
+{
+  type: 'tool_end';
+  ts: string;
+  sessionId: string;
+  tool: string;        // Tool name
+  toolUseId?: string;  // Correlates with tool_start
+  success?: boolean;   // Whether the tool call succeeded
+}
+```
+
+**Example**:
+```json
+{"ts":"2026-01-18T10:00:05.456Z","sessionId":"abc123","type":"tool_end","tool":"Read","toolUseId":"tu_789","success":true}
+```
+
+#### complete
+
+Emitted when a Claude agent process finishes.
+
+```typescript
+{
+  type: 'complete';
+  ts: string;
+  sessionId: string;
+  status: 'success' | 'failed' | 'cancelled';
+  error?: string;  // Error message if failed
+}
+```
+
+**Example**:
+```json
+{"ts":"2026-01-18T10:00:30.000Z","sessionId":"abc123","type":"complete","status":"success"}
+```
+
+#### subagent_spawn
+
+Emitted when an agent spawns a subagent via the Task tool.
+
+```typescript
+{
+  type: 'subagent_spawn';
+  ts: string;
+  sessionId: string;
+  agentId: string;    // Subagent ID
+  agentType?: string; // Subagent type
+}
+```
+
+**Example**:
+```json
+{"ts":"2026-01-18T10:00:10.000Z","sessionId":"abc123","type":"subagent_spawn","agentId":"sub_456","agentType":"code-review"}
+```
+
+#### subagent_complete
+
+Emitted when a subagent finishes.
+
+```typescript
+{
+  type: 'subagent_complete';
+  ts: string;
+  sessionId: string;
+  agentId: string;  // Subagent ID
+}
+```
+
+**Example**:
+```json
+{"ts":"2026-01-18T10:00:20.000Z","sessionId":"abc123","type":"subagent_complete","agentId":"sub_456"}
+```
+
+---
+
+### Agent State
+
+The `AgentState` interface represents the computed state of an agent derived from events.
+
+```typescript
+interface AgentState {
+  sessionId: string;       // Claude session ID
+  name: string;            // Derived agent name (Klaus, Luna, etc.)
+  stepId: string;          // Step ID this agent is working on
+  emotion: AgentEmotion;   // Current emotion/status
+  currentTool?: string;    // Current tool being used (if any)
+  currentFile?: string;    // Current file being worked on (if any)
+  spawnedAt: string;       // When the agent spawned
+  lastActivityAt: string;  // When the last activity occurred
+  subagentCount: number;   // Active subagent count
+  isActive: boolean;       // Whether the agent is still active
+}
+```
+
+**Agent Emotions**:
+
+| Emotion | Emoji | Triggers |
+|---------|-------|----------|
+| `working` | `working` | Using Edit, Write, Bash, or other write tools |
+| `thinking` | `thinking` | Between tool calls, processing |
+| `reading` | `reading` | Using Read, Glob, Grep, WebFetch, WebSearch |
+| `success` | `success` | Completed successfully |
+| `failed` | `failed` | Completed with failure |
+
+**Agent Names**:
+
+Agent names are derived deterministically from session IDs using a hash function. The available names are:
+- Klaus, Luna, Max, Mia, Felix, Emma, Leo, Sophie, Finn, Lara
+
+---
+
+### AgentWatcher Class
+
+The `AgentWatcher` class watches `.agent-events.jsonl` and maintains live agent state.
+
+#### Import
+
+```typescript
+import { AgentWatcher } from '@m42/sprint/status-server/agent-watcher';
+```
+
+#### Constructor
+
+```typescript
+constructor(sprintDir: string, options?: AgentWatcherOptions)
+```
+
+**Parameters**:
+- `sprintDir` - Path to the sprint directory
+- `options` - Optional configuration
+
+**AgentWatcherOptions**:
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `debounceDelay` | number | 100 | Debounce delay in milliseconds |
+| `staleTimeout` | number | 60000 | Stale agent timeout in milliseconds |
+
+**Example**:
+```typescript
+const watcher = new AgentWatcher('/path/to/sprint', {
+  debounceDelay: 50,
+  staleTimeout: 120000,
+});
+```
+
+#### Methods
+
+##### start()
+
+```typescript
+start(): void
+```
+
+Start watching the agent events file. Safe to call multiple times (no-op if already watching).
+
+##### close()
+
+```typescript
+close(): void
+```
+
+Stop watching and clean up resources.
+
+##### getState()
+
+```typescript
+getState(): AgentMonitorState
+```
+
+Get the current aggregate agent state.
+
+**Returns**:
+```typescript
+interface AgentMonitorState {
+  agents: Map<string, AgentState>;     // sessionId -> AgentState
+  stepToAgent: Map<string, string>;    // stepId -> sessionId
+  lastUpdate: string;                  // ISO-8601 timestamp
+}
+```
+
+##### getActiveAgents()
+
+```typescript
+getActiveAgents(): AgentState[]
+```
+
+Get all currently active agents as an array.
+
+##### getAgentForStep(stepId)
+
+```typescript
+getAgentForStep(stepId: string): AgentState | null
+```
+
+Get the agent working on a specific step.
+
+**Parameters**:
+- `stepId` - Step ID to look up
+
+**Returns**: `AgentState` if an active agent is working on the step, `null` otherwise.
+
+##### getFilePath()
+
+```typescript
+getFilePath(): string
+```
+
+Get the path to the agent events file being watched.
+
+##### isWatching()
+
+```typescript
+isWatching(): boolean
+```
+
+Check if the watcher is currently active.
+
+#### Events
+
+The `AgentWatcher` extends `EventEmitter` and emits the following events:
+
+| Event | Arguments | Description |
+|-------|-----------|-------------|
+| `agent-event` | `(event: AgentEvent, state: AgentState \| null)` | New agent event received |
+| `error` | `(error: Error)` | Error occurred during watching |
+| `ready` | (none) | Watcher is ready |
+| `close` | (none) | Watcher has been closed |
+
+**Example**:
+```typescript
+watcher.on('agent-event', (event, agentState) => {
+  console.log(`Agent ${agentState?.name}: ${event.type}`);
+  if (event.type === 'tool_start') {
+    console.log(`  Tool: ${event.tool}`);
+  }
+});
+
+watcher.on('ready', () => {
+  console.log('Watcher ready');
+});
+
+watcher.start();
+```
+
+---
+
+### Agent Monitor Hook
+
+The agent monitor hook is a shell script that captures Claude Code lifecycle events and writes them to `.agent-events.jsonl`.
+
+#### File Location
+
+```
+plugins/m42-sprint/hooks/agent-monitor-hook.sh
+```
+
+#### Environment Variables
+
+The hook requires these environment variables to be set by the sprint runner:
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `SPRINT_DIR` | Yes | Path to the sprint directory |
+| `CURRENT_STEP_ID` | No | Current step ID being executed (defaults to "unknown") |
+
+#### Hook Events Captured
+
+| Hook Event | Agent Event Type | Description |
+|------------|------------------|-------------|
+| `SessionStart` | `spawn` | Agent process started |
+| `PreToolUse` | `tool_start` | Tool execution beginning |
+| `PostToolUse` | `tool_end` | Tool execution completed (success) |
+| `PostToolUseFailure` | `tool_end` | Tool execution completed (failure) |
+| `Stop` | `complete` | Agent stopped |
+| `SessionEnd` | `complete` | Agent session ended |
+| `SubagentStart` | `subagent_spawn` | Subagent spawned via Task tool |
+| `SubagentStop` | `subagent_complete` | Subagent finished |
+
+#### Input Format
+
+The hook receives JSON input via stdin in Claude Code hook format:
+
+```json
+{
+  "hook_event_name": "PreToolUse",
+  "session_id": "abc123",
+  "tool_name": "Read",
+  "tool_use_id": "tu_789",
+  "tool_input": {
+    "file_path": "src/index.ts"
+  }
+}
+```
+
+#### Usage
+
+The hook is automatically invoked by Claude Code when configured. To enable it, add to your Claude Code hooks configuration:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": ["bash", "/path/to/agent-monitor-hook.sh"],
+    "PostToolUse": ["bash", "/path/to/agent-monitor-hook.sh"],
+    "SessionStart": ["bash", "/path/to/agent-monitor-hook.sh"],
+    "SessionEnd": ["bash", "/path/to/agent-monitor-hook.sh"]
+  }
+}
+```
+
+---
+
+### Helper Functions
+
+#### getAgentName(sessionId)
+
+```typescript
+function getAgentName(sessionId: string): string
+```
+
+Get a deterministic agent name from a session ID.
+
+**Example**:
+```typescript
+const name = getAgentName('abc123'); // Returns e.g., "Klaus"
+```
+
+#### getAgentEmoji(emotion)
+
+```typescript
+function getAgentEmoji(emotion: AgentEmotion): string
+```
+
+Get the emoji for an agent emotion.
+
+**Example**:
+```typescript
+const emoji = getAgentEmoji('thinking'); // Returns "thinking"
+```
+
+#### getEmotionFromTool(tool)
+
+```typescript
+function getEmotionFromTool(tool: string | undefined): AgentEmotion
+```
+
+Derive an emotion from the current tool being used.
+
+**Returns**:
+- `'reading'` for Read, Glob, Grep, WebFetch, WebSearch
+- `'working'` for other tools
+- `'thinking'` if no tool is active
+
+#### isAgentEvent(obj)
+
+```typescript
+function isAgentEvent(obj: unknown): obj is AgentEvent
+```
+
+Type guard to validate if an object is a valid `AgentEvent`.
+
+#### createAgentState(event)
+
+```typescript
+function createAgentState(event: AgentSpawnEvent): AgentState
+```
+
+Create an initial `AgentState` from a spawn event.
+
+---
+
+### SSE Agent Update Payload
+
+When agent events are broadcast via SSE, they include the triggering event and current agent state:
+
+```typescript
+interface AgentUpdatePayload {
+  event: AgentEvent;           // The event that triggered this update
+  agentState?: AgentState;     // Current state of the affected agent
+  allAgents?: AgentState[];    // All active agents (for full refresh)
+}
 ```
 
 ---
@@ -712,6 +1181,13 @@ curl -X POST "http://localhost:3100/api/skip/development%20%3E%20step-0%20%3E%20
 
 ```bash
 curl -N http://localhost:3100/events
+```
+
+### Monitor agent activity via SSE
+
+```bash
+# Filter for agent events only
+curl -N http://localhost:3100/events 2>/dev/null | grep "^data:" | jq -r '.data | select(.event.type != null)'
 ```
 
 ---
