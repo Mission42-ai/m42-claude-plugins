@@ -240,9 +240,11 @@ export async function runClaude(options: ClaudeRunOptions): Promise<ClaudeResult
     const args = buildArgs(options);
 
     // Spawn Claude CLI process
+    // Note: env: process.env is required for spawn() to find 'claude' in PATH
     const proc = spawn('claude', args, {
       cwd: options.cwd,
       stdio: ['pipe', 'pipe', 'pipe'],
+      env: process.env,
     });
 
     let stdout = '';

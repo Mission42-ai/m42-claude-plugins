@@ -64,6 +64,49 @@ import {
 } from './scheduler.js';
 
 // ============================================================================
+// Per-Iteration Hook Types (defined locally to avoid cross-project imports)
+// ============================================================================
+
+/**
+ * Per-iteration hook configuration
+ * Hooks run deterministically each iteration (e.g., learning extraction)
+ */
+export interface PerIterationHook {
+  /** Unique identifier for this hook */
+  id: string;
+  /** Reference to workflow (e.g., "m42-signs:learning-extraction") */
+  workflow?: string;
+  /** Inline prompt alternative to workflow */
+  prompt?: string;
+  /** If true, runs non-blocking in background */
+  parallel: boolean;
+  /** Whether this hook is active */
+  enabled: boolean;
+}
+
+/**
+ * Tracking entry for per-iteration hook execution
+ */
+export interface HookTask {
+  /** Which iteration this belongs to */
+  iteration: number;
+  /** Which hook this is */
+  'hook-id': string;
+  /** Current status */
+  status: 'spawned' | 'running' | 'completed' | 'failed';
+  /** Process ID if running */
+  pid?: number;
+  /** Path to transcript file */
+  transcript?: string;
+  /** When spawned (ISO timestamp) */
+  'spawned-at'?: string;
+  /** When completed (ISO timestamp) */
+  'completed-at'?: string;
+  /** Exit code if completed */
+  'exit-code'?: number;
+}
+
+// ============================================================================
 // Progress File Operations (wrapper to handle type differences)
 // ============================================================================
 
@@ -826,6 +869,251 @@ async function triggerOperator(
 
   if (verbose) {
     console.log(`[loop] Operator processed ${response.decisions.length} requests: ${response.operatorLog}`);
+  }
+}
+
+// ============================================================================
+// Per-Iteration Hook Execution
+// ============================================================================
+
+/**
+ * Progress type extended with typed hook fields
+ * Overrides the unknown[] types from CompiledProgress with specific types
+ */
+export type ProgressWithHooks = Omit<CompiledProgress, 'per-iteration-hooks' | 'hook-tasks'> & {
+  'per-iteration-hooks'?: PerIterationHook[];
+  'hook-tasks'?: HookTask[];
+};
+
+/**
+ * Template variables available for hook prompt substitution
+ */
+interface HookTemplateVars {
+  /** Path to the current iteration's transcript log file */
+  ITERATION_TRANSCRIPT: string;
+  /** Sprint identifier */
+  SPRINT_ID: string;
+  /** Current iteration number (1-based) */
+  ITERATION: number;
+  /** Current phase identifier */
+  PHASE_ID: string;
+}
+
+/**
+ * Replace template variables in a hook prompt.
+ *
+ * Supported variables:
+ * - $ITERATION_TRANSCRIPT → path to current iteration's transcript
+ * - $SPRINT_ID → sprint identifier
+ * - $ITERATION → iteration number
+ * - $PHASE_ID → current phase identifier
+ *
+ * @param prompt - Hook prompt with template variables
+ * @param vars - Variable values to substitute
+ * @returns Prompt with variables replaced
+ */
+export function replaceHookTemplateVars(prompt: string, vars: HookTemplateVars): string {
+  return prompt
+    .replace(/\$ITERATION_TRANSCRIPT/g, vars.ITERATION_TRANSCRIPT)
+    .replace(/\$SPRINT_ID/g, vars.SPRINT_ID)
+    .replace(/\$ITERATION/g, String(vars.ITERATION))
+    .replace(/\$PHASE_ID/g, vars.PHASE_ID);
+}
+
+/**
+ * Create a HookTask entry for tracking hook execution
+ *
+ * @param hookId - The hook identifier
+ * @param iteration - Current iteration number
+ * @returns Initial HookTask entry
+ */
+function createHookTask(hookId: string, iteration: number): HookTask {
+  return {
+    iteration,
+    'hook-id': hookId,
+    status: 'running',
+    'spawned-at': new Date().toISOString(),
+  };
+}
+
+/**
+ * Execute a single per-iteration hook.
+ *
+ * @param hook - Hook configuration
+ * @param vars - Template variables for prompt substitution
+ * @param workingDir - Working directory for Claude execution
+ * @param outputDir - Directory for transcript output
+ * @param deps - Loop dependencies (runClaude function)
+ * @param verbose - Enable verbose logging
+ * @returns Promise resolving to partial HookTask with completion info
+ */
+async function executeHook(
+  hook: PerIterationHook,
+  vars: HookTemplateVars,
+  workingDir: string,
+  outputDir: string,
+  deps: LoopDependencies,
+  verbose: boolean
+): Promise<Partial<HookTask>> {
+  const prompt = hook.prompt ?? '';
+  const resolvedPrompt = replaceHookTemplateVars(prompt, vars);
+
+  const logFileName = `hook_${hook.id}_iteration-${vars.ITERATION}.log`;
+  const outputFile = path.join(outputDir, logFileName);
+
+  if (verbose) {
+    console.log(`[loop] Executing hook '${hook.id}' for iteration ${vars.ITERATION}`);
+  }
+
+  try {
+    const result = await deps.runClaude({
+      prompt: resolvedPrompt,
+      cwd: workingDir,
+      outputFile,
+    });
+
+    return {
+      status: result.success ? 'completed' : 'failed',
+      'completed-at': new Date().toISOString(),
+      'exit-code': result.exitCode,
+      transcript: outputFile,
+    };
+  } catch (err) {
+    return {
+      status: 'failed',
+      'completed-at': new Date().toISOString(),
+      'exit-code': 1,
+    };
+  }
+}
+
+/**
+ * Execute all enabled per-iteration hooks after an iteration completes.
+ *
+ * For hooks with parallel: true, spawns them in background without blocking.
+ * For hooks with parallel: false, waits for completion before returning.
+ *
+ * @param progress - Progress object with hooks configuration
+ * @param iteration - Current iteration number
+ * @param transcriptPath - Path to the current iteration's transcript file
+ * @param phaseId - Current phase identifier
+ * @param sprintDir - Sprint directory path
+ * @param workingDir - Working directory for Claude execution
+ * @param deps - Loop dependencies
+ * @param verbose - Enable verbose logging
+ */
+export async function executePerIterationHooks(
+  progress: ProgressWithHooks,
+  iteration: number,
+  transcriptPath: string,
+  phaseId: string,
+  sprintDir: string,
+  workingDir: string,
+  deps: LoopDependencies,
+  verbose: boolean
+): Promise<void> {
+  const hooks = progress['per-iteration-hooks'];
+  if (!hooks || hooks.length === 0) {
+    return;
+  }
+
+  // Filter to enabled hooks only
+  const enabledHooks = hooks.filter((h) => h.enabled);
+  if (enabledHooks.length === 0) {
+    return;
+  }
+
+  if (verbose) {
+    console.log(`[loop] Executing ${enabledHooks.length} per-iteration hooks for iteration ${iteration}`);
+  }
+
+  // Initialize hook-tasks array if not present
+  if (!progress['hook-tasks']) {
+    progress['hook-tasks'] = [];
+  }
+
+  // Create transcriptions directory for hook transcripts
+  const transcriptionsDir = path.join(sprintDir, 'transcriptions');
+  if (!fs.existsSync(transcriptionsDir)) {
+    fs.mkdirSync(transcriptionsDir, { recursive: true });
+  }
+
+  // Template variables for all hooks
+  const vars: HookTemplateVars = {
+    ITERATION_TRANSCRIPT: transcriptPath,
+    SPRINT_ID: progress['sprint-id'],
+    ITERATION: iteration,
+    PHASE_ID: phaseId,
+  };
+
+  // Separate parallel and sequential hooks
+  const parallelHooks = enabledHooks.filter((h) => h.parallel);
+  const sequentialHooks = enabledHooks.filter((h) => !h.parallel);
+
+  // Execute sequential hooks first (blocking)
+  for (const hook of sequentialHooks) {
+    if (!hook.prompt && !hook.workflow) {
+      if (verbose) {
+        console.log(`[loop] Skipping hook '${hook.id}' - no prompt or workflow defined`);
+      }
+      continue;
+    }
+
+    // Create task entry
+    const task = createHookTask(hook.id, iteration);
+    progress['hook-tasks'].push(task);
+
+    // Execute and update task
+    const result = await executeHook(hook, vars, workingDir, transcriptionsDir, deps, verbose);
+    Object.assign(task, result);
+
+    if (verbose) {
+      console.log(`[loop] Hook '${hook.id}' completed with status: ${task.status}`);
+    }
+  }
+
+  // Execute parallel hooks (non-blocking)
+  // Note: In the TypeScript implementation, we spawn them but don't await completion
+  // This allows the main loop to continue to the next iteration
+  const parallelPromises: Promise<void>[] = [];
+
+  for (const hook of parallelHooks) {
+    if (!hook.prompt && !hook.workflow) {
+      if (verbose) {
+        console.log(`[loop] Skipping hook '${hook.id}' - no prompt or workflow defined`);
+      }
+      continue;
+    }
+
+    // Create task entry
+    const task = createHookTask(hook.id, iteration);
+    progress['hook-tasks'].push(task);
+
+    // Execute in background (don't await)
+    const hookPromise = executeHook(hook, vars, workingDir, transcriptionsDir, deps, verbose)
+      .then((result) => {
+        Object.assign(task, result);
+        if (verbose) {
+          console.log(`[loop] Parallel hook '${hook.id}' completed with status: ${task.status}`);
+        }
+      })
+      .catch((err) => {
+        task.status = 'failed';
+        task['completed-at'] = new Date().toISOString();
+        if (verbose) {
+          console.log(`[loop] Parallel hook '${hook.id}' failed: ${err}`);
+        }
+      });
+
+    parallelPromises.push(hookPromise);
+  }
+
+  // For parallel hooks, we don't wait - they run in background
+  // The tasks are already tracked in hook-tasks with 'running' status
+  // They'll be updated when they complete
+
+  if (verbose && parallelPromises.length > 0) {
+    console.log(`[loop] Spawned ${parallelPromises.length} parallel hooks in background`);
   }
 }
 
@@ -1780,6 +2068,21 @@ export async function runLoop(
         const breakpointActions = breakpointResult.actions.filter(a => a.type !== 'SPAWN_CLAUDE');
         await executeActions(breakpointActions, context, deps);
       }
+    }
+
+    // Execute per-iteration hooks after successful iteration
+    // Hooks run AFTER phase completion but BEFORE advancing to next phase
+    if (event.type === 'PHASE_COMPLETE') {
+      await executePerIterationHooks(
+        progress as ProgressWithHooks,
+        iterations,
+        outputFile,  // The transcript path for this iteration
+        phaseId,
+        sprintDir,
+        workingDir,
+        deps,
+        verbose
+      );
     }
 
     // Commit transaction
