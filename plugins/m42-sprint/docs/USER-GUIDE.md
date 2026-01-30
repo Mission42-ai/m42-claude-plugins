@@ -162,6 +162,131 @@ curl -X POST http://localhost:3100/api/sprint/<sprint-id>/resume
 
 ---
 
+## Workflow Visualization
+
+The dashboard includes an n8n-style workflow visualization that shows your sprint's execution as a connected node graph. Each step appears as a node, connected by arrows showing the execution flow.
+
+### Accessing the Visualization
+
+The workflow visualization is part of the live status dashboard:
+
+```bash
+# Start the status server
+/sprint-watch
+
+# Or it starts automatically with
+/run-sprint .claude/sprints/your-sprint
+```
+
+Open `http://localhost:3100` in your browser to see the visualization.
+
+### Understanding the Node Graph
+
+Each workflow node represents a step or sub-phase in your sprint:
+
+**Node Status Colors:**
+
+| Visual | Status | Meaning |
+|--------|--------|---------|
+| Gray border | `pending` | Step not yet started |
+| Green glow + pulse | `in-progress` | Step currently executing |
+| Green border | `completed` | Step finished successfully |
+| Red border | `failed` | Step encountered an error |
+| Yellow border | `blocked` | Step waiting on dependencies |
+| Gray (dimmed) | `skipped` | Step was skipped |
+
+**Connection Arrows:**
+
+- Gray arrows show the execution path between nodes
+- Green arrows indicate flow from completed steps
+
+### Agent Avatars
+
+When a Claude agent is actively working on a step, its node displays an animated avatar instead of a status icon.
+
+**Avatar Emotions:**
+
+| Emoji | Emotion | When Displayed |
+|-------|---------|----------------|
+| `🤔` | thinking | Agent is reasoning or planning |
+| `🧐` | reading | Agent is reading files (Read, Glob, Grep) |
+| `😉` | working | Agent is editing or running commands |
+| `😊` | success | Agent completed successfully |
+| `😵` | failed | Agent encountered an error |
+
+**Activity Display:**
+
+Below the avatar, the node shows:
+- **Agent name** (e.g., "Klaus", "Luna", "Max")
+- **Current activity** (e.g., "Edit: auth.ts", "Bash: npm test")
+
+### Agent Names
+
+Each Claude session gets a deterministic, friendly name derived from its session ID. The same session always gets the same name for consistency.
+
+**Available Names:**
+Klaus, Luna, Max, Mia, Felix, Emma, Leo, Sophie, Finn, Lara
+
+This makes it easy to track which agent is working on which step, especially during parallel execution.
+
+### Subagent Indicators
+
+When an agent spawns subagents (using the Task tool), a badge appears on the node showing the count:
+
+```
++2  (indicates 2 active subagents)
+```
+
+This helps you understand the parallelism happening within a single step.
+
+### Example: Parallel Sprint Execution
+
+When running a sprint with parallel steps:
+
+```yaml
+collections:
+  step:
+    - prompt: Create user model
+      id: user-model
+    - prompt: Create order model
+      id: order-model
+    - prompt: Link models
+      id: link-models
+      depends-on: [user-model, order-model]
+```
+
+The visualization shows:
+
+```
+[user-model]  ──┐
+   Luna 🧐     │──→  [link-models]
+               │        pending
+[order-model] ─┘
+   Klaus 😉
+```
+
+You can see Luna reading files while Klaus is working, and the link-models step waiting for both to complete.
+
+### How It Works
+
+The visualization is powered by a hook system that captures agent events:
+
+1. **Agent spawn**: When a Claude process starts for a step
+2. **Tool activity**: When agents use tools (Read, Edit, Bash, etc.)
+3. **Completion**: When agents finish (success or failure)
+4. **Subagents**: When Task tool spawns child agents
+
+Events are written to `.agent-events.jsonl` in the sprint directory and streamed to the dashboard via Server-Sent Events (SSE).
+
+### Tips for Best Experience
+
+1. **Use meaningful step IDs**: They appear as node labels
+2. **Keep step prompts concise**: The first line becomes the tooltip
+3. **Monitor parallel sprints**: The visualization shows all active agents
+4. **Watch for stale agents**: Avatar disappears if agent stops responding
+
+---
+
 ## Operator Queue
 
 The operator system allows Claude to discover issues during execution and queue them for review. This enables dynamic work injection without derailing the current task.
