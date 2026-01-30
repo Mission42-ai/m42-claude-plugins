@@ -5,6 +5,15 @@ All notable changes to the m42-sprint plugin will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.0] - 2026-01-30
+
+### Added
+- Agent monitoring system with real-time workflow visualization in status dashboard
+- AgentWatcher class for tracking Claude agent activity via `.agent-events.jsonl`
+- Agent monitor hook (`hooks/agent-monitor-hook.sh`) for capturing lifecycle events
+- SSE broadcasting of agent events for live dashboard updates
+- n8n-style workflow node visualization showing agent status per step
+
 ## [2.4.0] - 2026-01-29
 
 ### Added
