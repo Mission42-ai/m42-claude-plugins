@@ -1,0 +1,47 @@
+{
+  "description": "Test configuration to discover hook payloads with parallel agents",
+  "usage": [
+    "1. Make hook-test-script.sh executable: chmod +x hook-test-script.sh",
+    "2. Copy this hooks section to .claude/settings.local.json",
+    "3. Start a new Claude session",
+    "4. Ask Claude to spawn multiple parallel Task agents",
+    "5. Check .hook-events.jsonl for the logged events",
+    "6. Look for: Does session_id differ per agent? Does transcript_path differ?"
+  ],
+  "hooks": {
+    "SubagentStart": [
+      {
+        "hooks": [{
+          "type": "command",
+          "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/sprints/2026-01-29_agent-monitor-panel/context/hook-test-script.sh"
+        }]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [{
+          "type": "command",
+          "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/sprints/2026-01-29_agent-monitor-panel/context/hook-test-script.sh"
+        }]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [{
+          "type": "command",
+          "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/sprints/2026-01-29_agent-monitor-panel/context/hook-test-script.sh"
+        }]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [{
+          "type": "command",
+          "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/sprints/2026-01-29_agent-monitor-panel/context/hook-test-script.sh"
+        }]
+      }
+    ]
+  }
+}

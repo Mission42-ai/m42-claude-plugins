@@ -1,6 +1,0 @@
-**QA Phase Complete for step-0**
-
-- All acceptance criteria for Phase 1.1 (README.md overhaul) verified and passed
-- QA report written to `artifacts/step-0-qa-report.md`
-- PROGRESS.yaml updated: step-0 marked completed, pointer advanced to step-1
-- Committed: `c4104fa`

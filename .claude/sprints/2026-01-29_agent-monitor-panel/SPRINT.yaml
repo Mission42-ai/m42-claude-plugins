@@ -1,0 +1,32 @@
+# SPRINT.yaml - Workflow-based Sprint Definition
+# This file is compiled into PROGRESS.yaml by /run-sprint
+
+workflow: plugin-development    # Reference to .claude/workflows/plugin-development.yaml
+
+collections:
+  # Collections define named groups of items for iteration.
+  # Each workflow phase with for-each references a collection by name.
+  step:
+    - prompt: |
+        Implement playful agent monitoring panel for sprint status dashboard.
+
+        Goal: Add real-time monitoring of parallel Claude instances with playful animations.
+
+        Context: See context/implementation-plan.md for full details.
+
+        Key requirements:
+        - Show running Claude instances as animated agent cards
+        - Display thinking bubbles, tool emojis, spawn/completion animations
+        - Extensible signal system for future enhancements
+        - Integration with existing SSE infrastructure
+
+        Files to modify:
+        - plugins/m42-sprint/compiler/src/status-server/status-types.ts
+        - plugins/m42-sprint/compiler/src/status-server/transforms.ts
+        - plugins/m42-sprint/compiler/src/status-server/page.ts
+        - plugins/m42-sprint/compiler/src/status-server/server.ts
+
+# Sprint metadata
+sprint-id: 2026-01-29_agent-monitor-panel
+name: agent-monitor-panel
+created: 2026-01-29T21:29:34Z
