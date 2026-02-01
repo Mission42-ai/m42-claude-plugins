@@ -27,10 +27,16 @@ if ! command -v jq &> /dev/null; then
 fi
 
 # Find learning patterns and output snippets (max 150 chars, max 30 lines)
-jq -c '
+OUTPUT=$(jq -c '
   select(.type == "assistant") |
   .message.content[]? |
   select(.type == "text") |
   select(.text | test("I notice|I see that|This means|Actually|The issue|This works because|The pattern|must change together|requires"; "i")) |
   {snippet: (.text | .[0:150])}
-' "$FILE" | head -30
+' "$FILE" | head -30)
+
+if [[ -z "$OUTPUT" ]]; then
+  echo "No learning patterns found in: $FILE" >&2
+else
+  echo "$OUTPUT"
+fi
