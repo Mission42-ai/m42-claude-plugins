@@ -1,0 +1,60 @@
+# SPRINT.yaml - Sprint Creator Subagent Development
+# Develop a specialized subagent for creating sprints from plan files
+
+workflow: plugin-development
+
+collections:
+  step:
+    - id: creating-sprints-skill
+      prompt: |
+        /m42-meta-toolkit:create-skill
+
+        Create a skill for the m42-sprint plugin that contains domain knowledge about creating sprints from plan files.
+
+        ## Goal
+        Provide reference knowledge for transforming plan documents into SPRINT.yaml files.
+
+        ## Content to Include
+        - SPRINT.yaml schema and structure
+        - How to extract steps from plan documents
+        - Workflow selection guidance based on task types
+        - Collection item patterns and examples
+        - Best practices for step prompts
+
+    - id: sprint-creator-subagent
+      prompt: |
+        /m42-meta-toolkit:create-subagent
+
+        Create a subagent for the m42-sprint plugin that specializes in creating sprints from plan files and/or additional documents.
+
+        ## Goal
+        Users should be able to provide plan files (markdown documents describing goals, tasks, requirements)
+        and have this subagent generate a properly structured SPRINT.yaml file.
+
+        ## Core Capabilities
+        - Parse plan files to understand goals and tasks
+        - Generate SPRINT.yaml with appropriate structure
+        - Support additional context documents (requirements, specs, etc.)
+        - Reference the creating-sprints skill for domain knowledge
+
+        ## Integration Points
+        - Should work with /init-sprint command flow
+        - Should integrate with the m42-sprint plugin structure
+
+        ## User Experience
+        - Accept plan file paths as input
+        - Ask clarifying questions when plan is ambiguous
+        - Generate step collection items from plan tasks
+        - Suggest appropriate workflow based on plan content
+
+# Worktree configuration
+worktree:
+  enabled: true
+  branch: sprint/{sprint-id}
+  path: ../{sprint-id}-worktree
+  cleanup: on-complete
+
+# Sprint metadata
+sprint-id: 2026-02-01_sprint-creator-subagent
+name: sprint-creator-subagent
+created: 2026-02-01T18:22:28+01:00
