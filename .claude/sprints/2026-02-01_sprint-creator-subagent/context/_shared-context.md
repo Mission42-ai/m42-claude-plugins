@@ -121,8 +121,20 @@ worktree:                        # Optional: git isolation
 - Use existing test helpers from `e2e/test-helpers.ts`
 
 ### File Locations for This Sprint
-- Skill: `plugins/m42-sprint/skills/creating-sprints-from-plans/SKILL.md`
-- Subagent: `plugins/m42-sprint/subagents/sprint-creator/SUBAGENT.yaml`
+- **New Skill**: `plugins/m42-sprint/skills/creating-sprints-from-plans/SKILL.md`
+  - New skill focused on extracting sprint definitions from plan documents
+  - Complements existing `creating-sprints` skill which covers SPRINT.yaml authoring
+- **New Subagent**: `plugins/m42-sprint/subagents/sprint-creator/SUBAGENT.md`
+  - Subagent definition file (markdown format with YAML frontmatter)
+  - References both skills for comprehensive domain knowledge
+
+### Relationship to Existing Skills
+| Skill | Purpose |
+|-------|---------|
+| `creating-sprints` (existing) | SPRINT.yaml schema, structure, step writing, workflow selection |
+| `creating-sprints-from-plans` (new) | Parsing plan docs, extracting tasks, generating SPRINT.yaml from plans |
+
+The subagent should use `creating-sprints` for schema knowledge and `creating-sprints-from-plans` for extraction patterns.
 
 ### Workflow Reference
 This sprint uses `plugin-development` workflow which follows TDD (RED/GREEN/REFACTOR) with operator-driven subagent delegation.
