@@ -27,7 +27,7 @@ per-iteration-hooks:
   - id: learning
     prompt: /m42-signs:extract $ITERATION_TRANSCRIPT --auto-apply-high
     parallel: true
-    enabled: false
+    enabled: true
 
 # Worktree configuration for isolated parallel development
 worktree:
