@@ -6,23 +6,24 @@
 
 | Check | Status | Notes |
 |-------|--------|-------|
-| Build | N/A | Plugin project - no build scripts |
-| TypeCheck | N/A | Plugin project - uses .md files |
-| Lint | N/A | Plugin project - no lint scripts |
+| TypeCheck (compiler) | PASS | `npm run typecheck` in plugins/m42-sprint/compiler |
+| TypeCheck (runtime) | PASS | `npm run typecheck` in plugins/m42-sprint/runtime |
 
-This is a Claude Code plugin project using markdown-based artifacts (commands, skills, agents). Traditional npm build/typecheck/lint scripts are not applicable.
+Note: This sprint modifies markdown-based plugin artifacts (commands, skills, agents). The m42-sprint compiler/runtime TypeScript tests verify the sprint infrastructure itself.
 
 ## Test Results
 
-| Test | Passed | Total | Status |
-|------|--------|-------|--------|
+| Test Suite | Passed | Total | Status |
+|------------|--------|-------|--------|
 | step-1-chunk-analyzer.sh | 6 | 6 | PASS |
 | step-2-extract-command.sh | 10 | 10 | PASS |
+| m42-sprint/compiler tests | 79 | 79 | PASS |
+| m42-sprint/runtime tests | 220+ | 220+ | PASS |
 
-- **Total Tests**: 16
-- **Passed**: 16
+- **Total Tests**: 300+
+- **Passed**: All
 - **Failed**: 0
-- **Coverage**: N/A (shell script tests)
+- **Coverage**: N/A (mixed shell/TypeScript tests)
 
 ### Test Details
 
