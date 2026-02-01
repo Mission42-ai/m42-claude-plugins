@@ -292,9 +292,9 @@ Now let's execute:
    - Expands `for-each` phases over your steps
    - Generates PROGRESS.yaml with the full execution plan
 
-2. **Ralph Loop Starts**
+2. **Sprint Loop Starts**
    - A background process begins executing phases
-   - Each phase runs with FRESH Claude context (no accumulation)
+   - Each phase runs with fresh Claude context (no accumulation)
    - Status page becomes available for monitoring
 
 **Expected output:**
@@ -641,7 +641,6 @@ You've completed your first sprint. Here's where to explore next:
 | Goal | Resource |
 |------|----------|
 | Understand the architecture | [Architecture Overview](../concepts/overview.md) |
-| Learn about the Ralph Loop | [Ralph Loop Pattern](../concepts/ralph-loop.md) |
 | Write better sprints | [Writing Sprints Guide](../guides/writing-sprints.md) |
 | Create custom workflows | [Writing Workflows Guide](../guides/writing-workflows.md) |
 | See all commands | [Commands Reference](../reference/commands.md) |

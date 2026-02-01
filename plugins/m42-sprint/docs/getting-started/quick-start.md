@@ -28,86 +28,18 @@ nvm install --lts
 
 ---
 
-## Choose Your Mode
+## Create Your Sprint
 
-M42 Sprint offers two execution modes:
-
-| Mode | Best For | How It Works |
-|------|----------|--------------|
-| **Ralph Mode** (Recommended) | Complex features, open-ended goals | Define a goal; Claude thinks and shapes work dynamically |
-| **Workflow Mode** | Routine tasks, known sequences | Define steps; compiler expands through workflow phases |
-
----
-
-## Option A: Ralph Mode (Recommended)
-
-Ralph Mode is ideal when you have a goal but want Claude to figure out the steps.
-
-### Step 1: Create a Ralph Sprint
+### Step 1: Initialize a Sprint
 
 ```bash
-/init-sprint hello-sprint --ralph
+/init-sprint hello-sprint
 ```
 
 **What happens:**
 - Creates directory `.claude/sprints/2026-01-16_hello-sprint/`
-- Generates `SPRINT.yaml` configured for Ralph mode
+- Generates `SPRINT.yaml` with default workflow
 - Creates `context/` and `artifacts/` folders
-
-### Step 2: Define Your Goal
-
-Edit `SPRINT.yaml` to describe what you want to achieve:
-
-```yaml
-workflow: ralph
-
-goal: |
-  Create a greeting utility module with:
-  - A function that takes a name and returns "Hello, {name}!"
-  - Unit tests for the function
-  - TypeScript types
-
-  Success criteria:
-  - All tests pass
-  - Code compiles without errors
-
-```
-
-### Step 3: Run the Sprint
-
-```bash
-/run-sprint .claude/sprints/2026-01-16_hello-sprint
-```
-
-**What happens:**
-1. Ralph Loop starts with your goal
-2. Claude analyzes the goal and creates implementation steps
-3. Each iteration runs with fresh context
-4. Claude signals `goal-complete` when done
-
-### Step 4: Watch Progress
-
-```bash
-/sprint-watch
-```
-
-Opens a live dashboard showing:
-- **Chat-like activity feed**: Assistant messages and tool calls in real-time
-- **Elapsed time**: Time spent on each phase and total sprint duration
-- **Progress bar**: Visual progress through steps with completion percentage
-- **Stale detection**: Automatic alerts if a phase becomes unresponsive
-
----
-
-## Option B: Workflow Mode
-
-Workflow Mode is best when you have specific steps to execute.
-
-### Step 1: Create a Workflow Sprint
-
-```bash
-/init-sprint hello-sprint --workflow sprint-default
-```
 
 ### Step 2: Add Your Steps
 
@@ -128,10 +60,22 @@ Workflow Mode is best when you have specific steps to execute.
 
 **What happens:**
 1. **Compilation**: SPRINT.yaml is expanded into PROGRESS.yaml
-2. **Sprint Loop starts**: Executes each phase sequentially
+2. **Sprint loop starts**: Executes each phase sequentially
 3. **Fresh context**: Each phase runs in a clean Claude session
 
-### Step 4: Check Status
+### Step 4: Watch Progress
+
+```bash
+/sprint-watch
+```
+
+Opens a live dashboard showing:
+- **Chat-like activity feed**: Assistant messages and tool calls in real-time
+- **Elapsed time**: Time spent on each phase and total sprint duration
+- **Progress bar**: Visual progress through steps with completion percentage
+- **Stale detection**: Automatic alerts if a phase becomes unresponsive
+
+Or use the quick status command:
 
 ```bash
 /sprint-status
@@ -174,14 +118,12 @@ collections:
 
 ## What Just Happened?
 
-Both modes use the **Fresh Context Pattern**:
-- Each iteration/phase runs in a clean Claude session
+The sprint uses the **Fresh Context Pattern**:
+- Each phase runs in a clean Claude session
 - No slowdown from context accumulation
 - Reliable multi-hour sprints
 
-**Ralph Mode**: Claude thought about the goal, created steps dynamically, and decided when complete.
-
-**Workflow Mode**: Your steps were expanded through workflow phases and executed sequentially.
+Your steps were expanded through workflow phases and executed sequentially with fresh context each time.
 
 ---
 
@@ -189,7 +131,6 @@ Both modes use the **Fresh Context Pattern**:
 
 | Want to... | Read |
 |------------|------|
-| Learn Ralph Mode deeply | [Ralph Mode Concepts](../concepts/ralph-mode.md) |
 | Understand the architecture | [Architecture Overview](../concepts/overview.md) |
 | Run multiple sprints in parallel | [Worktree Sprints Guide](../guides/worktree-sprints.md) |
 | See complete usage guide | [User Guide](../USER-GUIDE.md) |
@@ -200,14 +141,14 @@ Both modes use the **Fresh Context Pattern**:
 ## Quick Reference
 
 ```bash
-# Create sprint (Ralph mode - recommended)
-/init-sprint <name> --ralph
+# Create sprint
+/init-sprint <name>
 
-# Create sprint (Workflow mode)
+# Create sprint with specific workflow
 /init-sprint <name> --workflow sprint-default
 
 # Create sprint with isolated worktree (for parallel development)
-/init-sprint <name> --ralph --worktree
+/init-sprint <name> --worktree
 
 # Add steps (workflow mode)
 /add-step "<description>"
