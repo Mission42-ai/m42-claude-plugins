@@ -246,3 +246,4 @@ Before running a sprint:
 
 - **creating-workflows** - Authoring workflow definitions
 - **orchestrating-sprints** - Running and managing sprints
+- **sprint-creator subagent** (`.claude/agents/sprint-creator.md`) - Automated sprint creation from plan documents

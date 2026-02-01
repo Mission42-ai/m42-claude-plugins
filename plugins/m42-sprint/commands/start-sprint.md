@@ -257,6 +257,10 @@ Next steps:
      ```
   2. Run `/run-sprint .claude/sprints/YYYY-MM-DD_<sprint-name>` to compile and execute
   3. Use `--dry-run` first to preview the workflow
+
+Alternative: If you have plan documents or requirements files, use the
+sprint-creator subagent to automatically generate SPRINT.yaml content:
+  "Create a sprint from my-plan.md"
 ```
 
 #### For Worktree Mode (any workflow):
