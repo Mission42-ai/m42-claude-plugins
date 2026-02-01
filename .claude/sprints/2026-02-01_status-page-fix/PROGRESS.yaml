@@ -1,0 +1,1064 @@
+sprint-id: 2026-02-01_status-page-fix
+status: in-progress
+phases:
+  - id: preflight
+    status: completed
+    prompt: |
+      Prepare sprint context and development plan.
+
+      ## Your Role
+      You are the sprint OPERATOR. Your job is to:
+      1. Understand the sprint scope
+      2. Research the codebase
+      3. Create shared context for development phases
+
+      ## Step 1: Read Sprint Definition
+      Read the SPRINT.yaml to understand:
+      - All steps and their requirements
+      - Dependencies between steps
+      - Overall sprint goal
+
+      ## Step 2: Research Codebase
+      Use the Explore subagent to investigate:
+      - Project architecture and patterns
+      - Test framework and conventions
+      - Build/test/lint commands
+      - Related existing code
+
+      ## Step 3: Create Shared Context
+      Create: context/_shared-context.md
+
+      ```markdown
+      # Sprint Context
+
+      ## Project Info
+      - Test framework: [vitest/jest/etc]
+      - Test location: [pattern]
+      - Build command: `[command]`
+      - Test command: `[command]`
+      - Lint command: `[command]`
+
+      ## Patterns to Follow
+      [Key patterns discovered in codebase]
+
+      ## Sprint Steps Overview
+      [Brief summary of each step and dependencies]
+      ```
+
+      ## Step 4: Commit
+      ```bash
+      git add context/
+      git commit -m "preflight: sprint context prepared"
+      ```
+    started-at: '2026-02-01T18:41:25.344Z'
+    completed-at: '2026-02-01T18:44:12.543Z'
+  - id: development
+    status: completed
+    steps:
+      - id: fix-run-sprint-command
+        prompt: |
+          Fix outdated run-sprint command skill with incorrect worktree handling.
+
+          **Problem**: The `/run-sprint` command skill (`plugins/m42-sprint/commands/run-sprint.md`)
+          contains outdated worktree setup instructions that duplicate logic already handled by the
+          runtime CLI (`runtime/src/cli.ts:354-454`).
+
+          **Current broken behavior**:
+          - Command skill tries to manually create worktrees before launching runtime
+          - Uses hardcoded version paths (e.g., 2.5.0) that may not have built runtime
+          - Duplicates `setupWorktreeIfNeeded()` logic that the runtime CLI already handles
+
+          **Correct behavior** (how runtime CLI works):
+          1. Runtime CLI calls `setupWorktreeIfNeeded(parsed.directory)` automatically
+          2. This function checks workflow/sprint worktree config
+          3. Creates worktree if needed, copies sprint files
+          4. Returns actual sprint directory to use
+          5. Loop runs in the correct location
+
+          **Changes Required**:
+          1. Remove the "Worktree Setup (Automatic)" section from run-sprint.md
+          2. The command should simply:
+             - Parse arguments
+             - Run preflight checks (simpler ones)
+             - Compile workflow if needed
+             - Launch the runtime CLI (which handles worktree internally)
+             - Launch status server
+          3. Update version references to use a variable or latest available version
+
+          **Files to modify**:
+          - `plugins/m42-sprint/commands/run-sprint.md`
+
+          **Verification**:
+          1. Run `/run-sprint .claude/sprints/<sprint>` on a workflow with worktree enabled
+          2. Verify runtime creates worktree automatically (not the command skill)
+          3. Verify sprint executes in the worktree
+          4. Verify no duplicate worktree creation attempts
+        status: completed
+        phases:
+          - id: execute
+            status: completed
+            prompt: |
+              Fix outdated run-sprint command skill with incorrect worktree handling.
+
+              **Problem**: The `/run-sprint` command skill (`plugins/m42-sprint/commands/run-sprint.md`)
+              contains outdated worktree setup instructions that duplicate logic already handled by the
+              runtime CLI (`runtime/src/cli.ts:354-454`).
+
+              **Current broken behavior**:
+              - Command skill tries to manually create worktrees before launching runtime
+              - Uses hardcoded version paths (e.g., 2.5.0) that may not have built runtime
+              - Duplicates `setupWorktreeIfNeeded()` logic that the runtime CLI already handles
+
+              **Correct behavior** (how runtime CLI works):
+              1. Runtime CLI calls `setupWorktreeIfNeeded(parsed.directory)` automatically
+              2. This function checks workflow/sprint worktree config
+              3. Creates worktree if needed, copies sprint files
+              4. Returns actual sprint directory to use
+              5. Loop runs in the correct location
+
+              **Changes Required**:
+              1. Remove the "Worktree Setup (Automatic)" section from run-sprint.md
+              2. The command should simply:
+                 - Parse arguments
+                 - Run preflight checks (simpler ones)
+                 - Compile workflow if needed
+                 - Launch the runtime CLI (which handles worktree internally)
+                 - Launch status server
+              3. Update version references to use a variable or latest available version
+
+              **Files to modify**:
+              - `plugins/m42-sprint/commands/run-sprint.md`
+
+              **Verification**:
+              1. Run `/run-sprint .claude/sprints/<sprint>` on a workflow with worktree enabled
+              2. Verify runtime creates worktree automatically (not the command skill)
+              3. Verify sprint executes in the worktree
+              4. Verify no duplicate worktree creation attempts
+            started-at: '2026-02-01T18:44:14.580Z'
+            completed-at: '2026-02-01T18:46:24.648Z'
+        started-at: '2026-02-01T18:44:14.580Z'
+        completed-at: '2026-02-01T18:46:24.648Z'
+      - id: fix-parallel-status-tracking
+        prompt: |
+          Fix status page not tracking parallel execution phases properly.
+
+          **Problem**: When parallel execution starts, all sub-phases appear immediately
+          marked as completed instead of showing in-progress states.
+
+          **Context**: See context/bug-analysis.md for detailed investigation and solution.
+
+          **Changes Required**:
+          - Modify `plugins/m42-sprint/runtime/src/loop.ts` lines 1372-1379
+          - Move in-progress status marking to happen BEFORE writeProgressAtomic
+          - Mark both steps and first sub-phase as in-progress before writing
+
+          **Verification**:
+          1. Start a sprint with parallel execution steps
+          2. Open status page (/sprint-watch)
+          3. Verify steps show in-progress (not jumping to completed)
+          4. Verify sub-phases show in-progress during execution
+          5. Verify final completion states are correct
+        status: completed
+        phases:
+          - id: execute
+            status: completed
+            prompt: |
+              Fix status page not tracking parallel execution phases properly.
+
+              **Problem**: When parallel execution starts, all sub-phases appear immediately
+              marked as completed instead of showing in-progress states.
+
+              **Context**: See context/bug-analysis.md for detailed investigation and solution.
+
+              **Changes Required**:
+              - Modify `plugins/m42-sprint/runtime/src/loop.ts` lines 1372-1379
+              - Move in-progress status marking to happen BEFORE writeProgressAtomic
+              - Mark both steps and first sub-phase as in-progress before writing
+
+              **Verification**:
+              1. Start a sprint with parallel execution steps
+              2. Open status page (/sprint-watch)
+              3. Verify steps show in-progress (not jumping to completed)
+              4. Verify sub-phases show in-progress during execution
+              5. Verify final completion states are correct
+            started-at: '2026-02-01T18:46:26.676Z'
+            completed-at: '2026-02-01T18:48:02.578Z'
+        started-at: '2026-02-01T18:46:26.676Z'
+        completed-at: '2026-02-01T18:48:02.578Z'
+      - id: add-parallel-visual-indicators
+        prompt: |
+          Add visual indicators for parallel execution and subprocess activity in the status page tree.
+
+          **Problem**: There's no visual feedback when:
+          1. Multiple steps are executing in parallel
+          2. Work is happening in a subprocess (e.g., Task subagent delegated work)
+
+          Users cannot distinguish between a single active step vs multiple concurrent steps,
+          or between direct execution vs delegated subprocess work.
+
+          **Requirements**:
+          1. **Parallel execution indicator**: When multiple steps are `in-progress` simultaneously,
+             show a visual grouping or badge indicating "N running in parallel"
+          2. **Subprocess indicator**: When a phase/step has spawned subprocess work, show a
+             distinct visual (e.g., nested spinner, fork icon, or "subprocess active" badge)
+          3. Maintain the existing tree structure and expand/collapse behavior
+          4. Indicators should be visible at both the step level and in any summary views
+
+          **Files to modify**:
+          - `plugins/m42-sprint/compiler/src/status-server/page.ts` - Tree rendering and CSS
+
+          **Design considerations**:
+          - Keep the monospace terminal aesthetic
+          - Use existing CSS variables (--accent-blue, --accent-purple, etc.)
+          - Consider using `⟂` or `⌇` or similar unicode for parallel indicator
+          - Subprocess could use `⤷` or indented nested spinner
+
+          **Verification**:
+          1. Start a sprint with parallel execution steps
+          2. Open status page and verify parallel indicator appears when multiple steps run
+          3. If subprocess activity is detectable, verify indicator appears
+          4. Verify indicators disappear when execution completes
+        status: completed
+        phases:
+          - id: execute
+            status: completed
+            prompt: |
+              Add visual indicators for parallel execution and subprocess activity in the status page tree.
+
+              **Problem**: There's no visual feedback when:
+              1. Multiple steps are executing in parallel
+              2. Work is happening in a subprocess (e.g., Task subagent delegated work)
+
+              Users cannot distinguish between a single active step vs multiple concurrent steps,
+              or between direct execution vs delegated subprocess work.
+
+              **Requirements**:
+              1. **Parallel execution indicator**: When multiple steps are `in-progress` simultaneously,
+                 show a visual grouping or badge indicating "N running in parallel"
+              2. **Subprocess indicator**: When a phase/step has spawned subprocess work, show a
+                 distinct visual (e.g., nested spinner, fork icon, or "subprocess active" badge)
+              3. Maintain the existing tree structure and expand/collapse behavior
+              4. Indicators should be visible at both the step level and in any summary views
+
+              **Files to modify**:
+              - `plugins/m42-sprint/compiler/src/status-server/page.ts` - Tree rendering and CSS
+
+              **Design considerations**:
+              - Keep the monospace terminal aesthetic
+              - Use existing CSS variables (--accent-blue, --accent-purple, etc.)
+              - Consider using `⟂` or `⌇` or similar unicode for parallel indicator
+              - Subprocess could use `⤷` or indented nested spinner
+
+              **Verification**:
+              1. Start a sprint with parallel execution steps
+              2. Open status page and verify parallel indicator appears when multiple steps run
+              3. If subprocess activity is detectable, verify indicator appears
+              4. Verify indicators disappear when execution completes
+            started-at: '2026-02-01T18:48:04.595Z'
+            completed-at: '2026-02-01T18:52:13.822Z'
+        started-at: '2026-02-01T18:48:04.595Z'
+        completed-at: '2026-02-01T18:52:13.822Z'
+      - id: fix-activity-panel-verbosity
+        prompt: |
+          Fix live activity panel hiding relevant information at "basic" verbosity level.
+
+          **Problem**: The live activity panel hides important information:
+          1. **CRITICAL**: Agent text output is NOT CAPTURED in non-streaming mode (text blocks ignored!)
+          2. TaskUpdate shows only "Updated task list" with no detail about what changed
+          3. Too much noise at "basic" level (file reads/searches clutter the view)
+
+          **Context**: See context/live-activity-analysis.md for detailed investigation and solution.
+
+          **Changes Required**:
+
+          0. **CRITICAL FIX - Extract text blocks** (`transcription-watcher.ts` parseLine):
+             - In the non-streaming format handler (lines 289-301), add extraction for `text` blocks
+             - Currently only extracts `tool_use` blocks, completely ignores text
+             - Agent reasoning like "I'll analyze the design documents..." is never captured
+             - Add: if (block.type === 'text') { emit ActivityEvent with type 'assistant' }
+
+          1. **Improve task tool descriptions** (`page.ts` getToolDescription):
+             - TaskCreate → "Creating task: <subject>"
+             - TaskUpdate → "<status>: <subject>" (e.g., "completed: Fix bug X")
+             - TaskList → "Checking tasks"
+             - TaskGet → "Getting task: <id>"
+
+          2. **Add task param extraction** (`transcription-watcher.ts` extractParams):
+             - TaskCreate → extract subject
+             - TaskUpdate → extract status + subject
+             - TaskGet → extract taskId
+
+          3. **Reclassify verbosity levels** (`transcription-watcher.ts` getToolVerbosityLevel):
+             - Move task tools (TaskCreate, TaskUpdate, TaskList, TaskGet) to `minimal`
+             - Move Task, Skill (agent delegation) to `minimal`
+             - Move Read, Glob, Grep from `basic` to `detailed` (they're noise)
+             - Keep Write, Edit, Bash at `basic` (actual changes)
+
+          4. **Enhance assistant event display** (`page.ts` renderLiveActivity):
+             - Differentiate thinking (💭) vs final output (💬)
+             - Style final output more prominently (better background, font-weight)
+
+          **Files to modify**:
+          - `plugins/m42-sprint/compiler/src/status-server/page.ts`
+          - `plugins/m42-sprint/compiler/src/status-server/transcription-watcher.ts`
+
+          **Verification**:
+          1. Start a sprint at "basic" verbosity (default)
+          2. Verify agent thinking/output is visible and prominent
+          3. Verify TaskCreate/TaskUpdate show meaningful descriptions
+          4. Verify file reads/searches are NOT shown at basic level
+          5. Switch to "detailed" to verify those operations are still visible
+          6. Verify "minimal" still works for milestones only
+        status: completed
+        phases:
+          - id: execute
+            status: completed
+            prompt: |
+              Fix live activity panel hiding relevant information at "basic" verbosity level.
+
+              **Problem**: The live activity panel hides important information:
+              1. **CRITICAL**: Agent text output is NOT CAPTURED in non-streaming mode (text blocks ignored!)
+              2. TaskUpdate shows only "Updated task list" with no detail about what changed
+              3. Too much noise at "basic" level (file reads/searches clutter the view)
+
+              **Context**: See context/live-activity-analysis.md for detailed investigation and solution.
+
+              **Changes Required**:
+
+              0. **CRITICAL FIX - Extract text blocks** (`transcription-watcher.ts` parseLine):
+                 - In the non-streaming format handler (lines 289-301), add extraction for `text` blocks
+                 - Currently only extracts `tool_use` blocks, completely ignores text
+                 - Agent reasoning like "I'll analyze the design documents..." is never captured
+                 - Add: if (block.type === 'text') { emit ActivityEvent with type 'assistant' }
+
+              1. **Improve task tool descriptions** (`page.ts` getToolDescription):
+                 - TaskCreate → "Creating task: <subject>"
+                 - TaskUpdate → "<status>: <subject>" (e.g., "completed: Fix bug X")
+                 - TaskList → "Checking tasks"
+                 - TaskGet → "Getting task: <id>"
+
+              2. **Add task param extraction** (`transcription-watcher.ts` extractParams):
+                 - TaskCreate → extract subject
+                 - TaskUpdate → extract status + subject
+                 - TaskGet → extract taskId
+
+              3. **Reclassify verbosity levels** (`transcription-watcher.ts` getToolVerbosityLevel):
+                 - Move task tools (TaskCreate, TaskUpdate, TaskList, TaskGet) to `minimal`
+                 - Move Task, Skill (agent delegation) to `minimal`
+                 - Move Read, Glob, Grep from `basic` to `detailed` (they're noise)
+                 - Keep Write, Edit, Bash at `basic` (actual changes)
+
+              4. **Enhance assistant event display** (`page.ts` renderLiveActivity):
+                 - Differentiate thinking (💭) vs final output (💬)
+                 - Style final output more prominently (better background, font-weight)
+
+              **Files to modify**:
+              - `plugins/m42-sprint/compiler/src/status-server/page.ts`
+              - `plugins/m42-sprint/compiler/src/status-server/transcription-watcher.ts`
+
+              **Verification**:
+              1. Start a sprint at "basic" verbosity (default)
+              2. Verify agent thinking/output is visible and prominent
+              3. Verify TaskCreate/TaskUpdate show meaningful descriptions
+              4. Verify file reads/searches are NOT shown at basic level
+              5. Switch to "detailed" to verify those operations are still visible
+              6. Verify "minimal" still works for milestones only
+            started-at: '2026-02-01T18:52:15.849Z'
+            completed-at: '2026-02-01T18:54:51.390Z'
+        started-at: '2026-02-01T18:52:15.849Z'
+        completed-at: '2026-02-01T18:54:51.390Z'
+      - id: refactor-status-server-ports
+        prompt: |
+          Refactor status server architecture to support parallel sprint execution with dedicated ports.
+
+          **Problem**: Currently, there's one status server with a central dashboard listing all sprints.
+          This creates complexity and makes it impossible to run multiple sprints in parallel, each with
+          their own dedicated status server. The port is fixed at 3100, causing conflicts.
+
+          **Goal**: Each sprint should automatically get its own status server on a unique port.
+          No central dashboard for now - each sprint is self-contained with its own status page.
+
+          **Architecture Changes**:
+
+          1. **Auto-port allocation** (`compiler/src/status-server/server.ts`):
+             - Add `findAvailablePort(startPort: number, maxAttempts: number)` function
+             - Try ports starting from a base (e.g., 3100) until finding an available one
+             - Store the allocated port in a `.status-port` file in the sprint directory
+             - Update `ServerConfig` to support `port: 'auto'` option
+
+          2. **Remove central dashboard route**:
+             - Change `/` and `/dashboard` routes to redirect to the current sprint's detail page
+             - The "current sprint" is the one the server was started for (config.sprintDir)
+             - Remove the `handleDashboardPageRequest` logic that scans all sprints
+             - Remove the sprint list navigation from the detail page (or make it optional)
+
+          3. **Sprint-specific landing page** (`compiler/src/status-server/page.ts`):
+             - The main page should show ONLY the current sprint's status
+             - Remove or simplify the sprint switcher dropdown
+             - Keep all existing functionality (tree view, activity panel, controls)
+
+          4. **Port discovery for clients**:
+             - Write `.status-port` file when server starts: `{ port: number, pid: number, startedAt: string }`
+             - `/sprint-watch` skill reads this file to know which port to open
+             - Clean up `.status-port` file on server stop
+
+          5. **Update `/sprint-watch` skill** (`skills/sprint-watch.md`):
+             - Read `.status-port` from sprint directory
+             - If file exists and server is running, open that port
+             - If not, start server with auto-port and then open
+
+          **Files to modify**:
+          - `plugins/m42-sprint/compiler/src/status-server/server.ts` - Auto-port allocation
+          - `plugins/m42-sprint/compiler/src/status-server/page.ts` - Simplify to single-sprint view
+          - `plugins/m42-sprint/compiler/src/status-server/index.ts` - Export new utilities
+          - `plugins/m42-sprint/skills/sprint-watch.md` - Update to use port discovery
+
+          **Files to potentially remove/simplify**:
+          - `plugins/m42-sprint/compiler/src/status-server/dashboard-page.ts` - May become unused
+          - `plugins/m42-sprint/compiler/src/status-server/sprint-scanner.ts` - May become unused
+
+          **Verification**:
+          1. Start sprint A in one terminal: `/run-sprint` → verify status server starts on port 3100
+          2. Start sprint B in another terminal: `/run-sprint` → verify status server starts on different port (3101)
+          3. Open both status pages simultaneously - both should work independently
+          4. Stop sprint A → verify its status server stops and port is freed
+          5. Verify `/sprint-watch` correctly discovers and opens the right port
+          6. Verify `.status-port` files are created and cleaned up properly
+        status: completed
+        phases:
+          - id: execute
+            status: completed
+            prompt: |
+              Refactor status server architecture to support parallel sprint execution with dedicated ports.
+
+              **Problem**: Currently, there's one status server with a central dashboard listing all sprints.
+              This creates complexity and makes it impossible to run multiple sprints in parallel, each with
+              their own dedicated status server. The port is fixed at 3100, causing conflicts.
+
+              **Goal**: Each sprint should automatically get its own status server on a unique port.
+              No central dashboard for now - each sprint is self-contained with its own status page.
+
+              **Architecture Changes**:
+
+              1. **Auto-port allocation** (`compiler/src/status-server/server.ts`):
+                 - Add `findAvailablePort(startPort: number, maxAttempts: number)` function
+                 - Try ports starting from a base (e.g., 3100) until finding an available one
+                 - Store the allocated port in a `.status-port` file in the sprint directory
+                 - Update `ServerConfig` to support `port: 'auto'` option
+
+              2. **Remove central dashboard route**:
+                 - Change `/` and `/dashboard` routes to redirect to the current sprint's detail page
+                 - The "current sprint" is the one the server was started for (config.sprintDir)
+                 - Remove the `handleDashboardPageRequest` logic that scans all sprints
+                 - Remove the sprint list navigation from the detail page (or make it optional)
+
+              3. **Sprint-specific landing page** (`compiler/src/status-server/page.ts`):
+                 - The main page should show ONLY the current sprint's status
+                 - Remove or simplify the sprint switcher dropdown
+                 - Keep all existing functionality (tree view, activity panel, controls)
+
+              4. **Port discovery for clients**:
+                 - Write `.status-port` file when server starts: `{ port: number, pid: number, startedAt: string }`
+                 - `/sprint-watch` skill reads this file to know which port to open
+                 - Clean up `.status-port` file on server stop
+
+              5. **Update `/sprint-watch` skill** (`skills/sprint-watch.md`):
+                 - Read `.status-port` from sprint directory
+                 - If file exists and server is running, open that port
+                 - If not, start server with auto-port and then open
+
+              **Files to modify**:
+              - `plugins/m42-sprint/compiler/src/status-server/server.ts` - Auto-port allocation
+              - `plugins/m42-sprint/compiler/src/status-server/page.ts` - Simplify to single-sprint view
+              - `plugins/m42-sprint/compiler/src/status-server/index.ts` - Export new utilities
+              - `plugins/m42-sprint/skills/sprint-watch.md` - Update to use port discovery
+
+              **Files to potentially remove/simplify**:
+              - `plugins/m42-sprint/compiler/src/status-server/dashboard-page.ts` - May become unused
+              - `plugins/m42-sprint/compiler/src/status-server/sprint-scanner.ts` - May become unused
+
+              **Verification**:
+              1. Start sprint A in one terminal: `/run-sprint` → verify status server starts on port 3100
+              2. Start sprint B in another terminal: `/run-sprint` → verify status server starts on different port (3101)
+              3. Open both status pages simultaneously - both should work independently
+              4. Stop sprint A → verify its status server stops and port is freed
+              5. Verify `/sprint-watch` correctly discovers and opens the right port
+              6. Verify `.status-port` files are created and cleaned up properly
+            started-at: '2026-02-01T18:54:53.413Z'
+            completed-at: '2026-02-01T19:02:14.567Z'
+        started-at: '2026-02-01T18:54:53.413Z'
+        completed-at: '2026-02-01T19:02:14.567Z'
+    started-at: '2026-02-01T18:44:14.580Z'
+    completed-at: '2026-02-01T19:02:14.567Z'
+  - id: documentation
+    status: completed
+    prompt: |
+      ## Your Role: Documentation OPERATOR
+
+      Update documentation by spawning subagents for each category.
+
+      ## Step 1: Analyze Changes
+      ```bash
+      git diff main..HEAD --name-only
+      git diff main..HEAD --stat
+      ```
+
+      Create a list of what changed and needs documenting.
+
+      ## Step 2: Spawn Subagents (in parallel if independent)
+
+      ### User Guide Subagent
+      ```
+      Task: Update user guide documentation
+
+      Changes made in this sprint:
+      [List relevant changes]
+
+      Instructions:
+      1. Find existing user guide (docs/USER-GUIDE.md or docs/user-guide/)
+      2. Add/update sections for new features
+      3. Update examples if behavior changed
+      4. Keep it task-oriented and example-rich
+      5. Commit: git commit -m "docs(user-guide): update for sprint changes"
+
+      Skip if: No user-facing feature changes
+      ```
+
+      ### Getting Started Subagent
+      ```
+      Task: Update getting started / quickstart docs
+
+      Changes made in this sprint:
+      [List relevant changes]
+
+      Instructions:
+      1. Find quickstart docs (README.md, docs/getting-started/)
+      2. Update installation steps if changed
+      3. Update first-steps examples if affected
+      4. Ensure copy-paste commands work
+      5. Commit: git commit -m "docs(getting-started): update for sprint changes"
+
+      Skip if: No changes affect onboarding flow
+      ```
+
+      ### Reference Docs Subagent
+      ```
+      Task: Update reference documentation
+
+      Changes made in this sprint:
+      [List relevant changes]
+
+      Instructions:
+      1. Find reference docs (docs/reference/, API docs)
+      2. Update command/function signatures
+      3. Update configuration options
+      4. Update type definitions
+      5. Commit: git commit -m "docs(reference): update for sprint changes"
+
+      Skip if: No API/config/type changes
+      ```
+
+      ## Step 3: Verify All Documentation
+      - Run code examples from docs to verify they work
+      - Check internal links are valid
+      - Ensure consistency across all doc updates
+
+      ## Output
+      Create: artifacts/docs-summary.md
+
+      ```markdown
+      # Documentation Summary
+
+      ## Changes Analyzed
+      [What changed in the sprint]
+
+      ## Updates Made
+      | Category | Status | Changes |
+      |----------|--------|---------|
+      | User Guide | Updated/Skipped | [summary] |
+      | Getting Started | Updated/Skipped | [summary] |
+      | Reference | Updated/Skipped | [summary] |
+
+      ## Verification
+      - [ ] Code examples tested
+      - [ ] Links validated
+      ```
+    started-at: '2026-02-01T19:02:16.599Z'
+    completed-at: '2026-02-01T19:03:36.764Z'
+  - id: tooling-update
+    status: completed
+    prompt: |
+      ## Your Role: Tooling OPERATOR
+
+      Ensure all Commands and Skills are up-to-date with implementation changes.
+
+      ## Step 1: Identify Affected Plugin
+      ```bash
+      git diff main..HEAD --name-only | grep "^plugins/" | cut -d'/' -f2 | sort -u
+      ```
+
+      ## Step 2: List All Commands and Skills
+      For each affected plugin:
+      ```bash
+      # List commands
+      ls plugins/<plugin>/commands/*.md 2>/dev/null
+
+      # List skills
+      ls plugins/<plugin>/skills/*.md 2>/dev/null
+      ```
+
+      ## Step 3: Analyze Changes
+      ```bash
+      git diff main..HEAD --name-only
+      git diff main..HEAD --stat
+      ```
+
+      Determine which Commands/Skills might be affected by the changes.
+
+      ## Step 4: Spawn Review Subagents (in parallel)
+
+      For EACH Command file, spawn a subagent:
+      ```
+      Task: Review and update Command - <command-name>
+
+      Implementation changes in this sprint:
+      [Summary of relevant changes]
+
+      Instructions:
+      1. Read the command file: plugins/<plugin>/commands/<command>.md
+      2. Compare against current implementation
+      3. Check if examples, descriptions, or behavior changed
+      4. Update ONLY if necessary - no cosmetic changes
+      5. If updated: git commit -m "docs(<command>): sync with implementation"
+
+      Skip if: Command is unaffected by changes
+      ```
+
+      For EACH Skill file, spawn a subagent:
+      ```
+      Task: Review and update Skill - <skill-name>
+
+      Implementation changes in this sprint:
+      [Summary of relevant changes]
+
+      Instructions:
+      1. Read the skill file: plugins/<plugin>/skills/<skill>.md
+      2. Compare against current implementation
+      3. Check if triggers, examples, or capabilities changed
+      4. Update ONLY if necessary - no cosmetic changes
+      5. If updated: git commit -m "docs(<skill>): sync with implementation"
+
+      Skip if: Skill is unaffected by changes
+      ```
+
+      ## Step 5: Generate Tooling Report
+      Create: artifacts/tooling-update-summary.md
+
+      ```markdown
+      # Tooling Update Summary
+
+      ## Commands Reviewed
+      | Command | Status | Changes |
+      |---------|--------|---------|
+      | <name> | Updated/Unchanged | [summary] |
+
+      ## Skills Reviewed
+      | Skill | Status | Changes |
+      |-------|--------|---------|
+      | <name> | Updated/Unchanged | [summary] |
+
+      ## Verification
+      - All commands reflect current implementation
+      - All skills reflect current capabilities
+      ```
+
+      Commit:
+      ```bash
+      git add artifacts/tooling-update-summary.md
+      git commit -m "tooling: commands and skills synced"
+      ```
+    started-at: '2026-02-01T19:03:38.808Z'
+    completed-at: '2026-02-01T19:08:21.956Z'
+  - id: version-bump
+    status: completed
+    prompt: |
+      ## Your Role: Version OPERATOR
+
+      Update plugin version based on sprint changes following semantic versioning.
+
+      ## Step 1: Identify Affected Plugin
+      ```bash
+      git diff main..HEAD --name-only | grep "^plugins/" | cut -d'/' -f2 | sort -u
+      ```
+
+      For each affected plugin, perform steps 2-5.
+
+      ## Step 2: Analyze Changes for Version Type
+
+      Examine all changes to determine version bump type:
+      ```bash
+      git log main..HEAD --oneline
+      git diff main..HEAD --stat
+      ```
+
+      ### Version Bump Rules (Semantic Versioning)
+
+      **MAJOR (x.0.0)** - Breaking changes:
+      - Schema changes that break existing SPRINT.yaml/workflow files
+      - Removed commands or required flags
+      - Changed behavior that breaks existing usage
+      - API changes requiring user migration
+
+      **MINOR (0.x.0)** - New features (backwards compatible):
+      - New commands or skills added
+      - New optional configuration options
+      - New workflow phases or capabilities
+      - New validation rules (non-breaking)
+
+      **PATCH (0.0.x)** - Bug fixes and maintenance:
+      - Bug fixes
+      - Documentation updates only
+      - Test additions/fixes
+      - Performance improvements
+      - Internal refactoring (no API changes)
+
+      ## Step 3: Read Current Version
+      ```bash
+      cat plugins/<plugin>/.claude-plugin/plugin.json | grep '"version"'
+      ```
+
+      Calculate new version based on bump type.
+
+      ## Step 4: Update plugin.json
+
+      Edit `plugins/<plugin>/.claude-plugin/plugin.json`:
+      - Update the `version` field to the new version
+
+      ## Step 5: Update CHANGELOG.md
+
+      Create or update `plugins/<plugin>/CHANGELOG.md`:
+
+      ```markdown
+      # Changelog
+
+      All notable changes to this plugin will be documented in this file.
+
+      ## [X.Y.Z] - YYYY-MM-DD
+
+      ### Added
+      - [New features added in this sprint]
+
+      ### Changed
+      - [Changes to existing functionality]
+
+      ### Fixed
+      - [Bug fixes]
+
+      ### Removed
+      - [Removed features]
+
+      ---
+      [Previous versions below...]
+      ```
+
+      Guidelines:
+      - Use today's date
+      - Keep entries concise (one line per change)
+      - Group by category (Added/Changed/Fixed/Removed)
+      - Only include user-facing changes
+      - Reference issue numbers if applicable
+
+      ## Step 6: Commit Version Bump
+      ```bash
+      git add plugins/<plugin>/.claude-plugin/plugin.json
+      git add plugins/<plugin>/CHANGELOG.md
+      git commit -m "chore: bump <plugin> version to X.Y.Z"
+      ```
+
+      ## Output
+      Report version changes made:
+      ```
+      Version bump: <plugin> v1.2.3 → v1.3.0 (MINOR)
+      Reason: Added new for-each collection feature
+      ```
+    started-at: '2026-02-01T19:08:23.985Z'
+    completed-at: '2026-02-01T19:10:01.634Z'
+  - id: final-qa
+    status: completed
+    prompt: |
+      ## Your Role: QA OPERATOR
+
+      Verify the entire sprint meets quality standards.
+
+      ## Step 1: Build Verification
+      ```bash
+      npm run build
+      npm run typecheck
+      npm run lint
+      ```
+
+      All must pass. If any fail, spawn fix subagent.
+
+      ## Step 1b: Plugin Runtime Build (m42-sprint only)
+      If developing m42-sprint plugin, rebuild and commit the runtime dist:
+      ```bash
+      # Check if runtime source changed
+      git diff main..HEAD --name-only | grep "plugins/m42-sprint/runtime/src/"
+
+      # If changes exist, rebuild
+      cd plugins/m42-sprint/runtime
+      npm run build
+      cd -
+
+      # Stage and commit dist changes
+      git add plugins/m42-sprint/runtime/dist/
+      git diff --cached --quiet plugins/m42-sprint/runtime/dist/ || \
+        git commit -m "build(m42-sprint): rebuild runtime dist"
+      ```
+
+      This ensures the compiled runtime is included in the distribution.
+
+      ## Step 2: Full Test Suite
+      ```bash
+      npm test
+      ```
+
+      All tests must pass. Record coverage if available.
+
+      **Integration Test Verification:**
+      - [ ] If feature spawns processes: integration test verifies spawning
+      - [ ] If feature modifies state: integration test verifies persistence
+      - [ ] If feature has async/parallel: integration test verifies timing
+
+      ## Step 3: Review All Step Artifacts
+      Read each artifacts/{{item.id}}-complete.md to verify all steps finished.
+
+      ## Step 4: Integration Check
+      - Verify modules import correctly
+      - Check for circular dependencies
+      - Run any integration tests
+
+      ## Step 5: Generate QA Report
+      Create: artifacts/sprint-qa-report.md
+
+      ```markdown
+      # Sprint QA Report
+
+      ## Build Status
+      | Check | Status |
+      |-------|--------|
+      | Build | PASS/FAIL |
+      | TypeCheck | PASS/FAIL |
+      | Lint | PASS/FAIL |
+
+      ## Test Results
+      - Total: [N]
+      - Passed: [N]
+      - Failed: [N]
+      - Coverage: [%]
+
+      ## Step Verification
+      | Step | Status |
+      |------|--------|
+      | [step-id] | COMPLETE |
+
+      ## Overall: PASS / FAIL
+      ```
+
+      ## Handle Failures
+      If any check fails:
+      1. Spawn fix subagent with specific error details
+      2. Re-run verification
+      3. If still failing, escalate to human
+
+      Commit:
+      ```bash
+      git add artifacts/sprint-qa-report.md
+      git commit -m "qa: sprint verification complete"
+      ```
+    started-at: '2026-02-01T19:10:03.661Z'
+    completed-at: '2026-02-01T19:13:55.492Z'
+  - id: summary
+    status: completed
+    prompt: |
+      Generate sprint summary for PR.
+
+      ## Collect Information
+      - Read all artifacts/*-complete.md
+      - Read artifacts/sprint-qa-report.md
+      - Get commit history: `git log main..HEAD --oneline`
+      - Get file changes: `git diff main..HEAD --stat`
+
+      ## Create Summary
+      Create: artifacts/sprint-summary.md
+
+      ```markdown
+      # Sprint Summary: 2026-02-01_status-page-fix
+
+      ## Completed Steps
+      [For each step: what was accomplished]
+
+      ## Test Coverage
+      - Tests added: [N]
+      - All tests passing: Yes
+
+      ## Files Changed
+      [Summary of changes]
+
+      ## Commits
+      [List of commits]
+
+      ## Ready for Review
+      - Build: PASS
+      - Tests: PASS
+      - Lint: PASS
+      - Docs: Updated
+      ```
+
+      Commit:
+      ```bash
+      git add artifacts/sprint-summary.md
+      git commit -m "docs: sprint summary"
+      ```
+    started-at: '2026-02-01T19:13:57.516Z'
+    completed-at: '2026-02-01T19:14:48.945Z'
+  - id: pr-create
+    status: in-progress
+    prompt: |
+      Push branch and create pull request.
+
+      ## Step 1: Verify Clean State
+      ```bash
+      git status
+      ```
+
+      ## Step 2: Push Branch
+      ```bash
+      git push -u origin HEAD
+      ```
+
+      ## Step 3: Create PR
+      Read artifacts/sprint-summary.md for PR body content.
+
+      ```bash
+      gh pr create \
+        --title "2026-02-01_status-page-fix" \
+        --body "$(cat <<'EOF'
+      ## Summary
+      [Key points from sprint-summary.md]
+
+      ## Changes
+      [List major changes]
+
+      ## Verification
+      - [x] Build passes
+      - [x] All tests pass
+      - [x] Lint passes
+      - [x] Documentation updated
+
+      ---
+      See `artifacts/sprint-summary.md` for full details.
+      EOF
+      )"
+      ```
+
+      ## Step 4: Output PR URL
+      ```bash
+      gh pr view --json url -q '.url'
+      ```
+    started-at: '2026-02-01T19:14:50.968Z'
+current:
+  phase: 7
+  step: null
+  sub-phase: null
+stats:
+  started-at: '2026-02-01T18:41:25.305Z'
+  total-phases: 13
+  completed-phases: 0
+  total-steps: 5
+  completed-steps: 0
+  current-iteration: 12
+parallel-tasks: []
+worktree:
+  enabled: true
+  branch: sprint/2026-02-01_status-page-fix
+  path: trees/2026-02-01_status-page-fix
+  cleanup: never
+per-iteration-hooks:
+  - id: learning
+    prompt: /m42-signs:extract $ITERATION_TRANSCRIPT --auto-apply-high
+    parallel: true
+    enabled: true
+hook-tasks:
+  - iteration: 1
+    hook-id: learning
+    status: completed
+    spawned-at: '2026-02-01T18:44:12.558Z'
+    completed-at: '2026-02-01T18:51:06.898Z'
+    exit-code: 0
+    transcript: /home/koni/projects/m42-claude-plugins/trees/2026-02-01_status-page-fix/.claude/sprints/2026-02-01_status-page-fix/transcriptions/hook_learning_iteration-1.log
+  - iteration: 2
+    hook-id: learning
+    status: completed
+    spawned-at: '2026-02-01T18:46:24.655Z'
+    completed-at: '2026-02-01T18:50:51.936Z'
+    exit-code: 0
+    transcript: /home/koni/projects/m42-claude-plugins/trees/2026-02-01_status-page-fix/.claude/sprints/2026-02-01_status-page-fix/transcriptions/hook_learning_iteration-2.log
+  - iteration: 3
+    hook-id: learning
+    status: completed
+    spawned-at: '2026-02-01T18:48:02.582Z'
+    completed-at: '2026-02-01T18:51:00.904Z'
+    exit-code: 0
+    transcript: /home/koni/projects/m42-claude-plugins/trees/2026-02-01_status-page-fix/.claude/sprints/2026-02-01_status-page-fix/transcriptions/hook_learning_iteration-3.log
+  - iteration: 4
+    hook-id: learning
+    status: completed
+    spawned-at: '2026-02-01T18:52:13.831Z'
+    completed-at: '2026-02-01T18:57:17.390Z'
+    exit-code: 0
+    transcript: /home/koni/projects/m42-claude-plugins/trees/2026-02-01_status-page-fix/.claude/sprints/2026-02-01_status-page-fix/transcriptions/hook_learning_iteration-4.log
+  - iteration: 5
+    hook-id: learning
+    status: completed
+    spawned-at: '2026-02-01T18:54:51.396Z'
+    completed-at: '2026-02-01T18:58:00.068Z'
+    exit-code: 0
+    transcript: /home/koni/projects/m42-claude-plugins/trees/2026-02-01_status-page-fix/.claude/sprints/2026-02-01_status-page-fix/transcriptions/hook_learning_iteration-5.log
+  - iteration: 6
+    hook-id: learning
+    status: completed
+    spawned-at: '2026-02-01T19:02:14.582Z'
+    completed-at: '2026-02-01T19:05:26.390Z'
+    exit-code: 0
+    transcript: /home/koni/projects/m42-claude-plugins/trees/2026-02-01_status-page-fix/.claude/sprints/2026-02-01_status-page-fix/transcriptions/hook_learning_iteration-6.log
+  - iteration: 7
+    hook-id: learning
+    status: completed
+    spawned-at: '2026-02-01T19:03:36.778Z'
+    completed-at: '2026-02-01T19:06:19.939Z'
+    exit-code: 0
+    transcript: /home/koni/projects/m42-claude-plugins/trees/2026-02-01_status-page-fix/.claude/sprints/2026-02-01_status-page-fix/transcriptions/hook_learning_iteration-7.log
+  - iteration: 8
+    hook-id: learning
+    status: completed
+    spawned-at: '2026-02-01T19:08:21.967Z'
+    completed-at: '2026-02-01T19:11:38.051Z'
+    exit-code: 0
+    transcript: /home/koni/projects/m42-claude-plugins/trees/2026-02-01_status-page-fix/.claude/sprints/2026-02-01_status-page-fix/transcriptions/hook_learning_iteration-8.log
+  - iteration: 9
+    hook-id: learning
+    status: completed
+    spawned-at: '2026-02-01T19:10:01.641Z'
+    completed-at: '2026-02-01T19:13:40.474Z'
+    exit-code: 0
+    transcript: /home/koni/projects/m42-claude-plugins/trees/2026-02-01_status-page-fix/.claude/sprints/2026-02-01_status-page-fix/transcriptions/hook_learning_iteration-9.log
+  - iteration: 10
+    hook-id: learning
+    status: running
+    spawned-at: '2026-02-01T19:13:55.498Z'
+  - iteration: 11
+    hook-id: learning
+    status: running
+    spawned-at: '2026-02-01T19:14:48.950Z'
+last-activity: '2026-02-01T19:14:50.961Z'
