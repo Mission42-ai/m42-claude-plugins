@@ -21,27 +21,24 @@ Signs are NOT just error fixes. They capture:
 
 The goal: A future agent reading the target CLAUDE.md should be more effective at similar tasks.
 
-## Preflight Checks
-
-1. Check if learnings directory exists:
-   !`test -d .claude/learnings && echo "EXISTS" || echo "NOT_EXISTS"`
-
-2. List existing CLAUDE.md files for target inference:
-   !`find . -name "CLAUDE.md" -not -path "*/node_modules/*" -not -path "*/.git/*" 2>/dev/null | head -20`
-
-3. Assess transcript size:
-   !`wc -l "$TRANSCRIPT_PATH" && (stat --printf="%s" "$TRANSCRIPT_PATH" 2>/dev/null || stat -f%z "$TRANSCRIPT_PATH")`
-
-4. Large transcript detection (>100 lines or >500KB activates preprocessing mode)
-
 ## Arguments
 
 Parse `$ARGUMENTS` for:
-- **Transcript path** (required): Path to `.jsonl` transcript file
+- **Transcript path** (required): Path to transcript file (`.jsonl` or `.log`)
 - `--dry-run`: Preview learnings without writing to backlog
 - `--focus <area>`: Focus extraction on specific area (e.g., "api", "testing", "build")
 - `--preprocess-only`: Generate preprocessing artifacts without LLM analysis
 - `--parallel`: Enable parallel chunk processing for large transcripts
+
+## Preflight Checks
+
+After parsing arguments, run these checks:
+
+1. **Validate transcript exists**: Verify the transcript path from arguments exists
+2. **Check learnings directory**: `test -d .claude/learnings` (create if missing)
+3. **List existing CLAUDE.md files**: For target inference during extraction
+4. **Assess transcript size**: Check line count and file size to determine processing mode
+   - >100 lines OR >500KB triggers Large Transcript Handling
 
 ## Transcript Schema
 
