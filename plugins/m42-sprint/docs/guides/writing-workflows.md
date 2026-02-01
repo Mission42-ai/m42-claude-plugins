@@ -676,7 +676,7 @@ phases:
 ```
 
 **Benefits:**
-- Each phase gets fresh context (Ralph Loop)
+- Each phase gets fresh context (sprint loop)
 - Progress tracking per phase
 - Can resume from any phase if interrupted
 

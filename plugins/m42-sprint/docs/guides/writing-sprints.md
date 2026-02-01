@@ -362,7 +362,7 @@ steps:
       - README auf Essentials reduzieren (Ziel: ~100 Zeilen)
       - Klare Struktur: Was ist M42? → Quick Links → 30-Second Example
       - ASCII Diagramm der Three-Tier Architecture
-      - Memorable Terminology: "Ralph Loop", "Fresh Context Pattern"
+      - Memorable Terminology: "Sprint Loop", "Fresh Context Pattern"
 
       Erfolg:
       - README ist scanbar und führt Nutzer schnell weiter
