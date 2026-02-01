@@ -344,6 +344,12 @@ export async function compile(config: CompilerConfig): Promise<CompilerResult> {
   // Build dependency graphs for for-each phases
   const dependencyGraphs = buildDependencyGraphs(compiledPhases);
 
+  // Merge per-iteration hooks (workflow defaults + sprint overrides)
+  const mergedHooks = mergePerIterationHooks(
+    mainWorkflow.definition['per-iteration-hooks'],
+    sprintDef['per-iteration-hooks']
+  );
+
   // Build compiled progress
   const progress: CompiledProgress = {
     'sprint-id': sprintId,
@@ -361,7 +367,9 @@ export async function compile(config: CompilerConfig): Promise<CompilerResult> {
     // Add worktree config if enabled in workflow or sprint
     ...(worktree && { worktree }),
     // Add dependency graph if any phases have dependencies
-    ...(dependencyGraphs.length > 0 && { 'dependency-graph': dependencyGraphs })
+    ...(dependencyGraphs.length > 0 && { 'dependency-graph': dependencyGraphs }),
+    // Add per-iteration hooks if defined in workflow or sprint
+    ...(mergedHooks.length > 0 && { 'per-iteration-hooks': mergedHooks, 'hook-tasks': [] })
   };
 
   // Validate compiled progress
