@@ -559,6 +559,25 @@ phases:
 
       All must pass. If any fail, spawn fix subagent.
 
+      ## Step 1b: Plugin Runtime Build (m42-sprint only)
+      If developing m42-sprint plugin, rebuild and commit the runtime dist:
+      ```bash
+      # Check if runtime source changed
+      git diff main..HEAD --name-only | grep "plugins/m42-sprint/runtime/src/"
+
+      # If changes exist, rebuild
+      cd plugins/m42-sprint/runtime
+      npm run build
+      cd -
+
+      # Stage and commit dist changes
+      git add plugins/m42-sprint/runtime/dist/
+      git diff --cached --quiet plugins/m42-sprint/runtime/dist/ || \
+        git commit -m "build(m42-sprint): rebuild runtime dist"
+      ```
+
+      This ensures the compiled runtime is included in the distribution.
+
       ## Step 2: Full Test Suite
       ```bash
       npm test
