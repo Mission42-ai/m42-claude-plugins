@@ -62,8 +62,8 @@ List all git worktrees in the repository with their active sprints.
           "sprintId": "2026-01-15_feature-a",
           "status": "in-progress",
           "startedAt": "2026-01-15T10:00:00Z",
-          "workflow": "ralph",
-          "mode": "ralph"
+          "workflow": "sprint-default",
+          "status": "in-progress"
         }
       ],
       "activeSprint": {
@@ -144,8 +144,7 @@ GET /api/sprints?includeWorktree=true&page=1&limit=10
     {
       "sprintId": "2026-01-18_m42-sprint-refactor",
       "status": "in-progress",
-      "workflow": "ralph",
-      "mode": "ralph",
+      "workflow": "sprint-default",
       "startedAt": "2026-01-18T10:00:00Z",
       "worktree": {
         "name": "sprint/2026-01-18_m42-sprint-refactor",
@@ -1493,6 +1492,6 @@ console.log('Summary:', scheduler.getStatusSummary());
 ## See Also
 
 - [Commands Reference](commands.md) - CLI commands
-- [Ralph Mode](../concepts/ralph-mode.md) - Autonomous execution
+- [Architecture Overview](../concepts/overview.md) - System architecture
 - [Sprint YAML Schema](sprint-yaml-schema.md) - Sprint configuration
 - [Progress YAML Schema](progress-yaml-schema.md) - Progress tracking

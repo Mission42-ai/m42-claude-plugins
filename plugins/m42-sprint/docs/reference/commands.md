@@ -6,7 +6,7 @@ Complete reference for all M42-Sprint commands organized by category.
 
 | Command | Description | Category |
 |---------|-------------|----------|
-| `/init-sprint <name> [--ralph \| --workflow <name>] [--worktree]` | Initialize new sprint directory | Lifecycle |
+| `/init-sprint <name> [--workflow <name>] [--worktree]` | Initialize new sprint directory | Lifecycle |
 | `/run-sprint <dir> [--model <model>] [options]` | Compile and execute sprint | Lifecycle |
 | `/cleanup-sprint [dir] [--force]` | Remove worktree and clean up sprint | Lifecycle |
 | `/stop-sprint` | Forcefully stop sprint loop | Control |
@@ -28,11 +28,11 @@ Commands for creating and running sprints.
 
 ### /init-sprint
 
-Initialize a new sprint directory with either **Ralph mode** (autonomous goal-driven) or **workflow-based** configuration. Optionally create a dedicated git worktree for parallel development.
+Initialize a new sprint directory. Optionally create a dedicated git worktree for parallel development.
 
 **Usage:**
 ```bash
-/init-sprint <sprint-name> [--ralph | --workflow <name>] [--worktree] [--reuse-branch]
+/init-sprint <sprint-name> [--workflow <name>] [--worktree] [--reuse-branch]
 ```
 
 **Arguments:**
@@ -43,17 +43,9 @@ Initialize a new sprint directory with either **Ralph mode** (autonomous goal-dr
 **Options:**
 | Option | Description |
 |--------|-------------|
-| `--ralph` | Create Ralph mode sprint (autonomous, goal-driven) |
-| `--workflow <name>` | Create workflow-based sprint with specified workflow |
+| `--workflow <name>` | Use a specific workflow (defaults to sprint-default) |
 | `--worktree` | Create dedicated git worktree for isolated parallel development |
 | `--reuse-branch` | Reuse existing branch if it exists (for worktree mode) |
-
-**Sprint Modes:**
-
-| Mode | When to Use |
-|------|-------------|
-| **Ralph** (`--ralph`) | Complex features, research-heavy work, open-ended goals |
-| **Workflow** (`--workflow`) | Well-defined tasks, routine work, batched operations |
 
 **What it creates:**
 ```
@@ -65,47 +57,24 @@ Initialize a new sprint directory with either **Ralph mode** (autonomous goal-dr
 
 **Examples:**
 ```bash
-# Create Ralph mode sprint (recommended for complex goals)
-/init-sprint feature-auth --ralph
+# Create sprint with default workflow
+/init-sprint feature-auth
 
-# Create workflow-based sprint
+# Create sprint with specific workflow
 /init-sprint bugfix-batch --workflow bugfix-workflow
 
-# If mode not specified, you'll be asked to choose
-/init-sprint my-sprint
-
 # Create sprint with dedicated worktree (parallel development)
-/init-sprint feature-auth --ralph --worktree
+/init-sprint feature-auth --worktree
 
 # Worktree with workflow (inherits workflow's worktree defaults)
 /init-sprint feature-dashboard --workflow feature-development --worktree
 ```
 
-**Output (Ralph Mode):**
+**Output:**
 ```
-Sprint initialized (Ralph Mode)!
+Sprint initialized!
 
 Location: .claude/sprints/2026-01-15_feature-auth/
-
-Ralph Mode Features:
-  - Autonomous goal-driven execution
-  - Deep thinking with dynamic task shaping
-  - Consistent execution via workflow templates
-  - Per-iteration learning extraction (if enabled)
-
-Next steps:
-  1. Edit SPRINT.yaml to define your goal
-  2. (Optional) Add context files to context/ directory
-  3. Run /run-sprint to execute
-
-Tip: Define clear success criteria in your goal for consistent execution.
-```
-
-**Output (Workflow Mode):**
-```
-Sprint initialized (Workflow Mode)!
-
-Location: .claude/sprints/2026-01-15_bugfix-batch/
 
 Next steps:
   1. Edit SPRINT.yaml to add your steps
@@ -131,8 +100,7 @@ All file operations will be relative to the worktree root.
 
 **Notes:**
 - Creates sprint with current date prefix: `YYYY-MM-DD_<name>`
-- Ralph mode: Uses `workflow: ralph` with `goal:` field
-- Workflow mode: Uses `workflow: <name>` with `steps:` array
+- Uses specified workflow or defaults to `sprint-default`
 - PROGRESS.yaml is NOT created here - it's compiled when running `/run-sprint`
 - Worktree mode: Creates isolated git branch and working directory
   - Default branch: `sprint/<sprint-id>`
@@ -277,7 +245,7 @@ Steps: 3
 Live Status: http://localhost:3100
 (Open in browser for real-time progress)
 
-Each phase/step runs with FRESH context (no accumulation).
+Each phase/step runs with fresh context (no accumulation).
 
 Monitor progress:
 - /sprint-status - View PROGRESS.yaml status
@@ -783,36 +751,18 @@ Display comprehensive help about the M42-Sprint plugin.
 - Quick start example
 - Sprint structure explanation
 - Workflow architecture
-- Loop mechanism (Ralph Loop pattern)
+- Loop mechanism (fresh context pattern)
 - Tips and best practices
 
 ---
 
 ## Common Workflows
 
-### Starting a New Sprint (Ralph Mode - Recommended for Complex Goals)
+### Starting a New Sprint
 
 ```bash
-# 1. Create Ralph mode sprint
-/init-sprint feature-auth --ralph
-
-# 2. Edit SPRINT.yaml to set your goal
-# goal: |
-#   Implement user authentication system with:
-#   - User registration with email verification
-#   - Login with JWT tokens
-#   - Password reset flow
-#   Success: All endpoints tested, documented, and deployed
-
-# 3. Execute sprint
-/run-sprint .claude/sprints/2026-01-15_feature-auth
-```
-
-### Starting a New Sprint (Workflow Mode - For Well-Defined Steps)
-
-```bash
-# 1. Create workflow-based sprint
-/init-sprint bugfix-batch --workflow bugfix-workflow
+# 1. Create sprint
+/init-sprint feature-auth
 
 # 2. Add steps
 /add-step "Implement user registration endpoint"
@@ -820,10 +770,10 @@ Display comprehensive help about the M42-Sprint plugin.
 /add-step "Create password reset flow"
 
 # 3. Preview workflow
-/run-sprint .claude/sprints/2026-01-15_bugfix-batch --dry-run
+/run-sprint .claude/sprints/2026-01-15_feature-auth --dry-run
 
 # 4. Execute sprint
-/run-sprint .claude/sprints/2026-01-15_bugfix-batch --max-iterations 30
+/run-sprint .claude/sprints/2026-01-15_feature-auth
 ```
 
 ### Monitoring and Controlling
@@ -860,12 +810,12 @@ Display comprehensive help about the M42-Sprint plugin.
 
 ```bash
 # Terminal 1: Start first feature in worktree
-/init-sprint feature-auth --ralph --worktree
+/init-sprint feature-auth --worktree
 cd ../2026-01-20_feature-auth-worktree
 /run-sprint .claude/sprints/2026-01-20_feature-auth
 
 # Terminal 2: Start second feature in separate worktree
-/init-sprint feature-payments --ralph --worktree
+/init-sprint feature-payments --worktree
 cd ../2026-01-20_feature-payments-worktree
 /run-sprint .claude/sprints/2026-01-20_feature-payments
 
@@ -905,7 +855,6 @@ The sprint loop monitors PROGRESS.yaml for these status values:
 ## See Also
 
 - [Architecture Overview](../concepts/overview.md) - Three-tier model explanation
-- [Ralph Loop Pattern](../concepts/ralph-loop.md) - Fresh context execution
 - [Workflow Compilation](../concepts/workflow-compilation.md) - How SPRINT.yaml compiles
 - [SPRINT.yaml Schema](sprint-yaml-schema.md) - Sprint configuration reference
 - [PROGRESS.yaml Schema](progress-yaml-schema.md) - Progress tracking reference

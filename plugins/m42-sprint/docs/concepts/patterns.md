@@ -6,7 +6,7 @@
 
 ## The Philosophy: Freedom + Patterns
 
-Ralph Mode provides freedom for deep thinking and dynamic planning. For consistent execution, use **workflow templates** and **well-structured steps** rather than fixed pattern files.
+The sprint system provides freedom for deep thinking and dynamic planning. For consistent execution, use **workflow templates** and **well-structured steps** rather than fixed pattern files.
 
 The key insight: **Patterns aren't a separate system - they're how you structure your steps and workflows.**
 
@@ -109,7 +109,7 @@ Workflow templates live in the compiler and define how steps are executed. To cr
 
 ## Migration from Pattern Invocation
 
-If you were using `invokePattern` in Ralph mode results, migrate to structured steps:
+If you were using `invokePattern` in results, migrate to structured steps:
 
 **Before** (removed):
 ```json
@@ -134,13 +134,13 @@ If you were using `invokePattern` in Ralph mode results, migrate to structured s
 }
 ```
 
-Ralph can dynamically create well-structured steps that embody pattern principles without needing a separate pattern system.
+The system can dynamically create well-structured steps that embody pattern principles without needing a separate pattern system.
 
 ---
 
 ## Related Concepts
 
-- [Ralph Mode](ralph-mode.md) - Autonomous execution with dynamic steps
+- [Architecture Overview](overview.md) - System architecture and execution
 - [Workflow YAML Schema](../reference/workflow-yaml-schema.md) - How to define and use workflows
 - [SPRINT.yaml Reference](../reference/sprint-yaml-schema.md) - Sprint definition format
 

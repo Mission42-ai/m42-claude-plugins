@@ -831,5 +831,5 @@ interface CompiledProgress {
 - [SPRINT.yaml Schema](./sprint-yaml-schema.md) - Input sprint definition
 - [Workflow YAML Schema](./workflow-yaml-schema.md) - Workflow definitions
 - [Commands Reference](./commands.md) - Sprint management commands
-- [Ralph Loop Concept](../concepts/ralph-loop.md) - How the sprint loop executes
+- [Architecture Overview](../concepts/overview.md) - How the sprint system works
 - [Worktree Sprints Guide](../guides/worktree-sprints.md) - Parallel development with git worktrees
