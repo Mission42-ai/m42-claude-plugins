@@ -222,7 +222,7 @@ Each Claude session gets a deterministic, friendly name derived from its session
 **Available Names:**
 Klaus, Luna, Max, Mia, Felix, Emma, Leo, Sophie, Finn, Lara
 
-This makes it easy to track which agent is working on which step, especially during parallel execution.
+This makes it easy to track which agent is working on which step.
 
 ### Subagent Indicators
 
@@ -233,34 +233,6 @@ When an agent spawns subagents (using the Task tool), a badge appears on the nod
 ```
 
 This helps you understand the parallelism happening within a single step.
-
-### Example: Parallel Sprint Execution
-
-When running a sprint with parallel steps:
-
-```yaml
-collections:
-  step:
-    - prompt: Create user model
-      id: user-model
-    - prompt: Create order model
-      id: order-model
-    - prompt: Link models
-      id: link-models
-      depends-on: [user-model, order-model]
-```
-
-The visualization shows:
-
-```
-[user-model]  ──┐
-   Luna 🧐     │──→  [link-models]
-               │        pending
-[order-model] ─┘
-   Klaus 😉
-```
-
-You can see Luna reading files while Klaus is working, and the link-models step waiting for both to complete.
 
 ### How It Works
 
@@ -277,8 +249,7 @@ Events are written to `.agent-events.jsonl` in the sprint directory and streamed
 
 1. **Use meaningful step IDs**: They appear as node labels
 2. **Keep step prompts concise**: The first line becomes the tooltip
-3. **Monitor parallel sprints**: The visualization shows all active agents
-4. **Watch for stale agents**: Avatar disappears if agent stops responding
+3. **Watch for stale agents**: Avatar disappears if agent stops responding
 
 ---
 
@@ -386,187 +357,6 @@ collections:
       model: opus  # This item uses opus
     - prompt: Implement the solution  # Uses sonnet (sprint default)
 ```
-
----
-
-## Step Dependencies and Parallel Execution
-
-Control step execution order with dependencies and enable concurrent execution of independent steps.
-
-### Declaring Dependencies
-
-Use `depends-on` to specify that a step must wait for other steps to complete:
-
-```yaml
-workflow: sprint-default
-
-collections:
-  step:
-    - prompt: Set up database schema
-      id: db-schema
-
-    - prompt: Create user model
-      id: user-model
-      depends-on: [db-schema]
-
-    - prompt: Create order model
-      id: order-model
-      depends-on: [db-schema]
-
-    - prompt: Implement user-order relationship
-      id: user-order-relation
-      depends-on: [user-model, order-model]
-```
-
-**Key points:**
-
-- `depends-on` takes an array of step IDs
-- Steps without dependencies start immediately
-- A step starts only after all its dependencies complete
-- Use explicit `id` fields for steps that will be referenced
-
-### How Parallel Execution Works
-
-When a for-each phase runs, the scheduler:
-
-1. Builds a dependency graph from all steps
-2. Identifies "ready" steps (no pending dependencies)
-3. Executes ready steps concurrently
-4. As steps complete, unblocks their dependents
-5. Repeats until all steps finish
-
-**Example execution timeline:**
-
-```
-Step: db-schema       ████████
-Step: user-model              ████████
-Step: order-model             ████████
-Step: user-order-relation             ████████
-
-Time →
-```
-
-In this example, `user-model` and `order-model` run in parallel once `db-schema` completes.
-
-### Failure Handling Modes
-
-Configure how the system handles failed dependencies with `onDependencyFailure`:
-
-| Mode | Behavior |
-|------|----------|
-| `skip-dependents` (default) | Skip steps that depend on failed steps |
-| `fail-phase` | Fail the entire phase immediately |
-| `continue` | Continue executing independent steps |
-
-**Example with failure handling:**
-
-```yaml
-workflow: sprint-default
-
-parallel-execution:
-  enabled: true
-  onDependencyFailure: skip-dependents
-
-collections:
-  step:
-    - prompt: Create auth module
-      id: auth
-
-    - prompt: Create user endpoints
-      id: user-endpoints
-      depends-on: [auth]  # Skipped if auth fails
-
-    - prompt: Create docs
-      id: docs            # Runs regardless of auth status
-```
-
-### Example: API Development with Dependencies
-
-A complete example showing practical dependency usage:
-
-```yaml
-name: API Feature Development
-workflow: sprint-default
-
-parallel-execution:
-  enabled: true
-  maxConcurrency: 3
-  onDependencyFailure: skip-dependents
-
-collections:
-  step:
-    # Foundation - runs first
-    - prompt: Design API schema and types
-      id: api-schema
-
-    # Data layer - can run in parallel after schema
-    - prompt: Create database migrations
-      id: migrations
-      depends-on: [api-schema]
-
-    - prompt: Implement data models
-      id: models
-      depends-on: [api-schema]
-
-    # API layer - depends on data layer
-    - prompt: Implement REST endpoints
-      id: endpoints
-      depends-on: [models, migrations]
-
-    - prompt: Add input validation
-      id: validation
-      depends-on: [models]
-
-    # Testing - depends on implementation
-    - prompt: Write integration tests
-      id: tests
-      depends-on: [endpoints, validation]
-
-    # Documentation - can run after schema
-    - prompt: Generate API documentation
-      id: docs
-      depends-on: [api-schema]
-```
-
-**Execution order:**
-1. `api-schema` runs first
-2. `migrations`, `models`, and `docs` run in parallel
-3. `endpoints` and `validation` run after their dependencies
-4. `tests` runs last
-
-### Configuration Reference
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `parallel-execution.enabled` | boolean | `true` | Enable parallel step execution |
-| `parallel-execution.maxConcurrency` | number | unlimited | Maximum concurrent steps |
-| `parallel-execution.onDependencyFailure` | string | `skip-dependents` | Failure handling strategy |
-
-### Best Practices
-
-1. **Use meaningful IDs**: Choose descriptive IDs that reflect what the step does
-2. **Minimize dependency chains**: Long chains reduce parallelism benefits
-3. **Group related work**: Steps that share dependencies often belong together
-4. **Consider failure impact**: Use `fail-phase` for critical dependencies
-5. **Test dependency graphs**: Use `--dry-run` to verify the compiled execution plan
-
-### Viewing the Dependency Graph
-
-The compiled PROGRESS.yaml includes a `dependency-graph` section showing the resolved dependencies:
-
-```yaml
-dependency-graph:
-  - phase-id: development
-    nodes:
-      - id: step-0
-        depends-on: []
-        blocked-by: []
-      - id: step-1
-        depends-on: [step-0]
-        blocked-by: [step-0]
-```
-
-Use `/sprint-status` to see which steps are ready, running, or blocked.
 
 ---
 
