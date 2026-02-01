@@ -39,19 +39,24 @@ const TEXT_DEBOUNCE_DELAY = 500; // 500ms debounce for text accumulation
  * NOTE: Similar logic exists in sprint-activity-hook.sh - keep in sync
  */
 function getToolVerbosityLevel(toolName: string): VerbosityLevel {
-  // Minimal: major milestones only
-  const minimalTools = ['TodoWrite', 'AskUserQuestion'];
+  // Minimal: major milestones and agent delegation
+  const minimalTools = [
+    'TodoWrite', 'AskUserQuestion',
+    'Task', 'Skill', // Agent delegation
+    'TaskCreate', 'TaskUpdate', 'TaskList', 'TaskGet', // Task management
+  ];
   if (minimalTools.includes(toolName)) {
     return 'minimal';
   }
 
-  // Basic: file operations
-  const basicTools = ['Read', 'Write', 'Edit', 'Glob', 'Grep'];
+  // Basic: actual changes (writes, edits, commands)
+  const basicTools = ['Write', 'Edit', 'Bash'];
   if (basicTools.includes(toolName)) {
     return 'basic';
   }
 
-  // Detailed: everything else
+  // Detailed: file reads and searches (noise at basic level)
+  // Includes: Read, Glob, Grep, and everything else
   return 'detailed';
 }
 
@@ -86,6 +91,16 @@ function extractParams(toolName: string, input: Record<string, unknown>): string
       return input.pattern as string | undefined;
     case 'Task':
       return input.description as string | undefined;
+    case 'TaskCreate':
+      return input.subject as string | undefined;
+    case 'TaskUpdate': {
+      const status = input.status as string | undefined;
+      const subject = input.subject as string | undefined;
+      if (status && subject) return `${status}: ${subject}`;
+      return status || subject;
+    }
+    case 'TaskGet':
+      return input.taskId as string | undefined;
     default:
       return undefined;
   }
@@ -285,7 +300,7 @@ export class TranscriptionWatcher extends EventEmitter {
 
       let toolUses: Array<{ id: string; name: string; input: Record<string, unknown> }> = [];
 
-      // Format 1: Assistant message with tool_use in content array
+      // Format 1: Assistant message with tool_use and text in content array
       if (event.type === 'assistant' && event.message?.content) {
         const content = event.message.content;
         if (Array.isArray(content)) {
@@ -296,6 +311,18 @@ export class TranscriptionWatcher extends EventEmitter {
                 name: block.name,
                 input: block.input || {},
               });
+            } else if (block.type === 'text' && block.text) {
+              // Extract text blocks (assistant reasoning/output) in non-streaming mode
+              const activityEvent: ActivityEvent = {
+                ts: timestamp,
+                type: 'assistant',
+                tool: '',
+                level: 'minimal',
+                text: block.text,
+                isThinking: false, // Non-streaming text is always complete
+              };
+              this.addToRecentActivity(activityEvent);
+              this.emit('activity', activityEvent);
             }
           }
         }

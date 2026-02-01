@@ -121,7 +121,12 @@ ${getStyles()}
 
     <div class="main">
       <aside class="sidebar">
-        <h2 class="sidebar-title" id="sidebar-title">Phase Tree</h2>
+        <div class="sidebar-header">
+          <h2 class="sidebar-title" id="sidebar-title">Phase Tree</h2>
+          <span class="parallel-indicator hidden" id="parallel-indicator" title="Steps running in parallel">
+            <span class="parallel-count">0</span> parallel
+          </span>
+        </div>
         <div class="phase-tree" id="phase-tree">
           <div class="loading">Loading...</div>
         </div>
@@ -851,6 +856,95 @@ function getStyles(): string {
 
     .tree-children.collapsed {
       display: none;
+    }
+
+    /* Parallel Execution Indicator */
+    .parallel-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 500;
+      background-color: rgba(163, 113, 247, 0.15);
+      color: var(--accent-purple);
+      margin-left: 8px;
+      animation: parallel-pulse 2s ease-in-out infinite;
+    }
+
+    .parallel-indicator::before {
+      content: '⟂';
+      font-size: 11px;
+    }
+
+    .parallel-indicator.hidden {
+      display: none;
+    }
+
+    @keyframes parallel-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+
+    /* Subprocess Indicator */
+    .subprocess-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      font-size: 9px;
+      color: var(--accent-purple);
+      margin-left: 4px;
+      opacity: 0.9;
+    }
+
+    .subprocess-indicator::before {
+      content: '⤷';
+      font-size: 10px;
+    }
+
+    .subprocess-indicator .subprocess-spinner {
+      width: 8px;
+      height: 8px;
+      border: 1px solid var(--accent-purple);
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: subprocess-spin 0.8s linear infinite;
+    }
+
+    @keyframes subprocess-spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Tree node with subprocess active */
+    .tree-node-content.has-subprocess {
+      position: relative;
+    }
+
+    .tree-node-content.has-subprocess::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: linear-gradient(180deg, var(--accent-purple) 0%, transparent 100%);
+      border-radius: 1px;
+    }
+
+    /* Sidebar header with parallel indicator */
+    .sidebar-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px 8px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .sidebar-header .sidebar-title {
+      margin: 0;
+      padding: 0;
+      border-bottom: none;
     }
 
     /* Phase Action Buttons (Skip/Retry) */
@@ -1632,6 +1726,11 @@ function getStyles(): string {
       white-space: pre-wrap;
     }
 
+    /* Thinking state: dimmed with animated ellipsis */
+    .activity-thinking {
+      opacity: 0.85;
+    }
+
     .activity-thinking .activity-bubble::after {
       content: '...';
       animation: thinking 1.5s infinite;
@@ -1640,6 +1739,16 @@ function getStyles(): string {
     @keyframes thinking {
       0%, 100% { opacity: 0.3; }
       50% { opacity: 1; }
+    }
+
+    /* Final output state: prominent styling */
+    .activity-output {
+      background-color: var(--status-success);
+      border-left: 3px solid var(--success);
+    }
+
+    .activity-output .activity-bubble {
+      font-weight: 500;
     }
 
     /* Footer */
@@ -2818,9 +2927,23 @@ function getStyles(): string {
       }
 
       /* Sidebar title and phase tree */
-      .sidebar-title {
+      .sidebar-header {
         padding: 10px 12px 6px;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+
+      .sidebar-title {
         font-size: 10px;
+      }
+
+      .parallel-indicator {
+        font-size: 9px;
+        padding: 1px 6px;
+      }
+
+      .subprocess-indicator {
+        font-size: 8px;
       }
 
       .tree-node {
@@ -3399,7 +3522,9 @@ function getScript(): string {
         sprintTimer: document.getElementById('sprint-timer'),
         timerValue: document.getElementById('timer-value'),
         currentStep: document.getElementById('current-step'),
-        totalSteps: document.getElementById('total-steps')
+        totalSteps: document.getElementById('total-steps'),
+        // Parallel execution indicator
+        parallelIndicator: document.getElementById('parallel-indicator')
       };
 
       // State
@@ -5103,11 +5228,49 @@ function getScript(): string {
         }
       }
 
+      // Count in-progress leaf nodes (actual executing steps)
+      function countInProgressLeafNodes(nodes) {
+        let count = 0;
+        function traverse(node) {
+          if (node.children && node.children.length > 0) {
+            node.children.forEach(traverse);
+          } else {
+            // Leaf node
+            if (node.status === 'in-progress') {
+              count++;
+            }
+          }
+        }
+        nodes.forEach(traverse);
+        return count;
+      }
+
+      // Update parallel indicator visibility and count
+      function updateParallelIndicator(phaseTree) {
+        if (!elements.parallelIndicator) return;
+
+        const inProgressCount = countInProgressLeafNodes(phaseTree);
+
+        if (inProgressCount > 1) {
+          elements.parallelIndicator.classList.remove('hidden');
+          const countSpan = elements.parallelIndicator.querySelector('.parallel-count');
+          if (countSpan) {
+            countSpan.textContent = inProgressCount;
+          }
+        } else {
+          elements.parallelIndicator.classList.add('hidden');
+        }
+      }
+
       function updatePhaseTree(phaseTree) {
         if (!phaseTree || phaseTree.length === 0) {
           elements.phaseTree.innerHTML = '<div class="loading">No phases</div>';
+          updateParallelIndicator([]);
           return;
         }
+
+        // Update parallel execution indicator
+        updateParallelIndicator(phaseTree);
 
         const html = phaseTree.map(node => renderTreeNode(node)).join('');
         elements.phaseTree.innerHTML = html;
@@ -5208,6 +5371,11 @@ function getScript(): string {
           expandedNodes.add(nodePath);
         }
 
+        // Check for active subprocess work
+        const sessionId = stepToAgent.get(node.id);
+        const agentState = sessionId ? agentStates.get(sessionId) : null;
+        const hasSubprocess = agentState && agentState.subagentCount > 0;
+
         const depth = (parentPath.match(/\\//g) || []).length;
         const indent = depth * 16;
 
@@ -5215,7 +5383,10 @@ function getScript(): string {
         const phaseId = parentPath ? parentPath.replace(/\\//g, ' > ') + ' > ' + node.id : node.id;
 
         let html = '<div class="tree-node" style="padding-left: ' + indent + 'px">';
-        html += '<div class="tree-node-content' + (isActive ? ' active' : '') + '">';
+        let contentClasses = 'tree-node-content';
+        if (isActive) contentClasses += ' active';
+        if (hasSubprocess) contentClasses += ' has-subprocess';
+        html += '<div class="' + contentClasses + '">';
 
         if (hasChildren) {
           html += '<span class="tree-toggle ' + (isExpanded ? 'expanded' : 'collapsed') + '" data-node-id="' + nodePath + '"></span>';
@@ -5225,6 +5396,14 @@ function getScript(): string {
 
         html += '<span class="tree-icon ' + node.status + '"></span>';
         html += '<span class="tree-label" title="' + escapeHtml(node.label) + '">' + escapeHtml(node.label) + '</span>';
+
+        // Show subprocess indicator when agent has spawned subagents
+        if (hasSubprocess) {
+          html += '<span class="subprocess-indicator" title="' + agentState.subagentCount + ' subprocess' + (agentState.subagentCount > 1 ? 'es' : '') + ' active">';
+          html += '<span class="subprocess-spinner"></span>';
+          html += agentState.subagentCount;
+          html += '</span>';
+        }
 
         if (node.elapsed) {
           html += '<span class="tree-elapsed">' + node.elapsed + '</span>';
@@ -5465,9 +5644,24 @@ function getScript(): string {
         // Extract just the filename from path
         var filename = file ? file.split('/').pop() : undefined;
 
+        // Truncate helper
+        function truncate(str, maxLen) {
+          if (!str) return '';
+          return str.length > maxLen ? str.slice(0, maxLen - 3) + '...' : str;
+        }
+
         switch (tool) {
           case 'TodoWrite':
             return 'Updated task list';
+          case 'TaskCreate':
+            return params ? 'Creating task: ' + truncate(params, 40) : 'Creating task';
+          case 'TaskUpdate':
+            // params format: "status: subject" or just status/subject
+            return params ? truncate(params, 50) : 'Updating task';
+          case 'TaskList':
+            return 'Checking tasks';
+          case 'TaskGet':
+            return params ? 'Getting task: ' + truncate(params, 30) : 'Getting task';
           case 'Edit':
             return filename ? 'Editing ' + filename : 'Editing file';
           case 'Read':
@@ -5485,7 +5679,9 @@ function getScript(): string {
           case 'Glob':
             return file ? 'Finding: ' + file : 'Finding files';
           case 'Task':
-            return params || 'Running task';
+            return params ? 'Delegating: ' + truncate(params, 40) : 'Delegating task';
+          case 'Skill':
+            return params ? 'Running skill: ' + truncate(params, 40) : 'Running skill';
           case 'WebFetch':
             return 'Fetching web content';
           case 'AskUserQuestion':
@@ -5526,10 +5722,13 @@ function getScript(): string {
           // Handle assistant events (chat bubble style)
           if (event.type === 'assistant') {
             const text = event.text || '';
-            const thinkingClass = event.isThinking ? ' activity-thinking' : '';
-            return '<div class="activity-entry activity-assistant' + thinkingClass + '">' +
+            const isThinking = event.isThinking;
+            // Use different icon and class for thinking vs final output
+            const icon = isThinking ? '💭' : '💬';
+            const stateClass = isThinking ? ' activity-thinking' : ' activity-output';
+            return '<div class="activity-entry activity-assistant' + stateClass + '">' +
               '<span class="activity-time" title="' + escapeHtml(fullDateTime) + '">' + escapeHtml(timeStr) + '</span>' +
-              '<span class="activity-icon">🤖</span>' +
+              '<span class="activity-icon">' + icon + '</span>' +
               '<span class="activity-bubble">' + escapeHtml(text) + '</span>' +
               '</div>';
           }

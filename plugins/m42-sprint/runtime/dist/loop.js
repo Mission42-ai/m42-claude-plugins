@@ -946,11 +946,27 @@ async function runParallelPhaseLoop(progress, sprintDir, progressPath, deps, ver
                 }
             }
         }
-        // Mark all ready steps as started in the scheduler
+        // Mark all ready steps as started in the scheduler AND set in-progress status
         for (const step of readySteps) {
             scheduler.startStep(step.id);
+            // Mark step and first sub-phase as in-progress in progress data
+            const phase = progress.phases?.[progress.current.phase];
+            const currentStep = phase?.steps?.[step.stepIndex];
+            if (currentStep) {
+                currentStep.status = 'in-progress';
+                if (!currentStep['started-at']) {
+                    currentStep['started-at'] = new Date().toISOString();
+                }
+                // Mark first sub-phase as in-progress if exists
+                if (currentStep.phases && currentStep.phases.length > 0) {
+                    currentStep.phases[0].status = 'in-progress';
+                    if (!currentStep.phases[0]['started-at']) {
+                        currentStep.phases[0]['started-at'] = new Date().toISOString();
+                    }
+                }
+            }
         }
-        // Write progress before execution (backup)
+        // Write progress AFTER marking in-progress (so status page sees it)
         backupProgress(progressPath);
         await writeProgressAtomic(progressPath, progress);
         // Execute ready steps in parallel

@@ -1,0 +1,213 @@
+# SPRINT.yaml - Status Page Fixes
+# This file is compiled into PROGRESS.yaml by /run-sprint
+
+name: Status Page Fixes
+workflow: plugin-development
+sprint-id: 2026-02-01_status-page-fix
+created: 2026-02-01T18:03:44Z
+
+collections:
+  step:
+    - id: fix-run-sprint-command
+      prompt: |
+        Fix outdated run-sprint command skill with incorrect worktree handling.
+
+        **Problem**: The `/run-sprint` command skill (`plugins/m42-sprint/commands/run-sprint.md`)
+        contains outdated worktree setup instructions that duplicate logic already handled by the
+        runtime CLI (`runtime/src/cli.ts:354-454`).
+
+        **Current broken behavior**:
+        - Command skill tries to manually create worktrees before launching runtime
+        - Uses hardcoded version paths (e.g., 2.5.0) that may not have built runtime
+        - Duplicates `setupWorktreeIfNeeded()` logic that the runtime CLI already handles
+
+        **Correct behavior** (how runtime CLI works):
+        1. Runtime CLI calls `setupWorktreeIfNeeded(parsed.directory)` automatically
+        2. This function checks workflow/sprint worktree config
+        3. Creates worktree if needed, copies sprint files
+        4. Returns actual sprint directory to use
+        5. Loop runs in the correct location
+
+        **Changes Required**:
+        1. Remove the "Worktree Setup (Automatic)" section from run-sprint.md
+        2. The command should simply:
+           - Parse arguments
+           - Run preflight checks (simpler ones)
+           - Compile workflow if needed
+           - Launch the runtime CLI (which handles worktree internally)
+           - Launch status server
+        3. Update version references to use a variable or latest available version
+
+        **Files to modify**:
+        - `plugins/m42-sprint/commands/run-sprint.md`
+
+        **Verification**:
+        1. Run `/run-sprint .claude/sprints/<sprint>` on a workflow with worktree enabled
+        2. Verify runtime creates worktree automatically (not the command skill)
+        3. Verify sprint executes in the worktree
+        4. Verify no duplicate worktree creation attempts
+
+    - id: fix-parallel-status-tracking
+      prompt: |
+        Fix status page not tracking parallel execution phases properly.
+
+        **Problem**: When parallel execution starts, all sub-phases appear immediately
+        marked as completed instead of showing in-progress states.
+
+        **Context**: See context/bug-analysis.md for detailed investigation and solution.
+
+        **Changes Required**:
+        - Modify `plugins/m42-sprint/runtime/src/loop.ts` lines 1372-1379
+        - Move in-progress status marking to happen BEFORE writeProgressAtomic
+        - Mark both steps and first sub-phase as in-progress before writing
+
+        **Verification**:
+        1. Start a sprint with parallel execution steps
+        2. Open status page (/sprint-watch)
+        3. Verify steps show in-progress (not jumping to completed)
+        4. Verify sub-phases show in-progress during execution
+        5. Verify final completion states are correct
+
+    - id: add-parallel-visual-indicators
+      prompt: |
+        Add visual indicators for parallel execution and subprocess activity in the status page tree.
+
+        **Problem**: There's no visual feedback when:
+        1. Multiple steps are executing in parallel
+        2. Work is happening in a subprocess (e.g., Task subagent delegated work)
+
+        Users cannot distinguish between a single active step vs multiple concurrent steps,
+        or between direct execution vs delegated subprocess work.
+
+        **Requirements**:
+        1. **Parallel execution indicator**: When multiple steps are `in-progress` simultaneously,
+           show a visual grouping or badge indicating "N running in parallel"
+        2. **Subprocess indicator**: When a phase/step has spawned subprocess work, show a
+           distinct visual (e.g., nested spinner, fork icon, or "subprocess active" badge)
+        3. Maintain the existing tree structure and expand/collapse behavior
+        4. Indicators should be visible at both the step level and in any summary views
+
+        **Files to modify**:
+        - `plugins/m42-sprint/compiler/src/status-server/page.ts` - Tree rendering and CSS
+
+        **Design considerations**:
+        - Keep the monospace terminal aesthetic
+        - Use existing CSS variables (--accent-blue, --accent-purple, etc.)
+        - Consider using `⟂` or `⌇` or similar unicode for parallel indicator
+        - Subprocess could use `⤷` or indented nested spinner
+
+        **Verification**:
+        1. Start a sprint with parallel execution steps
+        2. Open status page and verify parallel indicator appears when multiple steps run
+        3. If subprocess activity is detectable, verify indicator appears
+        4. Verify indicators disappear when execution completes
+
+    - id: fix-activity-panel-verbosity
+      prompt: |
+        Fix live activity panel hiding relevant information at "basic" verbosity level.
+
+        **Problem**: The live activity panel hides important information:
+        1. **CRITICAL**: Agent text output is NOT CAPTURED in non-streaming mode (text blocks ignored!)
+        2. TaskUpdate shows only "Updated task list" with no detail about what changed
+        3. Too much noise at "basic" level (file reads/searches clutter the view)
+
+        **Context**: See context/live-activity-analysis.md for detailed investigation and solution.
+
+        **Changes Required**:
+
+        0. **CRITICAL FIX - Extract text blocks** (`transcription-watcher.ts` parseLine):
+           - In the non-streaming format handler (lines 289-301), add extraction for `text` blocks
+           - Currently only extracts `tool_use` blocks, completely ignores text
+           - Agent reasoning like "I'll analyze the design documents..." is never captured
+           - Add: if (block.type === 'text') { emit ActivityEvent with type 'assistant' }
+
+        1. **Improve task tool descriptions** (`page.ts` getToolDescription):
+           - TaskCreate → "Creating task: <subject>"
+           - TaskUpdate → "<status>: <subject>" (e.g., "completed: Fix bug X")
+           - TaskList → "Checking tasks"
+           - TaskGet → "Getting task: <id>"
+
+        2. **Add task param extraction** (`transcription-watcher.ts` extractParams):
+           - TaskCreate → extract subject
+           - TaskUpdate → extract status + subject
+           - TaskGet → extract taskId
+
+        3. **Reclassify verbosity levels** (`transcription-watcher.ts` getToolVerbosityLevel):
+           - Move task tools (TaskCreate, TaskUpdate, TaskList, TaskGet) to `minimal`
+           - Move Task, Skill (agent delegation) to `minimal`
+           - Move Read, Glob, Grep from `basic` to `detailed` (they're noise)
+           - Keep Write, Edit, Bash at `basic` (actual changes)
+
+        4. **Enhance assistant event display** (`page.ts` renderLiveActivity):
+           - Differentiate thinking (💭) vs final output (💬)
+           - Style final output more prominently (better background, font-weight)
+
+        **Files to modify**:
+        - `plugins/m42-sprint/compiler/src/status-server/page.ts`
+        - `plugins/m42-sprint/compiler/src/status-server/transcription-watcher.ts`
+
+        **Verification**:
+        1. Start a sprint at "basic" verbosity (default)
+        2. Verify agent thinking/output is visible and prominent
+        3. Verify TaskCreate/TaskUpdate show meaningful descriptions
+        4. Verify file reads/searches are NOT shown at basic level
+        5. Switch to "detailed" to verify those operations are still visible
+        6. Verify "minimal" still works for milestones only
+
+    - id: refactor-status-server-ports
+      prompt: |
+        Refactor status server architecture to support parallel sprint execution with dedicated ports.
+
+        **Problem**: Currently, there's one status server with a central dashboard listing all sprints.
+        This creates complexity and makes it impossible to run multiple sprints in parallel, each with
+        their own dedicated status server. The port is fixed at 3100, causing conflicts.
+
+        **Goal**: Each sprint should automatically get its own status server on a unique port.
+        No central dashboard for now - each sprint is self-contained with its own status page.
+
+        **Architecture Changes**:
+
+        1. **Auto-port allocation** (`compiler/src/status-server/server.ts`):
+           - Add `findAvailablePort(startPort: number, maxAttempts: number)` function
+           - Try ports starting from a base (e.g., 3100) until finding an available one
+           - Store the allocated port in a `.status-port` file in the sprint directory
+           - Update `ServerConfig` to support `port: 'auto'` option
+
+        2. **Remove central dashboard route**:
+           - Change `/` and `/dashboard` routes to redirect to the current sprint's detail page
+           - The "current sprint" is the one the server was started for (config.sprintDir)
+           - Remove the `handleDashboardPageRequest` logic that scans all sprints
+           - Remove the sprint list navigation from the detail page (or make it optional)
+
+        3. **Sprint-specific landing page** (`compiler/src/status-server/page.ts`):
+           - The main page should show ONLY the current sprint's status
+           - Remove or simplify the sprint switcher dropdown
+           - Keep all existing functionality (tree view, activity panel, controls)
+
+        4. **Port discovery for clients**:
+           - Write `.status-port` file when server starts: `{ port: number, pid: number, startedAt: string }`
+           - `/sprint-watch` skill reads this file to know which port to open
+           - Clean up `.status-port` file on server stop
+
+        5. **Update `/sprint-watch` skill** (`skills/sprint-watch.md`):
+           - Read `.status-port` from sprint directory
+           - If file exists and server is running, open that port
+           - If not, start server with auto-port and then open
+
+        **Files to modify**:
+        - `plugins/m42-sprint/compiler/src/status-server/server.ts` - Auto-port allocation
+        - `plugins/m42-sprint/compiler/src/status-server/page.ts` - Simplify to single-sprint view
+        - `plugins/m42-sprint/compiler/src/status-server/index.ts` - Export new utilities
+        - `plugins/m42-sprint/skills/sprint-watch.md` - Update to use port discovery
+
+        **Files to potentially remove/simplify**:
+        - `plugins/m42-sprint/compiler/src/status-server/dashboard-page.ts` - May become unused
+        - `plugins/m42-sprint/compiler/src/status-server/sprint-scanner.ts` - May become unused
+
+        **Verification**:
+        1. Start sprint A in one terminal: `/run-sprint` → verify status server starts on port 3100
+        2. Start sprint B in another terminal: `/run-sprint` → verify status server starts on different port (3101)
+        3. Open both status pages simultaneously - both should work independently
+        4. Stop sprint A → verify its status server stops and port is freed
+        5. Verify `/sprint-watch` correctly discovers and opens the right port
+        6. Verify `.status-port` files are created and cleaned up properly

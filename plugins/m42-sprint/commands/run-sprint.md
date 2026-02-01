@@ -1,5 +1,5 @@
 ---
-allowed-tools: Bash(ls:*), Bash(test:*), Bash(grep:*), Bash(cat:*), Bash(sleep:*), Bash(rm:*), Bash(node:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/runtime/dist/cli.js:*), Bash(git:*), Bash(mkdir:*), Bash(cp:*), Read(*), Edit(*)
+allowed-tools: Bash(ls:*), Bash(test:*), Bash(grep:*), Bash(cat:*), Bash(sleep:*), Bash(node:*), Bash(git rev-parse:*), Bash(git status:*), Read(*)
 argument-hint: <sprint-directory> [--max-iterations N] [--dry-run] [--recompile] [--no-status] [--no-browser]
 description: Start sprint execution loop (fresh context per task)
 ---
@@ -73,102 +73,6 @@ Then run validation checks:
 ```
 Preflight checks failed. Please resolve the issues above before running the sprint.
 ```
-
-## Worktree Setup (Automatic)
-
-**Before compilation**, check if the sprint's workflow enables worktree execution:
-
-1. **Load the workflow reference** from SPRINT.yaml:
-   ```bash
-   # Extract workflow name from SPRINT.yaml
-   WORKFLOW_NAME=$(grep '^workflow:' "$SPRINT_DIR/SPRINT.yaml" | sed 's/workflow: *//' | tr -d '"' | tr -d "'")
-   ```
-
-2. **Load the workflow definition** and check for worktree config:
-   ```bash
-   WORKFLOW_FILE=".claude/workflows/${WORKFLOW_NAME}.yaml"
-
-   # Check if workflow has worktree.enabled: true
-   if [ -f "$WORKFLOW_FILE" ]; then
-     WORKTREE_ENABLED=$(grep -A5 '^worktree:' "$WORKFLOW_FILE" | grep 'enabled:' | grep -q 'true' && echo "true" || echo "false")
-   fi
-
-   # Sprint worktree config overrides workflow config
-   SPRINT_WORKTREE=$(grep -A5 '^worktree:' "$SPRINT_DIR/SPRINT.yaml" | grep 'enabled:')
-   if echo "$SPRINT_WORKTREE" | grep -q 'false'; then
-     WORKTREE_ENABLED="false"
-   elif echo "$SPRINT_WORKTREE" | grep -q 'true'; then
-     WORKTREE_ENABLED="true"
-   fi
-   ```
-
-3. **If worktree is enabled** and NOT already in a worktree for this sprint:
-
-   Use the runtime worktree module to create branch and worktree:
-
-   ```bash
-   # Check if worktree already exists for this sprint
-   SPRINT_ID=$(basename "$SPRINT_DIR")
-   WORKTREE_CHECK=$(git worktree list --porcelain | grep -A1 "branch.*sprint/${SPRINT_ID}" || true)
-
-   if [ -z "$WORKTREE_CHECK" ] && [ "$WORKTREE_ENABLED" = "true" ]; then
-     echo "Creating worktree for sprint: $SPRINT_ID"
-
-     # Use the compiler's worktree config resolver to get paths
-     WORKTREE_PATHS=$(node -e "
-       const yaml = require('js-yaml');
-       const fs = require('fs');
-       const { shouldCreateWorktree, resolveWorktreePath } = require('${CLAUDE_PLUGIN_ROOT}/compiler/dist/worktree-config.js');
-
-       const sprintDef = yaml.load(fs.readFileSync('${SPRINT_DIR}/SPRINT.yaml', 'utf8'));
-       const workflowPath = '.claude/workflows/' + sprintDef.workflow + '.yaml';
-       const workflowDef = fs.existsSync(workflowPath) ? yaml.load(fs.readFileSync(workflowPath, 'utf8')) : { name: sprintDef.workflow, phases: [] };
-
-       if (shouldCreateWorktree(sprintDef, workflowDef)) {
-         const sprintId = sprintDef['sprint-id'] || '${SPRINT_ID}';
-         const resolved = resolveWorktreePath(sprintId, workflowDef.worktree, sprintDef.worktree);
-         console.log(JSON.stringify(resolved));
-       } else {
-         console.log('null');
-       }
-     ")
-
-     if [ "$WORKTREE_PATHS" != "null" ]; then
-       BRANCH=$(echo "$WORKTREE_PATHS" | node -e "console.log(JSON.parse(require('fs').readFileSync(0, 'utf8')).branch)")
-       WORKTREE_PATH=$(echo "$WORKTREE_PATHS" | node -e "console.log(JSON.parse(require('fs').readFileSync(0, 'utf8')).path)")
-
-       # Create branch if it doesn't exist
-       if ! git rev-parse --verify "$BRANCH" >/dev/null 2>&1; then
-         git branch "$BRANCH"
-         echo "Created branch: $BRANCH"
-       fi
-
-       # Create worktree
-       if [ ! -d "$WORKTREE_PATH" ]; then
-         git worktree add "$WORKTREE_PATH" "$BRANCH"
-         echo "Created worktree: $WORKTREE_PATH"
-
-         # Copy sprint files to worktree
-         WORKTREE_SPRINT_DIR="${WORKTREE_PATH}/.claude/sprints/${SPRINT_ID}"
-         mkdir -p "$WORKTREE_SPRINT_DIR"
-         cp -r "${SPRINT_DIR}"/* "$WORKTREE_SPRINT_DIR/"
-
-         echo ""
-         echo "Worktree created successfully!"
-         echo "Sprint directory: $WORKTREE_SPRINT_DIR"
-         echo ""
-         echo "To run the sprint in the worktree:"
-         echo "  cd $WORKTREE_PATH && /run-sprint .claude/sprints/${SPRINT_ID}"
-         echo ""
-
-         # Exit here - user should run from worktree
-         exit 0
-       fi
-     fi
-   fi
-   ```
-
-   **Note**: If worktree is enabled but doesn't exist yet, the command creates it and exits with instructions. The user should then cd to the worktree and re-run `/run-sprint` from there.
 
 ## Workflow Compilation
 
@@ -260,6 +164,10 @@ Then STOP - do not start the loop or modify any files.
    ```bash
    node "${CLAUDE_PLUGIN_ROOT}/runtime/dist/cli.js" run "$SPRINT_DIR" --max-iterations [N]
    ```
+
+   **Note**: The runtime CLI automatically handles worktree setup if enabled in the workflow
+   or sprint configuration. It will create the worktree, copy sprint files, and run the
+   sprint in the correct location.
 
    Use `run_in_background: true` when calling the Bash tool. This allows:
    - User to continue using Claude Code while sprint runs

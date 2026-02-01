@@ -50,17 +50,22 @@ const TEXT_DEBOUNCE_DELAY = 500; // 500ms debounce for text accumulation
  * NOTE: Similar logic exists in sprint-activity-hook.sh - keep in sync
  */
 function getToolVerbosityLevel(toolName) {
-    // Minimal: major milestones only
-    const minimalTools = ['TodoWrite', 'AskUserQuestion'];
+    // Minimal: major milestones and agent delegation
+    const minimalTools = [
+        'TodoWrite', 'AskUserQuestion',
+        'Task', 'Skill', // Agent delegation
+        'TaskCreate', 'TaskUpdate', 'TaskList', 'TaskGet', // Task management
+    ];
     if (minimalTools.includes(toolName)) {
         return 'minimal';
     }
-    // Basic: file operations
-    const basicTools = ['Read', 'Write', 'Edit', 'Glob', 'Grep'];
+    // Basic: actual changes (writes, edits, commands)
+    const basicTools = ['Write', 'Edit', 'Bash'];
     if (basicTools.includes(toolName)) {
         return 'basic';
     }
-    // Detailed: everything else
+    // Detailed: file reads and searches (noise at basic level)
+    // Includes: Read, Glob, Grep, and everything else
     return 'detailed';
 }
 /**
@@ -93,6 +98,17 @@ function extractParams(toolName, input) {
             return input.pattern;
         case 'Task':
             return input.description;
+        case 'TaskCreate':
+            return input.subject;
+        case 'TaskUpdate': {
+            const status = input.status;
+            const subject = input.subject;
+            if (status && subject)
+                return `${status}: ${subject}`;
+            return status || subject;
+        }
+        case 'TaskGet':
+            return input.taskId;
         default:
             return undefined;
     }
@@ -255,7 +271,7 @@ class TranscriptionWatcher extends events_1.EventEmitter {
             // 1. Non-streaming: assistant message with content array containing tool_use
             // 2. Streaming: stream_event with content_block_start
             let toolUses = [];
-            // Format 1: Assistant message with tool_use in content array
+            // Format 1: Assistant message with tool_use and text in content array
             if (event.type === 'assistant' && event.message?.content) {
                 const content = event.message.content;
                 if (Array.isArray(content)) {
@@ -266,6 +282,19 @@ class TranscriptionWatcher extends events_1.EventEmitter {
                                 name: block.name,
                                 input: block.input || {},
                             });
+                        }
+                        else if (block.type === 'text' && block.text) {
+                            // Extract text blocks (assistant reasoning/output) in non-streaming mode
+                            const activityEvent = {
+                                ts: timestamp,
+                                type: 'assistant',
+                                tool: '',
+                                level: 'minimal',
+                                text: block.text,
+                                isThinking: false, // Non-streaming text is always complete
+                            };
+                            this.addToRecentActivity(activityEvent);
+                            this.emit('activity', activityEvent);
                         }
                     }
                 }

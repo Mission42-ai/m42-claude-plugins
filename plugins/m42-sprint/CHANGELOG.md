@@ -5,6 +5,16 @@ All notable changes to the m42-sprint plugin will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.1] - 2026-02-01
+
+### Fixed
+- Fixed dropdown navigation for sprint switching in status page
+- Improved status page HTML structure with navigation bar
+
+### Changed
+- Refactored status server architecture for cleaner separation of concerns
+- Added `--dashboard` flag to sprint-watch command for dashboard view access
+
 ## [3.0.0] - 2026-02-01
 
 ### Removed
