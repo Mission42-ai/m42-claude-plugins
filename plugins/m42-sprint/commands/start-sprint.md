@@ -178,10 +178,17 @@ collections:
     #     - Login endpoint
     #     - Token refresh
     #     - Logout
+    #   id: auth  # Optional: explicit ID for dependency references
     #
     # - prompt: |
     #     Fix: Password reset emails not sending.
     #   workflow: bugfix-workflow  # Optional: use different workflow for this step
+    #
+    # Parallel Execution: Use depends-on to declare dependencies.
+    # Steps without dependencies or with satisfied dependencies run in parallel.
+    # - prompt: Create user endpoints
+    #   id: user-api
+    #   depends-on: [auth]  # Waits for auth step to complete
 
 # Sprint metadata
 sprint-id: YYYY-MM-DD_<sprint-name>
