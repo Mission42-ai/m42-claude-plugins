@@ -250,6 +250,9 @@ Next steps:
      ```
   2. Run `/run-sprint .claude/sprints/YYYY-MM-DD_<sprint-name>` to compile and execute
   3. Use `--dry-run` first to preview the workflow
+
+Tip: Have plan documents? Use the `sprint-creator` subagent to generate
+SPRINT.yaml from requirements docs instead of writing steps manually.
 ```
 
 #### For Worktree Mode (any workflow):

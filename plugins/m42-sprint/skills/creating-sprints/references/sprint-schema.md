@@ -78,6 +78,8 @@ collections:
 | `prompt` | string | Yes | Item description/instructions |
 | `id` | string | No | Unique item identifier (auto-generated: step-0, step-1) |
 | `workflow` | string | No | Per-item workflow override |
+| `model` | string | No | Model override (`'sonnet'` \| `'opus'` \| `'haiku'`) |
+| `depends-on` | string[] | No | IDs of items that must complete before this item starts (enables parallel execution) |
 | `<custom>` | any | No | Custom properties accessible as `{{item.<custom>}}` |
 
 ## Config Schema
@@ -242,6 +244,37 @@ collections:
       severity: low
 ```
 
+### Sprint with Dependencies (Parallel Execution)
+
+Use `depends-on` to control execution order while enabling parallel execution of independent steps:
+
+```yaml
+name: API with Parallel Steps
+workflow: sprint-default
+
+collections:
+  step:
+    - prompt: Set up database schema
+      id: db-schema
+
+    - prompt: Create user model
+      id: user-model
+      depends-on: [db-schema]
+
+    - prompt: Create order model
+      id: order-model
+      depends-on: [db-schema]
+
+    - prompt: Implement user-order relationships
+      id: relationships
+      depends-on: [user-model, order-model]
+```
+
+In this example:
+- `db-schema` runs first (no dependencies)
+- `user-model` and `order-model` run **in parallel** after `db-schema` completes
+- `relationships` waits for both models to complete
+
 ## Invalid Examples
 
 ### Missing Required Fields
@@ -309,10 +342,11 @@ Current schema version supports:
 - Custom properties on items
 - Workflow reference resolution
 - Per-item workflow overrides
+- Per-item model selection
 - Sprint configuration options
+- Item dependencies with `depends-on` for parallel execution
+- Parallel execution configuration (`parallel-execution` field)
 
 Future versions may add:
-- Item dependencies
 - Conditional items
-- Parallel item groups
 - Item templates

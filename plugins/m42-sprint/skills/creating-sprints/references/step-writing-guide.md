@@ -234,6 +234,76 @@ collections:
 - Add debouncing to search input (300ms delay)
 ```
 
+## Step Dependencies (Parallel Execution)
+
+Use `depends-on` to declare dependencies between steps, enabling parallel execution of independent work.
+
+### When to Use Dependencies
+
+| Scenario | Use Dependencies? |
+|----------|-------------------|
+| Steps share data/state | Yes - dependent step waits |
+| Steps are independent | No - they run in parallel automatically |
+| Order matters for correctness | Yes - declare the dependency |
+| Order is just preference | No - let scheduler optimize |
+
+### Dependency Example
+
+```yaml
+collections:
+  step:
+    - prompt: Set up database schema
+      id: db-schema
+
+    - prompt: Create user model
+      id: user-model
+      depends-on: [db-schema]
+
+    - prompt: Create order model
+      id: order-model
+      depends-on: [db-schema]
+
+    - prompt: Add user-order relationships
+      id: relationships
+      depends-on: [user-model, order-model]
+```
+
+**Execution order:**
+1. `db-schema` runs first (no dependencies)
+2. `user-model` and `order-model` run **in parallel** (both depend only on db-schema)
+3. `relationships` runs after both models complete
+
+### Best Practices for Dependencies
+
+| Practice | Rationale |
+|----------|-----------|
+| Use explicit `id` fields | Required for referencing in `depends-on` |
+| Keep dependency chains short | Long chains reduce parallelism benefits |
+| Don't over-specify | Only declare necessary dependencies |
+| Use meaningful IDs | Makes dependency graph readable |
+
+### Common Patterns
+
+**Foundation Pattern:**
+```yaml
+- prompt: Set up shared infrastructure
+  id: foundation
+- prompt: Feature A
+  depends-on: [foundation]
+- prompt: Feature B
+  depends-on: [foundation]
+```
+
+**Convergence Pattern:**
+```yaml
+- prompt: Build component A
+  id: component-a
+- prompt: Build component B
+  id: component-b
+- prompt: Integrate A and B
+  depends-on: [component-a, component-b]
+```
+
 ## Step Sizing Checklist
 
 Before finalizing a step, verify:
@@ -245,6 +315,7 @@ Before finalizing a step, verify:
 | Scope | Is it completable as a single unit of work? |
 | Testable | Can success be verified? |
 | Independent | Can it run without human intervention? |
+| Dependencies | Are required dependencies declared with `depends-on`? |
 
 ## Examples by Domain
 

@@ -178,10 +178,17 @@ collections:
     #     - Login endpoint
     #     - Token refresh
     #     - Logout
+    #   id: auth  # Optional: explicit ID for dependency references
     #
     # - prompt: |
     #     Fix: Password reset emails not sending.
     #   workflow: bugfix-workflow  # Optional: use different workflow for this step
+    #
+    # Parallel Execution: Use depends-on to declare dependencies.
+    # Steps without dependencies or with satisfied dependencies run in parallel.
+    # - prompt: Create user endpoints
+    #   id: user-api
+    #   depends-on: [auth]  # Waits for auth step to complete
 
 # Sprint metadata
 sprint-id: YYYY-MM-DD_<sprint-name>
@@ -250,6 +257,10 @@ Next steps:
      ```
   2. Run `/run-sprint .claude/sprints/YYYY-MM-DD_<sprint-name>` to compile and execute
   3. Use `--dry-run` first to preview the workflow
+
+Alternative: If you have plan documents or requirements files, use the
+sprint-creator subagent to automatically generate SPRINT.yaml content:
+  "Create a sprint from my-plan.md"
 ```
 
 #### For Worktree Mode (any workflow):

@@ -18,6 +18,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Steps now execute sequentially in the order defined
 - Simplified documentation to reflect sequential-only execution model
 
+## [2.5.3] - 2026-02-01
+
+### Changed
+- Added sprint-creator subagent tips to `init-sprint` and `start-sprint` commands
+- Added sprint-creator subagent reference to `creating-sprints` skill
+
 ## [2.5.2] - 2026-02-01
 
 ### Fixed
