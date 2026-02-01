@@ -11,8 +11,13 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { execSync } from 'child_process';
+import yaml from 'js-yaml';
 import { runLoop, LoopOptions, LoopResult, LoopDependencies } from './loop.js';
 import { runClaude } from './claude-runner.js';
+import { shouldCreateWorktree, resolveWorktreePath } from '../../compiler/dist/worktree-config.js';
+import { createWorktree, getRepoRoot } from './worktree.js';
+import type { SprintDefinition, WorkflowDefinition } from '../../compiler/dist/types.js';
 
 // ============================================================================
 // Constants
@@ -270,6 +275,185 @@ function printVersion(): void {
 }
 
 // ============================================================================
+// Worktree Setup
+// ============================================================================
+
+/**
+ * Load SPRINT.yaml from a directory
+ */
+function loadSprintYaml(sprintDir: string): SprintDefinition | null {
+  const sprintYamlPath = path.join(sprintDir, 'SPRINT.yaml');
+  if (!fs.existsSync(sprintYamlPath)) {
+    return null;
+  }
+  const content = fs.readFileSync(sprintYamlPath, 'utf-8');
+  return yaml.load(content) as SprintDefinition;
+}
+
+/**
+ * Load workflow YAML from .claude/workflows/
+ */
+function loadWorkflowYaml(workflowName: string, repoRoot: string): WorkflowDefinition | null {
+  const workflowPath = path.join(repoRoot, '.claude', 'workflows', `${workflowName}.yaml`);
+  if (!fs.existsSync(workflowPath)) {
+    return null;
+  }
+  const content = fs.readFileSync(workflowPath, 'utf-8');
+  return yaml.load(content) as WorkflowDefinition;
+}
+
+/**
+ * Check if a worktree already exists for the given path
+ */
+function worktreeExists(worktreePath: string, repoRoot: string): boolean {
+  try {
+    const output = execSync('git worktree list --porcelain', {
+      cwd: repoRoot,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    const lines = output.split('\n');
+    for (const line of lines) {
+      if (line.startsWith('worktree ') && line.slice(9) === worktreePath) {
+        return true;
+      }
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Copy sprint files to the worktree
+ */
+function copySprintFiles(sourceDir: string, targetDir: string): void {
+  // Create target directory if it doesn't exist
+  if (!fs.existsSync(targetDir)) {
+    fs.mkdirSync(targetDir, { recursive: true });
+  }
+
+  // Copy all files recursively
+  const entries = fs.readdirSync(sourceDir, { withFileTypes: true });
+  for (const entry of entries) {
+    const sourcePath = path.join(sourceDir, entry.name);
+    const targetPath = path.join(targetDir, entry.name);
+
+    if (entry.isDirectory()) {
+      copySprintFiles(sourcePath, targetPath);
+    } else {
+      fs.copyFileSync(sourcePath, targetPath);
+    }
+  }
+}
+
+/**
+ * Setup worktree if configured in sprint/workflow.
+ * Returns the actual sprint directory to use (worktree dir or original).
+ */
+async function setupWorktreeIfNeeded(sprintDir: string): Promise<string> {
+  // Resolve absolute path
+  const absoluteSprintDir = path.resolve(sprintDir);
+
+  // Get repo root
+  const repoRoot = getRepoRoot(absoluteSprintDir);
+  if (!repoRoot) {
+    console.log('Not in a git repository, skipping worktree check');
+    return absoluteSprintDir;
+  }
+
+  // Load SPRINT.yaml
+  const sprintDef = loadSprintYaml(absoluteSprintDir);
+  if (!sprintDef) {
+    console.error('Error: Could not load SPRINT.yaml from', absoluteSprintDir);
+    process.exit(1);
+  }
+
+  // Load workflow
+  const workflowDef = loadWorkflowYaml(sprintDef.workflow, repoRoot);
+  if (!workflowDef) {
+    console.error(`Error: Could not load workflow "${sprintDef.workflow}" from ${repoRoot}/.claude/workflows/`);
+    process.exit(1);
+  }
+
+  // Check if worktree should be created
+  if (!shouldCreateWorktree(sprintDef, workflowDef)) {
+    return absoluteSprintDir;
+  }
+
+  // Determine sprint ID
+  const sprintId = sprintDef['sprint-id'] || path.basename(absoluteSprintDir);
+
+  // Resolve worktree paths
+  const resolved = resolveWorktreePath(sprintId, workflowDef.worktree, sprintDef.worktree);
+  const worktreePath = path.isAbsolute(resolved.path)
+    ? resolved.path
+    : path.resolve(repoRoot, resolved.path);
+
+  // Check if worktree already exists
+  if (worktreeExists(worktreePath, repoRoot)) {
+    console.log(`Worktree already exists at ${worktreePath}`);
+    const targetSprintDir = path.join(worktreePath, '.claude', 'sprints', sprintId);
+    if (fs.existsSync(targetSprintDir)) {
+      return targetSprintDir;
+    }
+    // Worktree exists but sprint dir doesn't - copy files
+    console.log(`Copying sprint files to existing worktree...`);
+    copySprintFiles(absoluteSprintDir, targetSprintDir);
+    return targetSprintDir;
+  }
+
+  // Check if worktree directory already exists (but not as a git worktree)
+  if (fs.existsSync(worktreePath)) {
+    console.log(`Directory already exists at ${worktreePath}, using existing directory`);
+    const targetSprintDir = path.join(worktreePath, '.claude', 'sprints', sprintId);
+    if (!fs.existsSync(targetSprintDir)) {
+      console.log(`Copying sprint files...`);
+      copySprintFiles(absoluteSprintDir, targetSprintDir);
+    }
+    return targetSprintDir;
+  }
+
+  // Create worktree
+  console.log(`Creating worktree for sprint ${sprintId}...`);
+  console.log(`  Branch: ${resolved.branch}`);
+  console.log(`  Path: ${worktreePath}`);
+
+  const worktreeConfig = {
+    enabled: true,
+    branch: resolved.branch,
+    path: resolved.path,
+    cleanup: resolved.cleanup,
+  };
+
+  const result = createWorktree(
+    worktreeConfig,
+    sprintId,
+    sprintDef.workflow,
+    repoRoot,
+    { reuseExistingBranch: true }
+  );
+
+  if (!result.success) {
+    console.error(`Error creating worktree: ${result.error}`);
+    if (result.suggestion) {
+      console.error(`Suggestion: ${result.suggestion}`);
+    }
+    process.exit(1);
+  }
+
+  console.log(`Worktree created at ${result.worktreePath}`);
+
+  // Copy sprint files to the new worktree
+  const targetSprintDir = result.sprintDir;
+  console.log(`Copying sprint files to ${targetSprintDir}...`);
+  copySprintFiles(absoluteSprintDir, targetSprintDir);
+
+  console.log(`Sprint will run in worktree: ${targetSprintDir}`);
+  return targetSprintDir;
+}
+
+// ============================================================================
 // Main Entry Point
 // ============================================================================
 
@@ -297,9 +481,12 @@ async function main(): Promise<void> {
 
   // Execute command
   if (parsed.command === 'run' && parsed.directory) {
+    // Setup worktree if needed and get the actual sprint directory
+    const actualSprintDir = await setupWorktreeIfNeeded(parsed.directory);
+
     const exitCode = await runCommand(
       parsed.command,
-      parsed.directory,
+      actualSprintDir,
       parsed.options
     );
     process.exit(exitCode);
