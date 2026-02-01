@@ -37,7 +37,9 @@ phases: <list>           # Required
   prompt: <string>       # Required - execution instructions
 ```
 
-### For-Each Phase
+### For-Each Phase (Nested)
+
+Delegates each item to a separate workflow:
 
 ```yaml
 - id: <string>           # Required - unique identifier
@@ -45,14 +47,24 @@ phases: <list>           # Required
   workflow: <string>     # Required - workflow reference for each iteration
 ```
 
+### For-Each Phase (Flat)
+
+Processes items directly with template variables:
+
+```yaml
+- id: <string>           # Required - unique identifier
+  for-each: <string>     # Required - collection name (e.g., "step", "feature", "bug")
+  prompt: <string>       # Required - execution instructions with {{item.*}} variables
+```
+
 ## Phase Fields Reference
 
 | Field | Type | Required | Context | Description |
 |-------|------|----------|---------|-------------|
 | `id` | string | Yes | All phases | Unique phase identifier (kebab-case recommended) |
-| `prompt` | string | Conditional | Simple phases | Instructions for phase execution |
+| `prompt` | string | Conditional | Simple & flat for-each | Instructions for phase execution |
 | `for-each` | string | Conditional | For-each phases | Collection name to iterate (e.g., "step", "feature") |
-| `workflow` | string | Conditional | For-each phases | Workflow reference (no `.yaml` extension) |
+| `workflow` | string | Conditional | Nested for-each phases | Workflow reference (no `.yaml` extension) |
 | `parallel` | boolean | No | Item workflow phases | Run in background, don't block next item |
 | `wait-for-parallel` | boolean | No | Top-level phases | Wait for all parallel tasks before continuing |
 | `break` | boolean | No | All phases | Pause execution after phase completes for human review |
@@ -63,7 +75,10 @@ phases: <list>           # Required
 | Phase Type | Required Fields | Description |
 |------------|-----------------|-------------|
 | Simple | `id` + `prompt` | Direct prompt execution |
-| For-Each | `id` + `for-each` + `workflow` | Iterates over collection items, runs workflow per item |
+| For-Each (Nested) | `id` + `for-each` + `workflow` | Iterates over items, runs workflow per item |
+| For-Each (Flat) | `id` + `for-each` + `prompt` | Iterates over items, executes prompt with `{{item.*}}` |
+
+**Note:** `prompt` and `workflow` are mutually exclusive - a phase cannot have both.
 
 ## TypeScript Interface
 
@@ -110,8 +125,9 @@ interface GateCheck {
 
 1. Each phase must have unique `id`
 2. Phase `id` should be kebab-case (lowercase, hyphens)
-3. Simple phase: `prompt` is required, `for-each` and `workflow` must be absent
-4. For-each phase: `for-each` and `workflow` are required, `prompt` must be absent
+3. A phase must have at least one of: `prompt`, `for-each`, or `workflow`
+4. `prompt` and `workflow` are mutually exclusive (cannot have both)
+5. For-each phases require either `workflow` (nested) or `prompt` (flat)
 
 ### Reference Resolution
 
@@ -158,6 +174,8 @@ phases:
 
 ### Nested Workflows
 
+Use `for-each` + `workflow` when each item needs multiple phases:
+
 ```yaml
 # sprint-workflow.yaml
 schema-version: "2.0"
@@ -176,6 +194,46 @@ phases:
   - id: test
     prompt: "Test implementation"
 ```
+
+### Flat For-Each
+
+Use `for-each` + `prompt` when items can be processed in a single prompt with template variables. This is simpler than nested workflows and keeps all logic in one file:
+
+```yaml
+schema-version: "2.0"
+name: TDD Development
+description: Operator-driven development with flat for-each
+phases:
+  - id: preflight
+    prompt: "Prepare development environment and context..."
+
+  - id: development
+    for-each: step
+    prompt: |
+      ## Your Role: TDD OPERATOR
+
+      Execute TDD cycle for this step:
+
+      ## Requirements
+      {{item.prompt}}
+
+      ## Instructions
+      1. Write failing tests (RED)
+      2. Implement to pass tests (GREEN)
+      3. Refactor and clean up
+
+      Use {{item.id}} for commit messages.
+
+  - id: qa
+    prompt: "Run final quality checks..."
+```
+
+**When to use each pattern:**
+
+| Pattern | Use Case |
+|---------|----------|
+| Nested (`for-each` + `workflow`) | Items need multi-phase execution, reusable workflows |
+| Flat (`for-each` + `prompt`) | Single-prompt processing, operator-driven delegation |
 
 ### Parallel Execution
 
@@ -318,16 +376,24 @@ phases:
 ```
 
 ```yaml
-# INVALID: For-each phase missing workflow
+# INVALID: For-each phase missing both workflow and prompt
 phases:
   - id: development
     for-each: step
 ```
 
 ```yaml
-# INVALID: Mixed phase types (both prompt and for-each)
+# INVALID: prompt and workflow are mutually exclusive
 phases:
   - id: hybrid
+    prompt: "Do something"
+    workflow: some-workflow
+```
+
+```yaml
+# INVALID: All three together (prompt + for-each + workflow)
+phases:
+  - id: mixed
     prompt: "Do something"
     for-each: step
     workflow: some-workflow
@@ -347,7 +413,9 @@ phases:
 
 Current schema version supports:
 - Simple phases with prompts
-- For-each phases iterating over named collections
+- For-each phases with two patterns:
+  - Nested: `for-each` + `workflow` for multi-phase item processing
+  - Flat: `for-each` + `prompt` for single-prompt item processing
 - Template variable substitution (`{{item.*}}`, `{{<type>.*}}`)
 - Parallel execution with `parallel` and `wait-for-parallel`
 - Quality gates with `gate`, `on-fail`, and `max-retries` configuration
