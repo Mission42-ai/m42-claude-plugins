@@ -14,8 +14,7 @@ Manages development sprints through workflow-based compilation with hierarchical
 | Workflow | Reusable phase template in `.claude/workflows/` |
 | SPRINT.yaml | Sprint input: workflow reference + collections |
 | PROGRESS.yaml | Compiled execution tree (generated) |
-| Ralph Loop | Fresh context per task via `claude -p` |
-| Ralph Mode | Autonomous goal-driven workflow with dynamic steps |
+| Execution Loop | Fresh context per task via `claude -p` |
 
 ## Sprint Structure
 
@@ -97,24 +96,12 @@ phases:
     tasks: [...]
 ```
 
-## Workflow Modes
-
-The sprint system supports two workflow modes:
-
-| Mode | Description | Use Case |
-|------|-------------|----------|
-| **Standard** | Phase-based execution with predefined steps | Known task sequences |
-| **Ralph Mode** | Autonomous goal-driven with dynamic steps | Open-ended goals |
-
-Ralph Mode workflows use `mode: ralph` and allow Claude to create steps dynamically. See `docs/concepts/ralph-mode.md` for details.
-
 ## References
 
 - `references/workflow-definitions.md` - Workflow template syntax and structure
-- `references/progress-schema.md` - PROGRESS.yaml schema specification (includes Ralph Mode fields)
+- `references/progress-schema.md` - PROGRESS.yaml schema specification
 - `references/compiler-usage.md` - Compiler invocation and options
 - `references/sprint-setup.md` - Directory structure and initialization
-- `docs/concepts/ralph-mode.md` - Ralph Mode autonomous workflow documentation
 
 ## Assets
 

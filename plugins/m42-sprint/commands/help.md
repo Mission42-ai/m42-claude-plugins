@@ -16,7 +16,7 @@ a hierarchical phase structure in PROGRESS.yaml for execution.
 - Define a sprint with collections in SPRINT.yaml
 - Compilation expands collections into hierarchical phases
 - Run the sprint to start autonomous processing
-- Each phase runs with FRESH context (Ralph Loop pattern)
+- Each phase runs with fresh context (no accumulated state)
 - Progress tracked hierarchically in PROGRESS.yaml
 - Sprint continues until complete, blocked, or paused
 
@@ -90,12 +90,12 @@ The sprint uses a **compilation model**:
 
 3. **Execution** - Phases run sequentially:
    - Pointer tracks current phase/step/sub-phase
-   - Fresh context per phase (Ralph Loop)
+   - Fresh context per phase (no accumulated state)
    - Progress persisted after each phase
 
 ## Loop Mechanism
 
-The sprint uses the **Ralph Loop pattern** with fresh context per phase:
+The sprint uses a fresh-context execution model:
 
 1. `/run-sprint` compiles SPRINT.yaml to PROGRESS.yaml
 2. Launches TypeScript sprint runtime in background

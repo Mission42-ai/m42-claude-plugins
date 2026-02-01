@@ -56,8 +56,8 @@ Using the sprint directory identified in preflight, use the Read tool to read:
 
 ## How Pausing Works
 
-The sprint loop follows the Ralph Loop pattern with fresh context per task.
-It runs as a background TypeScript runtime that:
+The sprint loop runs with fresh context per task as a background
+TypeScript runtime that:
 
 1. Invokes `claude -p` for ONE task
 2. Waits for Claude to complete and exit
