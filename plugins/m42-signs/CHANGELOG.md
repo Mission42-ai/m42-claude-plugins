@@ -5,6 +5,20 @@ All notable changes to the m42-signs plugin will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-02-01
+
+### Added
+- New `learning-extraction` skill with taxonomy-based extraction patterns
+- Three new subagents: `context-matcher`, `quality-reviewer`, `transcript-section-analyzer`
+- Operator pattern architecture for extract command (orchestration/domain separation)
+
+### Changed
+- Refactored extract command to use parallel subagent processing
+- Updated find-learning-lines.sh with improved error handling
+
+### Deprecated
+- `chunk-analyzer` subagent (use `transcript-section-analyzer` instead)
+
 ## [0.2.1] - 2026-02-01
 
 ### Changed
