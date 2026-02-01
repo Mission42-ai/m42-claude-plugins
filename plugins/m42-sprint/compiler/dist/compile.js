@@ -271,6 +271,8 @@ async function compile(config) {
     const worktree = (0, worktree_config_js_1.mergeWorktreeConfigs)(sprintId, sprintDef, mainWorkflow.definition);
     // Build dependency graphs for for-each phases
     const dependencyGraphs = buildDependencyGraphs(compiledPhases);
+    // Merge per-iteration hooks (workflow defaults + sprint overrides)
+    const mergedHooks = mergePerIterationHooks(mainWorkflow.definition['per-iteration-hooks'], sprintDef['per-iteration-hooks']);
     // Build compiled progress
     const progress = {
         'sprint-id': sprintId,
@@ -288,7 +290,9 @@ async function compile(config) {
         // Add worktree config if enabled in workflow or sprint
         ...(worktree && { worktree }),
         // Add dependency graph if any phases have dependencies
-        ...(dependencyGraphs.length > 0 && { 'dependency-graph': dependencyGraphs })
+        ...(dependencyGraphs.length > 0 && { 'dependency-graph': dependencyGraphs }),
+        // Add per-iteration hooks if defined in workflow or sprint
+        ...(mergedHooks.length > 0 && { 'per-iteration-hooks': mergedHooks, 'hook-tasks': [] })
     };
     // Validate compiled progress
     const progressErrors = (0, validate_js_1.validateCompiledProgress)(progress);
@@ -467,6 +471,25 @@ function initializeCurrentPointer(phases) {
             'sub-phase': null
         };
     }
+}
+/**
+ * Merge per-iteration hooks from workflow with sprint overrides
+ *
+ * @param workflowHooks - Hooks defined in the workflow
+ * @param sprintOverrides - Sprint-level enable/disable overrides
+ * @returns Merged array of hooks with overrides applied
+ */
+function mergePerIterationHooks(workflowHooks, sprintOverrides) {
+    if (!workflowHooks || workflowHooks.length === 0) {
+        return [];
+    }
+    return workflowHooks.map(hook => {
+        const override = sprintOverrides?.[hook.id];
+        if (override) {
+            return { ...hook, enabled: override.enabled };
+        }
+        return hook;
+    });
 }
 /**
  * Compile orchestration configuration from workflow definition

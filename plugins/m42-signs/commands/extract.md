@@ -328,17 +328,17 @@ Written to: .claude/learnings/backlog.yaml
 When transcript exceeds 100 lines or 500KB, activate preprocessing mode:
 
 ### Step 1: Generate Summary
-!`plugins/m42-signs/scripts/transcript-summary.sh "$TRANSCRIPT_PATH"`
+`plugins/m42-signs/scripts/transcript-summary.sh "$TRANSCRIPT_PATH"`
 
 Review stats to understand transcript scope.
 
 ### Step 2: Find High-Value Patterns
-!`plugins/m42-signs/scripts/find-learning-lines.sh "$TRANSCRIPT_PATH"`
+`plugins/m42-signs/scripts/find-learning-lines.sh "$TRANSCRIPT_PATH"`
 
 These snippets indicate where learnings concentrate.
 
 ### Step 3: Extract Reasoning Blocks
-!`plugins/m42-signs/scripts/extract-reasoning.sh "$TRANSCRIPT_PATH" > /tmp/reasoning-$$.jsonl`
+`plugins/m42-signs/scripts/extract-reasoning.sh "$TRANSCRIPT_PATH" > /tmp/reasoning-$$.jsonl`
 
 Creates a smaller file focused on learning-worthy content.
 

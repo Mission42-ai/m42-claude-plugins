@@ -19,6 +19,39 @@ export type LogLevel = 'info' | 'warn' | 'error';
 /** Step insertion position strategies */
 export type InsertPosition = 'after-current' | 'end-of-phase';
 /**
+ * Per-iteration hook configuration
+ * Hooks run after each iteration to perform automated tasks like learning extraction
+ */
+export interface PerIterationHook {
+    /** Unique identifier for this hook */
+    id: string;
+    /** Reference to workflow (e.g., "m42-signs:learning-extraction") */
+    workflow?: string;
+    /** Inline prompt alternative to workflow */
+    prompt?: string;
+    /** If true, runs non-blocking in background */
+    parallel: boolean;
+    /** Whether this hook is active */
+    enabled: boolean;
+}
+/**
+ * Tracking entry for per-iteration hook execution
+ */
+export interface HookTask {
+    /** Hook identifier */
+    id: string;
+    /** Which iteration triggered this hook */
+    iteration: number;
+    /** When the hook started */
+    'started-at'?: string;
+    /** When the hook completed */
+    'completed-at'?: string;
+    /** Exit status */
+    status?: 'running' | 'completed' | 'failed';
+    /** Error message if failed */
+    error?: string;
+}
+/**
  * Discriminated union for sprint state - provides type-safe state access.
  * Each state variant has its own specific required fields.
  */
@@ -382,6 +415,10 @@ export interface SprintDefinition {
     prompts?: SprintPrompts;
     /** Optional worktree configuration for isolated execution */
     worktree?: WorktreeConfig;
+    /** Per-iteration hook overrides (enable/disable specific hooks) */
+    'per-iteration-hooks'?: Record<string, {
+        enabled: boolean;
+    }>;
 }
 /**
  * Customizable runtime prompt templates for sprint execution
@@ -463,6 +500,8 @@ export interface WorkflowDefinition {
     worktree?: WorkflowWorktreeDefaults;
     /** Optional model to use for all phases (lowest priority default) */
     model?: ClaudeModel;
+    /** Per-iteration hooks for automated tasks */
+    'per-iteration-hooks'?: PerIterationHook[];
 }
 /**
  * A parallel task running in the background
@@ -671,6 +710,10 @@ export interface CompiledProgress {
     'dependency-graph'?: CompiledDependencyGraph[];
     /** Configuration for parallel execution within for-each phases */
     'parallel-execution'?: ParallelExecutionConfig;
+    /** Active per-iteration hooks */
+    'per-iteration-hooks'?: PerIterationHook[];
+    /** Hook execution tracking */
+    'hook-tasks'?: HookTask[];
 }
 /**
  * Item context for template variable substitution

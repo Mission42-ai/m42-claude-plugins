@@ -25,7 +25,8 @@ import type {
   OrchestrationConfig,
   SprintPrompts,
   CompiledDependencyGraph,
-  CompiledDependencyNode
+  CompiledDependencyNode,
+  PerIterationHook
 } from './types.js';
 import { loadWorkflow, resolveWorkflowRefs, clearWorkflowCache, MAX_WORKFLOW_DEPTH } from './resolve-workflows.js';
 import { expandForEach, compileSimplePhase, substituteTemplateVars, ModelContext, resolveModelFromContext } from './expand-foreach.js';
@@ -322,6 +323,12 @@ export async function compile(config: CompilerConfig): Promise<CompilerResult> {
   // Build dependency graphs for for-each phases
   const dependencyGraphs = buildDependencyGraphs(compiledPhases);
 
+  // Merge per-iteration hooks (workflow defaults + sprint overrides)
+  const mergedHooks = mergePerIterationHooks(
+    mainWorkflow.definition['per-iteration-hooks'],
+    sprintDef['per-iteration-hooks']
+  );
+
   // Build compiled progress
   const progress: CompiledProgress = {
     'sprint-id': sprintId,
@@ -339,7 +346,9 @@ export async function compile(config: CompilerConfig): Promise<CompilerResult> {
     // Add worktree config if enabled in workflow or sprint
     ...(worktree && { worktree }),
     // Add dependency graph if any phases have dependencies
-    ...(dependencyGraphs.length > 0 && { 'dependency-graph': dependencyGraphs })
+    ...(dependencyGraphs.length > 0 && { 'dependency-graph': dependencyGraphs }),
+    // Add per-iteration hooks if defined in workflow or sprint
+    ...(mergedHooks.length > 0 && { 'per-iteration-hooks': mergedHooks, 'hook-tasks': [] })
   };
 
   // Validate compiled progress
@@ -562,6 +571,30 @@ function initializeCurrentPointer(phases: CompiledTopPhase[]): CurrentPointer {
       'sub-phase': null
     };
   }
+}
+
+/**
+ * Merge per-iteration hooks from workflow with sprint overrides
+ *
+ * @param workflowHooks - Hooks defined in the workflow
+ * @param sprintOverrides - Sprint-level enable/disable overrides
+ * @returns Merged array of hooks with overrides applied
+ */
+function mergePerIterationHooks(
+  workflowHooks: PerIterationHook[] | undefined,
+  sprintOverrides: Record<string, { enabled: boolean }> | undefined
+): PerIterationHook[] {
+  if (!workflowHooks || workflowHooks.length === 0) {
+    return [];
+  }
+
+  return workflowHooks.map(hook => {
+    const override = sprintOverrides?.[hook.id];
+    if (override) {
+      return { ...hook, enabled: override.enabled };
+    }
+    return hook;
+  });
 }
 
 /**

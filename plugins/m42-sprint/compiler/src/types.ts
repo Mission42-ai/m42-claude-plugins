@@ -35,6 +35,45 @@ export type LogLevel = 'info' | 'warn' | 'error';
 export type InsertPosition = 'after-current' | 'end-of-phase';
 
 // ============================================================================
+// Per-Iteration Hook Types
+// ============================================================================
+
+/**
+ * Per-iteration hook configuration
+ * Hooks run after each iteration to perform automated tasks like learning extraction
+ */
+export interface PerIterationHook {
+  /** Unique identifier for this hook */
+  id: string;
+  /** Reference to workflow (e.g., "m42-signs:learning-extraction") */
+  workflow?: string;
+  /** Inline prompt alternative to workflow */
+  prompt?: string;
+  /** If true, runs non-blocking in background */
+  parallel: boolean;
+  /** Whether this hook is active */
+  enabled: boolean;
+}
+
+/**
+ * Tracking entry for per-iteration hook execution
+ */
+export interface HookTask {
+  /** Hook identifier */
+  id: string;
+  /** Which iteration triggered this hook */
+  iteration: number;
+  /** When the hook started */
+  'started-at'?: string;
+  /** When the hook completed */
+  'completed-at'?: string;
+  /** Exit status */
+  status?: 'running' | 'completed' | 'failed';
+  /** Error message if failed */
+  error?: string;
+}
+
+// ============================================================================
 // XState-Inspired Discriminated Unions (Type-Safe State Machine)
 // ============================================================================
 
@@ -445,6 +484,8 @@ export interface SprintDefinition {
   prompts?: SprintPrompts;
   /** Optional worktree configuration for isolated execution */
   worktree?: WorktreeConfig;
+  /** Per-iteration hook overrides (enable/disable specific hooks) */
+  'per-iteration-hooks'?: Record<string, { enabled: boolean }>;
 }
 
 /**
@@ -535,6 +576,8 @@ export interface WorkflowDefinition {
   worktree?: WorkflowWorktreeDefaults;
   /** Optional model to use for all phases (lowest priority default) */
   model?: ClaudeModel;
+  /** Per-iteration hooks for automated tasks */
+  'per-iteration-hooks'?: PerIterationHook[];
 }
 
 // ============================================================================
@@ -767,6 +810,12 @@ export interface CompiledProgress {
   // Parallel execution configuration
   /** Configuration for parallel execution within for-each phases */
   'parallel-execution'?: ParallelExecutionConfig;
+
+  // Per-iteration hooks
+  /** Active per-iteration hooks */
+  'per-iteration-hooks'?: PerIterationHook[];
+  /** Hook execution tracking */
+  'hook-tasks'?: HookTask[];
 }
 
 // ============================================================================
