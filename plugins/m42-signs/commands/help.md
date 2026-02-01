@@ -11,7 +11,7 @@ Please explain the following to the user:
 
 The M42 Signs plugin implements a **learning loop** for Claude Code. It captures learnings from errors and successful recoveries, storing them as "signs" in CLAUDE.md files throughout your codebase.
 
-**Core concept - The Ralph Loop:**
+**Core concept - The Learning Loop:**
 ```
   ┌─────────────────────────────────────────────────────────────┐
   │                                                             │
