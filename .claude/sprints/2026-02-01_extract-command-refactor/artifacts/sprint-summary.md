@@ -48,6 +48,8 @@ Refactored the `/m42-signs:extract` command from a monolithic 400+ line implemen
 ## Commits
 
 ```
+e1c85fe qa: sprint verification complete
+8f79037 docs: sprint summary
 403d91a qa: sprint verification complete
 2c6b15c chore: bump m42-signs version to 0.3.0
 1040615 tooling: commands and skills synced
