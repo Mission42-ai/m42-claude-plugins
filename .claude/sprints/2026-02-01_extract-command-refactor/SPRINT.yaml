@@ -1,0 +1,153 @@
+# SPRINT.yaml - Extract Command Refactor
+# Transform extract command into operator pattern with parallel subagent processing
+
+workflow: plugin-development
+
+collections:
+  step:
+    # Phase 1: Create the learning-extraction skill
+    - id: create-skill
+      prompt: |
+        /m42-meta-toolkit:create-skill Create the learning-extraction skill at plugins/m42-signs/skills/learning-extraction/
+
+        Read the implementation plan at: .claude/sprints/2026-02-01_extract-command-refactor/context/implementation-plan.md
+
+        Create:
+        1. SKILL.md - Core skill with:
+           - 8-category learning taxonomy (architectural patterns, project conventions, pitfalls, effective strategies, file relationships, API patterns, build/test patterns, domain knowledge)
+           - Quality criteria (what to extract, what to skip)
+           - Extraction patterns (linguistic signals, tool sequences)
+           - Confidence scoring rubric
+
+        2. references/learning-taxonomy.md - Detailed category definitions with examples
+        3. references/quality-criteria.md - Good sign characteristics, anti-patterns
+        4. references/extraction-patterns.md - Linguistic and tool sequence signals
+        5. references/confidence-scoring.md - Scoring rubric with evidence types
+
+        Reference existing patterns in:
+        - plugins/m42-signs/skills/managing-signs/ (for structure)
+        - plugins/m42-signs/commands/extract.md (contains current domain logic to extract)
+
+        The skill should be invokable by subagents for domain knowledge.
+
+    # Phase 2: Create transcript-section-analyzer subagent
+    - id: create-analyzer-agent
+      prompt: |
+        /m42-meta-toolkit:create-subagent Create the transcript-section-analyzer subagent at plugins/m42-signs/agents/transcript-section-analyzer.md
+
+        Read the implementation plan: .claude/sprints/2026-02-01_extract-command-refactor/context/implementation-plan.md
+
+        This subagent replaces chunk-analyzer.md with improvements:
+        - Invokes Skill(learning-extraction) for domain knowledge
+        - Analyzes transcript section systematically
+        - Extracts candidates with: id, title, problem, solution, category, confidence, evidence
+        - Focus on completeness (quality-reviewer filters later)
+
+        Tools: Read, Bash, Skill
+        Model: sonnet
+        Color: cyan
+
+        Reference existing subagent patterns in plugins/m42-meta-toolkit/agents/
+
+    # Phase 3: Create context-matcher subagent
+    - id: create-matcher-agent
+      prompt: |
+        /m42-meta-toolkit:create-subagent Create the context-matcher subagent at plugins/m42-signs/agents/context-matcher.md
+
+        Read the implementation plan: .claude/sprints/2026-02-01_extract-command-refactor/context/implementation-plan.md
+
+        Responsibilities:
+        - Find all CLAUDE.md files in project via Glob
+        - Assign target based on learning scope (most specific match)
+        - Check for duplicates against existing signs
+        - Flag related documentation
+
+        Tools: Read, Grep, Glob
+        Model: sonnet
+        Color: purple
+
+    # Phase 4: Create quality-reviewer subagent
+    - id: create-reviewer-agent
+      prompt: |
+        /m42-meta-toolkit:create-subagent Create the quality-reviewer subagent at plugins/m42-signs/agents/quality-reviewer.md
+
+        Read the implementation plan: .claude/sprints/2026-02-01_extract-command-refactor/context/implementation-plan.md
+
+        Responsibilities:
+        - Invoke Skill(learning-extraction) for quality criteria
+        - Score candidates on: actionability, specificity, reusability, clarity
+        - Adjust confidence based on evidence strength
+        - Filter low-quality entries, exclude duplicates
+        - Provide summary with reasons for exclusions
+
+        Tools: Read, Skill
+        Model: sonnet
+        Color: purple
+
+    # Phase 5: Refactor the extract command
+    - id: refactor-command
+      prompt: |
+        /m42-meta-toolkit:create-command Refactor plugins/m42-signs/commands/extract.md to be a pure operator (not a new command - refactor the existing one)
+
+        Read the implementation plan: .claude/sprints/2026-02-01_extract-command-refactor/context/implementation-plan.md
+
+        Changes:
+        1. Add Task to allowed-tools
+        2. Remove all domain logic (taxonomy, patterns, etc.) - now in skill
+        3. Keep only:
+           - Argument parsing
+           - Preflight checks
+           - Section division logic (try read, fallback to preprocessing)
+           - Subagent orchestration via Task tool:
+             * transcript-section-analyzer (parallel, per section)
+             * context-matcher
+             * quality-reviewer
+           - Result aggregation
+           - Backlog writing
+
+        Target: ~150 lines (down from ~400)
+
+        Add proper edge case handling:
+        - Empty transcript
+        - No assistant messages
+        - Mechanical task (no learnings)
+        - All filtered by quality
+
+    # Phase 6: Cleanup and deprecation
+    - id: cleanup
+      prompt: |
+        Cleanup tasks:
+
+        1. Add deprecation notice to plugins/m42-signs/agents/chunk-analyzer.md
+           pointing users to transcript-section-analyzer.md
+
+        2. Fix plugins/m42-signs/scripts/find-learning-lines.sh
+           - Add output message when no matches found (currently silent)
+
+        3. Verify all new files have correct frontmatter
+
+    # Phase 7: Test end-to-end
+    - id: test-e2e
+      prompt: |
+        Test the refactored extract command using /m42-signs:extract
+
+        1. Find a sample transcript in the project (check .claude/sprints/*/transcriptions/)
+
+        2. Run /m42-signs:extract <transcript-path> --dry-run
+
+        3. Verify:
+           - Subagents are spawned correctly
+           - Learnings are extracted (or graceful "no learnings" message)
+           - Output format matches backlog schema
+
+        4. Test edge case: Run on the mechanical transcript from ralph-terminology-cleanup
+           Verify it handles "no learnings" gracefully
+
+# Disable worktree - already running in worktree
+worktree:
+  enabled: false
+
+# Sprint metadata
+sprint-id: 2026-02-01_extract-command-refactor
+name: extract-command-refactor
+created: 2026-02-01T15:00:00Z
