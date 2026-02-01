@@ -276,13 +276,10 @@ export interface CompiledProgress {
   current: CurrentPointer;
   stats: SprintStats;
   'parallel-tasks'?: unknown[];
-  mode?: 'standard' | 'ralph';
   goal?: string;
   'dynamic-steps'?: unknown[];
   'hook-tasks'?: unknown[];
   'per-iteration-hooks'?: unknown[];
-  ralph?: unknown;
-  'ralph-exit'?: unknown;
   orchestration?: OrchestrationConfig;
   'step-queue'?: StepQueueItem[];
   prompts?: unknown;

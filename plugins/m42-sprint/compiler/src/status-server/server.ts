@@ -1339,7 +1339,7 @@ export class StatusServer extends EventEmitter {
 
     if (parts.length === 0) return null;
 
-    // Find top-level phase (Ralph mode has no phases)
+    // Find top-level phase
     if (!progress.phases) return null;
     const phaseIndex = progress.phases.findIndex(p => p.id === parts[0]);
     if (phaseIndex === -1) return null;

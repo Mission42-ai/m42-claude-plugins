@@ -817,7 +817,6 @@ test('validateWorkflowPhase: should pass with valid gate in phase', () => {
 });
 
 // ============================================================================
-<<<<<<< HEAD
 // Schema Version Validation Tests
 // ============================================================================
 
@@ -865,7 +864,9 @@ test('validateSchemaVersion: should produce no warning when schema-version is cu
   validateSchemaVersion(workflow as any, 'test-workflow', warnings);
 
   assert(warnings.length === 0, `Expected no warnings, got ${warnings.length}: ${warnings.join(', ')}`);
-=======
+});
+
+// ============================================================================
 // Dependency Validation Tests
 // ============================================================================
 
@@ -1066,7 +1067,6 @@ test('validateDependencies: should pass for collection with no dependencies', ()
 
   const errors = validateDependencies(items, 'step');
   assert(errors.length === 0, `Expected no errors, got ${errors.length}`);
->>>>>>> 34e1cb8 (feat(m42-sprint): dependency-based parallel execution)
 });
 
 console.log('\nValidation tests completed.'); // intentional

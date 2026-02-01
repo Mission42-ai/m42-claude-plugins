@@ -7,20 +7,14 @@
 import type {
   SprintDefinition,
   WorkflowDefinition,
-  WorkflowPhase,
   CollectionItem,
-  CollectionsMap,
   CompiledProgress,
   CompilerError,
-  PerIterationHook,
-  WorktreeConfig,
-  WorkflowWorktreeDefaults,
   WorktreeCleanup,
   ClaudeModel,
-  GateCheck,
   DependencyNode
 } from './types.js';
-import { CURRENT_SCHEMA_VERSION, MIN_SCHEMA_VERSION } from './types.js';
+import { CURRENT_SCHEMA_VERSION } from './types.js';
 import { findUnresolvedVars } from './expand-foreach.js';
 
 /** Valid model values */
@@ -83,8 +77,6 @@ export function validateSchemaVersion(
  * Validate a sprint definition (SPRINT.yaml) - basic validation
  *
  * This performs minimal validation before workflow is loaded.
- * The `collections` validation is deferred to validateStandardModeSprint()
- * because Ralph mode sprints don't use collections.
  *
  * @param sprint - The sprint definition to validate
  * @returns Array of validation errors
@@ -110,9 +102,6 @@ export function validateSprintDefinition(sprint: unknown): CompilerError[] {
       path: 'workflow'
     });
   }
-
-  // Note: collections validation is deferred to validateStandardModeSprint()
-  // because Ralph mode sprints don't require collections
 
   // Validate model field if present
   if (s.model !== undefined) {
@@ -381,19 +370,7 @@ export function validateWorkflowDefinition(
     });
   }
 
-  // Check for mode field
-  const isRalphMode = w.mode === 'ralph';
-
-  // Validate mode field if present
-  if (w.mode !== undefined && w.mode !== 'standard' && w.mode !== 'ralph') {
-    errors.push({
-      code: 'INVALID_WORKFLOW_MODE',
-      message: `Workflow ${name} has invalid mode: must be 'standard' or 'ralph'`,
-      path: `${name}.mode`
-    });
-  }
-
-// Validate worktree defaults if present (applies to both modes)
+  // Validate worktree defaults if present
   if (w.worktree !== undefined) {
     const worktreeErrors = validateWorkflowWorktreeDefaults(w.worktree, name);
     errors.push(...worktreeErrors);
@@ -404,163 +381,26 @@ export function validateWorkflowDefinition(
     errors.push(...validateModel(w.model, `${name}.model`));
   }
 
-  // Ralph mode workflows don't require phases
-  if (isRalphMode) {
-    // Validate per-iteration hooks if present
-    if (w['per-iteration-hooks'] !== undefined) {
-      if (!Array.isArray(w['per-iteration-hooks'])) {
-        errors.push({
-          code: 'INVALID_HOOKS',
-          message: `Workflow ${name} per-iteration-hooks must be an array`,
-          path: `${name}.per-iteration-hooks`
-        });
-      } else {
-        (w['per-iteration-hooks'] as unknown[]).forEach((hook, index) => {
-          const hookErrors = validatePerIterationHook(hook, index, name);
-          errors.push(...hookErrors);
-        });
-      }
-    }
+  // Phases are required
+  if (!w.phases || !Array.isArray(w.phases)) {
+    errors.push({
+      code: 'MISSING_PHASES',
+      message: `Workflow ${name} must have a phases array`,
+      path: `${name}.phases`
+    });
+  } else if (w.phases.length === 0) {
+    errors.push({
+      code: 'EMPTY_WORKFLOW',
+      message: `Workflow ${name} has zero phases`,
+      path: `${name}.phases`
+    });
   } else {
-    // Standard mode: phases are required
-    if (!w.phases || !Array.isArray(w.phases)) {
-      errors.push({
-        code: 'MISSING_PHASES',
-        message: `Workflow ${name} must have a phases array`,
-        path: `${name}.phases`
-      });
-    } else if (w.phases.length === 0) {
-      errors.push({
-        code: 'EMPTY_WORKFLOW',
-        message: `Workflow ${name} has zero phases`,
-        path: `${name}.phases`
-      });
-    } else {
-      // Validate each phase
-      const phaseIds = new Set<string>();
-      (w.phases as unknown[]).forEach((phase, index) => {
-        const phaseErrors = validateWorkflowPhase(phase, index, name, phaseIds);
-        errors.push(...phaseErrors);
-      });
-    }
-  }
-
-  return errors;
-}
-
-/**
- * Validate a per-iteration hook
- *
- * @param hook - The hook to validate
- * @param index - Index of the hook
- * @param workflowName - Name of the containing workflow
- * @returns Array of validation errors
- */
-export function validatePerIterationHook(
-  hook: unknown,
-  index: number,
-  workflowName: string
-): CompilerError[] {
-  const errors: CompilerError[] = [];
-
-  if (!hook || typeof hook !== 'object') {
-    errors.push({
-      code: 'INVALID_HOOK',
-      message: `Per-iteration hook ${index} in ${workflowName} must be an object`,
-      path: `${workflowName}.per-iteration-hooks[${index}]`
+    // Validate each phase
+    const phaseIds = new Set<string>();
+    (w.phases as unknown[]).forEach((phase, index) => {
+      const phaseErrors = validateWorkflowPhase(phase, index, name, phaseIds);
+      errors.push(...phaseErrors);
     });
-    return errors;
-  }
-
-  const h = hook as Record<string, unknown>;
-
-  // Check required id field
-  if (!h.id || typeof h.id !== 'string') {
-    errors.push({
-      code: 'MISSING_HOOK_ID',
-      message: `Per-iteration hook ${index} in ${workflowName} must have an id`,
-      path: `${workflowName}.per-iteration-hooks[${index}].id`
-    });
-  }
-
-  // Must have either workflow OR prompt (but not both, not neither)
-  const hasWorkflow = h.workflow && typeof h.workflow === 'string';
-  const hasPrompt = h.prompt && typeof h.prompt === 'string';
-
-  if (!hasWorkflow && !hasPrompt) {
-    errors.push({
-      code: 'RALPH_INVALID_HOOK',
-      message: `Per-iteration hook '${h.id || index}' must have either workflow or prompt`,
-      path: `${workflowName}.per-iteration-hooks[${index}]`
-    });
-  }
-
-  if (hasWorkflow && hasPrompt) {
-    errors.push({
-      code: 'HOOK_AMBIGUOUS_ACTION',
-      message: `Per-iteration hook '${h.id || index}' cannot have both workflow and prompt`,
-      path: `${workflowName}.per-iteration-hooks[${index}]`
-    });
-  }
-
-  // Validate parallel field
-  if (h.parallel !== undefined && typeof h.parallel !== 'boolean') {
-    errors.push({
-      code: 'INVALID_HOOK_PARALLEL',
-      message: `Per-iteration hook '${h.id || index}' parallel must be a boolean`,
-      path: `${workflowName}.per-iteration-hooks[${index}].parallel`
-    });
-  }
-
-  // Validate enabled field
-  if (h.enabled !== undefined && typeof h.enabled !== 'boolean') {
-    errors.push({
-      code: 'INVALID_HOOK_ENABLED',
-      message: `Per-iteration hook '${h.id || index}' enabled must be a boolean`,
-      path: `${workflowName}.per-iteration-hooks[${index}].enabled`
-    });
-  }
-
-  return errors;
-}
-
-/**
- * Validate Ralph mode sprint requirements
- *
- * Called after workflow is loaded to validate sprint-specific Ralph mode requirements.
- *
- * @param sprint - The sprint definition
- * @param workflow - The workflow definition (known to be Ralph mode)
- * @returns Array of validation errors
- */
-export function validateRalphModeSprint(
-  sprint: SprintDefinition,
-  workflow: WorkflowDefinition
-): CompilerError[] {
-  const errors: CompilerError[] = [];
-
-  // Ralph mode requires goal field in SPRINT.yaml
-  if (!sprint.goal || typeof sprint.goal !== 'string' || sprint.goal.trim().length === 0) {
-    errors.push({
-      code: 'RALPH_MISSING_GOAL',
-      message: 'Ralph mode requires goal field in SPRINT.yaml',
-      path: 'goal'
-    });
-  }
-
-  // Validate per-iteration hook overrides reference valid hook IDs
-  if (sprint['per-iteration-hooks'] && workflow['per-iteration-hooks']) {
-    const workflowHookIds = new Set(workflow['per-iteration-hooks'].map(h => h.id));
-
-    for (const hookId of Object.keys(sprint['per-iteration-hooks'])) {
-      if (!workflowHookIds.has(hookId)) {
-        errors.push({
-          code: 'RALPH_INVALID_HOOK_OVERRIDE',
-          message: `Per-iteration hook override '${hookId}' does not match any hook in workflow`,
-          path: `per-iteration-hooks.${hookId}`
-        });
-      }
-    }
   }
 
   return errors;
@@ -830,7 +670,6 @@ export function checkUnresolvedVariables(progress: CompiledProgress): CompilerEr
     }
   }
 
-  // Ralph mode doesn't have phases, skip this check
   if (!progress.phases) {
     return issues;
   }
@@ -869,24 +708,11 @@ export function validateCompiledProgress(progress: CompiledProgress): CompilerEr
     });
   }
 
-  // Ralph mode doesn't require phases
-  const isRalphMode = progress.mode === 'ralph';
-
-  if (!isRalphMode) {
-    if (!progress.phases || !Array.isArray(progress.phases) || progress.phases.length === 0) {
-      errors.push({
-        code: 'NO_PHASES',
-        message: 'Compiled progress must have at least one phase'
-      });
-    }
-  } else {
-    // Ralph mode validation
-    if (!progress.goal || typeof progress.goal !== 'string') {
-      errors.push({
-        code: 'RALPH_MISSING_GOAL',
-        message: 'Ralph mode progress must have a goal'
-      });
-    }
+  if (!progress.phases || !Array.isArray(progress.phases) || progress.phases.length === 0) {
+    errors.push({
+      code: 'NO_PHASES',
+      message: 'Compiled progress must have at least one phase'
+    });
   }
 
   if (!progress.current) {

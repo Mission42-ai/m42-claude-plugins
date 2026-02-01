@@ -120,7 +120,7 @@ const testVars: WorktreeVariables = {
   'sprint-id': '2026-01-20_feature-auth',
   'sprint-name': 'feature-auth',
   date: '2026-01-20',
-  workflow: 'ralph',
+  workflow: 'plugin-development',
 };
 
 test('substituteWorktreeVars: should substitute {sprint-id}', () => {
@@ -140,7 +140,7 @@ test('substituteWorktreeVars: should substitute {date}', () => {
 
 test('substituteWorktreeVars: should substitute {workflow}', () => {
   const result = substituteWorktreeVars('{workflow}-sprints', testVars);
-  assertEqual(result, 'ralph-sprints');
+  assertEqual(result, 'plugin-development-sprints');
 });
 
 test('substituteWorktreeVars: should substitute multiple variables', () => {
@@ -405,7 +405,7 @@ test('createWorktree: should create worktree successfully', () => {
     const result = createWorktree(
       config,
       '2026-01-20_test-feature',
-      'ralph',
+      'plugin-development',
       ctx.testDir
     );
 
@@ -438,7 +438,7 @@ test('createWorktree: should fail if branch already exists without reuse flag', 
     const result = createWorktree(
       config,
       'existing-branch',
-      'ralph',
+      'plugin-development',
       ctx.testDir
     );
 
@@ -465,7 +465,7 @@ test('createWorktree: should succeed with existing branch when reuse flag is set
     const result = createWorktree(
       config,
       'reuse-test',
-      'ralph',
+      'plugin-development',
       ctx.testDir,
       { reuseExistingBranch: true }
     );
@@ -494,7 +494,7 @@ test('createWorktree: should fail if worktree path already exists', () => {
     const result = createWorktree(
       config,
       'test',
-      'ralph',
+      'plugin-development',
       ctx.testDir
     );
 
@@ -516,7 +516,7 @@ test('createWorktree: should use default branch and path when not specified', ()
     const result = createWorktree(
       config,
       '2026-01-20_defaults',
-      'ralph',
+      'plugin-development',
       ctx.testDir
     );
 

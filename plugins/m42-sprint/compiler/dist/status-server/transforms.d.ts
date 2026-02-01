@@ -2,8 +2,7 @@
  * Data transformation functions for converting CompiledProgress to StatusUpdate format
  * Used by the status server to send updates to connected browsers
  */
-import type { CompiledProgress, CompiledTopPhase, PhaseStatus, StatusUpdate, CurrentTask, PhaseTreeNode, LogEntry, LogEntryType, HookTaskStatus, DependencyGraph, GraphNodeStatusColor, StatusUpdateWithGraph } from './status-types.js';
-import type { HookTask } from '../types.js';
+import type { CompiledProgress, CompiledTopPhase, PhaseStatus, StatusUpdate, CurrentTask, PhaseTreeNode, LogEntry, LogEntryType, DependencyGraph, GraphNodeStatusColor, StatusUpdateWithGraph } from './status-types.js';
 /**
  * Compiled dependency node from PROGRESS.yaml
  * (matches scheduler types)
@@ -44,15 +43,7 @@ export declare function formatDisplayTime(isoTimestamp: string): string;
  */
 export declare function calculateElapsed(startIso: string, endIso?: string): string;
 /**
- * Count total and completed tasks for Ralph mode (dynamic-steps)
- */
-export declare function countRalphTasks(progress: CompiledProgress): {
-    total: number;
-    completed: number;
-};
-/**
  * Count total and completed phases in the progress structure
- * Handles both standard mode (phases) and Ralph mode (dynamic-steps)
  */
 export declare function countPhases(progress: CompiledProgress): {
     total: number;
@@ -74,11 +65,6 @@ export declare function countTotalSteps(progress: CompiledProgress): number;
  */
 export declare function buildPhaseTree(progress: CompiledProgress): PhaseTreeNode[];
 /**
- * Build task tree for Ralph mode from dynamic-steps
- * Returns a flat list of task nodes (no hierarchy)
- */
-export declare function buildRalphTaskTree(progress: CompiledProgress): PhaseTreeNode[];
-/**
  * Extract the current task from the progress pointer
  */
 export declare function extractCurrentTask(progress: CompiledProgress): CurrentTask | null;
@@ -96,11 +82,6 @@ export declare function createStatusLogEntry(status: PhaseStatus, phasePath: str
  */
 export declare function generateDiffLogEntries(oldProgress: CompiledProgress | null, newProgress: CompiledProgress): LogEntry[];
 /**
- * Transform HookTask array to HookTaskStatus array for UI display
- * Groups by iteration and shows latest status for each hook
- */
-export declare function transformHookTasks(hookTasks?: HookTask[]): HookTaskStatus[];
-/**
  * Check if a sprint is stale based on last-activity timestamp.
  * A sprint is stale if it's in-progress but the last-activity was > 15 minutes ago.
  */
@@ -108,7 +89,6 @@ export declare function isSprintStale(progress: CompiledProgress): boolean;
 /**
  * Convert CompiledProgress to StatusUpdate format
  * This is the main entry point for transforming progress data for the UI
- * Handles both standard mode (phases) and Ralph mode (goal-driven with dynamic-steps)
  */
 export declare function toStatusUpdate(progress: CompiledProgress, includeRaw?: boolean, timingInfo?: TimingInfo): StatusUpdate;
 /**

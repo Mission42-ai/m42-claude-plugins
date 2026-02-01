@@ -150,7 +150,6 @@ class SprintScanner {
             if (!this.isValidProgress(progress)) {
                 return null;
             }
-            // Calculate step counts (Ralph mode has no phases)
             const phases = progress.phases ?? [];
             const { totalSteps, completedSteps } = this.countSteps(phases);
             // Try to get workflow from SPRINT.yaml

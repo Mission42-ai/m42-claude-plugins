@@ -22,6 +22,7 @@ export declare class StatusServer extends EventEmitter {
     private watcher;
     private activityWatcher;
     private transcriptionWatcher;
+    private agentWatcher;
     private timingTracker;
     private clients;
     private keepAliveTimer;
@@ -252,6 +253,11 @@ export declare class StatusServer extends EventEmitter {
      * For very large files, consider streaming tail read like ActivityWatcher.processFileChange()
      */
     private sendHistoricalActivity;
+    /**
+     * Send current agent state to a newly connected client
+     * Provides initial snapshot for workflow visualization
+     */
+    private sendAgentState;
     /**
      * Handle progress file change
      */

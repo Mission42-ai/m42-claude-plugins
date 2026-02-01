@@ -128,26 +128,6 @@ ${getStyles()}
       </aside>
 
       <main class="content">
-        <section class="goal-section" id="goal-section" style="display: none;">
-          <div class="goal-header">
-            <span class="goal-label">Goal</span>
-            <span class="goal-mode-badge">Ralph Mode</span>
-          </div>
-          <div class="goal-content" id="goal-content"></div>
-        </section>
-
-        <section class="hook-status-section" id="hook-status-section" style="display: none;">
-          <div class="section-header-row">
-            <h2 class="section-title">Hook Status</h2>
-            <div class="hook-status-controls">
-              <button class="collapse-btn" id="collapse-hooks-btn" title="Collapse/Expand">▼</button>
-            </div>
-          </div>
-          <div class="hook-status-content" id="hook-status-content">
-            <div class="hook-empty">No hooks configured</div>
-          </div>
-        </section>
-
         <section class="workflow-visualization" id="workflow-section">
           <div class="section-header-row">
             <h2 class="section-title">Workflow</h2>
@@ -1103,73 +1083,6 @@ function getStyles(): string {
       padding: 12px 16px 8px;
       border-bottom: 1px solid var(--border-color);
       background-color: var(--bg-secondary);
-    }
-
-    /* Goal Section (Ralph Mode) */
-    .goal-section {
-      flex-shrink: 0;
-      border-bottom: 1px solid var(--border-color);
-      background-color: var(--bg-secondary);
-    }
-
-    .goal-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 12px 16px 8px;
-      border-bottom: 1px solid var(--border-color);
-    }
-
-    .goal-label {
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: var(--text-secondary);
-    }
-
-    .goal-mode-badge {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 12px;
-      font-size: 10px;
-      font-weight: 500;
-      background-color: rgba(163, 113, 247, 0.15);
-      color: var(--accent-purple);
-    }
-
-    .goal-content {
-      padding: 12px 16px;
-      font-size: 13px;
-      line-height: 1.6;
-      color: var(--text-primary);
-      white-space: pre-wrap;
-      word-break: break-word;
-      max-height: 200px;
-      overflow-y: auto;
-    }
-
-    /* Hook Status Section (Ralph Mode) */
-    .hook-status-section {
-      flex-shrink: 0;
-      border-bottom: 1px solid var(--border-color);
-    }
-
-    .hook-status-content {
-      padding: 8px 16px;
-      background-color: var(--bg-primary);
-      max-height: 150px;
-      overflow-y: auto;
-    }
-
-    .hook-status-content.collapsed {
-      display: none;
-    }
-
-    .hook-empty {
-      color: var(--text-muted);
-      font-style: italic;
-      font-size: 12px;
     }
 
     .hook-item {
@@ -3476,13 +3389,7 @@ function getScript(): string {
         performanceMetricsSection: document.getElementById('performance-metrics-section'),
         performanceMetricsContent: document.getElementById('performance-metrics-content'),
         collapseMetricsBtn: document.getElementById('collapse-metrics-btn'),
-        // Ralph mode elements
         sidebarTitle: document.getElementById('sidebar-title'),
-        goalSection: document.getElementById('goal-section'),
-        goalContent: document.getElementById('goal-content'),
-        hookStatusSection: document.getElementById('hook-status-section'),
-        hookStatusContent: document.getElementById('hook-status-content'),
-        collapseHooksBtn: document.getElementById('collapse-hooks-btn'),
         // Workflow visualization elements
         workflowSection: document.getElementById('workflow-section'),
         workflowContent: document.getElementById('workflow-content'),
@@ -3520,10 +3427,6 @@ function getScript(): string {
       // Performance Metrics State
       let metricsCollapsed = false;
       let currentTimingData = null;
-
-      // Ralph Mode State
-      let hooksCollapsed = false;
-      let currentMode = 'standard';
 
       // Workflow Visualization State
       let workflowCollapsed = false;
@@ -3730,7 +3633,6 @@ function getScript(): string {
         setupNotifications();
         setupKeyboardShortcuts();
         setupPerformanceMetrics();
-        setupHookStatusControls();
         setupWorkflowVisualization();
         // Update elapsed time every second
         setInterval(updateElapsedTimes, 1000);
@@ -3738,22 +3640,6 @@ function getScript(): string {
         setInterval(updateActivityRelativeTimes, 1000);
         // Update sprint timer in header
         setInterval(updateSprintTimer, 1000);
-      }
-
-      // Hook Status Controls Setup (Ralph Mode)
-      function setupHookStatusControls() {
-        if (elements.collapseHooksBtn) {
-          elements.collapseHooksBtn.addEventListener('click', function() {
-            hooksCollapsed = !hooksCollapsed;
-            if (hooksCollapsed) {
-              elements.hookStatusContent.classList.add('collapsed');
-              elements.collapseHooksBtn.textContent = '▶';
-            } else {
-              elements.hookStatusContent.classList.remove('collapsed');
-              elements.collapseHooksBtn.textContent = '▼';
-            }
-          });
-        }
       }
 
       // Workflow Visualization Setup
@@ -5014,83 +4900,8 @@ function getScript(): string {
           renderWorkflowNodes();
         }
 
-        // Handle Ralph mode UI updates
-        updateRalphModeUI(update);
-
         // Refresh performance metrics on status updates
         fetchTimingData();
-      }
-
-      // Ralph Mode UI Updates
-      function updateRalphModeUI(update) {
-        var isRalphMode = update.header && update.header.mode === 'ralph';
-        currentMode = isRalphMode ? 'ralph' : 'standard';
-
-        // Update sidebar title based on mode
-        if (elements.sidebarTitle) {
-          elements.sidebarTitle.textContent = isRalphMode ? 'Tasks' : 'Phase Tree';
-        }
-
-        // Show/hide goal section
-        if (elements.goalSection && elements.goalContent) {
-          if (isRalphMode && update.header.goal) {
-            elements.goalSection.style.display = 'block';
-            elements.goalContent.textContent = update.header.goal;
-          } else {
-            elements.goalSection.style.display = 'none';
-          }
-        }
-
-        // Show/hide and update hook status section
-        if (elements.hookStatusSection && elements.hookStatusContent) {
-          if (isRalphMode && update.hookTasks && update.hookTasks.length > 0) {
-            elements.hookStatusSection.style.display = 'block';
-            renderHookStatus(update.hookTasks);
-          } else {
-            elements.hookStatusSection.style.display = 'none';
-          }
-        }
-
-        // For Ralph mode, current task section should show in-progress task from phaseTree
-        if (isRalphMode && update.phaseTree) {
-          var inProgressTask = update.phaseTree.find(function(t) { return t.status === 'in-progress'; });
-          if (inProgressTask) {
-            updateCurrentTask({
-              path: 'Task: ' + inProgressTask.id,
-              prompt: inProgressTask.label,
-              startedAt: inProgressTask.startedAt
-            });
-          }
-        }
-      }
-
-      // Render hook status items
-      function renderHookStatus(hookTasks) {
-        if (!hookTasks || hookTasks.length === 0) {
-          elements.hookStatusContent.innerHTML = '<div class="hook-empty">No hooks running</div>';
-          return;
-        }
-
-        // Show only the most recent 5 hooks
-        var recentHooks = hookTasks.slice(0, 5);
-        var html = recentHooks.map(function(hook) {
-          var statusClass = hook.status || 'spawned';
-          var timeDisplay = '';
-          if (hook.completedAt) {
-            timeDisplay = formatRelativeTime(hook.completedAt);
-          } else if (hook.spawnedAt) {
-            timeDisplay = 'Started ' + formatRelativeTime(hook.spawnedAt);
-          }
-
-          return '<div class="hook-item">' +
-            '<span class="hook-icon ' + statusClass + '"></span>' +
-            '<span class="hook-name">' + escapeHtml(hook.hookId) + '</span>' +
-            '<span class="hook-iteration">Iter ' + hook.iteration + '</span>' +
-            '<span class="hook-time">' + timeDisplay + '</span>' +
-            '</div>';
-        }).join('');
-
-        elements.hookStatusContent.innerHTML = html;
       }
 
       function formatRelativeTime(isoString) {

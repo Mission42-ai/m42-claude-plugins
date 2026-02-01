@@ -202,21 +202,14 @@ program
                 // Summary
                 const p = result.progress;
                 console.log(`\nSummary:`); // intentional
-                if (p.mode === 'ralph') {
-                    console.log(`  Mode: ralph (goal-driven)`); // intentional
-                    console.log(`  Goal: ${p.goal?.substring(0, 50)}${(p.goal?.length ?? 0) > 50 ? '...' : ''}`); // intentional
-                    console.log(`  Per-iteration hooks: ${p['per-iteration-hooks']?.length ?? 0}`); // intentional
+                console.log(`  Phases: ${p.phases?.length ?? 0}`); // intentional
+                const totalSteps = (p.phases ?? []).reduce((acc, phase) => acc + (phase.steps?.length || 0), 0);
+                if (totalSteps > 0) {
+                    console.log(`  Steps: ${totalSteps}`); // intentional
                 }
-                else {
-                    console.log(`  Phases: ${p.phases?.length ?? 0}`); // intentional
-                    const totalSteps = (p.phases ?? []).reduce((acc, phase) => acc + (phase.steps?.length || 0), 0);
-                    if (totalSteps > 0) {
-                        console.log(`  Steps: ${totalSteps}`); // intentional
-                    }
-                    const totalSubPhases = (p.phases ?? []).reduce((acc, phase) => acc + (phase.steps?.reduce((a, s) => a + s.phases.length, 0) || 0), 0);
-                    if (totalSubPhases > 0) {
-                        console.log(`  Sub-phases: ${totalSubPhases}`); // intentional
-                    }
+                const totalSubPhases = (p.phases ?? []).reduce((acc, phase) => acc + (phase.steps?.reduce((a, s) => a + s.phases.length, 0) || 0), 0);
+                if (totalSubPhases > 0) {
+                    console.log(`  Sub-phases: ${totalSubPhases}`); // intentional
                 }
             }
         }
