@@ -6,6 +6,9 @@ model: sonnet
 color: cyan
 ---
 
+> **DEPRECATED**: This subagent is deprecated. Use `transcript-section-analyzer` instead,
+> which provides improved taxonomy-based extraction with Skill integration.
+
 # Chunk Analyzer
 
 Analyze a preprocessed reasoning chunk and extract learnings.

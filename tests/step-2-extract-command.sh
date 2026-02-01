@@ -1,92 +1,110 @@
 #!/bin/bash
-# Test script for extract.md command enhancements
+# Test script for extract.md command (operator pattern refactor)
 # Location: tests/step-2-extract-command.sh
 
 set -euo pipefail
 
 COMMAND_PATH="plugins/m42-signs/commands/extract.md"
 SCORE=0
-TOTAL=8
+TOTAL=10
 
-echo "=== Testing extract.md Command Enhancements ==="
+echo "=== Testing extract.md Command (Operator Pattern) ==="
 echo ""
 
-# Scenario 1: Size detection in preflight checks
-echo -n "Scenario 1: Size detection in preflight checks... "
-if grep -A10 "## Preflight Checks" "$COMMAND_PATH" 2>/dev/null | grep -q "wc -l" && \
-   grep -A15 "## Preflight Checks" "$COMMAND_PATH" | grep -q "stat"; then
+# Scenario 1: File exists and has valid frontmatter
+echo -n "Scenario 1: File exists with valid frontmatter... "
+if [ -f "$COMMAND_PATH" ] && \
+   head -1 "$COMMAND_PATH" | grep -q "^---$" && \
+   grep -q "^allowed-tools:" "$COMMAND_PATH" && \
+   grep -q "^description:" "$COMMAND_PATH"; then
     echo "PASS"
     ((SCORE++)) || true
 else
     echo "FAIL"
 fi
 
-# Scenario 2: Large transcript detection threshold documented
-echo -n "Scenario 2: Large transcript thresholds documented... "
-if grep -q "100.*line\|100 line" "$COMMAND_PATH" 2>/dev/null && \
-   grep -q "500.*KB\|500KB" "$COMMAND_PATH" && \
-   grep -qi "large transcript" "$COMMAND_PATH"; then
+# Scenario 2: Allowed-tools includes Task for subagent orchestration
+echo -n "Scenario 2: Allowed-tools includes Task... "
+if grep "^allowed-tools:" "$COMMAND_PATH" 2>/dev/null | grep -q "Task"; then
     echo "PASS"
     ((SCORE++)) || true
 else
     echo "FAIL"
 fi
 
-# Scenario 3: --preprocess-only argument documented
-echo -n "Scenario 3: --preprocess-only argument documented... "
-if grep -q "\-\-preprocess-only" "$COMMAND_PATH" 2>/dev/null && \
-   grep -A3 "\-\-preprocess-only" "$COMMAND_PATH" | grep -qi "artifact\|preprocess\|without.*LLM\|without.*analysis"; then
+# Scenario 3: New arguments documented (--dry-run, --focus, --min-confidence)
+echo -n "Scenario 3: New arguments documented... "
+if grep -q "\-\-dry-run" "$COMMAND_PATH" 2>/dev/null && \
+   grep -q "\-\-focus" "$COMMAND_PATH" && \
+   grep -q "\-\-min-confidence" "$COMMAND_PATH"; then
     echo "PASS"
     ((SCORE++)) || true
 else
     echo "FAIL"
 fi
 
-# Scenario 4: --parallel argument documented
-echo -n "Scenario 4: --parallel argument documented... "
-if grep -q "\-\-parallel" "$COMMAND_PATH" 2>/dev/null && \
-   grep -A3 "\-\-parallel" "$COMMAND_PATH" | grep -qi "parallel\|chunk"; then
+# Scenario 4: Operator pattern indicated (mentions subagent orchestration)
+echo -n "Scenario 4: Operator pattern indicated... "
+if grep -qi "operator pattern\|orchestrat" "$COMMAND_PATH" 2>/dev/null && \
+   grep -qi "subagent" "$COMMAND_PATH"; then
     echo "PASS"
     ((SCORE++)) || true
 else
     echo "FAIL"
 fi
 
-# Scenario 5: Large Transcript Handling section exists
-echo -n "Scenario 5: Large Transcript Handling section exists... "
-if grep -q "^## Large Transcript Handling" "$COMMAND_PATH" 2>/dev/null; then
+# Scenario 5: New subagent references (transcript-section-analyzer)
+echo -n "Scenario 5: transcript-section-analyzer subagent... "
+if grep -q "transcript-section-analyzer" "$COMMAND_PATH" 2>/dev/null; then
     echo "PASS"
     ((SCORE++)) || true
 else
     echo "FAIL"
 fi
 
-# Scenario 6: Preprocessing script references included
-echo -n "Scenario 6: Preprocessing script references... "
-if grep -q "transcript-summary.sh" "$COMMAND_PATH" 2>/dev/null && \
-   grep -q "find-learning-lines.sh" "$COMMAND_PATH" && \
-   grep -q "extract-reasoning.sh" "$COMMAND_PATH"; then
+# Scenario 6: New subagent references (context-matcher)
+echo -n "Scenario 6: context-matcher subagent... "
+if grep -q "context-matcher" "$COMMAND_PATH" 2>/dev/null; then
     echo "PASS"
     ((SCORE++)) || true
 else
     echo "FAIL"
 fi
 
-# Scenario 7: chunk-analyzer subagent integration documented
-echo -n "Scenario 7: chunk-analyzer subagent integration... "
-if grep -qi "chunk-analyzer" "$COMMAND_PATH" 2>/dev/null && \
-   grep -qi "Task\|spawn" "$COMMAND_PATH"; then
+# Scenario 7: New subagent references (quality-reviewer)
+echo -n "Scenario 7: quality-reviewer subagent... "
+if grep -q "quality-reviewer" "$COMMAND_PATH" 2>/dev/null; then
     echo "PASS"
     ((SCORE++)) || true
 else
     echo "FAIL"
 fi
 
-# Scenario 8: Chunking workflow documented
-echo -n "Scenario 8: Chunking workflow documented... "
-if grep -qi "split" "$COMMAND_PATH" 2>/dev/null && \
-   grep -q "50" "$COMMAND_PATH" && \
-   grep -qi "aggregate\|deduplicate\|combine" "$COMMAND_PATH"; then
+# Scenario 8: References to @learning-extraction skill
+echo -n "Scenario 8: @learning-extraction skill reference... "
+if grep -q "@learning-extraction" "$COMMAND_PATH" 2>/dev/null; then
+    echo "PASS"
+    ((SCORE++)) || true
+else
+    echo "FAIL"
+fi
+
+# Scenario 9: Proper step structure (Section Division, Extract, Match, Quality, Output)
+echo -n "Scenario 9: Proper step structure... "
+if grep -q "Step 1.*Section Division\|Section Division" "$COMMAND_PATH" 2>/dev/null && \
+   grep -q "Step 2.*Extract\|Extract Candidates" "$COMMAND_PATH" && \
+   grep -q "Step 3.*Match\|Match Targets" "$COMMAND_PATH" && \
+   grep -q "Step 4.*Quality\|Quality Review" "$COMMAND_PATH" && \
+   grep -q "Step 5.*Output\|Output" "$COMMAND_PATH"; then
+    echo "PASS"
+    ((SCORE++)) || true
+else
+    echo "FAIL"
+fi
+
+# Scenario 10: Success criteria section exists
+echo -n "Scenario 10: Success criteria section exists... "
+if grep -q "^## Success Criteria" "$COMMAND_PATH" 2>/dev/null; then
     echo "PASS"
     ((SCORE++)) || true
 else

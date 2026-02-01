@@ -1,5 +1,5 @@
 sprint-id: 2026-02-01_status-page-fix
-status: in-progress
+status: completed
 phases:
   - id: preflight
     status: completed
@@ -923,7 +923,7 @@ phases:
     started-at: '2026-02-01T19:13:57.516Z'
     completed-at: '2026-02-01T19:14:48.945Z'
   - id: pr-create
-    status: in-progress
+    status: completed
     prompt: |
       Push branch and create pull request.
 
@@ -967,6 +967,7 @@ phases:
       gh pr view --json url -q '.url'
       ```
     started-at: '2026-02-01T19:14:50.968Z'
+    completed-at: '2026-02-01T19:15:44.508Z'
 current:
   phase: 7
   step: null
@@ -978,6 +979,8 @@ stats:
   total-steps: 5
   completed-steps: 0
   current-iteration: 12
+  completed-at: '2026-02-01T19:15:44.508Z'
+  elapsed: 34m 19s
 parallel-tasks: []
 worktree:
   enabled: true
@@ -1061,4 +1064,9 @@ hook-tasks:
     hook-id: learning
     status: running
     spawned-at: '2026-02-01T19:14:48.950Z'
+  - iteration: 12
+    hook-id: learning
+    status: running
+    spawned-at: '2026-02-01T19:15:44.515Z'
 last-activity: '2026-02-01T19:14:50.961Z'
+summary: Phase completed

@@ -5,7 +5,7 @@ All notable changes to the m42-sprint plugin will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.5.3] - 2026-02-01
+## [3.0.1] - 2026-02-01
 
 ### Fixed
 - Fixed dropdown navigation for sprint switching in status page
@@ -14,6 +14,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Refactored status server architecture for cleaner separation of concerns
 - Added `--dashboard` flag to sprint-watch command for dashboard view access
+
+## [3.0.0] - 2026-02-01
+
+### Removed
+- **BREAKING**: Removed `depends-on` field for step dependencies
+- **BREAKING**: Removed parallel step execution feature
+- **BREAKING**: Removed `parallel-execution` configuration block from SPRINT.yaml schema
+- Removed `dependency-graph` section from PROGRESS.yaml
+- Removed failure policies (`skip-dependents`, `continue`, `fail-phase`)
+
+### Changed
+- Steps now execute sequentially in the order defined
+- Simplified documentation to reflect sequential-only execution model
+
+## [2.5.3] - 2026-02-01
+
+### Changed
+- Added sprint-creator subagent tips to `init-sprint` and `start-sprint` commands
+- Added sprint-creator subagent reference to `creating-sprints` skill
 
 ## [2.5.2] - 2026-02-01
 
