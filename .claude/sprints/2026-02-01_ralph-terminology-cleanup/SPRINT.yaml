@@ -1,0 +1,210 @@
+# SPRINT.yaml - Ralph Terminology Cleanup
+# Removes deprecated "Ralph" terminology and consolidates to single workflow mode
+
+workflow: plugin-development
+
+collections:
+  step:
+    # Phase 1: Schema-Fix (kritisch)
+    - id: schema-fix
+      prompt: |
+        Fix schema inconsistency: `steps:` → `collections:`
+
+        Files to update:
+        - plugins/m42-sprint/commands/start-sprint.md (Zeile 238, 265, 350-356, 424)
+        - plugins/m42-sprint/commands/add-step.md (Zeilen 19, 32, 40, 44)
+        - plugins/m42-sprint/commands/import-steps.md (Zeilen 24, 47, 61-67, 72, 121)
+
+        Change all references from `steps:` to `collections:` and
+        "steps array" to "collections.step"
+
+    # Phase 2: TypeScript types.ts
+    - id: ts-types
+      prompt: |
+        Remove Ralph-specific types from compiler/src/types.ts
+
+        Remove these interfaces/types:
+        - RalphConfig (Zeile 245-248)
+        - RalphExitInfo (Zeile 253-260)
+        - PerIterationHook (Zeile 191-202)
+        - DynamicStep (Zeile 207-218)
+        - HookTask (Zeile 223-240)
+
+        Remove from WorkflowDefinition:
+        - mode?: 'standard' | 'ralph' (Zeile 616)
+        - 'goal-prompt'?, 'reflection-prompt'?, 'per-iteration-hooks'?
+
+        Remove from CompiledProgress (Zeile 836-850):
+        - mode, goal, dynamic-steps, hook-tasks, per-iteration-hooks, ralph, ralph-exit
+
+    # Phase 3: TypeScript compile.ts
+    - id: ts-compile
+      prompt: |
+        Remove Ralph compilation from compiler/src/compile.ts
+
+        - Remove import of RalphConfig
+        - Remove import of validateRalphModeSprint
+        - Remove Ralph-Mode-Check und Branching (Zeile 196-212)
+        - Remove compileRalphMode() function (Zeile 651-720)
+
+    # Phase 4: TypeScript validate.ts
+    - id: ts-validate
+      prompt: |
+        Remove Ralph validation from compiler/src/validate.ts
+
+        - Remove validateRalphModeSprint() function (Zeile 528-546)
+        - Remove Ralph-Mode-Checks in validateWorkflow() (Zeile 385-408)
+        - Remove Ralph-Mode-Checks in validateProgress() (Zeile 872-887)
+        - Export entfernen falls nötig
+
+    # Phase 5: Other TypeScript files
+    - id: ts-other
+      prompt: |
+        Remove Ralph references from other TypeScript files:
+
+        compiler/src/index.ts:
+        - Remove Ralph-Mode-Check (Zeile 198-200)
+
+        runtime/src/transition.ts:
+        - Remove mode?: 'standard' | 'ralph' (Zeile 279)
+        - Remove ralph?, 'ralph-exit'? (Zeile 284-285)
+
+    # Phase 6: Status-Server cleanup
+    - id: status-server
+      prompt: |
+        Remove Ralph from status-server files:
+
+        transforms.ts:
+        - Remove countRalphTasks() function
+        - Remove buildRalphTaskTree() function
+        - Simplify transformProgressToStatus() - remove Ralph branches
+        - Remove Hook-Task-Transformation
+
+        status-types.ts:
+        - Remove mode?: 'standard' | 'ralph'
+        - Remove goal?: string
+        - Remove HookTaskStatus interface
+        - Remove hookTasks from StatusUpdate
+
+        page.ts:
+        - Remove "Ralph Mode" Badge and UI elements
+        - Remove updateRalphModeUI() function
+        - Remove Ralph-specific CSS
+
+        server.ts, timing-tracker.ts, sprint-scanner.ts:
+        - Remove Ralph comments
+
+    # Phase 7: Commands cleanup
+    - id: commands
+      prompt: |
+        Simplify commands - remove Ralph mode:
+
+        init-sprint.md:
+        - Remove --ralph flag from argument-hint
+        - Remove "Ralph Mode" section
+        - Keep only workflow-based template with collections:
+        - Remove Ralph-specific success messages
+
+        start-sprint.md:
+        - Same changes as init-sprint.md
+        - Consider if this should be deleted as duplicate
+
+        help.md:
+        - Remove "Ralph Loop pattern" references
+        - Replace with simple "fresh context per phase" explanation
+
+        run-sprint.md, pause-sprint.md:
+        - Remove Ralph references
+
+    # Phase 8: Skills cleanup
+    - id: skills
+      prompt: |
+        Update skills - remove Ralph sections:
+
+        skills/creating-workflows/SKILL.md:
+        - Remove "Ralph Mode" section
+        - Remove Ralph from workflow comparison tables
+
+        skills/creating-workflows/references/workflow-schema.md:
+        - Remove Ralph Mode Workflow section
+        - Remove ralph-specific fields
+
+        skills/orchestrating-sprints/SKILL.md:
+        - Remove Ralph Mode references
+
+        skills/orchestrating-sprints/references/progress-schema.md:
+        - Remove Ralph Mode Fields section
+
+        skills/validating-workflows/references/common-workflow-errors.md:
+        - Remove Ralph Mode Errors section
+
+    # Phase 9: Delete files & README
+    - id: delete-and-readme
+      prompt: |
+        Delete deprecated files and update README:
+
+        DELETE these files:
+        - plugins/m42-sprint/docs/concepts/ralph-mode.md
+        - plugins/m42-sprint/docs/concepts/ralph-loop.md
+        - plugins/m42-sprint/schemas/ralph-result.json
+
+        UPDATE plugins/m42-sprint/README.md:
+        - Remove Ralph Mode section
+        - Simplify to only workflow-based approach
+        - Update Quick Start examples
+
+    # Phase 10: Documentation cleanup
+    - id: docs
+      prompt: |
+        Update remaining documentation:
+
+        docs/USER-GUIDE.md - Remove Ralph references
+        docs/concepts/overview.md - Keep "fresh context" as implementation detail
+        docs/index.md - Remove links to deleted files
+        docs/getting-started/quick-start.md - Simplify
+        docs/getting-started/first-sprint.md - Remove Ralph
+        docs/guides/worktree-sprints.md - Remove Ralph
+        docs/reference/commands.md - Remove --ralph
+        docs/reference/api.md - Remove Ralph examples
+        docs/reference/sprint-yaml-schema.md - Remove Ralph
+        docs/reference/progress-yaml-schema.md - Remove Ralph
+        docs/troubleshooting/common-issues.md - Remove Ralph
+        docs/concepts/patterns.md - Remove Ralph
+        docs/concepts/workflow-compilation.md - Remove Ralph
+        docs/guides/writing-workflows.md - Remove Ralph
+
+    # Phase 11: Tests cleanup
+    - id: tests
+      prompt: |
+        Update tests:
+
+        runtime/src/worktree.test.ts:
+        - Replace 'ralph' workflow references with 'plugin-development' or other valid workflow
+
+        scripts/test-worktree-creation.sh:
+        - Replace 'ralph' with valid workflow name
+
+    # Phase 12: DISCOVERY - Find remaining references
+    - id: discovery
+      prompt: |
+        CRITICAL: Search for ANY remaining Ralph references
+
+        Run these searches:
+        ```bash
+        grep -ri "ralph" plugins/m42-sprint/ --include="*.ts" --include="*.md" --include="*.yaml" --include="*.json" --include="*.sh"
+        ```
+
+        For each file found:
+        1. Determine if it needs updating
+        2. If yes, add a NEW step to the sprint using /add-step
+
+        Also verify:
+        - npm run build succeeds in compiler/
+        - npm test succeeds
+
+        Report any remaining issues that need manual attention.
+
+# Sprint metadata
+sprint-id: 2026-02-01_ralph-terminology-cleanup
+name: ralph-terminology-cleanup
+created: 2026-02-01T12:00:00Z

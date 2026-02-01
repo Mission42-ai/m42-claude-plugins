@@ -167,7 +167,7 @@ const config = {
 const result = createWorktree(
   config,
   '$SPRINT_ID2',
-  'ralph',
+  'plugin-development',
   '$TEST_DIR'
 );
 

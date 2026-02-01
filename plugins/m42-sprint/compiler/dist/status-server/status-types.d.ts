@@ -4,10 +4,11 @@
  */
 import type { CompiledProgress, CompiledTopPhase, CompiledStep, CompiledPhase, PhaseStatus, SprintStatus } from '../types.js';
 import type { ActivityEvent } from './activity-types.js';
+import type { AgentEvent, AgentState, AgentUpdatePayload } from './agent-types.js';
 /**
  * Types of events sent over the SSE connection
  */
-export type SSEEventType = 'status-update' | 'log-entry' | 'keep-alive' | 'activity-event';
+export type SSEEventType = 'status-update' | 'log-entry' | 'keep-alive' | 'activity-event' | 'agent-event';
 /**
  * Generic SSE event wrapper
  */
@@ -18,14 +19,13 @@ export interface SSEEvent<T extends SSEEventType, D> {
 }
 /**
  * A phase node in the UI tree representation
- * For standard mode: phase > step > sub-phase hierarchy
- * For Ralph mode: flat list of 'task' nodes
+ * Hierarchy: phase > step > sub-phase
  */
 export interface PhaseTreeNode {
     id: string;
     label: string;
     status: PhaseStatus;
-    type: 'phase' | 'step' | 'sub-phase' | 'task';
+    type: 'phase' | 'step' | 'sub-phase';
     depth: number;
     children?: PhaseTreeNode[];
     startedAt?: string;
@@ -60,10 +60,6 @@ export interface SprintHeader {
     sprintId: string;
     /** Overall sprint status */
     status: SprintStatus;
-    /** Execution mode: 'standard' (phase-based) or 'ralph' (goal-driven) */
-    mode?: 'standard' | 'ralph';
-    /** Goal description (Ralph mode only) */
-    goal?: string;
     /** Progress percentage (0-100) */
     progressPercent: number;
     /** Completed phases/tasks count */
@@ -94,23 +90,6 @@ export interface SprintHeader {
     isStale?: boolean;
 }
 /**
- * Hook task status for display in Ralph mode
- */
-export interface HookTaskStatus {
-    /** Hook identifier */
-    hookId: string;
-    /** Iteration number */
-    iteration: number;
-    /** Current status */
-    status: 'spawned' | 'running' | 'completed' | 'failed' | 'in-progress';
-    /** When spawned (ISO timestamp) */
-    spawnedAt?: string;
-    /** When completed (ISO timestamp) */
-    completedAt?: string;
-    /** Exit code if completed */
-    exitCode?: number;
-}
-/**
  * Complete status update sent to clients
  */
 export interface StatusUpdate {
@@ -120,8 +99,6 @@ export interface StatusUpdate {
     phaseTree: PhaseTreeNode[];
     /** Current task being executed (if any) */
     currentTask: CurrentTask | null;
-    /** Hook task statuses (Ralph mode) */
-    hookTasks?: HookTaskStatus[];
     /** Raw progress data for debugging */
     raw?: CompiledProgress;
 }
@@ -176,9 +153,13 @@ export type KeepAliveEvent = SSEEvent<'keep-alive', null>;
  */
 export type ActivityEventSSE = SSEEvent<'activity-event', ActivityEvent>;
 /**
+ * Agent event (agent lifecycle and tool activity from .agent-events.jsonl)
+ */
+export type AgentEventSSE = SSEEvent<'agent-event', AgentUpdatePayload>;
+/**
  * Union of all SSE event types
  */
-export type AnySSEEvent = StatusUpdateEvent | LogEntryEvent | KeepAliveEvent | ActivityEventSSE;
+export type AnySSEEvent = StatusUpdateEvent | LogEntryEvent | KeepAliveEvent | ActivityEventSSE | AgentEventSSE;
 /**
  * Status colors for visual differentiation in the DAG
  */
@@ -275,4 +256,5 @@ export interface StatusUpdateWithGraph extends StatusUpdate {
     hasParallelExecution?: boolean;
 }
 export type { CompiledProgress, CompiledTopPhase, CompiledStep, CompiledPhase, PhaseStatus, SprintStatus, };
+export type { AgentEvent, AgentState, AgentUpdatePayload };
 //# sourceMappingURL=status-types.d.ts.map

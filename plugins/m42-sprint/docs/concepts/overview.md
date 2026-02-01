@@ -56,7 +56,7 @@ The M42 Sprint system follows a **Three-Tier Architecture** that separates what 
                               │  Drives
                               ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│                     Ralph Loop (Sprint Loop)                          │
+│                        Sprint Loop                                    │
 │                                                                       │
 │   ┌─────────────────────────────────────────────────────────────┐    │
 │   │                 TypeScript Runtime (runtime/)                │    │
@@ -64,7 +64,7 @@ The M42 Sprint system follows a **Three-Tier Architecture** that separates what 
 │   │  while not_done:                                             │    │
 │   │    1. Read PROGRESS.yaml current pointer                     │    │
 │   │    2. Build prompt for current phase                         │    │
-│   │    3. Invoke `claude -p` with FRESH context  ◄── Key!        │    │
+│   │    3. Invoke `claude -p` with fresh context  ◄── Key!        │    │
 │   │    4. Update PROGRESS.yaml                                   │    │
 │   │    5. Advance pointer or handle error                        │    │
 │   └─────────────────────────────────────────────────────────────┘    │
@@ -73,9 +73,9 @@ The M42 Sprint system follows a **Three-Tier Architecture** that separates what 
 
 ---
 
-## The Ralph Loop: Fresh Context Execution
+## Fresh Context Execution
 
-The **Ralph Loop** is the core innovation that enables reliable, long-running sprints.
+The **fresh context pattern** is the core innovation that enables reliable, long-running sprints.
 
 ### The Problem: Context Accumulation
 
@@ -91,7 +91,7 @@ Task N            → Context: [FULL - responses slow, costs high, overflow risk
 
 ### The Solution: Fresh Context Per Phase
 
-The Ralph Loop gives each phase a clean slate:
+The sprint loop gives each phase a clean slate:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -135,7 +135,7 @@ Each `claude -p` invocation starts with a clean context window. The only informa
 
 **Result:** Consistent performance from phase 1 to phase 100.
 
-For a deep dive into the Ralph Loop pattern, see [Ralph Loop Pattern](ralph-loop.md).
+For a deep dive into the fresh context pattern, see the [Sprint Loop section](#fresh-context-execution) above.
 
 ---
 
@@ -165,7 +165,7 @@ plugins/m42-sprint/
 ├── runtime/                      # TypeScript execution runtime
 │   └── src/
 │       ├── cli.ts               Entry point (node dist/cli.js run)
-│       ├── loop.ts              The Ralph Loop implementation
+│       ├── loop.ts              The sprint loop implementation
 │       ├── prompt-builder.ts    Construct prompts from PROGRESS.yaml
 │       ├── transition.ts        State machine transitions
 │       ├── executor.ts          Action execution
@@ -223,7 +223,7 @@ When you create a sprint, it lives here:
 | SPRINT.yaml | **What** needs to be done (steps) | You |
 | Workflows | **How** to process each step (phases) | You or built-in |
 | PROGRESS.yaml | **Where** we are (tracking) | Compiler (generated) |
-| Ralph Loop | **Execute** one phase at a time | Sprint system |
+| Sprint Loop | **Execute** one phase at a time | Sprint system |
 
 This separation means:
 - Steps are simple prompts (easy to write)
@@ -234,7 +234,7 @@ This separation means:
 ### Fresh Context Enables Scale
 
 ```
-Without Fresh Context:          With Fresh Context (Ralph Loop):
+Without Fresh Context:          With Fresh Context (Sprint Loop):
 ─────────────────────────       ─────────────────────────────────
 
 Phase 1:  Fast                  Phase 1:  Fast
@@ -294,7 +294,6 @@ For details on the compilation pipeline, see [Workflow Compilation](workflow-com
 
 ## What's Next?
 
-- [Ralph Loop Pattern](ralph-loop.md) - Deep dive into fresh context execution
 - [Workflow Compilation](workflow-compilation.md) - How SPRINT.yaml becomes PROGRESS.yaml
 - [Quick Start](../getting-started/quick-start.md) - Try it in 5 minutes
 - [Commands Reference](../reference/commands.md) - All available commands

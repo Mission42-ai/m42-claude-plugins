@@ -6,10 +6,7 @@ Complete guide to sprint orchestration for Claude Code.
 
 ## Overview
 
-M42 Sprint enables autonomous sprint execution with fresh context per iteration. It supports two modes:
-
-- **Ralph Mode** (recommended): Goal-driven autonomous execution where Claude thinks deeply and shapes work dynamically
-- **Workflow Mode**: Structured step-based execution with predefined phases
+M42 Sprint enables autonomous sprint execution with fresh context per iteration. Define your goals or steps in SPRINT.yaml, and the system compiles and executes them through workflow phases.
 
 For detailed architecture and concepts, see [Architecture Overview](concepts/overview.md).
 
@@ -21,7 +18,6 @@ For detailed architecture and concepts, see [Architecture Overview](concepts/ove
 |-------|-------------------|
 | [Quick Start](getting-started/quick-start.md) | Create and run your first sprint in 5 minutes |
 | [First Sprint Tutorial](getting-started/first-sprint.md) | Complete walkthrough with explanations |
-| [Ralph Mode](concepts/ralph-mode.md) | Autonomous goal-driven workflows |
 | [Workflow Compilation](concepts/workflow-compilation.md) | How SPRINT.yaml becomes PROGRESS.yaml |
 
 ---
@@ -55,7 +51,7 @@ Run multiple sprints simultaneously using git worktrees. Each sprint gets its ow
 
 ```bash
 # Start a sprint with dedicated worktree
-/init-sprint feature-auth --ralph --worktree
+/init-sprint feature-auth --worktree
 
 # Navigate to worktree and run
 cd ../2026-01-20_feature-auth-worktree
@@ -74,7 +70,7 @@ Enable worktree mode in your sprint definition:
 
 ```yaml
 name: User Authentication
-workflow: ralph
+workflow: sprint-default
 
 worktree:
   enabled: true
@@ -108,7 +104,6 @@ See [Common Issues](troubleshooting/common-issues.md) for solutions to:
 - Compilation failures
 - Workflow not found errors
 - Stuck phases
-- Ralph Mode JSON parsing issues
 - Permission prompts
 
 **Quick diagnostics:**
@@ -577,32 +572,18 @@ Use `/sprint-status` to see which steps are ready, running, or blocked.
 
 ## Best Practices
 
-### Ralph Mode
-
-1. **Write clear goals**: Include requirements, constraints, and measurable success criteria
-2. **Enable learning hooks**: Compounds knowledge across iterations
-3. **Set min-iterations appropriately**: Ensures deep work (15-30 is typical)
-4. **Add context files**: Put relevant docs in `context/` directory
-5. **Trust Ralph's judgment**: The system is designed for autonomous operation
-6. **Review at milestones**: Check `/sprint-status` periodically, not constantly
-
-### Workflow Mode
-
 1. **Keep sprints focused**: 3-7 steps per sprint
 2. **Write clear step prompts**: Include requirements and acceptance criteria
 3. **Use appropriate workflows**: Match workflow to work type
 4. **Preview before running**: Use `--dry-run` to verify compilation
 5. **Recompile after changes**: Use `--recompile` after adding steps
 6. **Use workflow overrides**: Mix workflows within a sprint when needed
-
-### General
-
-1. **Monitor with `/sprint-watch`**: Real-time dashboard is better than polling
-2. **Trust the loop**: Default unlimited iterations - loop exits on completion or error status
-3. **Use worktrees for parallel work**: Run multiple sprints simultaneously with `--worktree` flag
-4. **Use model selection wisely**: Use opus for architecture/design, sonnet for implementation, haiku for validation
-5. **Review operator queue**: Check `/sprint/<id>/operator` for discovered issues during execution
-6. **Handle stale sprints**: If dashboard shows stale warning, use the Resume button to restart
+7. **Monitor with `/sprint-watch`**: Real-time dashboard is better than polling
+8. **Trust the loop**: Default unlimited iterations - loop exits on completion or error status
+9. **Use worktrees for parallel work**: Run multiple sprints simultaneously with `--worktree` flag
+10. **Use model selection wisely**: Use opus for architecture/design, sonnet for implementation, haiku for validation
+11. **Review operator queue**: Check `/sprint/<id>/operator` for discovered issues during execution
+12. **Handle stale sprints**: If dashboard shows stale warning, use the Resume button to restart
 
 ---
 

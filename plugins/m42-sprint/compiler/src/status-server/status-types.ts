@@ -39,14 +39,13 @@ export interface SSEEvent<T extends SSEEventType, D> {
 
 /**
  * A phase node in the UI tree representation
- * For standard mode: phase > step > sub-phase hierarchy
- * For Ralph mode: flat list of 'task' nodes
+ * Hierarchy: phase > step > sub-phase
  */
 export interface PhaseTreeNode {
   id: string;
   label: string;
   status: PhaseStatus;
-  type: 'phase' | 'step' | 'sub-phase' | 'task';
+  type: 'phase' | 'step' | 'sub-phase';
   depth: number;
   children?: PhaseTreeNode[];
   startedAt?: string;
@@ -87,10 +86,6 @@ export interface SprintHeader {
   sprintId: string;
   /** Overall sprint status */
   status: SprintStatus;
-  /** Execution mode: 'standard' (phase-based) or 'ralph' (goal-driven) */
-  mode?: 'standard' | 'ralph';
-  /** Goal description (Ralph mode only) */
-  goal?: string;
   /** Progress percentage (0-100) */
   progressPercent: number;
   /** Completed phases/tasks count */
@@ -122,24 +117,6 @@ export interface SprintHeader {
 }
 
 /**
- * Hook task status for display in Ralph mode
- */
-export interface HookTaskStatus {
-  /** Hook identifier */
-  hookId: string;
-  /** Iteration number */
-  iteration: number;
-  /** Current status */
-  status: 'spawned' | 'running' | 'completed' | 'failed' | 'in-progress';
-  /** When spawned (ISO timestamp) */
-  spawnedAt?: string;
-  /** When completed (ISO timestamp) */
-  completedAt?: string;
-  /** Exit code if completed */
-  exitCode?: number;
-}
-
-/**
  * Complete status update sent to clients
  */
 export interface StatusUpdate {
@@ -149,8 +126,6 @@ export interface StatusUpdate {
   phaseTree: PhaseTreeNode[];
   /** Current task being executed (if any) */
   currentTask: CurrentTask | null;
-  /** Hook task statuses (Ralph mode) */
-  hookTasks?: HookTaskStatus[];
   /** Raw progress data for debugging */
   raw?: CompiledProgress;
 }

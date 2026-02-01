@@ -182,7 +182,6 @@ export class SprintScanner {
         return null;
       }
 
-      // Calculate step counts (Ralph mode has no phases)
       const phases = progress.phases ?? [];
       const { totalSteps, completedSteps } = this.countSteps(phases);
 

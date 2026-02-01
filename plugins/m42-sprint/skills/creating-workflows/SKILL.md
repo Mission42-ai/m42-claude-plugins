@@ -69,11 +69,6 @@ phases:                  # Required - list of phases
 **Phases**: diagnose → fix → verify
 **Use for**: Bug investigation and fixing
 
-### ralph mode
-**Type**: Goal-driven autonomous mode
-**Use for**: Complex, research-heavy, open-ended goals
-**Note**: Uses `mode: ralph` instead of predefined phases
-
 ## What is a Workflow?
 
 | Concept | Description |
@@ -84,7 +79,6 @@ phases:                  # Required - list of phases
 | Template Variables | Dynamic values substituted at runtime |
 | Quality Gate | Validation script with retry-on-fail capability |
 | Breakpoint | Pause point for human review before continuing |
-| Ralph Mode | Autonomous goal-driven workflow (no predefined phases) |
 
 ## Workflow Location
 
@@ -146,7 +140,6 @@ Do you need to process multiple collection items?
 | For-Each Development | Item iteration | `development` phase with `for-each: step` |
 | Nested Workflow | Complex step execution | For-each phase referencing step workflow |
 | Hybrid | Mixed phases | Simple + for-each combined |
-| Ralph Mode | Autonomous goal-driven | `mode: ralph` with dynamic steps |
 
 ## Template Variables
 
@@ -225,46 +218,9 @@ phases:
 
 See `references/workflow-schema.md` for full gate and breakpoint documentation.
 
-## Ralph Mode Workflows
-
-Ralph Mode enables autonomous goal-driven execution where Claude creates steps dynamically instead of following predefined phases.
-
-### Ralph Mode Structure
-
-```yaml
-name: My Ralph Workflow
-mode: ralph
-
-goal-prompt: |
-  Analyze goal and create steps...
-
-reflection-prompt: |
-  Evaluate if goal is complete...
-
-per-iteration-hooks:
-  - id: learning
-    workflow: "m42-signs:learning-extraction"
-    parallel: true
-    enabled: false
-```
-
-### Per-Iteration Hooks
-
-Hooks are deterministic tasks that run every iteration:
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | string | Unique hook identifier |
-| `workflow` | string | External workflow/plugin reference |
-| `prompt` | string | Inline prompt (alternative to workflow) |
-| `parallel` | boolean | Run non-blocking in background |
-| `enabled` | boolean | Default enabled state |
-
-See `references/workflow-schema.md` for full Ralph Mode schema.
-
 ## References
 
-- `references/workflow-schema.md` - Complete YAML schema (includes Ralph Mode)
+- `references/workflow-schema.md` - Complete YAML schema
 - `references/template-variables.md` - All available variables
 - `references/phase-types.md` - Simple vs for-each phases
 - `references/workflow-patterns.md` - Common patterns

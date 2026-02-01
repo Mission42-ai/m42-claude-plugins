@@ -23,9 +23,7 @@ Learn how M42 Sprint works under the hood.
 | Concept | Description |
 |---------|-------------|
 | [Architecture Overview](concepts/overview.md) | Three-Tier Model, component map, why this design |
-| [Ralph Loop Pattern](concepts/ralph-loop.md) | Fresh context execution, the core innovation |
-| [Ralph Mode](concepts/ralph-mode.md) | Autonomous goal-driven workflows |
-| [Patterns](concepts/patterns.md) | Consistent quality execution within Ralph Mode |
+| [Patterns](concepts/patterns.md) | Consistent quality execution patterns |
 | [Workflow Compilation](concepts/workflow-compilation.md) | How SPRINT.yaml becomes PROGRESS.yaml |
 
 **The key insight:** Each phase runs with fresh Claude context. No slowdown. No context pollution.
@@ -85,8 +83,7 @@ ls .claude/workflows/   # Verify workflow exists
 ### Path 2: Understand the System (45 minutes)
 1. [Quick Start](getting-started/quick-start.md) - Get running
 2. [Architecture Overview](concepts/overview.md) - See the big picture
-3. [Ralph Loop Pattern](concepts/ralph-loop.md) - Understand the innovation
-4. [First Sprint Tutorial](getting-started/first-sprint.md) - Apply knowledge
+3. [First Sprint Tutorial](getting-started/first-sprint.md) - Apply knowledge
 
 ### Path 3: Master Workflows (1+ hours)
 1. Complete Path 2
@@ -114,8 +111,6 @@ docs/
 │
 ├── concepts/                   ← Understanding
 │   ├── overview.md             (Architecture)
-│   ├── ralph-loop.md           (Fresh Context)
-│   ├── ralph-mode.md           (Autonomous Mode)
 │   ├── patterns.md             (Quality Execution)
 │   └── workflow-compilation.md (Compilation)
 │

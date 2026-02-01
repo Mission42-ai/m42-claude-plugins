@@ -119,23 +119,17 @@ ${getStyles()}
       </aside>
 
       <main class="content">
-        <section class="goal-section" id="goal-section" style="display: none;">
-          <div class="goal-header">
-            <span class="goal-label">Goal</span>
-            <span class="goal-mode-badge">Ralph Mode</span>
-          </div>
-          <div class="goal-content" id="goal-content"></div>
-        </section>
-
-        <section class="hook-status-section" id="hook-status-section" style="display: none;">
+        <section class="workflow-visualization" id="workflow-section">
           <div class="section-header-row">
-            <h2 class="section-title">Hook Status</h2>
-            <div class="hook-status-controls">
-              <button class="collapse-btn" id="collapse-hooks-btn" title="Collapse/Expand">▼</button>
+            <h2 class="section-title">Workflow</h2>
+            <div class="workflow-controls">
+              <button class="collapse-btn" id="collapse-workflow-btn" title="Collapse/Expand">▼</button>
             </div>
           </div>
-          <div class="hook-status-content" id="hook-status-content">
-            <div class="hook-empty">No hooks configured</div>
+          <div class="workflow-content" id="workflow-content">
+            <div class="workflow-nodes" id="workflow-nodes">
+              <div class="workflow-empty">Workflow will appear when sprint starts...</div>
+            </div>
           </div>
         </section>
 
@@ -1078,73 +1072,6 @@ function getStyles() {
       background-color: var(--bg-secondary);
     }
 
-    /* Goal Section (Ralph Mode) */
-    .goal-section {
-      flex-shrink: 0;
-      border-bottom: 1px solid var(--border-color);
-      background-color: var(--bg-secondary);
-    }
-
-    .goal-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 12px 16px 8px;
-      border-bottom: 1px solid var(--border-color);
-    }
-
-    .goal-label {
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: var(--text-secondary);
-    }
-
-    .goal-mode-badge {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 12px;
-      font-size: 10px;
-      font-weight: 500;
-      background-color: rgba(163, 113, 247, 0.15);
-      color: var(--accent-purple);
-    }
-
-    .goal-content {
-      padding: 12px 16px;
-      font-size: 13px;
-      line-height: 1.6;
-      color: var(--text-primary);
-      white-space: pre-wrap;
-      word-break: break-word;
-      max-height: 200px;
-      overflow-y: auto;
-    }
-
-    /* Hook Status Section (Ralph Mode) */
-    .hook-status-section {
-      flex-shrink: 0;
-      border-bottom: 1px solid var(--border-color);
-    }
-
-    .hook-status-content {
-      padding: 8px 16px;
-      background-color: var(--bg-primary);
-      max-height: 150px;
-      overflow-y: auto;
-    }
-
-    .hook-status-content.collapsed {
-      display: none;
-    }
-
-    .hook-empty {
-      color: var(--text-muted);
-      font-style: italic;
-      font-size: 12px;
-    }
-
     .hook-item {
       display: flex;
       align-items: center;
@@ -1194,6 +1121,212 @@ function getStyles() {
     .hook-time {
       color: var(--text-muted);
       font-size: 10px;
+    }
+
+    /* Workflow Visualization (n8n-style) */
+    .workflow-visualization {
+      flex-shrink: 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .workflow-content {
+      padding: 16px;
+      background-color: var(--bg-primary);
+      overflow-x: auto;
+    }
+
+    .workflow-content.collapsed {
+      display: none;
+    }
+
+    .workflow-empty {
+      color: var(--text-muted);
+      font-style: italic;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .workflow-nodes {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      min-height: 120px;
+    }
+
+    /* Workflow Node Card */
+    .workflow-node {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 100px;
+      max-width: 140px;
+      background-color: var(--bg-secondary);
+      border: 2px solid var(--border-color);
+      border-radius: 12px;
+      padding: 12px 8px 8px;
+      transition: all 0.3s ease;
+    }
+
+    .workflow-node[data-status="pending"] {
+      border-color: var(--border-color);
+      opacity: 0.6;
+    }
+
+    .workflow-node[data-status="in-progress"] {
+      border-color: var(--accent-green);
+      box-shadow: 0 0 20px rgba(63, 185, 80, 0.3);
+      animation: node-pulse 2s ease-in-out infinite;
+    }
+
+    .workflow-node[data-status="completed"] {
+      border-color: var(--accent-green);
+    }
+
+    .workflow-node[data-status="failed"] {
+      border-color: var(--accent-red);
+      box-shadow: 0 0 10px rgba(248, 81, 73, 0.3);
+    }
+
+    .workflow-node[data-status="blocked"] {
+      border-color: var(--accent-yellow);
+    }
+
+    .workflow-node[data-status="skipped"] {
+      border-color: var(--text-muted);
+      opacity: 0.5;
+    }
+
+    @keyframes node-pulse {
+      0%, 100% { box-shadow: 0 0 20px rgba(63, 185, 80, 0.3); }
+      50% { box-shadow: 0 0 30px rgba(63, 185, 80, 0.5); }
+    }
+
+    /* Node Icon/Avatar Area */
+    .node-icon-area {
+      position: relative;
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 6px;
+    }
+
+    .node-status-icon {
+      font-size: 24px;
+    }
+
+    .node-status-icon.pending::before { content: '⏳'; }
+    .node-status-icon.completed::before { content: '✅'; }
+    .node-status-icon.failed::before { content: '❌'; }
+    .node-status-icon.blocked::before { content: '🔒'; }
+    .node-status-icon.skipped::before { content: '⏭️'; }
+
+    /* Agent Avatar (replaces icon when in-progress) */
+    .agent-avatar {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .avatar-emoji {
+      font-size: 32px;
+      line-height: 1;
+      z-index: 1;
+    }
+
+    .avatar-ring {
+      position: absolute;
+      top: -4px;
+      left: -4px;
+      right: -4px;
+      bottom: -4px;
+      border: 3px solid var(--accent-green);
+      border-radius: 50%;
+      animation: ring-pulse 2s ease-in-out infinite;
+    }
+
+    .avatar-ring.thinking {
+      border-color: var(--accent-yellow);
+      animation: ring-pulse-slow 3s ease-in-out infinite;
+    }
+
+    @keyframes ring-pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.1); opacity: 0.7; }
+    }
+
+    @keyframes ring-pulse-slow {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.05); opacity: 0.8; }
+    }
+
+    /* Node Label */
+    .node-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-primary);
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 120px;
+      margin-bottom: 2px;
+    }
+
+    /* Agent Name (below avatar) */
+    .agent-name {
+      font-size: 10px;
+      color: var(--accent-blue);
+      font-weight: 500;
+    }
+
+    /* Activity Text */
+    .node-activity {
+      font-size: 9px;
+      color: var(--text-secondary);
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 120px;
+      margin-top: 2px;
+    }
+
+    /* Connection Arrow */
+    .workflow-connection {
+      display: flex;
+      align-items: center;
+      height: 80px;
+      color: var(--border-color);
+      font-size: 16px;
+    }
+
+    .workflow-connection.active {
+      color: var(--accent-green);
+      animation: flow-pulse 1s ease-in-out infinite;
+    }
+
+    @keyframes flow-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* Subagent Badge */
+    .subagent-badge {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      background-color: var(--accent-purple);
+      color: white;
+      font-size: 9px;
+      font-weight: 600;
+      padding: 2px 5px;
+      border-radius: 8px;
+      min-width: 16px;
+      text-align: center;
     }
 
     /* Current Task */
@@ -2948,6 +3081,230 @@ function getStyles() {
         gap: 6px;
       }
     }
+
+    /* =========================================================== */
+    /* Workflow Visualization (n8n-style nodes)                    */
+    /* =========================================================== */
+
+    .workflow-visualization {
+      background-color: var(--bg-secondary);
+      border-radius: 8px;
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+
+    .workflow-visualization .section-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .workflow-content {
+      padding: 16px;
+      overflow-x: auto;
+      min-height: 120px;
+    }
+
+    .workflow-content.collapsed {
+      display: none;
+    }
+
+    .workflow-nodes {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+      min-width: min-content;
+    }
+
+    .workflow-empty {
+      color: var(--text-muted);
+      font-style: italic;
+      padding: 20px;
+      text-align: center;
+    }
+
+    /* Workflow Node Card */
+    .workflow-node {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 100px;
+      max-width: 140px;
+      position: relative;
+    }
+
+    .workflow-node-card {
+      background-color: var(--bg-tertiary);
+      border: 2px solid var(--border-color);
+      border-radius: 12px;
+      padding: 12px;
+      text-align: center;
+      min-width: 90px;
+      position: relative;
+      transition: all 0.3s ease;
+    }
+
+    /* Node status borders */
+    .workflow-node[data-status="pending"] .workflow-node-card {
+      border-color: var(--text-muted);
+    }
+
+    .workflow-node[data-status="in-progress"] .workflow-node-card {
+      border-color: var(--accent-green);
+      box-shadow: 0 0 15px rgba(63, 185, 80, 0.4);
+      animation: node-pulse 2s ease-in-out infinite;
+    }
+
+    .workflow-node[data-status="completed"] .workflow-node-card {
+      border-color: var(--accent-green);
+    }
+
+    .workflow-node[data-status="failed"] .workflow-node-card {
+      border-color: var(--accent-red);
+      box-shadow: 0 0 10px rgba(248, 81, 73, 0.3);
+    }
+
+    .workflow-node[data-status="blocked"] .workflow-node-card {
+      border-color: var(--accent-yellow);
+    }
+
+    .workflow-node[data-status="skipped"] .workflow-node-card {
+      border-color: var(--text-muted);
+      opacity: 0.6;
+    }
+
+    @keyframes node-pulse {
+      0%, 100% { box-shadow: 0 0 15px rgba(63, 185, 80, 0.4); }
+      50% { box-shadow: 0 0 25px rgba(63, 185, 80, 0.6); }
+    }
+
+    /* Node Icon (status indicator or agent avatar) */
+    .workflow-node-icon {
+      font-size: 24px;
+      margin-bottom: 6px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .workflow-node-icon.status-icon {
+      font-size: 20px;
+    }
+
+    /* Agent Avatar */
+    .workflow-agent-avatar {
+      position: relative;
+      display: inline-block;
+    }
+
+    .workflow-agent-avatar .avatar-emoji {
+      font-size: 28px;
+      display: block;
+    }
+
+    .workflow-agent-avatar .avatar-ring {
+      position: absolute;
+      top: -4px;
+      left: -4px;
+      right: -4px;
+      bottom: -4px;
+      border: 2px solid var(--accent-green);
+      border-radius: 50%;
+      animation: ring-pulse 2s ease-in-out infinite;
+    }
+
+    .workflow-agent-avatar .avatar-ring.thinking {
+      border-color: var(--accent-yellow);
+      animation: ring-pulse-slow 3s ease-in-out infinite;
+    }
+
+    .workflow-agent-avatar .avatar-ring.reading {
+      border-color: var(--accent-blue);
+    }
+
+    @keyframes ring-pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.1); opacity: 0.7; }
+    }
+
+    @keyframes ring-pulse-slow {
+      0%, 100% { transform: scale(1); opacity: 0.8; }
+      50% { transform: scale(1.05); opacity: 1; }
+    }
+
+    /* Node Label (step name) */
+    .workflow-node-label {
+      font-size: 11px;
+      color: var(--text-primary);
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+
+    /* Agent Name Label */
+    .workflow-agent-name {
+      font-size: 10px;
+      color: var(--accent-blue);
+      font-weight: 600;
+      margin-top: 2px;
+    }
+
+    /* Activity Text */
+    .workflow-agent-activity {
+      font-size: 9px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+
+    /* Connection Line */
+    .workflow-connector {
+      display: flex;
+      align-items: center;
+      padding: 0 4px;
+      color: var(--text-muted);
+      font-size: 16px;
+      height: 60px;
+    }
+
+    .workflow-connector.active {
+      color: var(--accent-green);
+    }
+
+    .workflow-connector svg {
+      width: 24px;
+      height: 12px;
+    }
+
+    .workflow-connector .connector-line {
+      stroke: currentColor;
+      stroke-width: 2;
+      fill: none;
+    }
+
+    .workflow-connector.active .connector-line {
+      stroke-dasharray: 5;
+      animation: flow 1s linear infinite;
+    }
+
+    @keyframes flow {
+      to { stroke-dashoffset: -10; }
+    }
+
+    /* Elapsed Time Badge */
+    .workflow-node-elapsed {
+      font-size: 9px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
   `;
 }
 /**
@@ -3018,13 +3375,12 @@ function getScript() {
         performanceMetricsSection: document.getElementById('performance-metrics-section'),
         performanceMetricsContent: document.getElementById('performance-metrics-content'),
         collapseMetricsBtn: document.getElementById('collapse-metrics-btn'),
-        // Ralph mode elements
         sidebarTitle: document.getElementById('sidebar-title'),
-        goalSection: document.getElementById('goal-section'),
-        goalContent: document.getElementById('goal-content'),
-        hookStatusSection: document.getElementById('hook-status-section'),
-        hookStatusContent: document.getElementById('hook-status-content'),
-        collapseHooksBtn: document.getElementById('collapse-hooks-btn'),
+        // Workflow visualization elements
+        workflowSection: document.getElementById('workflow-section'),
+        workflowContent: document.getElementById('workflow-content'),
+        workflowNodes: document.getElementById('workflow-nodes'),
+        collapseWorkflowBtn: document.getElementById('collapse-workflow-btn'),
         // Sprint timer and step counter elements
         sprintTimer: document.getElementById('sprint-timer'),
         timerValue: document.getElementById('timer-value'),
@@ -3058,9 +3414,23 @@ function getScript() {
       let metricsCollapsed = false;
       let currentTimingData = null;
 
-      // Ralph Mode State
-      let hooksCollapsed = false;
-      let currentMode = 'standard';
+      // Workflow Visualization State
+      let workflowCollapsed = false;
+      const agentStates = new Map(); // sessionId -> agent state
+      const stepToAgent = new Map(); // stepId -> sessionId
+      let currentPhaseTree = []; // Cache of phase tree for workflow rendering
+
+      // Agent name pool (deterministic from session_id hash)
+      const AGENT_NAMES = ['Klaus', 'Luna', 'Max', 'Mia', 'Felix', 'Emma', 'Leo', 'Sophie', 'Finn', 'Lara'];
+
+      // Agent emotion emojis
+      const AGENT_EMOTIONS = {
+        working: '😉',
+        thinking: '🤔',
+        reading: '🧐',
+        success: '😊',
+        failed: '😵'
+      };
 
       // Sprint Timer State
       let sprintStartedAt = null;
@@ -3249,7 +3619,7 @@ function getScript() {
         setupNotifications();
         setupKeyboardShortcuts();
         setupPerformanceMetrics();
-        setupHookStatusControls();
+        setupWorkflowVisualization();
         // Update elapsed time every second
         setInterval(updateElapsedTimes, 1000);
         // Update relative times in activity panel
@@ -3258,20 +3628,230 @@ function getScript() {
         setInterval(updateSprintTimer, 1000);
       }
 
-      // Hook Status Controls Setup (Ralph Mode)
-      function setupHookStatusControls() {
-        if (elements.collapseHooksBtn) {
-          elements.collapseHooksBtn.addEventListener('click', function() {
-            hooksCollapsed = !hooksCollapsed;
-            if (hooksCollapsed) {
-              elements.hookStatusContent.classList.add('collapsed');
-              elements.collapseHooksBtn.textContent = '▶';
+      // Workflow Visualization Setup
+      function setupWorkflowVisualization() {
+        if (elements.collapseWorkflowBtn) {
+          elements.collapseWorkflowBtn.addEventListener('click', function() {
+            workflowCollapsed = !workflowCollapsed;
+            if (workflowCollapsed) {
+              elements.workflowContent.classList.add('collapsed');
+              elements.collapseWorkflowBtn.textContent = '▶';
             } else {
-              elements.hookStatusContent.classList.remove('collapsed');
-              elements.collapseHooksBtn.textContent = '▼';
+              elements.workflowContent.classList.remove('collapsed');
+              elements.collapseWorkflowBtn.textContent = '▼';
             }
           });
         }
+      }
+
+      // Get deterministic agent name from session_id
+      function getAgentName(sessionId) {
+        var hash = 0;
+        for (var i = 0; i < sessionId.length; i++) {
+          hash = ((hash << 5) - hash + sessionId.charCodeAt(i)) | 0;
+        }
+        var index = Math.abs(hash) % AGENT_NAMES.length;
+        return AGENT_NAMES[index];
+      }
+
+      // Get emotion from tool usage
+      function getEmotionFromTool(tool) {
+        if (!tool) return 'thinking';
+        var readTools = ['Read', 'Glob', 'Grep', 'WebFetch', 'WebSearch'];
+        if (readTools.indexOf(tool) !== -1) {
+          return 'reading';
+        }
+        return 'working';
+      }
+
+      // Handle agent event from SSE
+      function handleAgentEvent(payload) {
+        var event = payload.event;
+
+        if (!event || !event.sessionId) return;
+
+        switch (event.type) {
+          case 'spawn':
+            // Create new agent state
+            agentStates.set(event.sessionId, {
+              sessionId: event.sessionId,
+              name: getAgentName(event.sessionId),
+              stepId: event.stepId,
+              emotion: 'thinking',
+              spawnedAt: event.ts,
+              lastActivityAt: event.ts,
+              subagentCount: 0,
+              isActive: true
+            });
+            stepToAgent.set(event.stepId, event.sessionId);
+            break;
+
+          case 'tool_start':
+            var agentTs = agentStates.get(event.sessionId);
+            if (agentTs) {
+              agentTs.currentTool = event.tool;
+              agentTs.currentFile = event.file;
+              agentTs.emotion = getEmotionFromTool(event.tool);
+              agentTs.lastActivityAt = event.ts;
+            }
+            break;
+
+          case 'tool_end':
+            var agentTe = agentStates.get(event.sessionId);
+            if (agentTe) {
+              agentTe.currentTool = undefined;
+              agentTe.currentFile = undefined;
+              agentTe.emotion = 'thinking';
+              agentTe.lastActivityAt = event.ts;
+            }
+            break;
+
+          case 'complete':
+            var agentC = agentStates.get(event.sessionId);
+            if (agentC) {
+              agentC.isActive = false;
+              agentC.emotion = event.status === 'success' ? 'success' : 'failed';
+              stepToAgent.delete(agentC.stepId);
+              // Keep agent briefly for UI transition
+              var sid = event.sessionId;
+              setTimeout(function() {
+                agentStates.delete(sid);
+                renderWorkflowNodes();
+              }, 3000);
+            }
+            break;
+
+          case 'subagent_spawn':
+            var agentSs = agentStates.get(event.sessionId);
+            if (agentSs) {
+              agentSs.subagentCount++;
+              agentSs.lastActivityAt = event.ts;
+            }
+            break;
+
+          case 'subagent_complete':
+            var agentSc = agentStates.get(event.sessionId);
+            if (agentSc) {
+              agentSc.subagentCount = Math.max(0, agentSc.subagentCount - 1);
+              agentSc.lastActivityAt = event.ts;
+            }
+            break;
+        }
+
+        // Re-render workflow nodes
+        renderWorkflowNodes();
+      }
+
+      // Render workflow nodes from phase tree
+      function renderWorkflowNodes() {
+        if (!elements.workflowNodes || !currentPhaseTree || currentPhaseTree.length === 0) {
+          return;
+        }
+
+        // Collect leaf nodes (sub-phases or steps without children)
+        var leafNodes = [];
+        collectLeafNodes(currentPhaseTree, leafNodes);
+
+        if (leafNodes.length === 0) {
+          elements.workflowNodes.innerHTML = '<div class="workflow-empty">Workflow will appear when sprint starts...</div>';
+          return;
+        }
+
+        var html = '';
+        for (var i = 0; i < leafNodes.length; i++) {
+          var node = leafNodes[i];
+
+          // Add connection arrow before all but the first node
+          if (i > 0) {
+            var prevStatus = leafNodes[i - 1].status;
+            var connectionClass = 'workflow-connection';
+            if (prevStatus === 'completed') {
+              connectionClass += ' active';
+            }
+            html += '<div class="' + connectionClass + '">→</div>';
+          }
+
+          html += renderWorkflowNode(node);
+        }
+
+        elements.workflowNodes.innerHTML = html;
+      }
+
+      // Collect leaf nodes from phase tree
+      function collectLeafNodes(nodes, result) {
+        for (var i = 0; i < nodes.length; i++) {
+          var node = nodes[i];
+          if (node.children && node.children.length > 0) {
+            collectLeafNodes(node.children, result);
+          } else {
+            result.push(node);
+          }
+        }
+      }
+
+      // Render a single workflow node
+      function renderWorkflowNode(node) {
+        var status = node.status || 'pending';
+        var label = truncateLabel(node.label || node.id, 16);
+
+        // Check if there's an agent on this step
+        var sessionId = stepToAgent.get(node.id);
+        var agent = sessionId ? agentStates.get(sessionId) : null;
+
+        var iconHtml;
+        var agentNameHtml = '';
+        var activityHtml = '';
+        var subagentBadge = '';
+
+        if (agent && agent.isActive) {
+          // Show agent avatar instead of status icon
+          var emoji = AGENT_EMOTIONS[agent.emotion] || AGENT_EMOTIONS.thinking;
+          var ringClass = agent.emotion === 'thinking' ? 'avatar-ring thinking' : 'avatar-ring';
+          iconHtml = '<div class="agent-avatar">' +
+            '<span class="avatar-emoji">' + emoji + '</span>' +
+            '<span class="' + ringClass + '"></span>' +
+            '</div>';
+          agentNameHtml = '<div class="agent-name">' + escapeHtml(agent.name) + '</div>';
+
+          // Show activity text
+          if (agent.currentTool) {
+            var activity = agent.currentTool;
+            if (agent.currentFile) {
+              activity += ': ' + truncateLabel(getFilename(agent.currentFile), 12);
+            }
+            activityHtml = '<div class="node-activity">' + escapeHtml(activity) + '</div>';
+          }
+
+          // Show subagent badge
+          if (agent.subagentCount > 0) {
+            subagentBadge = '<span class="subagent-badge">+' + agent.subagentCount + '</span>';
+          }
+        } else {
+          // Show status icon
+          iconHtml = '<div class="node-status-icon ' + status + '"></div>';
+        }
+
+        return '<div class="workflow-node" data-status="' + status + '" data-step-id="' + escapeHtml(node.id) + '">' +
+          subagentBadge +
+          '<div class="node-icon-area">' + iconHtml + '</div>' +
+          '<div class="node-label" title="' + escapeHtml(node.label || node.id) + '">' + escapeHtml(label) + '</div>' +
+          agentNameHtml +
+          activityHtml +
+          '</div>';
+      }
+
+      // Truncate label to max length
+      function truncateLabel(label, maxLength) {
+        if (!label) return '';
+        if (label.length <= maxLength) return label;
+        return label.substring(0, maxLength - 1) + '…';
+      }
+
+      // Get filename from path
+      function getFilename(filePath) {
+        if (!filePath) return '';
+        var parts = filePath.split('/');
+        return parts[parts.length - 1];
       }
 
       // Log Viewer Setup
@@ -4190,6 +4770,15 @@ function getScript() {
             console.error('Failed to parse activity event:', err);
           }
         });
+
+        eventSource.addEventListener('agent-event', function(e) {
+          try {
+            const event = JSON.parse(e.data);
+            handleAgentEvent(event.data);
+          } catch (err) {
+            console.error('Failed to parse agent event:', err);
+          }
+        });
       }
 
       function clearCountdownTimer() {
@@ -4291,83 +4880,14 @@ function getScript() {
         updatePhaseTree(update.phaseTree);
         updateCurrentTask(update.currentTask);
 
-        // Handle Ralph mode UI updates
-        updateRalphModeUI(update);
+        // Cache phase tree for workflow visualization
+        if (update.phaseTree) {
+          currentPhaseTree = update.phaseTree;
+          renderWorkflowNodes();
+        }
 
         // Refresh performance metrics on status updates
         fetchTimingData();
-      }
-
-      // Ralph Mode UI Updates
-      function updateRalphModeUI(update) {
-        var isRalphMode = update.header && update.header.mode === 'ralph';
-        currentMode = isRalphMode ? 'ralph' : 'standard';
-
-        // Update sidebar title based on mode
-        if (elements.sidebarTitle) {
-          elements.sidebarTitle.textContent = isRalphMode ? 'Tasks' : 'Phase Tree';
-        }
-
-        // Show/hide goal section
-        if (elements.goalSection && elements.goalContent) {
-          if (isRalphMode && update.header.goal) {
-            elements.goalSection.style.display = 'block';
-            elements.goalContent.textContent = update.header.goal;
-          } else {
-            elements.goalSection.style.display = 'none';
-          }
-        }
-
-        // Show/hide and update hook status section
-        if (elements.hookStatusSection && elements.hookStatusContent) {
-          if (isRalphMode && update.hookTasks && update.hookTasks.length > 0) {
-            elements.hookStatusSection.style.display = 'block';
-            renderHookStatus(update.hookTasks);
-          } else {
-            elements.hookStatusSection.style.display = 'none';
-          }
-        }
-
-        // For Ralph mode, current task section should show in-progress task from phaseTree
-        if (isRalphMode && update.phaseTree) {
-          var inProgressTask = update.phaseTree.find(function(t) { return t.status === 'in-progress'; });
-          if (inProgressTask) {
-            updateCurrentTask({
-              path: 'Task: ' + inProgressTask.id,
-              prompt: inProgressTask.label,
-              startedAt: inProgressTask.startedAt
-            });
-          }
-        }
-      }
-
-      // Render hook status items
-      function renderHookStatus(hookTasks) {
-        if (!hookTasks || hookTasks.length === 0) {
-          elements.hookStatusContent.innerHTML = '<div class="hook-empty">No hooks running</div>';
-          return;
-        }
-
-        // Show only the most recent 5 hooks
-        var recentHooks = hookTasks.slice(0, 5);
-        var html = recentHooks.map(function(hook) {
-          var statusClass = hook.status || 'spawned';
-          var timeDisplay = '';
-          if (hook.completedAt) {
-            timeDisplay = formatRelativeTime(hook.completedAt);
-          } else if (hook.spawnedAt) {
-            timeDisplay = 'Started ' + formatRelativeTime(hook.spawnedAt);
-          }
-
-          return '<div class="hook-item">' +
-            '<span class="hook-icon ' + statusClass + '"></span>' +
-            '<span class="hook-name">' + escapeHtml(hook.hookId) + '</span>' +
-            '<span class="hook-iteration">Iter ' + hook.iteration + '</span>' +
-            '<span class="hook-time">' + timeDisplay + '</span>' +
-            '</div>';
-        }).join('');
-
-        elements.hookStatusContent.innerHTML = html;
       }
 
       function formatRelativeTime(isoString) {

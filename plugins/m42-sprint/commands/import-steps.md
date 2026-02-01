@@ -21,7 +21,7 @@ Bulk import steps from GitHub issues by label or from a YAML file.
 ## Context
 
 Using the sprint directory identified in preflight, use the Read tool to read:
-- `<sprint-dir>/SPRINT.yaml` - to get existing steps array
+- `<sprint-dir>/SPRINT.yaml` - to get existing collections.step
 
 ## Task Instructions
 
@@ -44,7 +44,7 @@ When argument starts with `issues`:
        Title: <issue title>
        <issue body>
    ```
-5. Append all new steps to `steps:` array in SPRINT.yaml
+5. Append all new steps to `collections.step:` in SPRINT.yaml
 
 ### Mode: file <path.yaml>
 
@@ -58,18 +58,19 @@ When argument starts with `file`:
 3. Read the YAML file containing step definitions
 4. Expected file format:
    ```yaml
-   steps:
-     - prompt: |
-         Step description here
-     - prompt: |
-         Another step description
+   collections:
+     step:
+       - prompt: |
+           Step description here
+       - prompt: |
+           Another step description
    ```
-5. Append all steps from file to `steps:` array in SPRINT.yaml
+5. Append all steps from file to `collections.step:` in SPRINT.yaml
 
 ## Edit SPRINT.yaml
 
 Use the Edit tool to:
-1. Append new step entries to the `steps:` array
+1. Append new step entries to `collections.step:`
 
 **Note:** Adding steps requires recompilation. This happens automatically when running `/run-sprint`.
 
@@ -118,6 +119,6 @@ Note: Run /run-sprint to compile and execute
 
 ## Success Criteria
 
-- All steps added to SPRINT.yaml steps array
+- All steps added to SPRINT.yaml collections.step
 - Step count displayed
 - User informed that recompilation happens on `/run-sprint`

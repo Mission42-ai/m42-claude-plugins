@@ -617,7 +617,7 @@ kill -9 <PID>
 If these solutions don't resolve your issue:
 
 1. Check the [Architecture Overview](../concepts/overview.md) to understand how components interact
-2. Review the [Ralph Loop Pattern](../concepts/ralph-loop.md) for execution model details
+2. Review the [Architecture Overview](../concepts/overview.md) for execution model details
 3. Review the [Operator System](../concepts/operator-system.md) for dynamic work injection
 4. Inspect sprint logs in the `artifacts/` directory
 5. Open an issue on GitHub with:

@@ -19,6 +19,39 @@ export type LogLevel = 'info' | 'warn' | 'error';
 /** Step insertion position strategies */
 export type InsertPosition = 'after-current' | 'end-of-phase';
 /**
+ * Per-iteration hook configuration
+ * Hooks run after each iteration to perform automated tasks like learning extraction
+ */
+export interface PerIterationHook {
+    /** Unique identifier for this hook */
+    id: string;
+    /** Reference to workflow (e.g., "m42-signs:learning-extraction") */
+    workflow?: string;
+    /** Inline prompt alternative to workflow */
+    prompt?: string;
+    /** If true, runs non-blocking in background */
+    parallel: boolean;
+    /** Whether this hook is active */
+    enabled: boolean;
+}
+/**
+ * Tracking entry for per-iteration hook execution
+ */
+export interface HookTask {
+    /** Hook identifier */
+    id: string;
+    /** Which iteration triggered this hook */
+    iteration: number;
+    /** When the hook started */
+    'started-at'?: string;
+    /** When the hook completed */
+    'completed-at'?: string;
+    /** Exit status */
+    status?: 'running' | 'completed' | 'failed';
+    /** Error message if failed */
+    error?: string;
+}
+/**
  * Discriminated union for sprint state - provides type-safe state access.
  * Each state variant has its own specific required fields.
  */
@@ -150,76 +183,6 @@ export type GuardFn = (state: SprintState, context: CompiledProgress, event: Spr
  * Guard functions object - provides reusable condition checks for transitions.
  */
 export declare const guards: Record<string, GuardFn>;
-/**
- * Per-iteration hook configuration for Ralph mode
- * Hooks run deterministically each iteration (e.g., learning extraction)
- */
-export interface PerIterationHook {
-    /** Unique identifier for this hook */
-    id: string;
-    /** Reference to workflow (e.g., "m42-signs:learning-extraction") */
-    workflow?: string;
-    /** Inline prompt alternative to workflow */
-    prompt?: string;
-    /** If true, runs non-blocking in background */
-    parallel: boolean;
-    /** Whether this hook is active */
-    enabled: boolean;
-}
-/**
- * Dynamic step created by Claude during Ralph mode execution
- */
-export interface DynamicStep {
-    /** Unique identifier */
-    id: string;
-    /** The task prompt */
-    prompt: string;
-    /** Current status */
-    status: PhaseStatus;
-    /** When added (ISO timestamp) */
-    'added-at': string;
-    /** Which iteration added this step */
-    'added-in-iteration': number;
-}
-/**
- * Tracking entry for per-iteration hook execution
- */
-export interface HookTask {
-    /** Which iteration this belongs to */
-    iteration: number;
-    /** Which hook this is */
-    'hook-id': string;
-    /** Current status */
-    status: ParallelTaskStatus;
-    /** Process ID if running */
-    pid?: number;
-    /** Path to transcript file */
-    transcript?: string;
-    /** When spawned (ISO timestamp) */
-    'spawned-at'?: string;
-    /** When completed (ISO timestamp) */
-    'completed-at'?: string;
-    /** Exit code if completed */
-    'exit-code'?: number;
-}
-/**
- * Ralph mode configuration
- */
-export interface RalphConfig {
-    /** Iterations without progress before reflection */
-    'idle-threshold'?: number;
-}
-/**
- * Ralph mode exit information
- */
-export interface RalphExitInfo {
-    /** When RALPH_COMPLETE was detected */
-    'detected-at'?: string;
-    /** Which iteration completed */
-    iteration?: number;
-    /** Final summary from Claude */
-    'final-summary'?: string;
-}
 /** Cleanup mode for worktrees */
 export type WorktreeCleanup = 'never' | 'on-complete' | 'on-merge';
 /**
@@ -448,16 +411,14 @@ export interface SprintDefinition {
     };
     /** Optional retry configuration for error recovery */
     retry?: RetryConfig;
-    /** Goal for Ralph mode (required when using Ralph workflow) */
-    goal?: string;
-    /** Override per-iteration hook settings from workflow */
-    'per-iteration-hooks'?: Record<string, {
-        enabled: boolean;
-    }>;
     /** Custom prompt templates for runtime */
     prompts?: SprintPrompts;
     /** Optional worktree configuration for isolated execution */
     worktree?: WorktreeConfig;
+    /** Per-iteration hook overrides (enable/disable specific hooks) */
+    'per-iteration-hooks'?: Record<string, {
+        enabled: boolean;
+    }>;
 }
 /**
  * Customizable runtime prompt templates for sprint execution
@@ -531,22 +492,16 @@ export interface WorkflowDefinition {
     description?: string;
     /** Schema version for tracking workflow format compatibility */
     'schema-version'?: string;
-    /** The phases in this workflow (optional for Ralph mode) */
+    /** The phases in this workflow */
     phases?: WorkflowPhase[];
-    /** Workflow mode: standard (phase-based) or ralph (goal-driven) */
-    mode?: 'standard' | 'ralph';
-    /** Prompt template for goal analysis (Ralph mode) */
-    'goal-prompt'?: string;
-    /** Prompt template for reflection (Ralph mode) */
-    'reflection-prompt'?: string;
-    /** Per-iteration hooks for Ralph mode */
-    'per-iteration-hooks'?: PerIterationHook[];
     /** Orchestration configuration for dynamic step injection */
     orchestration?: OrchestrationConfig;
     /** Default worktree configuration for sprints using this workflow */
     worktree?: WorkflowWorktreeDefaults;
     /** Optional model to use for all phases (lowest priority default) */
     model?: ClaudeModel;
+    /** Per-iteration hooks for automated tasks */
+    'per-iteration-hooks'?: PerIterationHook[];
 }
 /**
  * A parallel task running in the background
@@ -731,7 +686,7 @@ export interface SprintStats {
 export interface CompiledProgress {
     'sprint-id': string;
     status: SprintStatus;
-    /** The compiled phase hierarchy (optional for Ralph mode) */
+    /** The compiled phase hierarchy */
     phases?: CompiledTopPhase[];
     /** Current execution position */
     current: CurrentPointer;
@@ -739,20 +694,6 @@ export interface CompiledProgress {
     stats: SprintStats;
     /** Active parallel tasks running in background */
     'parallel-tasks'?: ParallelTask[];
-    /** Workflow mode: standard (default) or ralph */
-    mode?: 'standard' | 'ralph';
-    /** Goal for Ralph mode */
-    goal?: string;
-    /** Dynamically created steps during Ralph execution */
-    'dynamic-steps'?: DynamicStep[];
-    /** Per-iteration hook task tracking */
-    'hook-tasks'?: HookTask[];
-    /** Merged per-iteration hooks */
-    'per-iteration-hooks'?: PerIterationHook[];
-    /** Ralph mode configuration */
-    ralph?: RalphConfig;
-    /** Ralph mode exit information */
-    'ralph-exit'?: RalphExitInfo;
     /** Orchestration configuration for dynamic step injection */
     orchestration?: OrchestrationConfig;
     /** Queue of proposed steps awaiting orchestration */
@@ -769,6 +710,10 @@ export interface CompiledProgress {
     'dependency-graph'?: CompiledDependencyGraph[];
     /** Configuration for parallel execution within for-each phases */
     'parallel-execution'?: ParallelExecutionConfig;
+    /** Active per-iteration hooks */
+    'per-iteration-hooks'?: PerIterationHook[];
+    /** Hook execution tracking */
+    'hook-tasks'?: HookTask[];
 }
 /**
  * Item context for template variable substitution

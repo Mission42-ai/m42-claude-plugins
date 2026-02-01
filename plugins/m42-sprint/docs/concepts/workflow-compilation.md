@@ -562,7 +562,7 @@ The compiler validates at multiple stages:
 ## Related Documentation
 
 - [Architecture Overview](overview.md) - How compilation fits in the system
-- [Ralph Loop Pattern](ralph-loop.md) - How PROGRESS.yaml drives execution
+- [Architecture Overview](overview.md) - How the sprint system works
 - [SPRINT.yaml Schema](../reference/sprint-yaml-schema.md) - Input format spec
 - [Workflow Schema](../reference/workflow-yaml-schema.md) - Template format spec
 - [PROGRESS.yaml Schema](../reference/progress-yaml-schema.md) - Output format spec

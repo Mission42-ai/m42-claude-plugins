@@ -23,7 +23,7 @@ Standard git workflow limits you to one active branch at a time. Switching branc
 Add `--worktree` when starting a sprint:
 
 ```bash
-/init-sprint feature-auth --ralph --worktree
+/init-sprint feature-auth --worktree
 
 # Output:
 # Sprint initialized with dedicated worktree!
@@ -76,7 +76,7 @@ Define worktree settings in SPRINT.yaml:
 
 ```yaml
 name: User Authentication
-workflow: ralph
+workflow: sprint-default
 
 worktree:
   enabled: true
@@ -84,8 +84,9 @@ worktree:
   path: ../{sprint-id}-worktree        # Default
   cleanup: on-complete                  # Default
 
-goal: |
-  Implement user authentication with JWT tokens.
+collections:
+  step:
+    - prompt: Implement user authentication with JWT tokens
 ```
 
 ### Configuration Fields
@@ -106,7 +107,7 @@ Use these variables in `branch` and `path` templates:
 | `{sprint-id}` | `2026-01-20_feature-auth` | Full sprint identifier |
 | `{sprint-name}` | `feature-auth` | Sprint name (without date prefix) |
 | `{date}` | `2026-01-20` | Sprint creation date |
-| `{workflow}` | `ralph` | Workflow name |
+| `{workflow}` | `sprint-default` | Workflow name |
 
 **Examples:**
 
@@ -213,12 +214,12 @@ Run two features simultaneously:
 
 ```bash
 # Terminal 1: Start auth feature
-/init-sprint feature-auth --ralph --worktree
+/init-sprint feature-auth --worktree
 cd ../2026-01-20_feature-auth-worktree
 /run-sprint .claude/sprints/2026-01-20_feature-auth
 
 # Terminal 2: Start payments feature
-/init-sprint feature-payments --ralph --worktree
+/init-sprint feature-payments --worktree
 cd ../2026-01-20_feature-payments-worktree
 /run-sprint .claude/sprints/2026-01-20_feature-payments
 ```

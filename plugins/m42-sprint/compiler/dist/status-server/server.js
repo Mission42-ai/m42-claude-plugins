@@ -49,6 +49,7 @@ const activity_types_js_1 = require("./activity-types.js");
 const watcher_js_1 = require("./watcher.js");
 const activity_watcher_js_1 = require("./activity-watcher.js");
 const transcription_watcher_js_1 = require("./transcription-watcher.js");
+const agent_watcher_js_1 = require("./agent-watcher.js");
 const transforms_js_1 = require("./transforms.js");
 const page_js_1 = require("./page.js");
 const timing_tracker_js_1 = require("./timing-tracker.js");
@@ -109,6 +110,7 @@ class StatusServer extends events_1.EventEmitter {
     watcher = null;
     activityWatcher = null;
     transcriptionWatcher = null;
+    agentWatcher = null;
     timingTracker = null;
     clients = new Map();
     keepAliveTimer = null;
@@ -179,6 +181,22 @@ class StatusServer extends events_1.EventEmitter {
             console.error('[StatusServer] Transcription watcher error:', error.message);
         });
         this.transcriptionWatcher.start();
+        // Set up agent watcher (tracks Claude agents for workflow visualization)
+        this.agentWatcher = new agent_watcher_js_1.AgentWatcher(this.config.sprintDir, {
+            debounceDelay: this.config.debounceDelay,
+        });
+        this.agentWatcher.on('agent-event', (event, agentState) => {
+            const payload = {
+                event,
+                agentState: agentState ?? undefined,
+                allAgents: this.agentWatcher?.getActiveAgents(),
+            };
+            this.broadcast('agent-event', payload);
+        });
+        this.agentWatcher.on('error', (error) => {
+            console.error('[StatusServer] Agent watcher error:', error.message);
+        });
+        this.agentWatcher.start();
         // Initialize timing tracker for progress estimation
         this.timingTracker = new timing_tracker_js_1.TimingTracker(this.config.sprintDir);
         this.timingTracker.loadTimingHistory();
@@ -228,6 +246,11 @@ class StatusServer extends events_1.EventEmitter {
         if (this.transcriptionWatcher) {
             this.transcriptionWatcher.close();
             this.transcriptionWatcher = null;
+        }
+        // Stop agent watcher
+        if (this.agentWatcher) {
+            this.agentWatcher.close();
+            this.agentWatcher = null;
         }
         // Close HTTP server
         if (this.server) {
@@ -1159,7 +1182,7 @@ class StatusServer extends events_1.EventEmitter {
         const parts = phaseId.split(' > ').map(p => p.trim());
         if (parts.length === 0)
             return null;
-        // Find top-level phase (Ralph mode has no phases)
+        // Find top-level phase
         if (!progress.phases)
             return null;
         const phaseIndex = progress.phases.findIndex(p => p.id === parts[0]);
@@ -1674,6 +1697,8 @@ class StatusServer extends events_1.EventEmitter {
             this.sendEvent(client, 'log-entry', logEntry);
             // Send historical activity events (BUG-003 fix)
             this.sendHistoricalActivity(client);
+            // Send current agent state for workflow visualization
+            this.sendAgentState(client);
         }
         catch (error) {
             console.error('[StatusServer] Failed to send initial status:', error);
@@ -1720,6 +1745,32 @@ class StatusServer extends events_1.EventEmitter {
         }
         catch (error) {
             console.error('[StatusServer] Failed to send historical activity:', error);
+        }
+    }
+    /**
+     * Send current agent state to a newly connected client
+     * Provides initial snapshot for workflow visualization
+     */
+    sendAgentState(client) {
+        if (!this.agentWatcher)
+            return;
+        try {
+            const activeAgents = this.agentWatcher.getActiveAgents();
+            if (activeAgents.length > 0) {
+                const payload = {
+                    event: {
+                        ts: new Date().toISOString(),
+                        sessionId: 'initial-state',
+                        type: 'spawn',
+                        stepId: 'initial-state',
+                    },
+                    allAgents: activeAgents,
+                };
+                this.sendEvent(client, 'agent-event', payload);
+            }
+        }
+        catch (error) {
+            console.error('[StatusServer] Failed to send agent state:', error);
         }
     }
     /**

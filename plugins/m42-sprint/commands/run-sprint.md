@@ -9,8 +9,7 @@ description: Start sprint execution loop (fresh context per task)
 Starts the sprint loop to process the workflow phases with **fresh context per task**.
 
 Each task iteration invokes Claude CLI as a separate process, ensuring 100% context
-utilization with no accumulated context between tasks. This follows the Ralph Loop
-pattern: "a dumb bash loop that keeps restarting the agent."
+utilization with no accumulated context between tasks.
 
 ## Argument Parsing
 
@@ -337,12 +336,12 @@ Then STOP - do not start the loop or modify any files.
 
 ## How the Sprint Loop Works
 
-The sprint loop follows the Ralph Loop pattern:
+The sprint loop uses fresh context per phase:
 
-1. **Bash loop** runs `claude -p` repeatedly
+1. **Runtime loop** runs `claude -p` repeatedly
 2. **Each invocation** is FRESH with only the task prompt
 3. **Agent processes ONE task** and exits
-4. **Bash loop checks** PROGRESS.yaml for status
+4. **Runtime checks** PROGRESS.yaml for status
 5. **If not done**, starts NEW invocation with fresh context
 
 ```

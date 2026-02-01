@@ -22,12 +22,11 @@ import type {
   CompilerError,
   TemplateContext,
   LoadedWorkflow,
-  PerIterationHook,
-  RalphConfig,
   OrchestrationConfig,
   SprintPrompts,
   CompiledDependencyGraph,
-  CompiledDependencyNode
+  CompiledDependencyNode,
+  PerIterationHook
 } from './types.js';
 import { loadWorkflow, resolveWorkflowRefs, clearWorkflowCache, MAX_WORKFLOW_DEPTH } from './resolve-workflows.js';
 import { expandForEach, compileSimplePhase, substituteTemplateVars, ModelContext, resolveModelFromContext } from './expand-foreach.js';
@@ -37,7 +36,6 @@ import {
   validateWorkflowDefinition,
   validateCompiledProgress,
   checkUnresolvedVariables,
-  validateRalphModeSprint,
   resolveCollectionName,
   validateSchemaVersion
 } from './validate.js';
@@ -192,25 +190,6 @@ export async function compile(config: CompilerConfig): Promise<CompilerResult> {
 
   // Check schema version and add warnings if missing or outdated
   validateSchemaVersion(mainWorkflow.definition, sprintDef.workflow, warnings);
-
-  // Check for Ralph mode and use separate compilation path
-  const isRalphMode = mainWorkflow.definition.mode === 'ralph';
-
-  if (isRalphMode) {
-    // Validate Ralph mode specific requirements
-    const ralphErrors = validateRalphModeSprint(sprintDef, mainWorkflow.definition);
-    if (ralphErrors.length > 0) {
-      errors.push(...ralphErrors);
-      return { success: false, errors, warnings };
-    }
-
-    if (config.verbose) {
-      console.log(`Loaded Ralph mode workflow: ${mainWorkflow.definition.name}`); // intentional
-    }
-
-    // Compile Ralph mode PROGRESS.yaml
-    return compileRalphMode(sprintDef, mainWorkflow.definition, config, errors, warnings);
-  }
 
   // Validate standard mode sprint requirements (collections required)
   const standardModeErrors = validateStandardModeSprint(sprintDef, mainWorkflow.definition);
@@ -595,11 +574,11 @@ function initializeCurrentPointer(phases: CompiledTopPhase[]): CurrentPointer {
 }
 
 /**
- * Merge per-iteration hooks from workflow definition with sprint overrides
+ * Merge per-iteration hooks from workflow with sprint overrides
  *
  * @param workflowHooks - Hooks defined in the workflow
- * @param sprintOverrides - Override settings from SPRINT.yaml
- * @returns Merged hooks with overrides applied
+ * @param sprintOverrides - Sprint-level enable/disable overrides
+ * @returns Merged array of hooks with overrides applied
  */
 function mergePerIterationHooks(
   workflowHooks: PerIterationHook[] | undefined,
@@ -653,81 +632,6 @@ function compilePrompts(
   }
 
   return { ...sprint.prompts };
-}
-
-/**
- * Compile Ralph mode PROGRESS.yaml
- *
- * Ralph mode uses goal-driven execution rather than predefined phases.
- * Claude analyzes the goal, creates dynamic steps, and decides when complete.
- *
- * @param sprintDef - The sprint definition
- * @param workflow - The Ralph mode workflow definition
- * @param config - Compiler configuration
- * @param errors - Error accumulator
- * @param warnings - Warning accumulator
- * @returns Compilation result with Ralph mode progress structure
- */
-function compileRalphMode(
-  sprintDef: SprintDefinition,
-  workflow: WorkflowDefinition,
-  config: CompilerConfig,
-  errors: CompilerError[],
-  warnings: string[]
-): CompilerResult {
-  // Generate sprint ID
-  const sprintId = sprintDef['sprint-id'] || generateSprintId(config.sprintDir);
-
-  // Merge per-iteration hooks (workflow defaults + sprint overrides)
-  const mergedHooks = mergePerIterationHooks(
-    workflow['per-iteration-hooks'],
-    sprintDef['per-iteration-hooks']
-  );
-
-  // Build Ralph mode configuration
-  const ralphConfig: RalphConfig = {
-    'idle-threshold': 3  // Default: reflect after 3 iterations without progress
-  };
-
-  // Compile worktree config from workflow and sprint
-  const worktree = mergeWorktreeConfigs(sprintId, sprintDef, workflow);
-
-  // Build Ralph mode PROGRESS.yaml structure
-  const progress: CompiledProgress = {
-    'sprint-id': sprintId,
-    status: 'not-started',
-    mode: 'ralph',
-    goal: sprintDef.goal,
-    'dynamic-steps': [],
-    'hook-tasks': [],
-    'per-iteration-hooks': mergedHooks,
-    ralph: ralphConfig,
-    'ralph-exit': {
-      'detected-at': undefined,
-      iteration: undefined,
-      'final-summary': undefined
-    },
-    current: {
-      phase: 0,
-      step: null,
-      'sub-phase': null
-    },
-    stats: {
-      'started-at': null,
-      'total-phases': 0,
-      'completed-phases': 0,
-      'current-iteration': 0
-    },
-    // Add worktree config if enabled in workflow or sprint
-    ...(worktree && { worktree })
-  };
-
-  return {
-    success: true,
-    progress,
-    errors,
-    warnings
-  };
 }
 
 /**

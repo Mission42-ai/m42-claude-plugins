@@ -67,15 +67,6 @@ skill: validating-workflows
 | WORKTREE_INVALID_BRANCH_NAME | Worktree branch is not valid git branch name | Invalid characters or format | Use valid git branch name format |
 | WORKTREE_INVALID_CLEANUP_MODE | Worktree cleanup must be valid mode | Invalid `cleanup` value | Use: never, on-complete, or on-merge |
 
-## Ralph Mode Errors
-
-| Error Code | Message | Cause | Fix |
-|------------|---------|-------|-----|
-| RALPH_MISSING_GOAL | Ralph mode requires goal field | Missing `goal` in SPRINT.yaml | Add `goal: "Sprint objective"` |
-| RALPH_INVALID_HOOK | Per-iteration hook must have workflow or prompt | Hook missing both fields | Add either `workflow` or `prompt` |
-| HOOK_AMBIGUOUS_ACTION | Hook cannot have both workflow and prompt | Both fields specified | Remove either `workflow` or `prompt` |
-| RALPH_INVALID_HOOK_OVERRIDE | Hook override doesn't match workflow hook | Invalid hook ID in override | Use hook ID from workflow definition |
-
 ## Variable Template Errors
 
 | Error Code | Message | Cause | Fix |

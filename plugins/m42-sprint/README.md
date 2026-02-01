@@ -4,17 +4,8 @@ Sprint orchestration with **fresh context per task** for Claude Code.
 
 ## What is M42 Sprint?
 
-M42 Sprint enables autonomous, goal-driven development where Claude thinks deeply and shapes work dynamically. Two modes are available:
+M42 Sprint enables autonomous, goal-driven development where Claude thinks deeply and shapes work dynamically through workflow-based execution:
 
-**Ralph Mode** (Recommended) - Autonomous goal-driven execution:
-```
-┌─────────────────┐     ┌──────────────┐     ┌─────────────────┐
-│  SPRINT.yaml    │ ──► │  Ralph Loop  │ ──► │  goal-complete  │
-│    (goal)       │     │ (iterates)   │     │    or pause     │
-└─────────────────┘     └──────────────┘     └─────────────────┘
-```
-
-**Workflow Mode** - Structured step-based execution:
 ```
 ┌─────────────────┐     ┌──────────────┐     ┌─────────────────┐
 │  SPRINT.yaml    │ ──► │   Compiler   │ ──► │ PROGRESS.yaml   │
@@ -22,7 +13,7 @@ M42 Sprint enables autonomous, goal-driven development where Claude thinks deepl
 └─────────────────┘     └──────────────┘     └─────────────────┘
 ```
 
-**The Ralph Loop** solves context accumulation: each iteration runs in a fresh Claude session, preventing slowdown during long sprints.
+Each step runs in a fresh Claude session, preventing context accumulation and slowdown during long sprints.
 
 ### Key Features
 
@@ -37,23 +28,19 @@ M42 Sprint enables autonomous, goal-driven development where Claude thinks deepl
 
 | Getting Started | Deep Dives | Reference |
 |-----------------|------------|-----------|
-| [Quick Start](docs/getting-started/quick-start.md) | [Ralph Mode](docs/concepts/ralph-mode.md) | [Commands](docs/reference/commands.md) |
-| [First Sprint](docs/getting-started/first-sprint.md) | [Architecture Overview](docs/concepts/overview.md) | [SPRINT.yaml Schema](docs/reference/sprint-yaml-schema.md) |
-| [User Guide](docs/USER-GUIDE.md) | [Workflow Compilation](docs/concepts/workflow-compilation.md) | [API Reference](docs/reference/api.md) |
+| [Quick Start](docs/getting-started/quick-start.md) | [Architecture Overview](docs/concepts/overview.md) | [Commands](docs/reference/commands.md) |
+| [First Sprint](docs/getting-started/first-sprint.md) | [Workflow Compilation](docs/concepts/workflow-compilation.md) | [SPRINT.yaml Schema](docs/reference/sprint-yaml-schema.md) |
+| [User Guide](docs/USER-GUIDE.md) | | [API Reference](docs/reference/api.md) |
 
-## 30-Second Example
-
-### Ralph Mode (Recommended)
+## Quick Start
 
 ```bash
-# 1. Create Ralph mode sprint
-/init-sprint my-feature --ralph
+# 1. Create a new sprint
+/init-sprint my-feature --workflow sprint-default
 
-# 2. Edit SPRINT.yaml to define your goal
-goal: |
-  Build a user authentication system with JWT tokens.
-  Requirements: registration, login, token refresh, logout.
-  Success criteria: All tests passing, TypeScript compiles.
+# 2. Add steps
+/add-step "Create user model with validation"
+/add-step "Add API endpoints for CRUD operations"
 
 # 3. Run it
 /run-sprint .claude/sprints/2026-01-16_my-feature
@@ -62,7 +49,7 @@ goal: |
 /sprint-watch
 ```
 
-Ralph thinks deeply, creates steps dynamically, and signals when the goal is complete.
+Each step runs through predefined workflow phases with fresh context.
 
 ### Model Selection
 
@@ -77,25 +64,6 @@ collections:
     - prompt: Design architecture
       model: opus    # Use opus for complex reasoning
 ```
-
-### Workflow Mode
-
-```bash
-# 1. Create workflow-based sprint
-/init-sprint my-feature --workflow sprint-default
-
-# 2. Add steps
-/add-step "Create user model with validation"
-/add-step "Add API endpoints for CRUD operations"
-
-# 3. Run it
-/run-sprint .claude/sprints/2026-01-16_my-feature
-
-# 4. Check status
-/sprint-status
-```
-
-Each step runs through predefined workflow phases with fresh context.
 
 ## Installation
 
@@ -113,8 +81,8 @@ The sprint runtime is built with TypeScript and runs on Node.js. No additional Y
 
 | Command | Description |
 |---------|-------------|
-| `/init-sprint <name> [--ralph\|--workflow <name>] [--worktree]` | Initialize new sprint (add `--worktree` for [parallel development](docs/guides/worktree-sprints.md)) |
-| `/add-step <prompt>` | Add step to queue (workflow mode) |
+| `/init-sprint <name> [--workflow <name>] [--worktree]` | Initialize new sprint (add `--worktree` for [parallel development](docs/guides/worktree-sprints.md)) |
+| `/add-step <prompt>` | Add step to queue |
 | `/import-steps` | Bulk import from GitHub |
 | `/run-sprint <dir> [--model <model>]` | Start execution loop (model: sonnet/opus/haiku) |
 | `/sprint-watch` | Open live dashboard (chat view, elapsed time, progress) |
@@ -128,20 +96,11 @@ The sprint runtime is built with TypeScript and runs on Node.js. No additional Y
 
 ```
 .claude/sprints/YYYY-MM-DD_name/
-├── SPRINT.yaml       # Goal (Ralph) or steps (workflow)
+├── SPRINT.yaml       # Steps and configuration
 ├── PROGRESS.yaml     # Generated execution state
 ├── context/          # Cached context files
 └── artifacts/        # Outputs and results
 ```
-
-## When to Use Each Mode
-
-| Ralph Mode | Workflow Mode |
-|------------|---------------|
-| Complex features, open-ended goals | Well-defined tasks, routine work |
-| Research-heavy, exploratory work | Batched operations |
-| Tasks benefiting from reflection | Known phase sequences |
-| Goals where exact steps aren't known | Compliance workflows |
 
 ## Why Fresh Context?
 
@@ -155,7 +114,6 @@ The **Fresh Context Pattern** gives each iteration a clean slate, enabling relia
 ## Documentation
 
 - [User Guide](docs/USER-GUIDE.md) - Complete usage guide
-- [Ralph Mode](docs/concepts/ralph-mode.md) - Autonomous goal-driven workflows
 - [Commands Reference](docs/reference/commands.md) - All commands with examples
 - [API Reference](docs/reference/api.md) - Status server REST API
 - [Troubleshooting](docs/troubleshooting/common-issues.md) - Common issues and solutions

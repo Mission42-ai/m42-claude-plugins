@@ -159,7 +159,7 @@ Use these variables in `branch` and `path` fields:
 | `{sprint-id}` | `2026-01-20_feature-auth` | Full sprint identifier |
 | `{sprint-name}` | `feature-auth` | Sprint name (without date prefix) |
 | `{date}` | `2026-01-20` | Sprint creation date |
-| `{workflow}` | `ralph` | Workflow name |
+| `{workflow}` | `sprint-default` | Workflow name |
 
 #### Cleanup Modes
 
@@ -424,7 +424,7 @@ Run sprint in a dedicated git worktree for parallel development:
 
 ```yaml
 name: User Authentication
-workflow: ralph
+workflow: sprint-default
 
 worktree:
   enabled: true
