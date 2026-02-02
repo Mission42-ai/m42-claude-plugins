@@ -1,5 +1,8 @@
 /tmp
 
+# Git worktrees for sprint isolation
+trees/
+
 # Sprint status server port files
 *.port
 .sprint-status.port
