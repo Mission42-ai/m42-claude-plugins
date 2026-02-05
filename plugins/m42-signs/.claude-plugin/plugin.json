@@ -1,6 +1,6 @@
 {
   "name": "m42-signs",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Learning loop for agent evolution - extracts wisdom from session failures and applies them as signs in CLAUDE.md files",
   "author": {
     "name": "Mission42",
