@@ -14,6 +14,29 @@ semantic similarity matching, requiring explicit context, consistent terminology
 **This skill is for single-file documentation creation.** For managing entire documentation repositories or
 multi-file documentation systems, use the maintaining-docs skill.
 
+## Official Documentation References
+
+Before writing AI-ready documentation, fetch the latest official Claude Code documentation for up-to-date
+patterns and requirements. Use `WebFetch` to retrieve these references:
+
+- **CLAUDE.md as AI-ready documentation** - `https://code.claude.com/docs/en/memory.md`
+  Covers CLAUDE.md structure, rules frontmatter, and how AI tools consume project-level documentation.
+
+- **SKILL.md and README.md documentation requirements** - `https://code.claude.com/docs/en/plugins.md`
+  Plugin documentation standards including SKILL.md structure, README conventions, and required metadata.
+
+- **Technical reference patterns and schema documentation** - `https://code.claude.com/docs/en/plugins-reference.md`
+  Schema specifications, API documentation patterns, and technical reference formatting standards.
+
+- **MCP configuration documentation patterns** - `https://code.claude.com/docs/en/mcp.md`
+  MCP server documentation patterns, configuration file formats, and integration documentation examples.
+
+- **Output styles and formatting** - `https://code.claude.com/docs/en/output-styles.md`
+  Output formatting options, markdown rendering behavior, and style guidelines for AI-generated content.
+
+**IMPORTANT:** Always use `WebFetch` to retrieve these URLs for the most current documentation before creating
+or reviewing documentation artifacts. Official docs may have changed since this skill was last updated.
+
 ## When to Use This Skill
 
 Use this skill when:

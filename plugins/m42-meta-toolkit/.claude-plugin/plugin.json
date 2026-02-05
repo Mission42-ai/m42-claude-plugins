@@ -1,6 +1,6 @@
 {
   "name": "m42-meta-toolkit",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Meta-tooling for creating and managing Claude Code artifacts (skills, commands, subagents, hooks) with quality assurance workflows",
   "author": {
     "name": "Mission42",

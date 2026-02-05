@@ -7,6 +7,16 @@ description: Guide for creating effective custom slash commands. This skill shou
 
 This skill provides comprehensive guidance for designing and implementing custom slash commands that are minimal, explicit, and leverage Claude Code's full capabilities including preflight checks, skill integration, and subagent delegation.
 
+## Official Documentation References
+
+Before creating or reviewing a command, fetch the latest official documentation using WebFetch for the most relevant links below. This ensures your commands follow current best practices and API conventions.
+
+**IMPORTANT:** When this skill is invoked, you MUST use WebFetch to retrieve at least the primary reference before proceeding with command creation or review.
+
+- **[CLI Reference](https://code.claude.com/docs/en/cli-reference.md)** - CLI flags relevant to commands (--allowedTools, --model)
+- **[Hooks Guide](https://code.claude.com/docs/en/hooks-guide.md)** - Hook integration patterns for commands
+- **[Sub-agents Guide](https://code.claude.com/docs/en/sub-agents.md)** - Task() delegation from commands to subagents
+
 ## When to Create a Slash Command vs Skill
 
 **Use slash commands for:**
