@@ -5,6 +5,21 @@ description: Guide for creating and reviewing skills. This skill should be used 
 
 # Creating Skills
 
+## Official Documentation References
+
+When this skill is invoked, fetch the most relevant official documentation using WebFetch to ensure guidance reflects the latest Claude Code plugin specification.
+
+| URL | Covers |
+|-----|--------|
+| https://code.claude.com/docs/en/skills | **Primary**: Official skills documentation - skill types, SKILL.md structure, frontmatter fields, references, bundled resources, progressive disclosure |
+| https://code.claude.com/docs/en/plugins.md | Skills directory structure, SKILL.md format, frontmatter schema, model-invoked vs user-invoked distinction |
+| https://code.claude.com/docs/en/plugins-reference.md | Technical reference for skill components and plugin architecture |
+| https://code.claude.com/docs/en/sub-agents.md | How skills are preloaded into subagents via the `skills` field |
+| https://code.claude.com/docs/en/hooks.md | Hooks configuration in skills frontmatter |
+| https://code.claude.com/docs/en/memory.md | Skills interaction with CLAUDE.md memory system |
+
+**Required action**: Before proceeding with skill creation or review, use `WebFetch` on the primary URL (`skills`) to retrieve the current skill specification. Fetch additional URLs as needed based on the specific task (e.g., fetch `plugins.md` for plugin integration, fetch `sub-agents.md` when configuring skill preloading, fetch `hooks.md` when adding hooks to frontmatter).
+
 ## Metadata Quality
 
 The `name` and `description` in YAML frontmatter determine when Claude will use the skill. Be specific about what the skill does and when to use it. Use third-person (e.g., "This skill should be used when..." instead of "Use this skill when...").

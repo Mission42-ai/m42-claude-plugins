@@ -7,6 +7,20 @@ description: Domain knowledge for crafting effective CLAUDE.md files. Covers fil
 
 CLAUDE.md is Claude Code's highest-leverage configuration point, loaded into every conversation as part of the system prompt. This skill provides the domain knowledge for creating, reviewing, and organizing CLAUDE.md files that maximize Claude's code quality and consistency.
 
+## Official Documentation References
+
+**IMPORTANT**: Before crafting or reviewing CLAUDE.md files, fetch the latest official documentation using WebFetch to ensure recommendations align with current Claude Code behavior.
+
+| Link | Description |
+|------|-------------|
+| **https://code.claude.com/docs/en/memory.md** (PRIMARY) | Complete CLAUDE.md documentation: memory hierarchy, file loading order, `@import` syntax, `.claude/rules/` directory, CLAUDE.local.md |
+| https://code.claude.com/docs/en/output-styles.md | Output styles configuration and how it compares to CLAUDE.md instructions |
+| https://code.claude.com/docs/en/github-actions.md | Using CLAUDE.md in CI/CD pipelines and GitHub Actions context |
+| https://code.claude.com/docs/en/cli-reference.md | CLI flags affecting CLAUDE.md: `--add-dir`, `--setting-sources`, system prompt interactions |
+| https://code.claude.com/docs/en/agent-teams | How teammates automatically load CLAUDE.md files from working directories |
+
+Use `WebFetch(url="https://code.claude.com/docs/en/memory.md", prompt="Extract CLAUDE.md best practices, file hierarchy, and configuration options")` as the primary reference for all CLAUDE.md guidance.
+
 ## Quick Assessment
 
 To understand the current state of CLAUDE.md configuration in a project, run:

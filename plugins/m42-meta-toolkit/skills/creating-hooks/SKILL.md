@@ -7,8 +7,22 @@ description: Guide for creating Claude Code hooks that respond to events during 
 
 This skill guides the creation of Claude Code hooks that respond to events during Claude's execution, enabling automation, validation, context injection, and workflow customization.
 
+## Official Documentation References
+
+**IMPORTANT**: Before creating hooks, fetch up-to-date official documentation using WebFetch to ensure accuracy with the latest Claude Code hook APIs and schemas.
+
+**Primary references (always fetch these):**
+- **Hooks Guide**: `https://code.claude.com/docs/en/hooks-guide.md` — User-facing hook guide covering setup, common use cases, and troubleshooting
+- **Hooks Reference**: `https://code.claude.com/docs/en/hooks.md` — Complete technical reference with all 12 hook events, JSON schemas, and decision control
+
+**Supplementary references (fetch when relevant):**
+- **Plugins Guide**: `https://code.claude.com/docs/en/plugins.md` — Plugin hooks distribution, hooks/hooks.json format for distributing hooks via plugins
+- **Plugins Reference**: `https://code.claude.com/docs/en/plugins-reference.md` — Technical reference for hooks in plugin context
+- **Sub-agents Guide**: `https://code.claude.com/docs/en/sub-agents.md` — Hooks in subagent frontmatter, SubagentStart/SubagentStop events
+
 ## Table of Contents
 
+- [Official Documentation References](#official-documentation-references)
 - [What Are Claude Code Hooks?](#what-are-claude-code-hooks)
 - [When to Use Hooks vs Skills/Commands](#when-to-use-hooks-vs-skillscommands)
 - [Hook Creation Workflow](#hook-creation-workflow)

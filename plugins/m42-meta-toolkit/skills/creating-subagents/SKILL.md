@@ -14,6 +14,19 @@ Create specialized, concise subagents that leverage existing skills for task-spe
 - Validating subagent architecture and design
 - Determining optimal tool access for subagents
 
+## Official Documentation References
+
+Before creating or modifying subagents, fetch the latest Claude Code documentation for accurate, up-to-date guidance.
+
+**IMPORTANT**: Use `WebFetch` on these URLs to load current documentation before proceeding with subagent creation.
+
+- **PRIMARY** - [Subagent Documentation](https://code.claude.com/docs/en/sub-agents.md) - Complete subagent reference: frontmatter fields, tool permissions, memory, invocation patterns
+- [Agent Teams](https://code.claude.com/docs/en/agent-teams) - Agent teams vs subagents comparison, multi-session coordination patterns
+- [Plugins](https://code.claude.com/docs/en/plugins.md) - Plugin `agents/` directory structure, agent distribution via plugins
+- [Plugins Reference](https://code.claude.com/docs/en/plugins-reference.md) - Technical reference for agent components in plugin architecture
+- [Hooks](https://code.claude.com/docs/en/hooks.md) - SubagentStart/SubagentStop hook events, hooks in agent frontmatter
+- [CLI Reference](https://code.claude.com/docs/en/cli-reference.md) - `--agents` flag, `--disallowedTools` for restricting subagent capabilities
+
 ## Core Principles
 
 ### 1. Concise and Focused

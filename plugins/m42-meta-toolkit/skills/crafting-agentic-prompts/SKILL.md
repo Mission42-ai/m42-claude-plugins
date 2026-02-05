@@ -9,6 +9,19 @@ description: Provides prompt engineering best practices for agentic workflows wi
 
 This skill provides comprehensive guidance for writing effective prompts for agentic workflows using modern language models. Apply these principles when crafting system prompts, improving agent behavior, or optimizing agentic applications.
 
+## Official Documentation References
+
+When this skill is invoked, **always fetch the latest documentation** using WebFetch before providing guidance. These official Claude Code docs contain up-to-date prompt patterns and system prompt structure:
+
+- **Subagent Prompts & System Prompt Structure**: https://code.claude.com/docs/en/sub-agents.md
+- **Output Styles & System Prompt Modification**: https://code.claude.com/docs/en/output-styles.md
+- **Hooks Guide (Prompt-based & Agent-based)**: https://code.claude.com/docs/en/hooks-guide.md
+- **Headless Mode & Programmatic Prompts**: https://code.claude.com/docs/en/headless.md
+- **CLI Reference (System Prompt Flags)**: https://code.claude.com/docs/en/cli-reference.md
+- **Agent Teams & Coordination Prompts**: https://code.claude.com/docs/en/agent-teams
+
+Fetch the most relevant links based on the user's request. For subagent prompt crafting, prioritize `sub-agents.md` and `agent-teams`. For output control, prioritize `output-styles.md`. For programmatic/CI usage, prioritize `headless.md` and `cli-reference.md`.
+
 ## When to Use This Skill
 
 Use this skill when the user requests help with:
