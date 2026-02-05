@@ -659,6 +659,44 @@ function updateGateTracking(
 }
 
 /**
+ * Build worktree context warning to prepend to prompts
+ * This ensures Claude uses relative paths when executing in a worktree
+ *
+ * @param worktreeConfig - Worktree configuration from progress
+ * @returns Warning string to prepend to prompt, or empty string if not in worktree
+ */
+function buildWorktreeContextWarning(worktreeConfig?: { enabled?: boolean; path?: string; branch?: string }): string {
+  if (!worktreeConfig?.enabled) {
+    return '';
+  }
+
+  return `## ⚠️ WORKTREE EXECUTION CONTEXT
+
+**CRITICAL: You are executing in a git worktree, NOT the main repository.**
+
+Worktree path: ${worktreeConfig.path ?? 'unknown'}
+Branch: ${worktreeConfig.branch ?? 'unknown'}
+
+**PATH RULES - MUST FOLLOW:**
+1. **ALWAYS use RELATIVE paths** for all file operations (Read, Write, Edit, Bash mkdir/touch)
+2. **NEVER use absolute paths** like \`/home/.../projects/repo-name/...\`
+3. **NEVER derive paths from Read results** - when you read a reference file, do NOT copy its absolute path
+4. When creating files similar to existing ones, use the RELATIVE path pattern, not the absolute path you saw
+
+**Examples:**
+- ✅ CORRECT: \`plugins/my-plugin/README.md\`
+- ❌ WRONG: \`/home/user/projects/repo/plugins/my-plugin/README.md\`
+- ✅ CORRECT: \`mkdir -p plugins/my-plugin/skills\`
+- ❌ WRONG: \`mkdir -p /home/user/projects/repo/plugins/my-plugin/skills\`
+
+This ensures your changes land in the worktree, not the main repository.
+
+---
+
+`;
+}
+
+/**
  * Build the fix prompt for a failed gate check
  *
  * @param gate - Gate configuration
@@ -1156,7 +1194,10 @@ async function executeParallelStep(
 
   // Get the first sub-phase prompt, or step prompt if no sub-phases
   const subPhase = currentStep.phases?.[0];
-  const prompt = subPhase?.prompt ?? currentStep.prompt;
+  const basePrompt = subPhase?.prompt ?? currentStep.prompt;
+  // Prepend worktree context warning if executing in a worktree
+  const worktreeContext = buildWorktreeContextWarning(progress.worktree);
+  const prompt = worktreeContext + basePrompt;
   const phaseId = subPhase?.id ?? currentStep.id;
 
   // Get model from current execution context
@@ -1742,7 +1783,10 @@ export async function runLoop(
     const currentStep = currentPhase?.steps?.[progress.current.step ?? -1];
     const currentSubPhase = currentStep?.phases?.[progress.current['sub-phase'] ?? -1];
 
-    const prompt = currentSubPhase?.prompt ?? currentStep?.prompt ?? currentPhase?.prompt ?? '';
+    const basePrompt = currentSubPhase?.prompt ?? currentStep?.prompt ?? currentPhase?.prompt ?? '';
+    // Prepend worktree context warning if executing in a worktree
+    const worktreeContext = buildWorktreeContextWarning(progress.worktree);
+    const prompt = worktreeContext + basePrompt;
     const phaseId = currentSubPhase?.id ?? currentStep?.id ?? currentPhase?.id ?? '';
 
     // Get model from current execution context (sub-phase > phase)

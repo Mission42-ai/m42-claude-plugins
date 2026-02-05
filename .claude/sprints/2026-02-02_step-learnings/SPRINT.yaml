@@ -1,0 +1,25 @@
+# SPRINT.yaml - Workflow-based Sprint Definition
+# This file is compiled into PROGRESS.yaml by /run-sprint
+
+workflow: plugin-development    # TDD workflow with RED/GREEN/REFACTOR phases
+
+collections:
+  # Collections define named groups of items for iteration.
+  # Each workflow phase with for-each references a collection by name.
+  # Example: for-each: step → uses collections.step
+  step:
+    # - prompt: |
+    #     Implement user authentication with JWT.
+    #     Requirements:
+    #     - Login endpoint
+    #     - Token refresh
+    #     - Logout
+    #
+    # - prompt: |
+    #     Fix: Password reset emails not sending.
+    #   workflow: bugfix-workflow  # Optional: use different workflow for this item
+
+# Sprint metadata
+sprint-id: 2026-02-02_step-learnings
+name: step-learnings
+created: 2026-02-02T00:25:42+01:00

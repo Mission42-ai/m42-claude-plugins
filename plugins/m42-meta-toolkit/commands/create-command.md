@@ -2,7 +2,6 @@
 allowed-tools: Read, Write, Edit, Glob, Bash(test:*), Bash(git:*), Task, TodoWrite, Skill
 argument-hint: <description-of-task>
 description: Create quality-assured command with review
-model: sonnet
 ---
 
 ## Preflight Checks

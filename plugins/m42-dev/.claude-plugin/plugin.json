@@ -1,0 +1,19 @@
+{
+  "name": "m42-dev",
+  "version": "1.0.0",
+  "description": "Development toolkit for software engineers - specs, planning, and daily practice support",
+  "author": {
+    "name": "Mission42",
+    "email": "dev@mission42.ai"
+  },
+  "homepage": "https://github.com/mission42-ai/m42-claude-plugins",
+  "repository": "https://github.com/mission42-ai/m42-claude-plugins",
+  "license": "MIT",
+  "keywords": [
+    "development",
+    "specifications",
+    "planning",
+    "engineering",
+    "task-management"
+  ]
+}

@@ -1,0 +1,166 @@
+name: CLAUDE.md Workflow Commands
+workflow: plugin-development
+sprint-id: 2026-02-05_claudemd-commands
+created: 2026-02-05T22:30:00Z
+
+collections:
+  step:
+    - id: scan-claudemd-command
+      prompt: |
+        /m42-meta-toolkit:create-command
+
+        Create a command called `scan-claudemd` in the m42-meta-toolkit plugin
+        at `plugins/m42-meta-toolkit/commands/scan-claudemd.md`.
+
+        **Goal**: A slash command that scans the current project's CLAUDE.md
+        configuration and produces a structured report of all files, their
+        loading behavior, line counts, and validation results.
+
+        **What the command should do**:
+        1. Run `scripts/scan_claudemd.sh` from the crafting-claudemd skill
+           against the project root to discover all CLAUDE.md files
+        2. Run `scripts/validate_claudemd.py` from the crafting-claudemd skill
+           against each discovered CLAUDE.md file
+        3. Present a unified report showing:
+           - All CLAUDE.md files with loading type (startup/lazy/rules)
+           - Line counts per file and total budget usage
+           - Validation results (passes, warnings, failures)
+           - Actionable recommendations (files to split, lines to cut)
+
+        **Skill integration**: The command should invoke
+        `Skill(skill='crafting-claudemd')` to load domain knowledge.
+        The scripts are bundled with that skill.
+
+        **Important**: This is a read-only diagnostic command. It does NOT
+        modify any files. It only scans and reports.
+
+        **Plugin location**: `plugins/m42-meta-toolkit/`
+
+    - id: claudemd-agent
+      prompt: |
+        /m42-meta-toolkit:create-subagent
+
+        Create a subagent called `claudemd-writer` in the m42-meta-toolkit plugin
+        at `plugins/m42-meta-toolkit/agents/claudemd-writer.md`.
+
+        **Goal**: A subagent that can either (a) create/update CLAUDE.md files
+        based on a user prompt describing the project or component, or
+        (b) review a git commit/diff to determine if there are learnings,
+        conventions, or gotchas worth extracting into CLAUDE.md.
+
+        **Two operating modes**:
+
+        **Mode A - Prompt-based creation/update**:
+        Receives a description of a project or component and creates or
+        updates the appropriate CLAUDE.md file. Should follow all best
+        practices from the crafting-claudemd skill (instruction budget,
+        writing style, essential sections, anti-patterns avoidance).
+
+        **Mode B - Commit review extraction**:
+        Receives a git diff or commit hash. Analyzes the changes to
+        determine if there are conventions, gotchas, or project-specific
+        patterns worth capturing in CLAUDE.md. For example:
+        - A workaround that looks wrong but is intentional
+        - A new testing pattern other code should follow
+        - An environment-specific behavior
+        - A "never modify" zone being established
+
+        **Critical requirement**: The subagent MUST NOT create or update
+        CLAUDE.md files if there is nothing meaningful to add. In commit
+        review mode, most commits will have nothing worth extracting -
+        that's the expected outcome. The subagent should report
+        "No CLAUDE.md updates needed" and exit cleanly.
+
+        **Skill integration**: The subagent should invoke
+        `Skill(skill='crafting-claudemd')` to load domain knowledge about
+        CLAUDE.md best practices, file hierarchy, and writing style rules.
+
+        **Tools needed**: Read, Write, Edit, Bash, Skill, Grep, Glob
+
+        **Plugin location**: `plugins/m42-meta-toolkit/`
+
+    - id: optimize-claudemd-command
+      prompt: |
+        /m42-meta-toolkit:create-command
+
+        Create a command called `optimize-claudemd` in the m42-meta-toolkit plugin
+        at `plugins/m42-meta-toolkit/commands/optimize-claudemd.md`.
+
+        **Goal**: An orchestrator command that performs a full CLAUDE.md audit
+        and optimization pass across an entire repository. It strategically
+        identifies important folders, delegates review/creation to the
+        `claudemd-writer` subagent, and validates the results with QA.
+
+        **Three-phase workflow**:
+
+        **Phase 1 - Strategic Discovery**:
+        1. Run `ls` / directory listing to map the full repository structure
+        2. Identify strategically important folders that warrant their own
+           CLAUDE.md files. Priority criteria:
+           - Root directory (always)
+           - Top-level source directories with distinct tech stacks or frameworks
+           - Monorepo packages/services/apps
+           - Directories with complex or non-obvious conventions
+           - Infrastructure/deployment directories
+           - Skip: node_modules, dist, build, .git, vendor, etc.
+        3. Inspect the `.claude/` folder: check for existing rules in
+           `.claude/rules/`, identify gaps or stale rules
+        4. Run `scripts/scan_claudemd.sh` from the crafting-claudemd skill
+           to get the current state of all CLAUDE.md files
+        5. Produce a prioritized plan: which folders need CLAUDE.md
+           created, which existing files need review/update, and which
+           rules should be created or updated
+
+        **Phase 2 - Parallel Subagent Delegation**:
+        For each folder identified in the plan, spawn a `claudemd-writer`
+        subagent via `Task(subagent_type='m42-meta-toolkit:claudemd-writer')`.
+
+        Each subagent receives:
+        - The folder path to analyze
+        - Whether to create a new CLAUDE.md or review an existing one
+        - Context about the overall project (from root CLAUDE.md and
+          directory structure)
+        - Instruction to load the crafting-claudemd skill for best practices
+
+        Subagents should run in parallel where possible (independent folders).
+        Each subagent will either create/update a CLAUDE.md or report
+        "No updates needed" - both are valid outcomes.
+
+        For `.claude/rules/` specifically: review existing rules for
+        staleness and suggest new conditional rules based on discovered
+        patterns (e.g., different conventions for different file types).
+
+        **Phase 3 - Quality Assurance**:
+        After all subagents complete:
+        1. Run `scripts/scan_claudemd.sh` again to get updated state
+        2. Run `scripts/validate_claudemd.py` against every CLAUDE.md
+           file that was created or modified
+        3. Check total line budget across all startup-loaded files
+           (should stay under 500 combined)
+        4. Verify no anti-patterns were introduced (the validate script
+           catches these)
+        5. If any file fails validation, report the issues but do NOT
+           auto-fix (let the user decide)
+        6. Produce a final report showing:
+           - Files created (new CLAUDE.md files)
+           - Files updated (existing files modified)
+           - Files unchanged (subagent found nothing to add)
+           - Validation results per file
+           - Total instruction budget usage (startup lines vs budget)
+           - Any recommended follow-up actions
+
+        **Skill integration**: The command should invoke
+        `Skill(skill='crafting-claudemd')` to load domain knowledge.
+        The scripts for scanning and validation are bundled with that skill.
+
+        **Subagent dependency**: This command depends on the
+        `claudemd-writer` subagent created in the previous step.
+
+        **Important design constraints**:
+        - The command is the OPERATOR - it plans, delegates, and validates
+        - All actual CLAUDE.md writing is done by claudemd-writer subagents
+        - The QA phase uses the skill's bundled scripts, not manual review
+        - Conservative by default: better to skip a folder than create
+          a low-value CLAUDE.md that wastes token budget
+
+        **Plugin location**: `plugins/m42-meta-toolkit/`

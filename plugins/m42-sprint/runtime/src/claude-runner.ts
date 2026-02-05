@@ -241,10 +241,37 @@ export async function runClaude(options: ClaudeRunOptions): Promise<ClaudeResult
 
     // Spawn Claude CLI process
     // Note: env: process.env is required for spawn() to find 'claude' in PATH
-    const proc = spawn('claude', args, {
-      cwd: options.cwd,
+    // IMPORTANT: Override PWD to match cwd - Claude Code uses PWD for project detection
+    // Without this, spawned Claude inherits parent's PWD and resolves paths incorrectly
+    // when running sprints in worktrees from the main repo
+    // Override environment to ensure Claude Code uses the correct project directory
+    // PWD: Standard shell working directory
+    // GIT_WORK_TREE: Tells git which worktree to use (prevents following links to main repo)
+    const spawnEnv = options.cwd
+      ? {
+          ...process.env,
+          PWD: options.cwd,
+          GIT_WORK_TREE: options.cwd,
+        }
+      : process.env;
+
+
+    // Use shell with explicit cd to ensure cwd is set before Claude initializes
+    // This is more reliable than spawn's cwd option for Claude Code's project detection
+    // Shell escape function to properly handle arguments with special characters
+    const shellEscape = (arg: string): string => {
+      // Use single quotes and escape any single quotes within
+      return `'${arg.replace(/'/g, "'\\''")}'`;
+    };
+
+    const shellCommand = options.cwd
+      ? `cd ${shellEscape(options.cwd)} && claude ${args.map(shellEscape).join(' ')}`
+      : `claude ${args.map(shellEscape).join(' ')}`;
+
+    const proc = spawn('sh', ['-c', shellCommand], {
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: process.env,
+      env: spawnEnv,
+      cwd: options.cwd, // CRITICAL: Set spawn's cwd to worktree path
     });
 
     let stdout = '';

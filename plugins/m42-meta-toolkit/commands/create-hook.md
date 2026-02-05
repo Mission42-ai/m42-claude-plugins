@@ -2,7 +2,6 @@
 allowed-tools: Read, Write, Edit, Glob, Bash(test:*), Bash(chmod:*), Bash(ls:*), Bash(cat:*), Bash(python3:*), Task, TodoWrite, Skill
 argument-hint: <description-of-hook>
 description: Create quality-assured hook with review
-model: sonnet
 ---
 
 ## Preflight Checks

@@ -192,7 +192,7 @@ For the selected field:
 
 After any edit:
 
-1. Run validation: `plugins/m42-signs/scripts/validate-backlog.sh .claude/learnings/backlog.yaml`
+1. Run validation: `"${CLAUDE_PLUGIN_ROOT}/scripts/validate-backlog.sh" .claude/learnings/backlog.yaml`
 2. If validation fails:
    - Show validation errors
    - Revert the change

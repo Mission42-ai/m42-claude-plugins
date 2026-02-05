@@ -108,6 +108,14 @@ export interface CustomPrompts {
     instructions?: string;
     'result-reporting'?: string;
 }
+/**
+ * Worktree context for prompt injection
+ */
+export interface WorktreeContext {
+    enabled: boolean;
+    path?: string;
+    branch?: string;
+}
 export declare const DEFAULT_PROMPTS: Required<CustomPrompts>;
 /**
  * Substitute template variables in a string
@@ -124,10 +132,10 @@ export declare function loadContextFiles(contextDir: string): string;
  * Build prompt for the current sprint position
  * Handles both simple phases and for-each phases with steps/sub-phases
  */
-export declare function buildPrompt(progress: CompiledProgress, sprintDir: string, customPrompts?: CustomPrompts): string;
+export declare function buildPrompt(progress: CompiledProgress, sprintDir: string, customPrompts?: CustomPrompts, worktree?: WorktreeContext): string;
 /**
  * Build simplified prompt for parallel background tasks
  * Does NOT include progress modification instructions
  */
-export declare function buildParallelPrompt(progress: CompiledProgress, sprintDir: string, phaseIdx: number, stepIdx: number, subPhaseIdx: number, taskId: string): string;
+export declare function buildParallelPrompt(progress: CompiledProgress, sprintDir: string, phaseIdx: number, stepIdx: number, subPhaseIdx: number, taskId: string, worktree?: WorktreeContext): string;
 //# sourceMappingURL=prompt-builder.d.ts.map
