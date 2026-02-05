@@ -18,7 +18,7 @@
     {
       "name": "m42-meta-toolkit",
       "description": "Meta-tooling for creating and managing Claude Code artifacts (skills, commands, subagents, hooks) with quality assurance workflows",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "source": "./plugins/m42-meta-toolkit",
       "category": "development",
       "keywords": ["meta-tooling", "skills", "commands", "subagents", "hooks", "prompt-engineering", "quality-assurance"]
