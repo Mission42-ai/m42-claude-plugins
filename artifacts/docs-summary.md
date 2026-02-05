@@ -2,60 +2,46 @@
 
 ## Changes Analyzed
 
-Sprint `2026-01-29_dependency-parallel-execution` implemented:
-- **DAG Scheduler** (`scheduler.ts`) - New parallel execution engine with dependency tracking
-- **Dependency Types** (`types.ts`) - New interfaces: `CompiledDependencyNode`, `CompiledDependencyGraph`, `ParallelExecutionConfig`
-- **Step Injection with Dependencies** - Support for `depends-on` in step definitions
-- **Failure Propagation** - Configurable `onDependencyFailure` handling modes
+Sprint `2026-02-05_claudemd-commands` created three new artifacts in the m42-meta-toolkit plugin:
+- **`scan-claudemd` command** - Read-only diagnostic that scans CLAUDE.md configuration and produces structured reports
+- **`optimize-claudemd` command** - Full CLAUDE.md audit and optimization with 3-phase workflow (discovery, delegation, QA)
+- **`claudemd-writer` subagent** - Creates/updates CLAUDE.md files or extracts learnings from git commits (two modes)
+- **`crafting-claudemd` skill** - Domain knowledge for CLAUDE.md best practices with bundled scripts (scan, validate)
 
 ## Updates Made
 
-| Category | Status | Commit | Changes |
-|----------|--------|--------|---------|
-| User Guide | Updated | `3e8d52e` | Added comprehensive "Step Dependencies and Parallel Execution" section (~180 lines) with examples, execution timeline diagrams, failure handling modes, and best practices |
-| Getting Started | Updated | `d162ce9` | Added "Advanced: Step Dependencies for Parallel Execution" section to writing-sprints.md; Updated index.md with feature note |
-| Reference | Updated | `731bba0` | Added StepScheduler API documentation (~298 lines) including all methods, types, and usage examples |
+| Category | Status | Changes |
+|----------|--------|---------|
+| User Guide | Updated | m42-meta-toolkit README updated: overview diagram, skills (6→7), commands (4→6), subagents (5→6), quick start, directory structure |
+| Getting Started | Updated | Root README updated: added m42-meta-toolkit, m42-signs, m42-dev plugin entries; updated installation, architecture diagram, repository structure |
+| Reference | Skipped | Reference docs research found no dedicated reference directory for m42-meta-toolkit; skill reference files (creating-commands/examples.md, creating-subagents/subagent-examples.md) could optionally add new artifacts as examples but not required |
 
 ### Detailed Changes
 
-#### USER-GUIDE.md
-- New section: "Step Dependencies and Parallel Execution"
-- Declaring dependencies with `depends-on` field
-- 5-step parallel execution process explanation
-- ASCII execution timeline visualization
-- Failure handling modes (`skip-dependents`, `fail-phase`, `continue`)
-- Complete API development workflow example
-- Configuration reference table
-- Best practices for dependency design
+#### m42-meta-toolkit/README.md (User Guide)
+- Overview diagram: Added `/scan-claudemd`, `/optimize-claudemd`, `crafting-claudemd`, `claudemd-writer`
+- Skills table: 6→7 with `crafting-claudemd` entry
+- Commands table: 4→6 with `/scan-claudemd` and `/optimize-claudemd` entries
+- Subagents table: 5→6 with `claudemd-writer` entry
+- Quick Start: Added two new command examples with descriptions
+- Directory Structure: Added crafting-claudemd skill dir, new command files, claudemd-writer agent
 
-#### sprint-yaml-schema.md
-- Added `depends-on` field to Item Fields table
-- Added "Parallel Execution with Dependencies" pattern example
-- Updated TypeScript interface with `'depends-on'?: string[]`
+#### Root README.md (Getting Started)
+- Installation: Added `m42-meta-toolkit`, `m42-signs`, `m42-dev` to install commands
+- Plugins section: Added 3 new plugin entries with features lists
+- Architecture: Reorganized into Workflow Plugins and Tooling Plugins groups
+- Repository Structure: Added directory trees for all 3 new plugins
 
-#### progress-yaml-schema.md
-- Added `dependency-graph` and `parallel-execution` fields
-- Added `CompiledDependencyGraph` type docs
-- Added `CompiledDependencyNode` type docs
-- Added `ParallelExecutionConfig` type docs
-
-#### api.md
-- Full StepScheduler API documentation
-- All methods documented with signatures and examples
-- Type definitions for `SchedulerStepStatus`, `SchedulerNode`, etc.
-- Complete execution loop usage example
-
-#### writing-sprints.md
-- Added "Advanced: Step Dependencies for Parallel Execution" section
-- Example showing parallel feature tracks
-- When to use / when not to use guidance
-
-#### index.md
-- Updated Writing Sprints entry to mention parallel execution
+#### Reference Docs (Skipped)
+- No dedicated reference docs directory for m42-meta-toolkit (uses skill-embedded references)
+- Optional improvement: Add scan-claudemd/optimize-claudemd as examples in creating-commands skill references
+- Optional improvement: Add claudemd-writer as example in creating-subagents skill references
 
 ## Verification
 
-- [x] Documentation committed with proper messages
-- [x] Code examples reflect actual API
-- [x] Links to reference documentation included
-- [x] Consistent with existing documentation style
+- [x] m42-meta-toolkit README counts match actual artifacts (7 skills, 6 commands, 6 subagents)
+- [x] Root README includes all 6 plugins in repository
+- [x] Installation commands are consistent
+- [x] Architecture diagram accurately reflects plugin relationships
+- [x] Directory structures match actual filesystem
+- [x] No broken internal references
