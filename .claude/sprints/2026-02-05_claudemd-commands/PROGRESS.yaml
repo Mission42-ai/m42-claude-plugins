@@ -1,0 +1,890 @@
+sprint-id: 2026-02-05_claudemd-commands
+status: in-progress
+phases:
+  - id: preflight
+    status: completed
+    prompt: |
+      Prepare sprint context and development plan.
+
+      ## Your Role
+      You are the sprint OPERATOR. Your job is to:
+      1. Understand the sprint scope
+      2. Research the codebase
+      3. Create shared context for development phases
+
+      ## Step 1: Read Sprint Definition
+      Read the SPRINT.yaml to understand:
+      - All steps and their requirements
+      - Dependencies between steps
+      - Overall sprint goal
+
+      ## Step 2: Research Codebase
+      Use the Explore subagent to investigate:
+      - Project architecture and patterns
+      - Test framework and conventions
+      - Build/test/lint commands
+      - Related existing code
+
+      ## Step 3: Create Shared Context
+      Create: context/_shared-context.md
+
+      ```markdown
+      # Sprint Context
+
+      ## Project Info
+      - Test framework: [vitest/jest/etc]
+      - Test location: [pattern]
+      - Build command: `[command]`
+      - Test command: `[command]`
+      - Lint command: `[command]`
+
+      ## Patterns to Follow
+      [Key patterns discovered in codebase]
+
+      ## Sprint Steps Overview
+      [Brief summary of each step and dependencies]
+      ```
+
+      ## Step 4: Commit
+      ```bash
+      git add context/
+      git commit -m "preflight: sprint context prepared"
+      ```
+    started-at: '2026-02-05T22:37:58.651Z'
+    completed-at: '2026-02-05T22:40:57.360Z'
+  - id: development
+    status: completed
+    steps:
+      - id: scan-claudemd-command
+        prompt: |
+          /m42-meta-toolkit:create-command
+
+          Create a command called `scan-claudemd` in the m42-meta-toolkit plugin
+          at `plugins/m42-meta-toolkit/commands/scan-claudemd.md`.
+
+          **Goal**: A slash command that scans the current project's CLAUDE.md
+          configuration and produces a structured report of all files, their
+          loading behavior, line counts, and validation results.
+
+          **What the command should do**:
+          1. Run `scripts/scan_claudemd.sh` from the crafting-claudemd skill
+             against the project root to discover all CLAUDE.md files
+          2. Run `scripts/validate_claudemd.py` from the crafting-claudemd skill
+             against each discovered CLAUDE.md file
+          3. Present a unified report showing:
+             - All CLAUDE.md files with loading type (startup/lazy/rules)
+             - Line counts per file and total budget usage
+             - Validation results (passes, warnings, failures)
+             - Actionable recommendations (files to split, lines to cut)
+
+          **Skill integration**: The command should invoke
+          `Skill(skill='crafting-claudemd')` to load domain knowledge.
+          The scripts are bundled with that skill.
+
+          **Important**: This is a read-only diagnostic command. It does NOT
+          modify any files. It only scans and reports.
+
+          **Plugin location**: `plugins/m42-meta-toolkit/`
+        status: completed
+        phases:
+          - id: execute
+            status: completed
+            prompt: |
+              /m42-meta-toolkit:create-command
+
+              Create a command called `scan-claudemd` in the m42-meta-toolkit plugin
+              at `plugins/m42-meta-toolkit/commands/scan-claudemd.md`.
+
+              **Goal**: A slash command that scans the current project's CLAUDE.md
+              configuration and produces a structured report of all files, their
+              loading behavior, line counts, and validation results.
+
+              **What the command should do**:
+              1. Run `scripts/scan_claudemd.sh` from the crafting-claudemd skill
+                 against the project root to discover all CLAUDE.md files
+              2. Run `scripts/validate_claudemd.py` from the crafting-claudemd skill
+                 against each discovered CLAUDE.md file
+              3. Present a unified report showing:
+                 - All CLAUDE.md files with loading type (startup/lazy/rules)
+                 - Line counts per file and total budget usage
+                 - Validation results (passes, warnings, failures)
+                 - Actionable recommendations (files to split, lines to cut)
+
+              **Skill integration**: The command should invoke
+              `Skill(skill='crafting-claudemd')` to load domain knowledge.
+              The scripts are bundled with that skill.
+
+              **Important**: This is a read-only diagnostic command. It does NOT
+              modify any files. It only scans and reports.
+
+              **Plugin location**: `plugins/m42-meta-toolkit/`
+            started-at: '2026-02-05T22:40:59.392Z'
+            completed-at: '2026-02-05T22:45:29.424Z'
+        started-at: '2026-02-05T22:40:59.392Z'
+        completed-at: '2026-02-05T22:45:29.424Z'
+      - id: claudemd-agent
+        prompt: |
+          /m42-meta-toolkit:create-subagent
+
+          Create a subagent called `claudemd-writer` in the m42-meta-toolkit plugin
+          at `plugins/m42-meta-toolkit/agents/claudemd-writer.md`.
+
+          **Goal**: A subagent that can either (a) create/update CLAUDE.md files
+          based on a user prompt describing the project or component, or
+          (b) review a git commit/diff to determine if there are learnings,
+          conventions, or gotchas worth extracting into CLAUDE.md.
+
+          **Two operating modes**:
+
+          **Mode A - Prompt-based creation/update**:
+          Receives a description of a project or component and creates or
+          updates the appropriate CLAUDE.md file. Should follow all best
+          practices from the crafting-claudemd skill (instruction budget,
+          writing style, essential sections, anti-patterns avoidance).
+
+          **Mode B - Commit review extraction**:
+          Receives a git diff or commit hash. Analyzes the changes to
+          determine if there are conventions, gotchas, or project-specific
+          patterns worth capturing in CLAUDE.md. For example:
+          - A workaround that looks wrong but is intentional
+          - A new testing pattern other code should follow
+          - An environment-specific behavior
+          - A "never modify" zone being established
+
+          **Critical requirement**: The subagent MUST NOT create or update
+          CLAUDE.md files if there is nothing meaningful to add. In commit
+          review mode, most commits will have nothing worth extracting -
+          that's the expected outcome. The subagent should report
+          "No CLAUDE.md updates needed" and exit cleanly.
+
+          **Skill integration**: The subagent should invoke
+          `Skill(skill='crafting-claudemd')` to load domain knowledge about
+          CLAUDE.md best practices, file hierarchy, and writing style rules.
+
+          **Tools needed**: Read, Write, Edit, Bash, Skill, Grep, Glob
+
+          **Plugin location**: `plugins/m42-meta-toolkit/`
+        status: completed
+        phases:
+          - id: execute
+            status: completed
+            prompt: |
+              /m42-meta-toolkit:create-subagent
+
+              Create a subagent called `claudemd-writer` in the m42-meta-toolkit plugin
+              at `plugins/m42-meta-toolkit/agents/claudemd-writer.md`.
+
+              **Goal**: A subagent that can either (a) create/update CLAUDE.md files
+              based on a user prompt describing the project or component, or
+              (b) review a git commit/diff to determine if there are learnings,
+              conventions, or gotchas worth extracting into CLAUDE.md.
+
+              **Two operating modes**:
+
+              **Mode A - Prompt-based creation/update**:
+              Receives a description of a project or component and creates or
+              updates the appropriate CLAUDE.md file. Should follow all best
+              practices from the crafting-claudemd skill (instruction budget,
+              writing style, essential sections, anti-patterns avoidance).
+
+              **Mode B - Commit review extraction**:
+              Receives a git diff or commit hash. Analyzes the changes to
+              determine if there are conventions, gotchas, or project-specific
+              patterns worth capturing in CLAUDE.md. For example:
+              - A workaround that looks wrong but is intentional
+              - A new testing pattern other code should follow
+              - An environment-specific behavior
+              - A "never modify" zone being established
+
+              **Critical requirement**: The subagent MUST NOT create or update
+              CLAUDE.md files if there is nothing meaningful to add. In commit
+              review mode, most commits will have nothing worth extracting -
+              that's the expected outcome. The subagent should report
+              "No CLAUDE.md updates needed" and exit cleanly.
+
+              **Skill integration**: The subagent should invoke
+              `Skill(skill='crafting-claudemd')` to load domain knowledge about
+              CLAUDE.md best practices, file hierarchy, and writing style rules.
+
+              **Tools needed**: Read, Write, Edit, Bash, Skill, Grep, Glob
+
+              **Plugin location**: `plugins/m42-meta-toolkit/`
+            started-at: '2026-02-05T22:45:31.446Z'
+            completed-at: '2026-02-05T22:49:32.398Z'
+        started-at: '2026-02-05T22:45:31.446Z'
+        completed-at: '2026-02-05T22:49:32.398Z'
+      - id: optimize-claudemd-command
+        prompt: |
+          /m42-meta-toolkit:create-command
+
+          Create a command called `optimize-claudemd` in the m42-meta-toolkit plugin
+          at `plugins/m42-meta-toolkit/commands/optimize-claudemd.md`.
+
+          **Goal**: An orchestrator command that performs a full CLAUDE.md audit
+          and optimization pass across an entire repository. It strategically
+          identifies important folders, delegates review/creation to the
+          `claudemd-writer` subagent, and validates the results with QA.
+
+          **Three-phase workflow**:
+
+          **Phase 1 - Strategic Discovery**:
+          1. Run `ls` / directory listing to map the full repository structure
+          2. Identify strategically important folders that warrant their own
+             CLAUDE.md files. Priority criteria:
+             - Root directory (always)
+             - Top-level source directories with distinct tech stacks or frameworks
+             - Monorepo packages/services/apps
+             - Directories with complex or non-obvious conventions
+             - Infrastructure/deployment directories
+             - Skip: node_modules, dist, build, .git, vendor, etc.
+          3. Inspect the `.claude/` folder: check for existing rules in
+             `.claude/rules/`, identify gaps or stale rules
+          4. Run `scripts/scan_claudemd.sh` from the crafting-claudemd skill
+             to get the current state of all CLAUDE.md files
+          5. Produce a prioritized plan: which folders need CLAUDE.md
+             created, which existing files need review/update, and which
+             rules should be created or updated
+
+          **Phase 2 - Parallel Subagent Delegation**:
+          For each folder identified in the plan, spawn a `claudemd-writer`
+          subagent via `Task(subagent_type='m42-meta-toolkit:claudemd-writer')`.
+
+          Each subagent receives:
+          - The folder path to analyze
+          - Whether to create a new CLAUDE.md or review an existing one
+          - Context about the overall project (from root CLAUDE.md and
+            directory structure)
+          - Instruction to load the crafting-claudemd skill for best practices
+
+          Subagents should run in parallel where possible (independent folders).
+          Each subagent will either create/update a CLAUDE.md or report
+          "No updates needed" - both are valid outcomes.
+
+          For `.claude/rules/` specifically: review existing rules for
+          staleness and suggest new conditional rules based on discovered
+          patterns (e.g., different conventions for different file types).
+
+          **Phase 3 - Quality Assurance**:
+          After all subagents complete:
+          1. Run `scripts/scan_claudemd.sh` again to get updated state
+          2. Run `scripts/validate_claudemd.py` against every CLAUDE.md
+             file that was created or modified
+          3. Check total line budget across all startup-loaded files
+             (should stay under 500 combined)
+          4. Verify no anti-patterns were introduced (the validate script
+             catches these)
+          5. If any file fails validation, report the issues but do NOT
+             auto-fix (let the user decide)
+          6. Produce a final report showing:
+             - Files created (new CLAUDE.md files)
+             - Files updated (existing files modified)
+             - Files unchanged (subagent found nothing to add)
+             - Validation results per file
+             - Total instruction budget usage (startup lines vs budget)
+             - Any recommended follow-up actions
+
+          **Skill integration**: The command should invoke
+          `Skill(skill='crafting-claudemd')` to load domain knowledge.
+          The scripts for scanning and validation are bundled with that skill.
+
+          **Subagent dependency**: This command depends on the
+          `claudemd-writer` subagent created in the previous step.
+
+          **Important design constraints**:
+          - The command is the OPERATOR - it plans, delegates, and validates
+          - All actual CLAUDE.md writing is done by claudemd-writer subagents
+          - The QA phase uses the skill's bundled scripts, not manual review
+          - Conservative by default: better to skip a folder than create
+            a low-value CLAUDE.md that wastes token budget
+
+          **Plugin location**: `plugins/m42-meta-toolkit/`
+        status: completed
+        phases:
+          - id: execute
+            status: completed
+            prompt: |
+              /m42-meta-toolkit:create-command
+
+              Create a command called `optimize-claudemd` in the m42-meta-toolkit plugin
+              at `plugins/m42-meta-toolkit/commands/optimize-claudemd.md`.
+
+              **Goal**: An orchestrator command that performs a full CLAUDE.md audit
+              and optimization pass across an entire repository. It strategically
+              identifies important folders, delegates review/creation to the
+              `claudemd-writer` subagent, and validates the results with QA.
+
+              **Three-phase workflow**:
+
+              **Phase 1 - Strategic Discovery**:
+              1. Run `ls` / directory listing to map the full repository structure
+              2. Identify strategically important folders that warrant their own
+                 CLAUDE.md files. Priority criteria:
+                 - Root directory (always)
+                 - Top-level source directories with distinct tech stacks or frameworks
+                 - Monorepo packages/services/apps
+                 - Directories with complex or non-obvious conventions
+                 - Infrastructure/deployment directories
+                 - Skip: node_modules, dist, build, .git, vendor, etc.
+              3. Inspect the `.claude/` folder: check for existing rules in
+                 `.claude/rules/`, identify gaps or stale rules
+              4. Run `scripts/scan_claudemd.sh` from the crafting-claudemd skill
+                 to get the current state of all CLAUDE.md files
+              5. Produce a prioritized plan: which folders need CLAUDE.md
+                 created, which existing files need review/update, and which
+                 rules should be created or updated
+
+              **Phase 2 - Parallel Subagent Delegation**:
+              For each folder identified in the plan, spawn a `claudemd-writer`
+              subagent via `Task(subagent_type='m42-meta-toolkit:claudemd-writer')`.
+
+              Each subagent receives:
+              - The folder path to analyze
+              - Whether to create a new CLAUDE.md or review an existing one
+              - Context about the overall project (from root CLAUDE.md and
+                directory structure)
+              - Instruction to load the crafting-claudemd skill for best practices
+
+              Subagents should run in parallel where possible (independent folders).
+              Each subagent will either create/update a CLAUDE.md or report
+              "No updates needed" - both are valid outcomes.
+
+              For `.claude/rules/` specifically: review existing rules for
+              staleness and suggest new conditional rules based on discovered
+              patterns (e.g., different conventions for different file types).
+
+              **Phase 3 - Quality Assurance**:
+              After all subagents complete:
+              1. Run `scripts/scan_claudemd.sh` again to get updated state
+              2. Run `scripts/validate_claudemd.py` against every CLAUDE.md
+                 file that was created or modified
+              3. Check total line budget across all startup-loaded files
+                 (should stay under 500 combined)
+              4. Verify no anti-patterns were introduced (the validate script
+                 catches these)
+              5. If any file fails validation, report the issues but do NOT
+                 auto-fix (let the user decide)
+              6. Produce a final report showing:
+                 - Files created (new CLAUDE.md files)
+                 - Files updated (existing files modified)
+                 - Files unchanged (subagent found nothing to add)
+                 - Validation results per file
+                 - Total instruction budget usage (startup lines vs budget)
+                 - Any recommended follow-up actions
+
+              **Skill integration**: The command should invoke
+              `Skill(skill='crafting-claudemd')` to load domain knowledge.
+              The scripts for scanning and validation are bundled with that skill.
+
+              **Subagent dependency**: This command depends on the
+              `claudemd-writer` subagent created in the previous step.
+
+              **Important design constraints**:
+              - The command is the OPERATOR - it plans, delegates, and validates
+              - All actual CLAUDE.md writing is done by claudemd-writer subagents
+              - The QA phase uses the skill's bundled scripts, not manual review
+              - Conservative by default: better to skip a folder than create
+                a low-value CLAUDE.md that wastes token budget
+
+              **Plugin location**: `plugins/m42-meta-toolkit/`
+            started-at: '2026-02-05T22:49:34.417Z'
+            completed-at: '2026-02-05T22:53:52.244Z'
+        started-at: '2026-02-05T22:49:34.417Z'
+        completed-at: '2026-02-05T22:53:52.244Z'
+    started-at: '2026-02-05T22:40:59.392Z'
+    completed-at: '2026-02-05T22:53:52.244Z'
+  - id: documentation
+    status: completed
+    prompt: |
+      ## Your Role: Documentation OPERATOR
+
+      Update documentation by spawning subagents for each category.
+
+      ## Step 1: Analyze Changes
+      ```bash
+      git diff main..HEAD --name-only
+      git diff main..HEAD --stat
+      ```
+
+      Create a list of what changed and needs documenting.
+
+      ## Step 2: Spawn Subagents (in parallel if independent)
+
+      ### User Guide Subagent
+      ```
+      Task: Update user guide documentation
+
+      Changes made in this sprint:
+      [List relevant changes]
+
+      Instructions:
+      1. Find existing user guide (docs/USER-GUIDE.md or docs/user-guide/)
+      2. Add/update sections for new features
+      3. Update examples if behavior changed
+      4. Keep it task-oriented and example-rich
+      5. Commit: git commit -m "docs(user-guide): update for sprint changes"
+
+      Skip if: No user-facing feature changes
+      ```
+
+      ### Getting Started Subagent
+      ```
+      Task: Update getting started / quickstart docs
+
+      Changes made in this sprint:
+      [List relevant changes]
+
+      Instructions:
+      1. Find quickstart docs (README.md, docs/getting-started/)
+      2. Update installation steps if changed
+      3. Update first-steps examples if affected
+      4. Ensure copy-paste commands work
+      5. Commit: git commit -m "docs(getting-started): update for sprint changes"
+
+      Skip if: No changes affect onboarding flow
+      ```
+
+      ### Reference Docs Subagent
+      ```
+      Task: Update reference documentation
+
+      Changes made in this sprint:
+      [List relevant changes]
+
+      Instructions:
+      1. Find reference docs (docs/reference/, API docs)
+      2. Update command/function signatures
+      3. Update configuration options
+      4. Update type definitions
+      5. Commit: git commit -m "docs(reference): update for sprint changes"
+
+      Skip if: No API/config/type changes
+      ```
+
+      ## Step 3: Verify All Documentation
+      - Run code examples from docs to verify they work
+      - Check internal links are valid
+      - Ensure consistency across all doc updates
+
+      ## Output
+      Create: artifacts/docs-summary.md
+
+      ```markdown
+      # Documentation Summary
+
+      ## Changes Analyzed
+      [What changed in the sprint]
+
+      ## Updates Made
+      | Category | Status | Changes |
+      |----------|--------|---------|
+      | User Guide | Updated/Skipped | [summary] |
+      | Getting Started | Updated/Skipped | [summary] |
+      | Reference | Updated/Skipped | [summary] |
+
+      ## Verification
+      - [ ] Code examples tested
+      - [ ] Links validated
+      ```
+    started-at: '2026-02-05T22:53:54.262Z'
+    completed-at: '2026-02-05T22:58:05.165Z'
+  - id: tooling-update
+    status: completed
+    prompt: |
+      ## Your Role: Tooling OPERATOR
+
+      Ensure all Commands and Skills are up-to-date with implementation changes.
+
+      ## Step 1: Identify Affected Plugin
+      ```bash
+      git diff main..HEAD --name-only | grep "^plugins/" | cut -d'/' -f2 | sort -u
+      ```
+
+      ## Step 2: List All Commands and Skills
+      For each affected plugin:
+      ```bash
+      # List commands
+      ls plugins/<plugin>/commands/*.md 2>/dev/null
+
+      # List skills
+      ls plugins/<plugin>/skills/*.md 2>/dev/null
+      ```
+
+      ## Step 3: Analyze Changes
+      ```bash
+      git diff main..HEAD --name-only
+      git diff main..HEAD --stat
+      ```
+
+      Determine which Commands/Skills might be affected by the changes.
+
+      ## Step 4: Spawn Review Subagents (in parallel)
+
+      For EACH Command file, spawn a subagent:
+      ```
+      Task: Review and update Command - <command-name>
+
+      Implementation changes in this sprint:
+      [Summary of relevant changes]
+
+      Instructions:
+      1. Read the command file: plugins/<plugin>/commands/<command>.md
+      2. Compare against current implementation
+      3. Check if examples, descriptions, or behavior changed
+      4. Update ONLY if necessary - no cosmetic changes
+      5. If updated: git commit -m "docs(<command>): sync with implementation"
+
+      Skip if: Command is unaffected by changes
+      ```
+
+      For EACH Skill file, spawn a subagent:
+      ```
+      Task: Review and update Skill - <skill-name>
+
+      Implementation changes in this sprint:
+      [Summary of relevant changes]
+
+      Instructions:
+      1. Read the skill file: plugins/<plugin>/skills/<skill>.md
+      2. Compare against current implementation
+      3. Check if triggers, examples, or capabilities changed
+      4. Update ONLY if necessary - no cosmetic changes
+      5. If updated: git commit -m "docs(<skill>): sync with implementation"
+
+      Skip if: Skill is unaffected by changes
+      ```
+
+      ## Step 5: Generate Tooling Report
+      Create: artifacts/tooling-update-summary.md
+
+      ```markdown
+      # Tooling Update Summary
+
+      ## Commands Reviewed
+      | Command | Status | Changes |
+      |---------|--------|---------|
+      | <name> | Updated/Unchanged | [summary] |
+
+      ## Skills Reviewed
+      | Skill | Status | Changes |
+      |-------|--------|---------|
+      | <name> | Updated/Unchanged | [summary] |
+
+      ## Verification
+      - All commands reflect current implementation
+      - All skills reflect current capabilities
+      ```
+
+      Commit:
+      ```bash
+      git add artifacts/tooling-update-summary.md
+      git commit -m "tooling: commands and skills synced"
+      ```
+    started-at: '2026-02-05T22:58:07.186Z'
+    completed-at: '2026-02-05T23:03:30.788Z'
+  - id: version-bump
+    status: completed
+    prompt: |
+      ## Your Role: Version OPERATOR
+
+      Update plugin version based on sprint changes following semantic versioning.
+
+      ## Step 1: Identify Affected Plugin
+      ```bash
+      git diff main..HEAD --name-only | grep "^plugins/" | cut -d'/' -f2 | sort -u
+      ```
+
+      For each affected plugin, perform steps 2-5.
+
+      ## Step 2: Analyze Changes for Version Type
+
+      Examine all changes to determine version bump type:
+      ```bash
+      git log main..HEAD --oneline
+      git diff main..HEAD --stat
+      ```
+
+      ### Version Bump Rules (Semantic Versioning)
+
+      **MAJOR (x.0.0)** - Breaking changes:
+      - Schema changes that break existing SPRINT.yaml/workflow files
+      - Removed commands or required flags
+      - Changed behavior that breaks existing usage
+      - API changes requiring user migration
+
+      **MINOR (0.x.0)** - New features (backwards compatible):
+      - New commands or skills added
+      - New optional configuration options
+      - New workflow phases or capabilities
+      - New validation rules (non-breaking)
+
+      **PATCH (0.0.x)** - Bug fixes and maintenance:
+      - Bug fixes
+      - Documentation updates only
+      - Test additions/fixes
+      - Performance improvements
+      - Internal refactoring (no API changes)
+
+      ## Step 3: Read Current Version
+      ```bash
+      cat plugins/<plugin>/.claude-plugin/plugin.json | grep '"version"'
+      ```
+
+      Calculate new version based on bump type.
+
+      ## Step 4: Update plugin.json
+
+      Edit `plugins/<plugin>/.claude-plugin/plugin.json`:
+      - Update the `version` field to the new version
+
+      ## Step 5: Update CHANGELOG.md
+
+      Create or update `plugins/<plugin>/CHANGELOG.md`:
+
+      ```markdown
+      # Changelog
+
+      All notable changes to this plugin will be documented in this file.
+
+      ## [X.Y.Z] - YYYY-MM-DD
+
+      ### Added
+      - [New features added in this sprint]
+
+      ### Changed
+      - [Changes to existing functionality]
+
+      ### Fixed
+      - [Bug fixes]
+
+      ### Removed
+      - [Removed features]
+
+      ---
+      [Previous versions below...]
+      ```
+
+      Guidelines:
+      - Use today's date
+      - Keep entries concise (one line per change)
+      - Group by category (Added/Changed/Fixed/Removed)
+      - Only include user-facing changes
+      - Reference issue numbers if applicable
+
+      ## Step 6: Commit Version Bump
+      ```bash
+      git add plugins/<plugin>/.claude-plugin/plugin.json
+      git add plugins/<plugin>/CHANGELOG.md
+      git commit -m "chore: bump <plugin> version to X.Y.Z"
+      ```
+
+      ## Output
+      Report version changes made:
+      ```
+      Version bump: <plugin> v1.2.3 → v1.3.0 (MINOR)
+      Reason: Added new for-each collection feature
+      ```
+    started-at: '2026-02-05T23:03:32.813Z'
+    completed-at: '2026-02-05T23:05:26.768Z'
+  - id: final-qa
+    status: completed
+    prompt: |
+      ## Your Role: QA OPERATOR
+
+      Verify the entire sprint meets quality standards.
+
+      ## Step 1: Build Verification
+      ```bash
+      npm run build
+      npm run typecheck
+      npm run lint
+      ```
+
+      All must pass. If any fail, spawn fix subagent.
+
+      ## Step 1b: Plugin Runtime Build (m42-sprint only)
+      If developing m42-sprint plugin, rebuild and commit the runtime dist:
+      ```bash
+      # Check if runtime source changed
+      git diff main..HEAD --name-only | grep "plugins/m42-sprint/runtime/src/"
+
+      # If changes exist, rebuild
+      cd plugins/m42-sprint/runtime
+      npm run build
+      cd -
+
+      # Stage and commit dist changes
+      git add plugins/m42-sprint/runtime/dist/
+      git diff --cached --quiet plugins/m42-sprint/runtime/dist/ || \
+        git commit -m "build(m42-sprint): rebuild runtime dist"
+      ```
+
+      This ensures the compiled runtime is included in the distribution.
+
+      ## Step 2: Full Test Suite
+      ```bash
+      npm test
+      ```
+
+      All tests must pass. Record coverage if available.
+
+      **Integration Test Verification:**
+      - [ ] If feature spawns processes: integration test verifies spawning
+      - [ ] If feature modifies state: integration test verifies persistence
+      - [ ] If feature has async/parallel: integration test verifies timing
+
+      ## Step 3: Review All Step Artifacts
+      Read each artifacts/{{item.id}}-complete.md to verify all steps finished.
+
+      ## Step 4: Integration Check
+      - Verify modules import correctly
+      - Check for circular dependencies
+      - Run any integration tests
+
+      ## Step 5: Generate QA Report
+      Create: artifacts/sprint-qa-report.md
+
+      ```markdown
+      # Sprint QA Report
+
+      ## Build Status
+      | Check | Status |
+      |-------|--------|
+      | Build | PASS/FAIL |
+      | TypeCheck | PASS/FAIL |
+      | Lint | PASS/FAIL |
+
+      ## Test Results
+      - Total: [N]
+      - Passed: [N]
+      - Failed: [N]
+      - Coverage: [%]
+
+      ## Step Verification
+      | Step | Status |
+      |------|--------|
+      | [step-id] | COMPLETE |
+
+      ## Overall: PASS / FAIL
+      ```
+
+      ## Handle Failures
+      If any check fails:
+      1. Spawn fix subagent with specific error details
+      2. Re-run verification
+      3. If still failing, escalate to human
+
+      Commit:
+      ```bash
+      git add artifacts/sprint-qa-report.md
+      git commit -m "qa: sprint verification complete"
+      ```
+    started-at: '2026-02-05T23:05:28.800Z'
+    completed-at: '2026-02-05T23:11:34.451Z'
+  - id: summary
+    status: completed
+    prompt: |
+      Generate sprint summary for PR.
+
+      ## Collect Information
+      - Read all artifacts/*-complete.md
+      - Read artifacts/sprint-qa-report.md
+      - Get commit history: `git log main..HEAD --oneline`
+      - Get file changes: `git diff main..HEAD --stat`
+
+      ## Create Summary
+      Create: artifacts/sprint-summary.md
+
+      ```markdown
+      # Sprint Summary: 2026-02-05_claudemd-commands
+
+      ## Completed Steps
+      [For each step: what was accomplished]
+
+      ## Test Coverage
+      - Tests added: [N]
+      - All tests passing: Yes
+
+      ## Files Changed
+      [Summary of changes]
+
+      ## Commits
+      [List of commits]
+
+      ## Ready for Review
+      - Build: PASS
+      - Tests: PASS
+      - Lint: PASS
+      - Docs: Updated
+      ```
+
+      Commit:
+      ```bash
+      git add artifacts/sprint-summary.md
+      git commit -m "docs: sprint summary"
+      ```
+    started-at: '2026-02-05T23:11:36.471Z'
+    completed-at: '2026-02-05T23:13:34.871Z'
+  - id: pr-create
+    status: in-progress
+    prompt: |
+      Push branch and create pull request.
+
+      ## Step 1: Verify Clean State
+      ```bash
+      git status
+      ```
+
+      ## Step 2: Push Branch
+      ```bash
+      git push -u origin HEAD
+      ```
+
+      ## Step 3: Create PR
+      Read artifacts/sprint-summary.md for PR body content.
+
+      ```bash
+      gh pr create \
+        --title "2026-02-05_claudemd-commands" \
+        --body "$(cat <<'EOF'
+      ## Summary
+      [Key points from sprint-summary.md]
+
+      ## Changes
+      [List major changes]
+
+      ## Verification
+      - [x] Build passes
+      - [x] All tests pass
+      - [x] Lint passes
+      - [x] Documentation updated
+
+      ---
+      See `artifacts/sprint-summary.md` for full details.
+      EOF
+      )"
+      ```
+
+      ## Step 4: Output PR URL
+      ```bash
+      gh pr view --json url -q '.url'
+      ```
+    started-at: '2026-02-05T23:13:36.891Z'
+current:
+  phase: 7
+  step: null
+  sub-phase: null
+stats:
+  started-at: '2026-02-05T22:37:58.630Z'
+  total-phases: 11
+  completed-phases: 0
+  total-steps: 3
+  completed-steps: 0
+  current-iteration: 10
+parallel-tasks: []
+per-iteration-hooks:
+  - id: learning
+    prompt: /m42-signs:extract $ITERATION_TRANSCRIPT --auto-apply-high
+    parallel: true
+    enabled: false
+hook-tasks: []
+last-activity: '2026-02-05T23:13:36.885Z'

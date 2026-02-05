@@ -2,7 +2,6 @@
 allowed-tools: Read, Write, Edit, Glob, Bash(test:*), Bash(ls:*), Bash(git:*), Task, TodoWrite, Skill
 argument-hint: <description-of-subagent>
 description: Create quality-reviewed subagent with iteration
-model: sonnet
 ---
 
 ## Preflight Checks

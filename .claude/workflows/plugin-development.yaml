@@ -27,11 +27,11 @@ per-iteration-hooks:
   - id: learning
     prompt: /m42-signs:extract $ITERATION_TRANSCRIPT --auto-apply-high
     parallel: true
-    enabled: true
+    enabled: false
 
 # Worktree configuration for isolated parallel development
 worktree:
-  enabled: true
+  enabled: false
   branch-prefix: sprint/
   path-prefix: trees/
   cleanup: never
@@ -492,6 +492,14 @@ phases:
       Edit `plugins/<plugin>/.claude-plugin/plugin.json`:
       - Update the `version` field to the new version
 
+      ## Step 4b: Update marketplace.json
+
+      Edit `.claude-plugin/marketplace.json`:
+      - Find the entry matching the plugin name in the `plugins` array
+      - Update its `version` field to match the new version from Step 4
+
+      This keeps the marketplace registry in sync with individual plugin versions.
+
       ## Step 5: Update CHANGELOG.md
 
       Create or update `plugins/<plugin>/CHANGELOG.md`:
@@ -530,6 +538,7 @@ phases:
       ```bash
       git add plugins/<plugin>/.claude-plugin/plugin.json
       git add plugins/<plugin>/CHANGELOG.md
+      git add .claude-plugin/marketplace.json
       git commit -m "chore: bump <plugin> version to X.Y.Z"
       ```
 

@@ -9,16 +9,18 @@ The M42 Meta-Toolkit provides a layered component architecture for building Clau
 ```
 COMMANDS (User-facing workflows)
     /create-skill, /create-command, /create-subagent, /create-hook
+    /scan-claudemd, /optimize-claudemd
          │
          ▼
 SKILLS (Reusable knowledge)
     creating-skills, creating-commands, creating-subagents
     creating-hooks, crafting-agentic-prompts, writing-ai-docs
+    crafting-claudemd
          │
          ▼
 SUBAGENTS (Autonomous executors)
     skill-creator, command-creator, agent-creator
-    doc-writer, artifact-quality-reviewer
+    doc-writer, artifact-quality-reviewer, claudemd-writer
 ```
 
 ## Installation
@@ -29,7 +31,7 @@ claude mcp add-json m42-meta-toolkit '{"type": "claude-plugin", "source": "https
 
 ## Features
 
-### Skills (6)
+### Skills (7)
 
 | Skill | Description |
 |-------|-------------|
@@ -39,8 +41,9 @@ claude mcp add-json m42-meta-toolkit '{"type": "claude-plugin", "source": "https
 | `creating-hooks` | Create event-driven hooks for automation |
 | `crafting-agentic-prompts` | Prompt engineering best practices for agentic workflows |
 | `writing-ai-docs` | AI-ready documentation principles and templates |
+| `crafting-claudemd` | CLAUDE.md best practices, file hierarchy, writing style, and validation scripts |
 
-### Commands (4)
+### Commands (6)
 
 | Command | Description |
 |---------|-------------|
@@ -48,8 +51,10 @@ claude mcp add-json m42-meta-toolkit '{"type": "claude-plugin", "source": "https
 | `/create-command` | Interactive command creation with validation |
 | `/create-subagent` | Interactive subagent creation |
 | `/create-hook` | Interactive hook creation |
+| `/scan-claudemd` | Scan CLAUDE.md configuration and produce a structured diagnostic report |
+| `/optimize-claudemd` | Full CLAUDE.md audit and optimization across entire repository |
 
-### Subagents (5)
+### Subagents (6)
 
 | Agent | Description |
 |-------|-------------|
@@ -58,6 +63,7 @@ claude mcp add-json m42-meta-toolkit '{"type": "claude-plugin", "source": "https
 | `agent-creator` | Programmatic subagent creation for batch operations |
 | `doc-writer` | AI-ready documentation creation |
 | `artifact-quality-reviewer` | Independent quality review for all artifact types |
+| `claudemd-writer` | Create/update CLAUDE.md files or extract learnings from git commits |
 
 ## Usage
 
@@ -70,6 +76,8 @@ Use slash commands for guided workflows with quality gates:
 /create-command <description>    # Create a new slash command
 /create-subagent <description>   # Create a new subagent
 /create-hook <description>       # Create a new hook
+/scan-claudemd [project-path]    # Scan CLAUDE.md configuration and report diagnostics
+/optimize-claudemd               # Audit and optimize CLAUDE.md files across repository
 ```
 
 ### When to Create Each Artifact Type
@@ -116,18 +124,25 @@ m42-meta-toolkit/
 │   ├── creating-subagents/
 │   ├── creating-hooks/
 │   ├── crafting-agentic-prompts/
-│   └── writing-ai-docs/
+│   ├── writing-ai-docs/
+│   └── crafting-claudemd/
+│       ├── SKILL.md
+│       ├── scripts/
+│       └── references/
 ├── commands/
 │   ├── create-skill.md
 │   ├── create-command.md
 │   ├── create-subagent.md
-│   └── create-hook.md
+│   ├── create-hook.md
+│   ├── scan-claudemd.md
+│   └── optimize-claudemd.md
 └── agents/
     ├── skill-creator.md
     ├── command-creator.md
     ├── agent-creator.md
     ├── doc-writer.md
-    └── artifact-quality-reviewer.md
+    ├── artifact-quality-reviewer.md
+    └── claudemd-writer.md
 ```
 
 ## Key Concepts

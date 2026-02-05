@@ -2,7 +2,6 @@
 allowed-tools: Read, Write, Edit, Glob, Bash(mkdir:*), Bash(ls:*), Bash(test:*), Bash(python:*), Bash(git:*), Task, TodoWrite, Skill
 argument-hint: <description-of-skill>
 description: Create quality-assured skill with review
-model: sonnet
 ---
 
 ## Preflight Checks

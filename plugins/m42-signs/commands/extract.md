@@ -22,7 +22,7 @@ Analyze Claude Code session transcript to extract **signs** - contextual learnin
 
 - Transcript exists: !`test -f "$TRANSCRIPT_PATH" || { echo "Error: Transcript not found: $TRANSCRIPT_PATH"; exit 1; }`
 - Learnings directory: !`mkdir -p .claude/learnings`
-- Preprocessing script: !`test -f plugins/m42-signs/scripts/extract-reasoning.sh || echo "Warning: extract-reasoning.sh not found"`
+- Preprocessing script: !`test -f "${CLAUDE_PLUGIN_ROOT}/scripts/extract-reasoning.sh" || echo "Warning: extract-reasoning.sh not found"`
 - Find targets: !`find . -name "CLAUDE.md" -type f > /tmp/claude-md-$$.txt`
 - Check size: !`wc -l "$TRANSCRIPT_PATH"`
 
@@ -45,7 +45,7 @@ LINE_COUNT=$(wc -l < "$TRANSCRIPT_PATH")
 
 if [ "$LINE_COUNT" -gt 100 ]; then
   # Preprocess: extract reasoning, split if needed
-  plugins/m42-signs/scripts/extract-reasoning.sh "$TRANSCRIPT_PATH" > /tmp/reasoning-$$.jsonl
+  "${CLAUDE_PLUGIN_ROOT}/scripts/extract-reasoning.sh" "$TRANSCRIPT_PATH" > /tmp/reasoning-$$.jsonl
   [ $(wc -l < /tmp/reasoning-$$.jsonl) -gt 50 ] && split -l 50 /tmp/reasoning-$$.jsonl /tmp/section-$$-
   SECTIONS=($(ls /tmp/section-$$-* 2>/dev/null || echo /tmp/reasoning-$$.jsonl))
 else

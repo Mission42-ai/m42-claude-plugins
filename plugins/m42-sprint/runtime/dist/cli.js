@@ -15,7 +15,7 @@ import yaml from 'js-yaml';
 import { runLoop } from './loop.js';
 import { runClaude } from './claude-runner.js';
 import { shouldCreateWorktree, resolveWorktreePath } from '../../compiler/dist/worktree-config.js';
-import { createWorktree, getRepoRoot } from './worktree.js';
+import { createWorktree, getRepoRoot, getWorktreeInfo } from './worktree.js';
 // ============================================================================
 // Constants
 // ============================================================================
@@ -323,6 +323,28 @@ async function setupWorktreeIfNeeded(sprintDir) {
     }
     // Check if worktree should be created
     if (!shouldCreateWorktree(sprintDef, workflowDef)) {
+        return absoluteSprintDir;
+    }
+    // Check if we're already running inside a worktree
+    // This prevents nested worktree creation when sprint is invoked from within the worktree
+    const worktreeInfo = getWorktreeInfo(absoluteSprintDir);
+    if (worktreeInfo.isWorktree) {
+        console.log(`Already running in worktree at ${worktreeInfo.path}`);
+        // Check if sprint directory exists in current worktree
+        const sprintId = sprintDef['sprint-id'] || path.basename(absoluteSprintDir);
+        const expectedSprintDir = path.join(worktreeInfo.path, '.claude', 'sprints', sprintId);
+        // If we're in the worktree and sprint dir exists, use it directly
+        if (fs.existsSync(expectedSprintDir)) {
+            console.log(`Using existing sprint directory: ${expectedSprintDir}`);
+            return expectedSprintDir;
+        }
+        // If sprint dir doesn't exist in worktree, copy files from source
+        if (absoluteSprintDir !== expectedSprintDir) {
+            console.log(`Copying sprint files to worktree...`);
+            copySprintFiles(absoluteSprintDir, expectedSprintDir);
+            return expectedSprintDir;
+        }
+        // Source and target are the same - we're already in the right place
         return absoluteSprintDir;
     }
     // Determine sprint ID

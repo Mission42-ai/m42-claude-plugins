@@ -52,6 +52,27 @@ Report your result as JSON in your final output:
 // Simple position template (no step/sub-phase)
 const DEFAULT_POSITION_SIMPLE = `## Current Position
 - Phase: **{{phase.id}}** ({{phase.index}}/{{phase.total}})`;
+// Worktree context warning - CRITICAL for path resolution
+const WORKTREE_CONTEXT_WARNING = `## ⚠️ WORKTREE EXECUTION CONTEXT
+
+**CRITICAL: You are executing in a git worktree, NOT the main repository.**
+
+Worktree path: {{worktree-path}}
+Branch: {{worktree-branch}}
+
+**PATH RULES - MUST FOLLOW:**
+1. **ALWAYS use RELATIVE paths** for all file operations (Read, Write, Edit, Bash mkdir/touch)
+2. **NEVER use absolute paths** like \`/home/.../projects/repo-name/...\`
+3. **NEVER derive paths from Read results** - when you read a reference file, do NOT copy its absolute path
+4. When creating files similar to existing ones, use the RELATIVE path pattern, not the absolute path you saw
+
+**Examples:**
+- ✅ CORRECT: \`plugins/my-plugin/README.md\`
+- ❌ WRONG: \`/home/user/projects/repo/plugins/my-plugin/README.md\`
+- ✅ CORRECT: \`mkdir -p plugins/my-plugin/skills\`
+- ❌ WRONG: \`mkdir -p /home/user/projects/repo/plugins/my-plugin/skills\`
+
+This ensures your changes land in the worktree, not the main repository.`;
 // Simple instructions (for simple phases)
 const DEFAULT_INSTRUCTIONS_SIMPLE = `## Instructions
 
@@ -146,6 +167,19 @@ function appendContextContent(parts, sprintDir) {
         parts.push(contextContent);
     }
 }
+/**
+ * Append worktree context warning if executing in a worktree
+ */
+function appendWorktreeContext(parts, worktree) {
+    if (!worktree?.enabled) {
+        return;
+    }
+    let warning = WORKTREE_CONTEXT_WARNING;
+    warning = warning.replace(/\{\{worktree-path\}\}/g, worktree.path ?? 'unknown');
+    warning = warning.replace(/\{\{worktree-branch\}\}/g, worktree.branch ?? 'unknown');
+    parts.push('');
+    parts.push(warning);
+}
 // ============================================================================
 // Prompt Building
 // ============================================================================
@@ -153,7 +187,7 @@ function appendContextContent(parts, sprintDir) {
  * Build prompt for the current sprint position
  * Handles both simple phases and for-each phases with steps/sub-phases
  */
-export function buildPrompt(progress, sprintDir, customPrompts) {
+export function buildPrompt(progress, sprintDir, customPrompts, worktree) {
     const phases = progress.phases ?? [];
     const current = progress.current;
     const phaseIdx = current.phase;
@@ -166,16 +200,16 @@ export function buildPrompt(progress, sprintDir, customPrompts) {
     // Determine if this is a for-each phase (has steps) or simple phase
     const isForEachPhase = phase.steps && phase.steps.length > 0;
     if (isForEachPhase) {
-        return buildForEachPrompt(progress, sprintDir, customPrompts, phase, phaseIdx, iteration);
+        return buildForEachPrompt(progress, sprintDir, customPrompts, phase, phaseIdx, iteration, worktree);
     }
     else {
-        return buildSimplePrompt(progress, sprintDir, customPrompts, phase, phaseIdx, iteration);
+        return buildSimplePrompt(progress, sprintDir, customPrompts, phase, phaseIdx, iteration, worktree);
     }
 }
 /**
  * Build prompt for a simple phase (no steps)
  */
-function buildSimplePrompt(progress, sprintDir, customPrompts, phase, phaseIdx, iteration) {
+function buildSimplePrompt(progress, sprintDir, customPrompts, phase, phaseIdx, iteration, worktree) {
     const phases = progress.phases ?? [];
     const context = {
         sprintId: progress['sprint-id'],
@@ -194,6 +228,8 @@ function buildSimplePrompt(progress, sprintDir, customPrompts, phase, phaseIdx, 
     // Header
     const headerTemplate = customPrompts?.header ?? DEFAULT_PROMPTS.header;
     parts.push(substituteVariables(headerTemplate, context));
+    // Worktree context warning (CRITICAL - must come early in prompt)
+    appendWorktreeContext(parts, worktree);
     // Position (simple - no step/sub-phase)
     parts.push('');
     const positionTemplate = customPrompts?.position ?? DEFAULT_POSITION_SIMPLE;
@@ -226,7 +262,7 @@ function buildSimplePrompt(progress, sprintDir, customPrompts, phase, phaseIdx, 
 /**
  * Build prompt for a for-each phase with steps and sub-phases
  */
-function buildForEachPrompt(progress, sprintDir, customPrompts, phase, phaseIdx, iteration) {
+function buildForEachPrompt(progress, sprintDir, customPrompts, phase, phaseIdx, iteration, worktree) {
     const phases = progress.phases ?? [];
     const current = progress.current;
     const stepIdx = current.step ?? 0;
@@ -267,6 +303,8 @@ function buildForEachPrompt(progress, sprintDir, customPrompts, phase, phaseIdx,
     // Header
     const headerTemplate = customPrompts?.header ?? DEFAULT_PROMPTS.header;
     parts.push(substituteVariables(headerTemplate, context));
+    // Worktree context warning (CRITICAL - must come early in prompt)
+    appendWorktreeContext(parts, worktree);
     // Position (full - with step and sub-phase)
     parts.push('');
     const positionTemplate = customPrompts?.position ?? DEFAULT_PROMPTS.position;
@@ -307,7 +345,7 @@ function buildForEachPrompt(progress, sprintDir, customPrompts, phase, phaseIdx,
  * Build simplified prompt for parallel background tasks
  * Does NOT include progress modification instructions
  */
-export function buildParallelPrompt(progress, sprintDir, phaseIdx, stepIdx, subPhaseIdx, taskId) {
+export function buildParallelPrompt(progress, sprintDir, phaseIdx, stepIdx, subPhaseIdx, taskId, worktree) {
     const phases = progress.phases ?? [];
     if (phaseIdx >= phases.length) {
         return '';
@@ -327,6 +365,8 @@ export function buildParallelPrompt(progress, sprintDir, phaseIdx, stepIdx, subP
     // Parallel task header
     parts.push('# Parallel Task Execution');
     parts.push(`Task ID: ${taskId}`);
+    // Worktree context warning (CRITICAL - must come early in prompt)
+    appendWorktreeContext(parts, worktree);
     // Context
     parts.push('');
     parts.push('## Context');
