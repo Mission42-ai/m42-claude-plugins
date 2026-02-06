@@ -68,6 +68,15 @@ Analyze the repository to identify folders that warrant CLAUDE.md files and asse
    - Technical complexity
    - Non-obvious structure
    - Strategic importance
+
+   Typical good locations for dedicated CLAUDE.md files:
+   - `/src`
+   - `/lib`
+   - `/app`
+   - `/docs`
+   - `/src`
+   - `/scripts`
+   - `/tests`
    
    **Conservative approach:** Only recommend CLAUDE.md creation when there's clear value. Better to skip than waste token budget.
 
