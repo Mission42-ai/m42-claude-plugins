@@ -74,7 +74,6 @@ Analyze the repository to identify folders that warrant CLAUDE.md files and asse
    - `/lib`
    - `/app`
    - `/docs`
-   - `/src`
    - `/scripts`
    - `/tests`
    
